@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-25765] iOS 11: Scrollview layout error when set window with includeOpaqueBars and extendEdges"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-22T23:32:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.0, Release 7.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-02-09T01:43:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-23T16:20:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce </h4>
+1. Add following into a default classic project.
+<code><pre>
+var win1 = Titanium.UI.createWindow({
+    backgroundColor: 'blue',
+    layout: 'vertical',
+    title: 'Window 1',
+    includeOpaqueBars: true,
+    extendEdges: [Ti.UI.EXTEND_EDGE_TOP]
+});
+
+var win2 = Titanium.UI.createWindow({
+    backgroundColor: 'blue',
+    layout: 'vertical',
+    title: 'Window 2',
+    includeOpaqueBars: true,
+    extendEdges: [Ti.UI.EXTEND_EDGE_TOP]
+});
+
+var navWin = Titanium.UI.iOS.createNavigationWindow({
+    window: win1
+});
+
+var label1 = Ti.UI.createLabel({
+   width: '90%',
+   text: 'You can see the red of the view extends underneath the navigation bar. This is expected and how it works in android. It works this way only when the entire contents of the scrollview fit on the screen.'
+});
+
+var label2 = Ti.UI.createLabel({
+    width: '90%',
+    top: 200,
+    text: 'On this window the view added to the scrollView has a height larger than the size of the device. When this is the case the view is positioned after the end of the navigation bar. I should not be able to see the green of the scrollview through the navigation bar.'
+});
+
+var scrollView1 = Ti.UI.createScrollView({
+    backgroundColor: 'green',
+    scrollType: 'vertical',
+    layout: 'vertical',
+    top: 0
+});
+
+var scrollView2 = Ti.UI.createScrollView({
+    backgroundColor: 'green',
+    scrollType: 'vertical',
+    layout: 'vertical',
+    top: 0
+});
+
+var btn = Ti.UI.createButton({
+    title: "Open new Window with larger view",
+    backgroundColor: '#eee',
+    bottom: 50
+});
+
+btn.addEventListener('click', function(){
+    navWin.openWindow(win2);
+});
+
+var row = Ti.UI.createView({backgroundColor: 'red', width: Ti.UI.FILL, height: 500});
+
+var largeRow = Ti.UI.createView({backgroundColor: 'red', width: Ti.UI.FILL, height: 4000});
+
+row.add(btn);
+row.add(label1);
+scrollView1.add(row);
+win1.add(scrollView1);
+
+largeRow.add(label2);
+scrollView2.add(largeRow);
+win2.add(scrollView2);
+
+navWin.open();
+</pre></code>
+2. Run the app.Compare the window by clicking the button
+3. You will see the different odd behavior based on the size of its content. 
+
+a. If the height of the contents of the scrollView is less than the height of the device, the layout is as expected (I can see the view through the translucent navigation bar). 
+
+b. If the height of the contents of the scrollView is greater than the height of the device, everything added to the scrollView is positioned below the navigation bar (as if an artificial offset is added to the top property of the view). This requires a view’s top property to be different based on the height of the scrollView. 
+
+<h4>Note</h4>
+iOS only since this is iOS only property.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25765_64863/NavTest.zip">NavTest.zip</td></td><td>2018-02-15T11:04:14.000+0000</td><td>47101</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vijay Singh 2018-02-15
+
+   [~sliang] I can see this problem with iOS 11.x only. Are you sure this problem happening in iOS 10 and iOS 9 also, as you have mentioned same in ticket ?</li>
+<li>Shuo Liang 2018-02-15
+
+   [~vijaysingh]
+   I do not have iOS 9 or 10 devices
+   But customer mentioned that tested iOS 9, 10, and 11 on various devices in the simulator and physical devices and the problem occurs on all of them.</li>
+<li>Vijay Singh 2018-02-15
+
+   [~sliang] It can be verified on simulator too. No need of device. Can you please re-check with customer, if this is happening on iOS 10 and iOS 9 also. It is happening to me on iOS 11.x only.
+   [~ewieber] / [~amukherjee] Can you please verify this? Thanks!</li>
+<li>Vijay Singh 2018-02-15
+
+   I verified the similar test case in native app and observation is as below -
+   1. I have attached a native iOS app. In this app also, for iOS 11.x issue is there. For iOS < 11.0, it is working fine.
+   2. In iOS 11 property "automaticallyAdjustsScrollViewInsets" is deprecated by apple and suggested to use scrollview's property "contentInsetAdjustmentBehavior".
+   3. It looks for automaticallyAdjustsScrollViewInsets = YES, apple has managed backward compatibility properly but automaticallyAdjustsScrollViewInsets = NO, backward compatibility is not managed properly.
+   4. If you uncomment lines in attached app, it will work fine.
+   
+   Solution is -
+   4. We have to expose "contentInsetAdjustmentBehavior" property to developers.
+   5. We have to map automaticallyAdjustsScrollViewInsets = YES with contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAlways and automaticallyAdjustsScrollViewInsets = NO with contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever for backward compatibility</li>
+<li>Hans Knöchel 2018-02-15
+
+   Sounds good Vijay!</li>
+<li>Vijay Singh 2018-02-22
+
+   PR (master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/9866" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9866</a>
+   PR(7_1_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/9867" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9867</a></li>
+<li>Eric Wieber 2018-02-22
+
+   FR Passed. Tested using the provided sample code and the scrollview and window test suites</li>
+<li>Eric Wieber 2018-02-23
+
+   Verified changes are included in SDK builds: 7.1.0.v20180222163802 & 7.2.0.v20180223044652</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25765.json">JSON Source</a></p>

@@ -1,0 +1,91 @@
+---
+title: "[ALOY-1249] iOS: Misleading error message when controller file not found"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-10T20:27:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Alloy 1.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Shannon Hicks</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2015-02-18T15:59:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-11-10T20:27:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When Alloy can't find a controller on iOS, it gives a message saying that a module (controllerName) for architecture (arm7/arm64) can't be found. very confusing, becuase it sounds like there's a native module problem.
+
+<code><pre>
+Alloy.createController('foo');
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-1249_54175/Screenshot 2015-02-18 09.54.58.png">Screenshot 2015-02-18 09.54.58.png</td></td><td>2015-02-18T15:59:35.000+0000</td><td>19256</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2015-02-18
+
+   I can confirm this behavior. We need to add a file-exists check to Alloy.createController(). As it stands, if the file is not found, it would appear the underlying code wrongly assumes we're requiring in a native module.</li>
+<li>Tim Poulsen 2015-02-19
+
+   This appears to be caused by the linked ticket: TIMOB-18196</li>
+<li>Tim Poulsen 2015-02-20
+
+   PR <a href="https://github.com/appcelerator/alloy/pull/667" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/667</a>
+   
+   Functional test
+   
+   1. Use the included test app. It attempts to load a controller file that doesn't exist (named doesNotExist). 
+   2. Build the app for iOS. You'll get a red-screen error, but with a more meaningful "Cannot find controller: doesNotExist"
+   3. Build the app for Android, it will also fail as expected but with the message "Requested module not found: alloy/controllers/doesNotExist"</li>
+<li>Paco Castilla 2015-02-24
+
+   Sometimes when compiling to Xcode renames the controller (Detail -> detail) and has given me is you mistake !!</li>
+<li>Feon Sua Xin Miao 2015-07-27
+
+   Instead of handling this at run time, I think Alloy should throw an error at compile time to let the developer know that there's no such controller file.</li>
+<li>Feon Sua Xin Miao 2015-07-27
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/712" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/712</a>
+   
+    Functional test
+   1. Use the included test app. It attempts to load a controller file that doesn't exist (named doesNotExist).
+   2. Build the app. Compilation should stop and you should see an error output as follow:
+   <code><pre>
+   [INFO]   controller: "index.js"
+   [ERROR] Cannot find controller: "doesNotExist"
+   </pre></code></li>
+<li>Fokke Zandbergen 2015-11-05
+
+   See the comments by [~skypanther] and me on the PR. A compile time check would fail when the controller name is composed dynamically. It needs to be a run-time check.
+   
+   But maybe we should take this issue to TIMOB since it's not just an Alloy issue. The architecture is also confusing if you do a <code>require()</code> for some CommonJS module you expect to be there but isn't. But of course the hard thing there is that Titanium can't know if the user meant to require a native or CommonJS module.
+   
+   Going back to why we added the architecture I think the reason was because of the 64-bit thing. A native module might be there but not 64-bit. Now THIS is something we could check on (Titanium) compile time and if we do so we don't need to mention the architecture in the error anymore. Another way could be that if Titanium finds a non-64-bit module but it needs 64-bit then it would only then add that the module is not available in the required architecture.
+   
+   In the end handling that better in require() would be better then just resolving this ticket, which would then become invalid anyway.</li>
+<li>Tim Poulsen 2015-11-05
+
+   This is / was caused by a TIMOB change (yes, for the 64-bit change). See my comment above. I proposed a different solution at the time, but was outvoted by the approach that was taken in the SDK. You're right, the fix should be in the SDK.  There are bigger issues in SDK-land. So, Alloy just needs to compensate and move on.</li>
+<li>Fokke Zandbergen 2015-11-05
+
+   Created TIMOB-19881</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1249.json">JSON Source</a></p>

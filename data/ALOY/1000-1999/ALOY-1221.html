@@ -1,0 +1,129 @@
+---
+title: "[ALOY-1221] Support Widgets and Require in ListItem Templates"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-27T08:18:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Tooling, Widgets, XML</td></tr>
+<tr><th>Labels</th><td>TCSupportTriage</td></tr>
+<tr><th>Reporter</th><td>Manuel Lehner</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2014-08-26T12:52:27.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-02T19:34:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Yiran Mao 2014-11-10
+
+   </li>
+<li>Mark Mokryn 2015-01-06
+
+   I think this ticket should also be expanded to include the Module element inside the template as well, e.g.
+   <code><pre>
+   <Module id="paint" module="ti.paint" method="createPaintView" eraseMode="false" strokeWidth="1.0" strokeColor="red" strokeAlpha="100" />
+   </pre></code>
+   Using SDK 3.4.1.GA and Alloy 1.5.1 on iOS I am not getting any compile or runtime errors, but the module proxy (e.g. createPaintView in the example above)  is just not getting called.
+   I'm trying to create a Facebook Like button per list item - to no avail :(</li>
+<li>Mark Mokryn 2015-01-07
+
+   Is this issue due to Alloy or the ListView implementation in the SDK? And why is this still a Titanium Community issue since August?</li>
+<li>Tim Poulsen 2015-01-07
+
+   There's a mix of limitations going on here. 
+   
+   * The Alloy compiler doesn't currently support using widgets and require in templates. See ALOY-1220 and read through Tony's comments on ALOY-611 (which led to the creation of this ticket).
+   * The SDK supports just a limited set of View proxies as children of ListItem, see the list at <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.ListItem I'm pretty sure there's a TIMOB ticket directly related to using modules (that expose view proxies) as children of listitems. But the best I can find at the moment is TIMOB-15091
+   
+   I've moved this ticket to the Alloy project but I can't make commitments on when we'll get a chance to work on it considering our other priorities on the Tooling team.</li>
+<li>Mark Mokryn 2015-01-07
+
+   [~skypanther] please change the title to "Support Widgets, Require, and Module in...."
+   Thanks</li>
+<li>Mark Mokryn 2015-01-07
+
+   Here is an example of requested functionality:
+   In my  [Facebook module](<a href="https://github.com/mokesmokes/titanium-ios-facebook)" rel="nofollow" target="_blank">https://github.com/mokesmokes/titanium-ios-facebook)</a> I am exposing a View proxy for the Like Button.
+   I want a Like button per ListItem, e.g.
+   <code><pre>
+   <ItemTemplate name="team" height="Ti.UI.SIZE">
+       <ImageView bindId="logoImage" height="120dp" width="120dp" top="10dp" left="10dp"/>	
+       <Module module="com.facebook" bindId="like" method="createLikeButton" right="80dp" objectType="page" likeViewStyle="button" height="80dp" width="100dp"/>
+   </ItemTemplate>
+   </pre></code>
+   
+   Then in the controller code (and perhaps binding with the collection of teams) I want to set the Like Button's objectId (a property on the like) to "<a href="https://www.facebook.com/NYKnicks" rel="nofollow" target="_blank">https://www.facebook.com/NYKnicks</a>" and enable the user to like one of the NBA teams in the list.
+   
+   Currently this doesn't work - fb.createLikeButton() is not called, no support in the SDK and Alloy.</li>
+<li>Fokke Zandbergen 2015-01-08
+
+   The challenge is that your <code><Module..</code> would need to be aware of it's context (an ItemTemplate) and then instead of generating <code>require("com.facebook").createLikeButton({..})</code> return something like:
+   
+   <code><pre>
+   {
+     type: "com.facebook.LikeButton"
+     bindId: "like"
+     right: "80dp",
+     objectType: "page",
+     likeViewStyle: "button",
+     height: "80dp",
+     width: "100dp"
+   }
+   </pre></code>
+   
+   And then the ListView API needs to know how to construct the actual view for each ListItem by parsing the <code>type</code> property on the native-side.
+   
+   But if the module is a CommonJS module this wouldn't work because the native-side can't ask the module for the view.</li>
+<li>Mark Mokryn 2015-01-08
+
+   [~fokke] perhaps I'm missing the conceptual difference between Ti.UI and require("com.facebook"). The view components are View Proxy and View in all cases. What's the big difference regarding the module? 
+   If one would need to add code to the module to make it compatible with item templates - so be it. This requirement should then be added to the module API.... But at this point this is entirely unclear/undocumented.
+   Thanks :)</li>
+<li>Fokke Zandbergen 2015-01-08
+
+   The ListView would need to know if the required module is a native module (in which case it should indeed be able to get the view) or a commonjs module - in which case it would almost certainly not.</li>
+<li>Mark Mokryn 2015-01-08
+
+    Let's assume only compiled, native modules such as Facebook.</li>
+<li>Flavio De Stefano 2015-04-29
+
+    @fokke Why, in a case of CommonJS module, wouldn't work?</li>
+<li>Fokke Zandbergen 2015-04-29
+
+    [~kopiro] because the views are composed on the native side. So then it would reach back to the JS VM and get the CommonJS module to do it there. Prone for errors if not impossible at all.</li>
+<li>David He 2015-05-03
+
+    +1 for this feature request. Really desire for this!!!
+    I would have open this JIRA if this one not here!</li>
+<li>Cyprian Kowalczyk 2015-08-10
+
+    Any update on this?</li>
+<li>Andrey Tkachenko 2015-09-15
+
+    </li>
+<li>Andrey Tkachenko 2015-09-21
+
+    </li>
+<li>Hans Knöchel 2018-06-27
+
+    Fixed as part of ALOY-1518 and related tickets for SDK 7.4.0.</li>
+<li>Brian García 2019-02-21
+
+    This is only partly fixed, Require tags are still unsupported</li>
+<li>Brian Knorr 2019-05-02
+
+    Can we get this reopened?  We also need to use Require inside an ItemTemplate for reuse.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1221.json">JSON Source</a></p>

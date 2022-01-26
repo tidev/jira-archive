@@ -1,0 +1,135 @@
+---
+title: "[TIMOB-17344] CLI: Android: Genymotion emulators detected as running when they are not"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-07-18T14:05:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.3.1, Release 3.4.0</td></tr>
+<tr><th>Components</th><td>Android, Tooling</td></tr>
+<tr><th>Labels</th><td>module_cli, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2014-07-17T18:42:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-19T18:18:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>The Problem</h4>
+
+It's possible for a Genymotion emulator's IP address property to not be properly removed when the Genymotion emulator is shutdown. The Titanium CLI expects that the IP address will only be listed if the Genymotion emulator is running. When it sees the IP address, it will try to connect to the Genymotion emulator and check if it has Google APIs installed and an error occurs.
+
+The root problem is the error is not properly handled and causes the build/info command to crash or spin indefinitely.
+
+<h4>The Workaround</h4>
+
+Shutdown all Genymotion emulators. From the command line, run:
+
+<code><pre>
+vboxmanage list vms
+</pre></code>
+
+For each VM, copy the uuid and past it into the following:
+
+<code><pre>
+vboxmanage guestproperty enumerate <uuid>
+</pre></code>
+
+Look for the <code>androvm_ip_management</code> property. If it exists, remove it:
+
+<code><pre>
+vboxmanage guestproperty delete <uuid> androvm_ip_management
+</pre></code>
+
+<h4>The Proper Fix</h4>
+
+To fix this issue the right way, the Genymotion library needs to handle error messages when the adb shell command fails while attempting to detect the presence of Google APIs.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bert Grantges 2014-07-17
+
+   I am seeing this when trying to run on an Android device as well</li>
+<li>Chris Barber 2014-07-17
+
+   Master: <a href="https://github.com/appcelerator/titanium_mobile/pull/5912" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5912</a>
+   3_3_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/5913" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5913</a>
+   
+   To test, you need to mimic a stale Genymotion IP address. The easiest way to do this is:
+   
+   <code><pre>
+   vboxmanage list vms
+   </pre></code>
+   
+   Pick a UUID, then paste it into:
+   
+   <code><pre>
+   vboxmanage guestproperty set <UUID> androvm_ip_management 192.168.56.166
+   </pre></code>
+   
+   Then perform a build:
+   
+   <code><pre>
+   ti build -p android
+   </pre></code>
+   
+   NOTE: you will probably want to temporarily move or permanently delete all AVDs (~/.android/avd) and all Genymotion emulators EXCEPT a single Genymotion emulator which you'll use above.</li>
+<li>Chris Barber 2014-07-17
+
+   [~bgrantges] Would you mind applying the small changes from one of the PRs above directly to your 3.3.0.GA SDK code and see if that solves the problem? Thanks!</li>
+<li>Tim Poulsen 2014-07-18
+
+   Following the steps outlined by Chris, the app is built, the Genymotion emulator is launched, and the app installed/run as expected</li>
+<li>Bert Grantges 2014-07-18
+
+   [~cbarber] I tried both the work around and patching the SDK.
+   
+   Unfortunately now i can not detect my Android devices at all - nor genymotion!
+   
+   Here was the last console message i received prior to applying the patches etc.
+   
+   <a href="https://gist.github.com/grantges/c90c1382c26cd79331f6" rel="nofollow" target="_blank">https://gist.github.com/grantges/c90c1382c26cd79331f6</a>
+   
+   After applying the patch, and performing a ti info (after which my devices no longer were detected by CLI or Studio) i output the following <code>ti info</code> and <code>adb devices</code>
+   
+   <a href="https://gist.github.com/grantges/1b95e8993f4a95fb656d" rel="nofollow" target="_blank">https://gist.github.com/grantges/1b95e8993f4a95fb656d</a></li>
+<li>Tim Poulsen 2014-07-18
+
+   Bert, in your second Gist, I see an Android emulator (look for Android AVDs around line 230). Using the pull request from Chris, I see all my AVDs and Genymotion emulators. <code>adb devices</code> will show only connected devices or running emulators, and as we all know ADB hangs frequently. Make sure you've done <code>adb kill-server</code> and <code>adb start-server</code> before listing the devices, and make sure that the device is authorized to your computer.</li>
+<li>Chris Barber 2014-07-18
+
+   [~bgrantges] Regarding your first gist, you need to apply the attached PR to your SDK. My fix addresses the callback issue.
+   
+   As for the second gist, you need to select a Titanium SDK. For best results, select 3.3.0.GA:
+   
+   <code><pre>
+   ti sdk select 3.3.0.GA
+   </pre></code>
+   
+   Once you have selected SDK 3.3.0.GA and patched the SDK, everything should work fine.</li>
+<li>Ewan Harris 2014-08-19
+
+   Verified fix on:
+   
+   Mac OSX 10.9.4
+   Appcelerator Studio, build: 3.4.0.201408051600
+   Titanium SDK build:  3.4.0.v20140815142514, 3.3.0.GA
+   Titanium CLI, build: 3.4.0-dev, 3.3.0
+   Alloy: 1.4.1
+   Genymotion emulator 4.4.2
+   
+   
+   Used the above test steps to mimic a stale Genymotion IP address, built KS to the emulator and when using the latest SDK(3.4.0.v20140815142514) and CLI(3.4.0-dev) the app built and Genymotion loaded.
+   
+   Reverted back to 3.3.0.GA SDK and 3.3.0 CLI to check using the same steps, there was an error thrown which was the same as in Bert's comment.
+   
+   Closing ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17344.json">JSON Source</a></p>

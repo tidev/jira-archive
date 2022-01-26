@@ -1,0 +1,69 @@
+---
+title: "[DAEMON-252] Android: Daemon does not detect addition/deletion of genymotion emulator's immediately"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-01T06:31:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Appc Daemon 1.1.0, Appc Daemon 1.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Appc Daemon 2.3.0</td></tr>
+<tr><th>Components</th><td>appcd, appcd-plugin-genymotion</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2018-04-12T20:17:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-01T06:31:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Does not appear to be a regression. Seen in 1.0.1 as well.
+
+<h4>Steps to reproduce:</h4>
+1. Add a 2-3 genymotion emulator in the genymotion app.
+2. Run <code>appc appcd exec /android/latest/info/emulators</code>.
+3. Repeat the steps after deleting 2-3 genymotion emulators.
+
+<h4>Actual result:</h4>
+1. Appc daemon does not pick up the changes to genymotion immediately for both addition & deletion scenarios but, does after an <code>appc appcd restart</code>.
+
+<h4>Expected results:</h4>
+1. Appc daemon should pickup the changes immediately.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2018-04-13
+
+   This is maybe a dupe of DAEMON-249, reviewing the code of the plugin the changes never got published due to a linting issue (fixed in <a href="https://github.com/appcelerator/appcd-plugin-android/pull/12)" rel="nofollow" target="_blank">https://github.com/appcelerator/appcd-plugin-android/pull/12)</a> I will publish 1.1.1 soon</li>
+<li>Chris Barber 2018-04-13
+
+   I believe the root of the problem is a race condition. Whenever the VM's config is changed (about 9 times), the code would constantly watch and unwatch the same paths over and over again. This mechanically worked, but I believe pending fs events were never being delivered. Changing the the code to track by path->subscription-id instead of subscription-id->path allows quicker checks to see if the path is already being watched.
+   
+   Note that the Android and iOS plugins will likely suffer from the same problem. I've created DAEMON-253 to investigate.
+   
+   <a href="https://github.com/appcelerator/appcd-plugin-genymotion/pull/8" rel="nofollow" target="_blank">https://github.com/appcelerator/appcd-plugin-genymotion/pull/8</a></li>
+<li>Chris Barber 2019-03-25
+
+   Update: I cannot reproduce this with the latest and greatest code, however there are still underlying issues to address:
+   
+   1. <code>@appcd/plugin-android</code> currently watches the <code>VirtualBox.xml</code> for changes, then redetects emulators.
+   
+   This does not take into account whether VirtualBox or Genymotion is installed, though this isn't a huge issue as it's only a small amount of wasted resources.
+   
+   The bigger problem <code>@appcd/plugin-android</code> only detects new VMs, deleted VMs, and renamed VMs. It does not detect property changes such as DPI changes. <code>@appcd/plugin-genymotion</code> does.
+   
+   It seems silly to copy the logic from <code>@appcd/plugin-genymotion</code> to <code>@appcd/plugin-android</code>, but it's completely valid for <code>@appcd/plugin-android</code> to depend on <code>@appcd/plugin-genymotion</code>.
+   
+   The proper fix for this ticket would be to remove the fs watching of <code>VirtualBox.xml</code> and subscribe to <code>/genymotion/1.x/info/emulators</code> and use that event to trigger re-detection, which will be cached anyways in <code>androidlib</code>. Note that <code>@appcd/plugin-android</code> needs to properly handle a 404 from <code>/genymotion</code> should something go wrong, which it shouldn't.
+   
+   2. <code>@appcd/plugin-android</code> does unnecessary unsubscribe/resubscribe causing events to slip through the cracks. This is what DAEMON-253 aims to fix.</li>
+<li>Chris Barber 2019-04-01
+
+   Fixed by <a href="https://github.com/appcelerator/appc-daemon-plugins/pull/4." rel="nofollow" target="_blank">https://github.com/appcelerator/appc-daemon-plugins/pull/4.</a></li>
+</ol>
+
+
+<p><a href="/DAEMON/DAEMON-252.json">JSON Source</a></p>

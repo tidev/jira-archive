@@ -1,0 +1,141 @@
+{
+	"id": "137669",
+	"key": "AC-1074",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "7",
+			"description": "",
+			"name": "Invalid"
+		},
+		"resolutiondate": "2015-09-28T15:41:31.000+0000",
+		"created": "2014-10-06T09:35:32.000+0000",
+		"labels": [
+			"TCSupportTriage"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "shossain",
+			"key": "shossain",
+			"displayName": "Shak Hossain",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2016-03-08T07:37:25.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [],
+		"description": "h2. Problem description\r\nFrom titanium 3.3.0, when sending a POST request that being redirected with http code 303, the redirection is followed using POST method instead of GET (POST/redirect/GET design pattern).\r\n\r\nh2. Test case\r\nRun this sample code with 3.2.3.GA, then with 3.3.0.GA :\r\n{code}\r\n var handler = function(e) { Titanium.API.info( e, http.responseText ); };\r\n var http = Ti.Network.createHTTPClient({\r\n     onload: handler,\r\n     onerror: handler,\r\n     timeout: 1000\r\n });\r\n http.open('POST', 'http://jigsaw.w3.org/HTTP/300/Go_303');\r\n http.setRequestHeader(\"Content-Type\", \"application/x-www-form-urlencoded\");\r\n http.send();\r\n{code}\r\n\r\nh2. Expected results\r\nRunning Titanium *3.2.3*, output should be :\r\n{code}\r\n {\r\n     code = 0;\r\n     source = \"[object TiNetworkClient]\";\r\n     success = 1;\r\n     type = load;\r\n }\r\n ... <title>Redirect test page</title> ...\r\n Your browser made it!\r\n{code}\r\n\r\nRunning Titanium *3.3.0* or greater, output should be :\r\n{code}\r\n {\r\n     code = 405;\r\n     error = \"HTTP error\";\r\n     source = \"[object TiNetworkHTTPClient]\";\r\n     success = 0;\r\n     type = error;\r\n }\r\n Method POST not allowed on this resource.\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: HTTPClient redirect 303 with POST instead of GET",
+		"creator": {
+			"name": "PierreVDEV",
+			"key": "pierrevdev",
+			"displayName": "Pierre VAN DE VELDE",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "PierreVDEV",
+			"key": "pierrevdev",
+			"displayName": "Pierre VAN DE VELDE",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Titanium SDK: 3.3.0.GA+\r\nTitanium CLI: 3.3.0+\r\nOS X Version: 10.9.5\r\niOS Simulator: 7.1\r\nXcode Version: 5.1.1 ",
+		"comment": {
+			"comments": [
+				{
+					"id": "327009",
+					"author": {
+						"name": "PierreVDEV",
+						"key": "pierrevdev",
+						"displayName": "Pierre VAN DE VELDE",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Thanks to Fokke's help, I've noticed that here: \r\nhttps://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiNetworkHTTPClientProxy.m#L237-L247\r\n\r\nIt uses APSHTTPClient module, could it be that here is where it is missing the POST/redirect/GET pattern ?\r\nhttps://github.com/appcelerator/APSHTTPClient/blob/20fb741880ea5c0f79a5446c5f7f73debccc73af/APSHTTPClient/APSHTTPRequest.m#L250-L256\r\n",
+					"updateAuthor": {
+						"name": "PierreVDEV",
+						"key": "pierrevdev",
+						"displayName": "Pierre VAN DE VELDE",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-06T09:50:13.000+0000",
+					"updated": "2014-10-06T09:50:13.000+0000"
+				},
+				{
+					"id": "329471",
+					"author": {
+						"name": "PierreVDEV",
+						"key": "pierrevdev",
+						"displayName": "Pierre VAN DE VELDE",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I think [~Fokke] was right pointing this location in the code, actually this issue comes from this commit: https://github.com/appcelerator/APSHTTPClient/commit/0d86619e42b128faa090ce0066f398bf757468f4\r\n\r\nAs far as I understand, it seems [~vduggal] overrided the native behaviour of NSURLConnection (which should redirect using GET) by creating a new request:\r\n\r\n{code}\r\nif (response) {\r\n\tNSMutableURLRequest *r = [self.request mutableCopy];\r\n\tr.URL = request.URL;\r\n\treturn r;\r\n} else {\r\n\treturn request;\r\n}\r\n{code}\r\n\r\nReverting to this piece of code should work:\r\n{code}\r\nif (response) {\r\n\tself.request.URL = request.URL;\r\n\treturn self.request;\r\n{code}\r\n*edit after testing*: this is wrong. Simply returning {{request}} works for me instead (remove the whole condition on {{response}}). Might not handle 307 though\r\n\r\n[~vduggal]: Do you agree ? I hope we can fix this ASAP since it prevents me from updating!\r\n\r\n+Sources:+\r\n_Blog post about overriding NSURLConnection behaviour_: http://tewha.net/2012/05/handling-302303-redirects\r\n_NSURLConnection doc about handling redirection_: https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/URLLoadingSystem/Articles/RequestChanges.html\r\n\r\n*There's an interesting discussion about this topic on stackoverflow*: http://stackoverflow.com/a/3393499",
+					"updateAuthor": {
+						"name": "PierreVDEV",
+						"key": "pierrevdev",
+						"displayName": "Pierre VAN DE VELDE",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-26T12:38:10.000+0000",
+					"updated": "2014-10-27T11:21:45.000+0000"
+				},
+				{
+					"id": "361711",
+					"author": {
+						"name": "ahossain",
+						"key": "ahossain",
+						"displayName": "Amimul Hossain",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, I have tested this With the latest SDK release. The issue seems to be resolved in the latest SDK. \r\n\r\nTESTING ENVIONMENT\r\n\r\nCLI version 4.1.2, Appcelerator SDK version 4.1.0.GA\r\niOS Simulator 8.3\r\n\r\nObserved Result\r\n{code}\r\n[INFO] :   helloappli/1.0 (4.1.0.d57aa7d)\r\n[INFO] :   {\r\n[INFO] :       code = 501;\r\n[INFO] :       error = \"HTTP error\";\r\n[INFO] :       source = \"[object TiNetworkHTTPClient]\";\r\n[INFO] :       success = 0;\r\n[INFO] :       type = error;\r\n[INFO] :   } Method GET not implemented.\r\n{code}\r\n\r\nThanks.",
+					"updateAuthor": {
+						"name": "shossain",
+						"key": "shossain",
+						"displayName": "Shak Hossain",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-31T07:27:10.000+0000",
+					"updated": "2015-09-28T15:41:22.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

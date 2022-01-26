@@ -1,0 +1,96 @@
+---
+title: "[TIMOB-17332] CLI: Using same option twice with different values causes crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Tooling</td></tr>
+<tr><th>Labels</th><td>cb-tooling, cli</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2014-07-15T13:24:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-02-05T23:55:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Execute the following:
+
+<code><pre>
+ti build -p ios --project-dir .  --project-dir ./
+</pre></code>
+
+And you will get:
+
+<code><pre>
+/usr/local/lib/node_modules/titanium/node_modules/longjohn/dist/longjohn.js:185
+        throw e;
+              ^
+TypeError: Arguments to path.join must be strings
+    at path.js:360:15
+    at Array.filter (native)
+    at exports.join (path.js:358:36)
+    at exports.resolvePath (/Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/node-appc/lib/fs.js:52:20)
+    at conf.options.appc.util.mix.project-dir.validate (/Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/cli/commands/build.js:132:27)
+    at CLI.<anonymous> (/usr/local/lib/node_modules/titanium/lib/cli.js:622:14)
+    at /usr/local/lib/node_modules/titanium/node_modules/async/lib/async.js:551:21
+    at /usr/local/lib/node_modules/titanium/node_modules/async/lib/async.js:227:13
+    at iterate (/usr/local/lib/node_modules/titanium/node_modules/async/lib/async.js:134:13)
+    at async.eachSeries (/usr/local/lib/node_modules/titanium/node_modules/async/lib/async.js:150:9)
+---------------------------------------------
+    at run (/Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/node-appc/lib/subprocess.js:59:8)
+    at /Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/iphone/cli/lib/detect.js:356:9
+    at /Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/async/lib/async.js:511:21
+    at /Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/async/lib/async.js:227:13
+    at /Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/async/lib/async.js:111:13
+    at Array.forEach (native)
+    at _each (/Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/async/lib/async.js:32:24)
+    at async.each (/Users/fokkezb/Library/Application Support/Titanium/mobilesdk/osx/3.3.0.RC2/node_modules/async/lib/async.js:110:9)
+</pre></code>
+
+Why would you want to use the same options twice?
+
+a) Because you can.
+b) Because this can happen if you use build tools like TiShadow adding options instead of replacing them.
+
+What it should do?
+
+* Use the last value
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2014-07-15
+
+   Thanks for your report! The priority will be set by the platform team. </li>
+<li>Ingo Muschenetz 2014-07-15
+
+   I think it's worthy to fix, but tools shouldn't be blindly tacking on repeating values :)</li>
+<li>Chris Barber 2014-07-15
+
+   I believe if an option is encountered multiple times, the Titanium CLI argument parser will convert the option value into an array of values: <a href="https://github.com/appcelerator/titanium/blob/master/lib/context.js#L609." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium/blob/master/lib/context.js#L609.</a>
+   
+   We need to either:
+   
+   1. Overwrite duplicate values instead of creating an array of values
+   2. Update nearly all option callbacks detect an array and use the last value
+   
+   I *HIGHLY* recommend option #2. It's pretty easy since each option has a callback that is called when the parser encounters the value. I believe we'd need to update nearly all of the options to do this, but it will allow the most flexibility when the time comes that we want to cleanly support multiple values.</li>
+<li>Ingo Muschenetz 2014-07-15
+
+   I'm fine with option 2.</li>
+<li>Chris Barber 2017-01-04
+
+   I wasn't able to reproduce this using the example <code>ti build -p ios \-\-project-dir .  \-\-project-dir ./</code>, but that's because the resolved path for both project dirs are the same. However, if they are different, then you will get the error above.</li>
+<li>Chris Barber 2020-02-05
+
+   This won't be an issue in Titanium CLI.next.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17332.json">JSON Source</a></p>

@@ -1,0 +1,302 @@
+---
+title: "[TIMOB-24311] Android: Log always shows non-titanium logs"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-16T18:53:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.2</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>android, log</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2016-10-12T17:20:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-16T18:53:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Even with <code>ti config cli.logLevel info</code> I always see non-titanium related log messages like
+
+{noformat}
+[INFO]  D/StatusBar.NetworkController( 5440): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_connected_3 (gone) F]
+[INFO]  D/StatusBar.NetworkController( 5440): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_connected_3 (gone) F]
+{noformat}
+
+and everything else Android logcat will show. In previous CLI versions it would only show app related output. 
+
+*Workaround:*
+Create filters in Android Monitor to filter out non ti logs
+
+*Test environment*
+* Titanium 5.5.1, 6.0.0.v20161005072811
+* CLI 5.0.10
+* Android 6.0.1, Android 5
+
+[Stackoverflow question](<a href="http://stackoverflow.com/questions/39072895/titanium-sdk-5-4-0-ga-is-showing-too-many-logs-at-console-on-android-platform/)" rel="nofollow" target="_blank">http://stackoverflow.com/questions/39072895/titanium-sdk-5-4-0-ga-is-showing-too-many-logs-at-console-on-android-platform/)</a> with the same problem
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2017-01-15
+
+   Might have found the solution to this problem:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/8022" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8022</a>
+   introduced a regex that will check the non-ti logs again at:
+   <a href="https://github.com/sgtcoolguy/titanium_mobile/blob/aae72758cc88b07aa48b7f384e3bccc7cdf1063b/android/cli/hooks/run.js#L239" rel="nofollow" target="_blank">https://github.com/sgtcoolguy/titanium_mobile/blob/aae72758cc88b07aa48b7f384e3bccc7cdf1063b/android/cli/hooks/run.js#L239</a>
+   This regex  
+   {noformat}
+   /^\w\/\w+\s*\(\s*\d+\):/
+   {noformat}
+    will fail if the string before (pid) has a dot in it!
+   changing it to 
+   {noformat}
+   nonTiLogRegexp = /^\w\/.+\s*\(\s*\d+\):/
+   {noformat}
+   
+   worked for me, so I only see Ti logs again on android!</li>
+<li>Michael Gangolf 2017-01-15
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8754" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8754</a></li>
+<li>Michael Gangolf 2017-01-15
+
+   Example:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       title: title,
+       backgroundColor: '#fff'
+   });
+   
+   setInterval(function() {
+       console.log("test");
+   }, 1000)
+   
+   win.open();
+   </pre></code>
+   
+   *Log before (HTC device):*
+   
+   {noformat}
+   [INFO]  I/[MirrorLinkServer]c(31148): Getting Application List Alone --Secondary Boot Process
+   [INFO]  I/[MirrorLinkServer]c(31148): Adding to ML Application List in filterMirrorlinkApps::com.htc.contacts
+   [INFO]  D/[MirrorLinkServer]c(31148): Processing Application::com.android.phone
+   [INFO]  D/[MirrorLinkServer]c(31148): com.android.phone is blacklisted.
+   [INFO]  I/[MirrorLinkServer]c(31148): Local DB updated, CertHandler pushed to Sleep Mode
+   [INFO]  I/[MirrorLinkServer]c(31148): appListReady()
+   [INFO]  I/[MirrorLinkServer]c(31148): Notified all other locked threads to execute
+   [INFO]  I/[MirrorLinkServer]c(31148): Lock notified
+   [INFO]  I/[MirrorLinkServer]c(31148): onApplicationUpdationCompleted, sending broadcast
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): Broadcast Received::Intent { act=com.htc.HTCMirrorLinkServer.PACKAGE_UPDATE_COMPLETED }
+   [INFO]  D/[MirrorLinkServer]MirrorLinkServer(31148): ML_PACKAGE_UPDATE_COMPLETED intent received
+   [INFO]  D/[MirrorLinkServer]MirrorLinkServer(31148): Counter : 0
+   [INFO]  I/[MirrorLinkServer]MirrorLinkConnectionReceiver(31148): checkAndStopMLSession
+   [INFO]  I/[MirrorLinkServer]MirrorLinkConnectionReceiver(31148): Stopping Service
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): onDestroy()
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): onMirrorLinkDeviceRemoved()
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): Unbind VNC Service failed. Service already unbound.
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): Unbind RTP Service failed. Service already unbound.
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): Unbind CDB Service failed. Service already unbound.
+   [INFO]  I/[MirrorLinkServer]MirrorLinkServer(31148): onDestroy() ::END
+   [WARN]  V8Object: (main) [619,667] Runtime disposed, cannot set property 'userAgent'
+   [WARN]  E/NetworkScheduler.SR(29732): Invalid parameter app
+   [WARN]  E/NetworkScheduler.SR(29732): Invalid package name : Perhaps you didn't include a PendingIntent in the extras?
+   [INFO]  TiApplication: (main) [78,745] Titanium Javascript runtime: v8
+   [INFO]  I/[PluginManager]RegisterService(30735): onHandleIntent, action: android.intent.action.PACKAGE_REPLACED, data: package:com.miga.tttt
+   [INFO]  I/[PluginManager]RegisterService(30735): handle notify Blinkfeed plugin client changed
+   [INFO]  I/[PluginManager]RegisterService(30012): onHandleIntent, action: android.intent.action.PACKAGE_REPLACED, data: package:com.miga.tttt
+   [INFO]  I/[PluginManager]RegisterService(30012): handle notify Blinkfeed plugin client changed
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   [INFO]  D/StatusBar.NetworkController(28620): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_inandout_3 (gone) F]
+   [ERROR] SensorManager: uid = 10463
+   [INFO]  SensorManager: registerListenerImpl: listener = android.view.OrientationEventListener$SensorEventListenerImpl@79b577c, sensor = {Sensor name="Accelerometer Sensor", vendor="hTC Corp.", version=1, type=1, maxRange=39.2266, resolution=0.01, power=0.17, minDelay=10000}, delay = 200000, handler = null
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.miga.tttt.TtttActivity@ce46416
+   [ERROR] SensorManager: uid = 10463
+   [INFO]  SensorManager: registerListenerImpl: listener = android.view.OrientationEventListener$SensorEventListenerImpl@a4980e, sensor = {Sensor name="Accelerometer Sensor", vendor="hTC Corp.", version=1, type=1, maxRange=39.2266, resolution=0.01, power=0.17, minDelay=10000}, delay = 200000, handler = null
+   [INFO]  Adreno: QUALCOMM build                   : 91fcdf6, I982091f16d
+   [INFO]  Adreno: Build Date                       : 01/11/16
+   [INFO]  Adreno: OpenGL ES Shader Compiler Version: XE031.06.00.00
+   [INFO]  Adreno: Local Branch                     :
+   [INFO]  Adreno: Remote Branch                    : refs/tags/AU_LINUX_ANDROID_LA.BR.1.3.3_RB1.06.00.00.177.002
+   [INFO]  Adreno: Remote Branch                    : NONE
+   [INFO]  Adreno: Reconstruct Branch               : NOTHING
+   [INFO]  W/Launcher.Model(30012): Nobody to tell about the new app.  Launcher is probably loading.
+   [INFO]  D/NetworkController.WifiSignalController(28620): Change in state from: connected=true,enabled=true,level=3,inetCondition=1,iconGroup=IconGroup(Wi-Fi Icons),activityIn=true,activityOut=true,rssi=-58,lastModified=01-15 03:06:13,ssid="ddd"
+   [INFO]  D/NetworkController.WifiSignalController(28620):        to: connected=true,enabled=true,level=3,inetCondition=1,iconGroup=IconGroup(Wi-Fi Icons),activityIn=false,activityOut=false,rssi=-58,lastModified=01-15 03:06:13,ssid="ddd"
+   [INFO]  D/StatusBar.NetworkController(28620): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_connected_3 (gone) F]
+   [INFO]  test
+   [INFO]  test
+   [INFO]  D/NetworkController.WifiSignalController(28620): Change in state from: connected=true,enabled=true,level=3,inetCondition=1,iconGroup=IconGroup(Wi-Fi Icons),activityIn=false,activityOut=false,rssi=-58,lastModified=01-15 03:06:14,ssid="ddd"
+   [INFO]  D/NetworkController.WifiSignalController(28620):        to: connected=true,enabled=true,level=3,inetCondition=1,iconGroup=IconGroup(Wi-Fi Icons),activityIn=true,activityOut=true,rssi=-58,lastModified=01-15 03:06:14,ssid="ddd"
+   [INFO]  D/StatusBar.NetworkController(28620): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_inandout_3 (gone) F]
+   [INFO]  D/StatusBar.NetworkController(28620): dumpIcon[(gone) stat_sys_5signal_3|null stat_sys_wifi_signal_inandout_3 (gone) F]
+   [INFO]  test
+   [INFO]  test
+   [INFO]  D/NetworkController.WifiSignalController(28620): Change in state from: connected=true,enabled=true,level=3,inetCondition=1,iconGroup=IconGroup(Wi-Fi Icons),activityIn=true,activityOut=true,rssi=-58,lastModified=01-15 03:06:16,ssid="ddd"
+   [INFO]  D/NetworkController.Wif
+   ...
+   {noformat}
+   many non ti related logs will show up (they have a dot in the name)
+   
+   *Log after:*
+   
+   {noformat}
+   -- Start application log -----------------------------------------------------
+   [INFO]  TiApplication: (main) [0,0] checkpoint, app created.
+   [INFO]  TiApplication: (main) [55,55] Titanium 6.1.0 (2017/01/15 14:45 undefined)
+   [INFO]  MultiDex: VM with version 2.1.0 has multidex support
+   [INFO]  MultiDex: install
+   [INFO]  MultiDex: VM has multidex support, MultiDex support library is disabled.
+   [INFO]  TiApplication: (main) [629,684] Titanium Javascript runtime: v8
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   [ERROR] SensorManager: uid = 10463
+   [INFO]  SensorManager: registerListenerImpl: listener = android.view.OrientationEventListener$SensorEventListenerImpl@7b43805, sensor = {Sensor name="Accelerometer Sensor", vendor="hTC Corp.", version=1, type=1, maxRange=39.2266, resolution=0.01, power=0.17, minDelay=10000}, delay = 200000, handler = null
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.miga.tttt.TtttActivity@2c18197
+   [ERROR] SensorManager: uid = 10463
+   [INFO]  SensorManager: registerListenerImpl: listener = android.view.OrientationEventListener$SensorEventListenerImpl@fb2e03c, sensor = {Sensor name="Accelerometer Sensor", vendor="hTC Corp.", version=1, type=1, maxRange=39.2266, resolution=0.01, power=0.17, minDelay=10000}, delay = 200000, handler = null
+   [INFO]  Adreno: QUALCOMM build                   : 91fcdf6, I982091f16d
+   [INFO]  Adreno: Build Date                       : 01/11/16
+   [INFO]  Adreno: OpenGL ES Shader Compiler Version: XE031.06.00.00
+   [INFO]  Adreno: Local Branch                     :
+   [INFO]  Adreno: Remote Branch                    : refs/tags/AU_LINUX_ANDROID_LA.BR.1.3.3_RB1.06.00.00.177.002
+   [INFO]  Adreno: Remote Branch                    : NONE
+   [INFO]  Adreno: Reconstruct Branch               : NOTHING
+   [INFO]  test
+   [INFO]  test
+   [INFO]  test
+   [INFO]  test
+   [INFO]  test
+   ....
+   -- End application log -------------------------------------------------------
+   {noformat}
+   
+   only test will come up</li>
+<li>Hans Knöchel 2017-01-15
+
+   I would even tend to remove all other system logs as well / move them to the debug level.</li>
+<li>Michael Gangolf 2017-01-15
+
+   As far as I understand the comment at <a href="https://github.com/appcelerator/titanium_mobile/pull/8022#discussion-diff-64847819" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8022#discussion-diff-64847819</a> this one is needed for multi-line logs
+   Thats why the <code>else</code> part is needed there</li>
+<li>Samir Mohammed 2017-01-17
+
+   Verified improvement with test code provided above, log only shows information associated with titanium add the running application.
+   
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [INFO] :   TiApplication: (main) [0,0] checkpoint, app created.
+   [INFO] :   TiApplication: (main) [45,45] Titanium 6.1.0 (2017/01/15 17:27 undefined)
+   [INFO] :   MultiDex: VM with version 2.1.0 has multidex support
+   [INFO] :   MultiDex: install
+   [INFO] :   MultiDex: VM has multidex support, MultiDex support library is disabled.
+   [INFO] :   TiApplication: (main) [231,276] Titanium Javascript runtime: v8
+   [INFO] :   TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   [INFO] :   TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.appc.Jan16v2017ctestv1.Jan16v2017ctestv1Activity@c0abf34
+   [DEBUG] :  Window: Checkpoint: postWindowCreated()
+   [TRACE] :  updating tiapp metadata with Appcelerator Platform...
+   [INFO] :   Adreno: QUALCOMM build                   : a5b4970, If5818605d9
+   [INFO] :   Adreno: Build Date                       : 10/12/16
+   [INFO] :   Adreno: OpenGL ES Shader Compiler Version: XE031.09.00.04
+   [INFO] :   Adreno: Local Branch                     : N24D
+   [INFO] :   Adreno: Remote Branch                    :
+   [INFO] :   Adreno: Remote Branch                    :
+   [INFO] :   Adreno: Reconstruct Branch               :
+   [INFO] :   OpenGLRenderer: Initialized EGL, version 1.4
+   [DEBUG] :  OpenGLRenderer: Swap behavior 1
+   [TRACE] :  Uploaded tiapp metadata with Appcelerator Platform!
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   [INFO] :   test
+   </pre></code>
+   
+   
+   *Environment*
+   <code><pre>
+   Appcelerator Command-Line Interface, version 6.1.0
+   Nexus 6p (Android 7.1)
+   Operating System Name: Mac OS X El Capitan
+   Operating System Version: 10.11.6
+   Node.js Version: 4.6.0
+   npm: 4.2.8
+   Titanium SDK Version: 6.1.0.v20170115172707
+   Xcode: 8.2
+   Appcelerator Studio: 4.8.1.201612050850
+   </pre></code>
+   </li>
+<li>Michael Gangolf 2017-01-18
+
+   While catching more with 
+   
+   {noformat}
+    ^\w\/.[^:]+\s*(\(\s*\d+\))*:
+   {noformat}
+   see:  <a href="http://www.regexr.com/3f3fl" rel="nofollow" target="_blank">http://www.regexr.com/3f3fl</a>
+   It's getting difficult to catch <code>IInputConnectionWrapper: getExtractedText on inactive InputConnection</code> because it will also remove TiAPI lines that get splited and start with <code>something:</code>
+   </li>
+<li>Hans Knöchel 2017-01-23
+
+   PR (6_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8772" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8772</a></li>
+<li>Samir Mohammed 2017-01-23
+
+   Verified improvement for 6.0.2 backport, with the following test code; log now show more relevant logs.
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+    
+   setInterval(function() {
+       console.log("test");
+   }, 1000);
+    
+   win.open();
+   </pre></code>
+   
+   [^before.txt]
+   [^after.txt]
+   
+   *Environment*
+   <code><pre>
+   
+   Appcelerator Command-Line Interface, version 6.1.0
+   Nexus 6p (Android 7.1)
+   Operating System Name: Mac OS X El Capitan
+   Operating System Version: 10.11.6
+   Node.js Version: 4.6.0
+   npm: 4.2.8
+   Titanium SDK Version: 6.0.2.v20170123062940
+   Xcode: 8.2
+   Appcelerator Studio: 4.8.1.201612050850
+   </pre></code>
+   </li>
+<li>Michael Gangolf 2018-02-24
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24311.json">JSON Source</a></p>

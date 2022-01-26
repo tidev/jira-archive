@@ -1,0 +1,90 @@
+---
+title: "[TIMOB-19969] iOS: Problem with suffix like @2x, ~iphone in ImageView source with app-thinning enabled"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-11T21:24:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>appthinning, imageview, qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2015-11-13T10:15:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-26T23:15:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The attached sample project demonstrates that with app-thinning enabled, you cannot include a suffix in the image path. This works fine with app-thinning disabled.
+
+1. Build the project with app-thinning enabled and confirm you see the placeholder image
+2. Open <code>tiapp.xml</code> and change <code>use-app-thinning</code> to <code>false</code>
+3. Build the project again and confirm you see the image.
+
+The code where we hash the image path should strip out any suffixes (including <code>~iphone</code> etc).
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19969_57433/imagefile.zip">imagefile.zip</td></td><td>2015-11-13T10:15:31.000+0000</td><td>10295850</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-01-07
+
+   Actually, it's nothing to do with the suffix. It's because it's located in "Resources/iphone/images/foo@2x.png"
+   But the iOS SDK was treating it as "Resources/images/foo@2x.png" when it saw this code
+   <code><pre>
+   Ti.UI.createImageView({
+   	image: 'images/foo@2x.png'
+   })
+   </pre></code>
+   
+   That's where the bug is. changing title.</li>
+<li>Chee Kiat Ng 2016-01-07
+
+   Another issue is, it can't process <code>@2x</code>. It can only accept <code>image: 'images/foo.png'</code> if app-thinning is enabled. but this may not necessarily be a bug, because when you create image view, it is supposed to find the appropriate resolution image to use that is consistent with the device, so there shouldn't be a need to indicate <code>@2x</code> in the first place.</li>
+<li>Fokke Zandbergen 2016-01-07
+
+   Your last comment is what I created this ticket for, but are you sure about your preceding comment that you now changed the title of the ticket to? When I use the attached test app (which indeed has the image in <code>iphone</code>) and modify log what we use [to calculate the hash for the catalog name](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5050)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5050)</a> I don't see it including the platform specific path. It's simply <code>images/foo.png</code>.
+   
+   Coming back to the original issue, I think the problem is [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIImageView.m#L507-L521)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIImageView.m#L507-L521)</a> (and [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/ImageLoader.m#L514-L526))" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/ImageLoader.m#L514-L526))</a> where we don't strip out suffixes like [we do when we create the asset catalog names](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5031)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5031)</a>, which means it won't be found.</li>
+<li>Chee Kiat Ng 2016-01-07
+
+   [~fokkezb] Sorry i misunderstood the ticket. I understand now after your comment about the suffix. 
+   My observation on the preceding comment was also erroneous. I was using the new method 'getAsset' that did not manage the path before hashing.
+   Reverting the title and will look at this ticket.</li>
+<li>Chee Kiat Ng 2016-01-08
+
+   </li>
+<li>Josh Longton 2016-07-26
+
+   Verified as fixed, I am now able to access images with suffix when app thinning is enabled. 
+   Tested on:
+   <code><pre>
+   iPhone 6s (9.3.1) 
+   iOS simulator (9.3)
+    Mac OSX El Capitan 10.11.6
+   Studio: 4.7.0.201607130543
+    Ti SDK: 5.4.0.v20160725003348
+    Xcode: 7.3.1 
+    Appc NPM: 4.2.7
+   Appc CLI: 5.4.0-35
+   Node: v4.4.4
+   </pre></code>
+   
+   *Closing ticket*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19969.json">JSON Source</a></p>

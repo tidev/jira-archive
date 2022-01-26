@@ -1,0 +1,202 @@
+---
+title: "[AC-2973] Empty functions mess up <script> tags."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-08-09T03:10:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Joel Koett</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2012-07-06T10:44:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I upgraded Titanium yesterday to this version:
+
+{panel}
+Titanium Studio, build: 2.1.0.201206251749
+(c) Copyright 2012 by Appcelerator, Inc.  All rights reserved.
+
+Build: jenkins-titanium-rcp-master-218 (origin/master)
+Date: 25 June 2012, 17:50:34
+{panel}
+
+And this is the aptana version:
+
+{panel}
+Aptana 3.2.0.20120625, featureid org.radrails.rails
+{panel}
+
+It seems to have caused a bug where this script tag doesn't render properly anymore:
+
+{panel}
+<code><pre>
+<script>
+    doSomething();
+    function doSomethingElse() {
+        // Comment, nothing actually happening in this function since I commented it out
+    }
+</script>
+</pre></code>
+{panel}
+
+In the above code, "doSomething()" would never get called.  I believe the entire script is ignored.  Changing the code to this, fixes it:
+
+{panel}
+<code><pre>
+<script>
+    doSomething();
+</script>
+<script>
+    function doSomethingElse() {
+        // Comment, nothing actually happening in this function since I commented it out
+    }
+</script>
+</pre></code>
+{panel}
+
+Note: This does not happen on the iphone simulator, it only happens on the compiled code on the real iphone.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2012-07-06
+
+   Scott, thank you for the report, but these need to go into the "TC" project.</li>
+<li>Joel Koett 2012-07-06
+
+   Cool, thanks for moving it.  This ticket might be related to my comments in APSTUD-1958.  Can you link the two tickets?
+   
+   Cheers,
+   -- Joel.</li>
+<li>Joel Koett 2012-07-07
+
+   After a day of debugging, it turns out that the issue was not caused by my upgrade to Titanium 2.1 - the issue also happens in Titanium 2.0.1.
+   
+   I believe this is caused by the same issue I was having with the white-space trimmer issues described in TC-1044.
+   
+   In summary, the white-space trimmer only happens if I have no files with extension "js".  Due to another issue (TC-1042), I was forced to rename all of my javascript files, but I missed one.  Having this one js file prevented the white-space trimmer from happening.  Last week, just before my upgrade to Titanium 2.1, I realized that the last remaining js file in my web folder in my Titanium project, was unused, and so I deleted it.  This caused the Titanium white-space trimmer to take effect (ONLY ON COMPILED VERSIONS OF THE APP).
+   
+   To fix this bug, I just include a dummy "js" file in my project.  It's not even referenced anywhere, but it prevents this bug from occurring.
+   
+   It should be noted: The compiler is "smart" enough to "figure out" that some js files aren't used, and so it doesn't include them in the build (hence ticket TC-1042), but the same compiler uses the fact that there is a JS file (even if it will be stripped via the process in TC-1042 because it's un-referenced) to avoid doing this poorly written white-space trimmer.
+   
+   And on a final note, I think this white-space trimmer also causes the error in this ticket, my guess is that it trims the white space between the comment line and the closing function, turning:
+   
+   {panel}
+   <code><pre>
+   function doSomething() {
+      // comment
+   }
+   </pre></code>
+   {panel}
+   
+   into:
+   
+   {panel}
+   <code><pre>
+     function doSomething() { // comment }
+   </pre></code>
+   {panel}
+   
+   (which is invalid javascript, since the closing curly-brace is commented out)
+   
+   Thanks for your help,
+   -- Joel.</li>
+<li>Mostafizur Rahman 2013-12-25
+
+   Hello,
+   
+   We tested this issue with the code bellow. It’s working as expected. Please check this issue with latest TISDK and test your code. If you continue to get similar behavior, please post your code sample. If we don't hear back, we will assume the issue is resolved and the ticket can be closed.
+   
+   <h4>Test Environment:</h4>
+   Mac OSX 10.9
+   Titanium SDK 3.2.0.GA, 
+   Android SDK: 2.3.3,
+   IOS -Simulator   7.0.3
+   Ti CLI 3.2.0
+    
+   <h4>Test Code</h4>
+   <code><pre>
+   
+   var self = Ti.UI.createWindow({
+   	backgroundColor : 'red',
+   	title : 'Red Window',
+   
+   });
+   
+   // create webview
+   
+   var webview = Ti.UI.createWebView({
+   	lightTouchEnabled : false,
+   	top : 10,
+   	height : 500,
+   	width : 400,
+   	url : "webPage.html"
+   });
+   
+   webview.addEventListener('load', function(argument) {
+   	alert('load');
+   });
+   
+   self.add(webview);
+   self.open();
+   
+   </pre></code>
+   webPage.html
+   <code><pre>
+   <!DOCTYPE html>
+   <html>
+   	<body>
+   		
+    
+   		<script>
+   			function doSomething() { alert('sd'); // comment 
+   }
+   			
+   		  doSomething();
+   		</script>
+   	</body>
+   </html>
+   </pre></code>
+   
+   
+   <h4>Steps to Reproduce:</h4>
+   <h4>Create a simple mobile project.</h4>
+   <h4>Paste this code in app.js and create webpage.html page in resource directory </h4>
+   <h4>Then run this with testing environment.</h4>
+   <h4>Its return 2 alert massage </h4>
+   <h4>Now update webpage.html file with following code </h4>
+   <code><pre>
+     <!DOCTYPE html>
+   <html>
+   	<body>
+   		
+    
+   		<script>
+   			function doSomething() { alert('sd'); // comment }
+   			
+   		  doSomething();
+   		</script>
+   	</body>
+   </html></pre></code>
+   <h4>Run this app again its return 1 alert massage . sd message not showing </h4>
+   
+   Thanks 
+   </li>
+<li>Shak Hossain 2014-01-15
+
+   Closing since the issue can't be reproduced with the latest TISDK. </li>
+</ol>
+
+
+<p><a href="/AC/AC-2973.json">JSON Source</a></p>

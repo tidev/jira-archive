@@ -1,0 +1,114 @@
+---
+title: "[ALOY-1368] Complex data binding for individual model doesn't work with transform() method"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-28T18:11:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>alloy 1.7.35</td></tr>
+<tr><th>Fix Version/s</th><td>alloy 1.8.3, Release 5.2.2</td></tr>
+<tr><th>Components</th><td>Models, XML</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Created</th><td>2016-03-16T12:22:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-31T22:44:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The complex data binding introduced by ALOY-443 does not work if the model has a <code>transform()</code> method:
+
+<code><pre>
+<Alloy>
+	<Model src="user" />
+	<Window>
+		<Label title="{user.foo}" />
+		<Label title="the {user.foo}" />
+		<Label title="{user.foo} - {user.bar}" />
+	</Window>
+</Alloy>
+</pre></code>
+
+Compiles to:
+
+<code><pre>
+    var __alloyId13 = function() {
+        $.__alloyId2.title = _.isFunction(Alloy.Models.user.transform) ? Alloy.Models.user.transform()["foo"] : _.template("<%=user.foo%>", {
+            user: Alloy.Models.user.toJSON()
+        });
+        $.__alloyId3.title = _.isFunction(Alloy.Models.user.transform) ? Alloy.Models.user.transform()["foo"] : _.template("the <%=user.foo%>", {
+            user: Alloy.Models.user.toJSON()
+        });
+        $.__alloyId4.title = _.isFunction(Alloy.Models.user.transform) ? Alloy.Models.user.transform()["foo"] : _.template("<%=user.foo%> - <%=user.bar%>", {
+            user: Alloy.Models.user.toJSON()
+        });
+    };
+</pre></code>
+
+So, if the model has a <code>transform()</code> method all three labels will only show the value of the foo attribute.
+
+The correct code should be:
+
+<code><pre>
+    var __alloyId13 = function() {
+        var transformed = _.isFunction(Alloy.Models.user.transform) ? Alloy.Models.user.transform() : Alloy.Models.user.toJSON();
+        $.__alloyId2.title = _.template("<%=user.foo%>", {
+            user: transformed
+        });
+        $.__alloyId3.title = _.template("the <%=user.foo%>", {
+            user: transformed
+        });
+        $.__alloyId4.title = _.template("<%=user.foo%> - <%=user.bar%>", {
+            user: transformed
+        });
+    };
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2016-03-16
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/767" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/767</a></li>
+<li>Fokke Zandbergen 2016-03-16
+
+   Updated PR to only call <code>transform()</code> once.</li>
+<li>Fokke Zandbergen 2016-03-28
+
+   New PR to include ALOY-1474:
+   <a href="https://github.com/appcelerator/alloy/pull/776" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/776</a></li>
+<li>Feon Sua Xin Miao 2016-03-28
+
+   PR merged.</li>
+<li>Fokke Zandbergen 2016-03-29
+
+   Additionally, this also fixed that using strings before the first occurrence of a placeholder caused syntax errors like:
+   
+   <code><pre>
+           properties: {
+             title: typeof __alloyId9.__transform['id'] !== 'undefined' ? __alloyId9.__transform['id'] : id: '+__alloyId9.get('
+             id ') +',
+             title: '+__alloyId9.get('
+             title ') +',
+           },
+   </pre></code></li>
+<li>Eric Wieber 2016-03-31
+
+   Verified fixed, using:
+   
+   MacOS 10.11.4 (15E65)
+   Studio 4.5.0.201602170821
+   Ti SDK 5.2.2.v20160328141205
+   Appc NPM 4.2.5-1
+   Appc CLI 5.2.2-3
+   Alloy 1.8.5
+   Xcode 7.3 (7D175)
+   
+   Complex data binding for models using transform are working as expected. Tested using the project in ALOY-1474 as well as custom apps using a model with a transform function. Code generated matches the form of the correct code in ticket description.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1368.json">JSON Source</a></p>

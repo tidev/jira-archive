@@ -1,0 +1,130 @@
+---
+title: "[TIMOB-26503] Windows: Touch event coordinate units do not match between platforms"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-03T09:53:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>breaking-change, parity</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2018-10-31T02:25:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-03T12:10:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The (x,y) units provided by View event's "touchstart", "touchmove", "touchend", and "touchcancel" do not match between Android and iOS. Both platforms ignore the "ti.ui.defaultunit" property setting in "tiapp.xml".
+
+On Android, the touch coordinates are always in "px" (ie: pixels).
+On iOS, the touch coordinates are always in "dip" (aka: "dp").
+
+*Steps to Reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>Drag your finger in the gray view.</h4>
+<h4>Notice that the blue square does *not* correctly following your finger.</h4>
+<h4>Build and run on iOS.</h4>
+<h4>Drag your finger in the gray view.</h4>
+<h4>Notice that the blue square *correctly* follows your finger.</h4>
+<h4>Change "tiapp.xml" property "ti.ui.defaultunit" to "px".</h4>
+<h4>Build and run on iOS.</h4>
+<h4>Drag your finger in the gray view.</h4>
+<h4>Notice that the blue square does *not* correctly following your finger.</h4>
+<h4>Build and run on Android.</h4>
+<h4>Drag your finger in the gray view.</h4>
+<h4>Notice that the blue square *correctly* follows your finger.</h4>
+
+<code><pre>
+function onTouch(event) {
+	touchView.center = { x: event.x, y: event.y };
+}
+
+var window = Ti.UI.createWindow(
+{
+	layout: "vertical",
+	fullscreen: true,
+});
+window.add(Ti.UI.createLabel(
+{
+	text: "Touch Drag Test",
+	top: "20dp",
+}));
+var containerView = Ti.UI.createView(
+{
+	touchEnabled: true,
+	backgroundColor: "gray",
+	top: "10dp",
+	bottom: "20dp",
+	width: "90%",
+});
+var touchView = Ti.UI.createView(
+{
+	touchEnabled: false,
+	backgroundColor: "#008800",
+	width: "100dp",
+	height: "100dp",
+});
+containerView.add(touchView);
+containerView.addEventListener("touchstart", onTouch);
+containerView.addEventListener("touchmove", onTouch);
+containerView.addEventListener("touchend", onTouch);
+containerView.addEventListener("touchcancel", onTouch);
+window.add(containerView);
+window.open();
+</pre></code>
+
+*Work-Around:*
+The following will work-around this issue on both Android and iOS...
+
+<code><pre>
+// Fetch the default unit property set in "tiapp.xml".
+var defaultUnit = Ti.App.Properties.getString("ti.ui.defaultunit", "dip");
+if (defaultUnit === "dp") {
+	defaultUnit = "dip";
+} else if (defaultUnit === "system") {
+	defaultUnit = (Ti.Platform.name === "android") ? "px" : "dip";
+}
+
+// Do the below when a touch event has been received.
+function onTouch(event) {
+	if (Ti.Platform.name === "android") {
+		event.x = Ti.UI.convertUnits(event.x + "px", defaultUnit);
+		event.y = Ti.UI.convertUnits(event.y + "px", defaultUnit);
+	} else if ((Ti.Platform.name === "iOS") || (Ti.Platform.name === "iPhone OS")) {
+		event.x = Ti.UI.convertUnits(event.x + "dip", defaultUnit);
+		event.y = Ti.UI.convertUnits(event.y + "dip", defaultUnit);
+	}
+	touchView.center = { x: event.x, y: event.y };
+}
+</pre></code>
+
+*Ideal Solution:*
+Convert native touch coordinates to use "ti.ui.defaultunit" on both Android and iOS. This way views can easily be dragged since their "x", "y", and "center" properties already respect the "ti.ui.defaultunit" property.
+Note that this would be a breaking change.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2018-11-01
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/1301" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/1301</a></li>
+<li>Samir Mohammed 2018-11-27
+
+   FR Passed, awaiting CR.</li>
+<li>Samir Mohammed 2018-12-03
+
+   Closing ticket. Verified feature in SDK version 8.0.0.v20181130132038.
+   
+   Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/1301" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/1301</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26503.json">JSON Source</a></p>

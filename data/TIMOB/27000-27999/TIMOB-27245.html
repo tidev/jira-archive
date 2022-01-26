@@ -1,0 +1,60 @@
+---
+title: "[TIMOB-27245] Android: App crashes on Huawei devices"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-07-15T19:40:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-07-17T01:53:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We are currently noticing some crashes on Huawei devices (see device logs) related to play-services.
+
+We are using a fork of [Ti.GoogleSignIn](<a href="https://github.com/hansemannn/Ti.GoogleSignIn-Android/tree/parity)" rel="nofollow" target="_blank">https://github.com/hansemannn/Ti.GoogleSignIn-Android/tree/parity)</a> that seems to trigger the crash, but I think the root issue is the activity handling of Titanium. A rough confirmation would be great!
+
+*EDIT*: We might just need to add some config from [here](<a href="https://stackoverflow.com/a/34007675/5537752)" rel="nofollow" target="_blank">https://stackoverflow.com/a/34007675/5537752)</a> to make it work. Sorry for being a bit fast on this one, it can probably be closed.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27245_66770/Bildschirmfoto 2019-07-15 um 21.36.35.png">Bildschirmfoto 2019-07-15 um 21.36.35.png</td></td><td>2019-07-15T19:38:55.000+0000</td><td>277885</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-07-17
+
+   You're getting an <code>IllegalStateException</code> from Google's <code>android.google.android.gms.auth.api.signin.internal.SignInHubActivity.onCreate</code> activity method. The issue is on Google's end.
+   
+   I can see similar stack traces on stackoverflow here...
+   <a href="https://stackoverflow.com/questions/41671068/google-sign-in-is-failing-only-on-some-xiaomi-devices" rel="nofollow" target="_blank">https://stackoverflow.com/questions/41671068/google-sign-in-is-failing-only-on-some-xiaomi-devices</a>
+   <a href="https://stackoverflow.com/questions/41034764/googlesign-in-error-only-on-xiomi-devices" rel="nofollow" target="_blank">https://stackoverflow.com/questions/41034764/googlesign-in-error-only-on-xiomi-devices</a>
+   
+   It's hard to say what the problem is since it's happening on Google's end. Possible issue is that the installed Google Play Service on the device is older than the one you are using. That can cause no-ops or exception in the Google Play Services APIs.
+   
+   Our "ti.playservices" module has a <code>makeGooglePlayServicesAvailable()</code> function that you can use which will check if the installed Google Play Services is up-to-date and enabled. If it's not, then it'll display a dialog (made by Google) asking the end-user to do an update. You'll want to do this on app startup and do not proceed to your app's main window until Google Play Services has been updated if your app requires this feature.
+   <a href="https://github.com/appcelerator-modules/ti.playservices" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.playservices</a>
+   
+   I noticed that your app is using our "x.bootstrap.js" feature, which was designed to do exactly this. You'll want to export an <code>execute(finish)</code> function like you see in our test code below. Titanium's bootstrap feature won't load your app.js until the bootstrap invokes the given <code>finish</code> callback. (I actually designed our bootstrap feature for this exact scenario.)
+   <a href="https://github.com/appcelerator/titanium-mobile-mocha-suite/blob/master/Resources/bootstraps/ui.bootstrap.js" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium-mobile-mocha-suite/blob/master/Resources/bootstraps/ui.bootstrap.js</a>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27245.json">JSON Source</a></p>

@@ -1,0 +1,141 @@
+---
+title: "[TIMOB-26992] Android: HTTPClient may use SSLv3 by default on Android 4.x when it shouldn't"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2019-05-14T22:22:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>HTTPClient, android, engTriage, network, security, ssl</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-04-24T00:46:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-14T22:22:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Titanium's <code>HTTPClient</code> is internally coded to always disable the SSLv3 protocol and only support TLS 1.0 and higher protocols for "https://" communications. This is because SSLv3 is no longer considered secure as of 2014.
+<a href="https://blog.mozilla.org/security/2014/10/14/the-poodle-attack-and-the-end-of-ssl-3-0/" rel="nofollow" target="_blank">https://blog.mozilla.org/security/2014/10/14/the-poodle-attack-and-the-end-of-ssl-3-0/</a>
+
+Unfortunately, there is a bug on Google's end where Android 4.4 and older OS versions will ignore our TLS settings in Java and default to the SSLv3 protocol instead. This can cause communication errors since modern web servers typically respond to SSLv3 requests with an error since this protocol is not considered secure.
+
+The Android bug report can be found here...
+<a href="https://issuetracker.google.com/issues/37008635" rel="nofollow" target="_blank">https://issuetracker.google.com/issues/37008635</a>
+
+*Steps to reproduce:*
+<h4>Acquire an Android 4.4 device.</h4>
+<h4>Make sure the device has Internet access.</h4>
+<h4>Build and run with the below code.</h4>
+<h4>Tap on the "HTTP Get" button.</h4>
+<h4>Notice an "SSLProtocolException" error is displayed on screen.</h4>
+<h4>Run the app on Android 5.0 or newer device.</h4>
+<h4>After tapping on "HTTP Get", notice that a valid HTTP response is displayed onscreen.</h4>
+
+<code><pre>
+var window = Ti.UI.createWindow();
+var scrollView = Ti.UI.createScrollView({
+	width: Ti.UI.FILL,
+	height: Ti.UI.FILL,
+});
+var label = Ti.UI.createLabel({
+	width: Ti.UI.FILL,
+	height: Ti.UI.SIZE,
+});
+scrollView.add(label);
+window.add(scrollView);
+var button = Ti.UI.createButton({
+	title: "HTTP Get",
+	bottom: "10dp",
+	right: "10dp",
+});
+button.addEventListener("click", function(e) {
+	var httpClient = Ti.Network.createHTTPClient({
+		onload: function(e) {
+			label.text = httpClient.responseText;
+			button.enabled = true;
+		},
+		onerror: function(e) {
+			var message = e.error;
+			if (!message) {
+				message = "Unknown error occurred.";
+			}
+			label.text = message;
+			button.enabled = true;
+		},
+	});
+	label.text = "Fetching...";
+	button.enabled = false;
+	httpClient.open("GET", "<a href="https://www.nasa.gov" rel="nofollow" target="_blank">https://www.nasa.gov</a>");
+	httpClient.send();
+});
+window.add(button);
+window.open();
+</pre></code>
+
+*Result:*
+The following SSLv3 error gets logged when running on Android 5.1 and older OS versions.
+<code><pre>
+[ERROR] :  TiHTTPClient: (TiHttpClient-1) [8913,9013] HTTP Error (javax.net.ssl.SSLHandshakeException): javax.net.ssl.SSLProtocolException: SSL handshake aborted: ssl=0x76d92718: Failure in SSL library, usually a protocol error
+[ERROR] :  TiHTTPClient: error:14077410:SSL routines:SSL23_GET_SERVER_HELLO:sslv3 alert handshake failure (external/openssl/ssl/s23_clnt.c:741 0x733bdd74:0x00000000)
+[ERROR] :  TiHTTPClient: javax.net.ssl.SSLHandshakeException: javax.net.ssl.SSLProtocolException: SSL handshake aborted: ssl=0x76d92718: Failure in SSL library, usually a protocol error
+[ERROR] :  TiHTTPClient: error:14077410:SSL routines:SSL23_GET_SERVER_HELLO:sslv3 alert handshake failure (external/openssl/ssl/s23_clnt.c:741 0x733bdd74:0x00000000)
+[ERROR] :  TiHTTPClient: 	at com.android.org.conscrypt.OpenSSLSocketImpl.startHandshake(OpenSSLSocketImpl.java:448)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.Connection.upgradeToTls(Connection.java:146)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.Connection.connect(Connection.java:107)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpEngine.connect(HttpEngine.java:294)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpEngine.sendSocketRequest(HttpEngine.java:255)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:206)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:345)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:296)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.getResponseCode(HttpURLConnectionImpl.java:503)
+[ERROR] :  TiHTTPClient: 	at com.android.okhttp.internal.http.HttpsURLConnectionImpl.getResponseCode(HttpsURLConnectionImpl.java:136)
+[ERROR] :  TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1319)
+[ERROR] :  TiHTTPClient: 	at java.lang.Thread.run(Thread.java:841)
+[ERROR] :  TiHTTPClient: Caused by: javax.net.ssl.SSLProtocolException: SSL handshake aborted: ssl=0x76d92718: Failure in SSL library, usually a protocol error
+[ERROR] :  TiHTTPClient: error:14077410:SSL routines:SSL23_GET_SERVER_HELLO:sslv3 alert handshake failure (external/openssl/ssl/s23_clnt.c:741 0x733bdd74:0x00000000)
+[ERROR] :  TiHTTPClient: 	at com.android.org.conscrypt.NativeCrypto.SSL_do_handshake(Native Method)
+[ERROR] :  TiHTTPClient: 	at com.android.org.conscrypt.OpenSSLSocketImpl.startHandshake(OpenSSLSocketImpl.java:405)
+</pre></code>
+
+*Work-around:*
+Simplest solution is to change the app's min supported Android version to 5.0 (aka: API Level 21). This can be done by adding the following to the "tiapp.xml" file.
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<manifest>
+			<uses-sdk android:minSdkVersion="21"/>
+		</manifest>
+	</android>
+</ti:app>
+</pre></code>
+
+Alternatively, this can be worked-around server side by allowing the SSLv3 protocol, but this is not advised since this protocol is not considered secure.
+
+Unfortunately, setting the <code>HTTPClient</code> "tlsVersion" property will not work since Android 4.4 and older OS versions may ignore this setting and use SSLv3 instead, which is the bug on Google's end that this ticket is about.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2019-05-01
+
+   It looks like this is too much work to resolve our selves. This is both a Google issue and a host issue.
+   
+   <code><a href="https://nasa.gov/" rel="nofollow" target="_blank">https://nasa.gov/</a></code> only supports <code>SSLv3, TLSv1</code>, both of which are outdated protocols. They should be using <code>TLSv1.2 or TLSv1.3</code>.
+   
+   Basically, anyone running into this issue is probably connecting to a host supporting outdated protocols.</li>
+<li>Joshua Quick 2019-05-14
+
+   Yeah, I agree. The only solution appears to be to wrap an SSL socket which would be a lot of work and not very maintainable. Simplest solution would be for everyone to just change the <code>minSdkVersion</code> version to API Level 21 (aka: Android 5.0) as shown above.
+   
+   I think we should just close it as "Won't Fix".</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26992.json">JSON Source</a></p>

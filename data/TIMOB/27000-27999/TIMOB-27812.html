@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-27812] iOS: Improve display of uncaught errors"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-10-02T14:37:36.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 9.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.2.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jan Vennemann</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2020-03-20T13:34:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-11-02T14:13:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The error display on iOS is currently a little confusing and prints unrelated follow up errors that shouldn't be displayed at all.
+
+A very simple error like this
+
+<code><pre>
+throw new Error('My simple error');
+</pre></code>
+
+results in the following error printed to the logs:
+
+<code><pre>
+[ERROR] Script Error {
+[ERROR]     column = 16;
+[ERROR]     line = 512;
+[ERROR]     message = "My simple error";
+[ERROR]     sourceURL = "file:///Users/jvennemann/Library/Developer/CoreSimulator/Devices/277C69FF-FFFF-43E3-BC8F-17B4D7B91E52/data/Containers/Bundle/Application/D76755F9-D059-418E-B8E5-BB666A380AE7/global-test-classic.app/app.js";
+[ERROR]     stack = "    at (/app.js:512:16)\n    at global code(/app.js:515:70)\n    at require@[native code]\n    at (/ti.main.js:13057:10)\n    at loadAsync(/ti.main.js:12985:13)\n    at global code(/ti.main.js:13054:10)";
+[ERROR]     toJSON = "<KrollCallback: 0x600000f5a980>";
+[ERROR] } 
+[ERROR] Script Error {
+[ERROR]     column = 10;
+[ERROR]     line = 13057;
+[ERROR]     message = "Module \"app.js\" failed to leave a valid exports object";
+[ERROR]     sourceURL = "file:///Users/jvennemann/Library/Developer/CoreSimulator/Devices/277C69FF-FFFF-43E3-BC8F-17B4D7B91E52/data/Containers/Bundle/Application/D76755F9-D059-418E-B8E5-BB666A380AE7/global-test-classic.app/ti.main.js";
+[ERROR]     stack = "    at require@[native code]\n    at (/ti.main.js:13057:10)\n    at loadAsync(/ti.main.js:12985:13)\n    at global code(/ti.main.js:13054:10)";
+[ERROR]     toJSON = "<KrollCallback: 0x600000f52580>";
+[ERROR] }
+</pre></code>
+
+It is not formatted at all and makes it hard to read the actual stack trace. Additionally, there is not one, but two errors shown, which is not correct.
+
+The follow up error "Module \"app.js\" failed to leave a valid exports object" should be ignored and not shown at all. This is especially problematic in the error modal that will be shown on the device, where the latter error will be shown first. A user has to explicitly close this modal to get to the original error.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-03-20
+
+   iOS should only display an alert dialog for the 1st exception like Android.
+   All the exceptions that follow the 1st one are what's confusing people.
+   
+   I thought I wrote up an improvement ticket for this, but I can't find it.</li>
+<li>Jan Vennemann 2020-03-20
+
+   [~jquick], yes, Android is doing this the right way. I plan to modify the iOS error handling to align with that. I searched for a similar ticket but also couldn't find anything.</li>
+<li>Hans Knöchel 2020-09-25
+
+   +1 for this in 9.2.1. A formatted stack trace would already help so much.</li>
+<li>Jan Vennemann 2020-09-28
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/12139" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12139</a></li>
+<li>Satyam Sekhri 2020-09-30
+
+   FR Passed
+   Waiting for Jenkins build</li>
+<li>Christopher Williams 2020-10-01
+
+   merged to master, backport PR merged to 9_2_X for 9.2.1 target.</li>
+<li>Samir Mohammed 2020-10-02
+
+   *Closing ticket*. Fix verified in SDK version <code>9.2.1.v20201001120538</code>, and <code>9.3.0.v20201001144501</code>.
+   
+   *Test and other information can be found at:*
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/12139" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12139</a></li>
+<li>Simon Buckingham 2020-10-29
+
+   I'm not sure if this is relevant to this ticket, but I think you may have broken something else with this fix. This is only a guess.
+   
+   The logging is different between SDK 9.2.0 and 9.2.1. I just had a crash in my app in the iOS simulator. Logging with SDK 9.2.1 I just get the native log (something like...
+   [ERROR] -[__NSCFString count]: unrecognized selector sent to instance 0x7f8e2e03a800
+   [ERROR] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[__NSCFString count]: unrecognized selector sent to instance 0x7f8e2e03a800'
+   [ERROR] *** First throw call stack:
+   [ERROR] ( 
+   [ERROR]         0   CoreFoundation                      0x00007fff2043a126 __exceptionPreprocess + 242
+   [ERROR]         1   libobjc.A.dylib                     0x00007fff20177f78 objc_exception_throw + 48......
+   
+   but no Ti log so don't know where in my code the issue is. But logging with SDK 9.2.0 I get the Ti log as well:
+   
+   [ERROR] Script Error {
+   [ERROR]     column = 27;
+   [ERROR]     line = 175;
+   [ERROR]     message = "Invalid type passed to function";
+   [ERROR]     nativeReason = "expected: TiViewProxy, was: NSNull";
+   .......
+   So to be clear I'm not asking what the bug is, but why should the logging have changed between SDK 9.2.0 and 9.2.1?</li>
+<li>Jan Vennemann 2020-11-02
+
+   [~icecandyent], thanks for reporting, this maybe related to TIMOB-28160. Do you see a second error which includes the actual information about the native exception? If not could you please add a minimal reproducible test case to that ticket so we can double check that?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27812.json">JSON Source</a></p>

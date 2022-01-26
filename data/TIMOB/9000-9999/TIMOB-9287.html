@@ -1,0 +1,114 @@
+---
+title: "[TIMOB-9287] Ti API: Non-container views should not support add"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>TiAPI</td></tr>
+<tr><th>Labels</th><td>core, parity</td></tr>
+<tr><th>Reporter</th><td>Arthur Evans</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2012-05-25T18:09:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Titanium has a number of views which are not intended to be containers. However, all views inherit from Ti.UI.View, so they all implement <code>add</code>, whether or not it does anything useful. Support varies widely by platform.
+
+I've attempted to document the current state of the API in [Pull Request 2274](<a href="https://github.com/appcelerator/titanium_mobile/pull/2274)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2274).</a> However, the platforms should take this the next step and remove add support from these views.
+
+From my research and testing, the non-container views are:
+
+*   Titanium.UI.ActivityIndicator	
+*   Titanium.UI.Button
+*   Titanium.UI.ImageView	
+*   Titanium.UI.Label
+*   Titanium.UI.ProgressBar	
+*   Titanium.UI.SearchBar
+*   Titanium.UI.Slider
+*   Titanium.UI.Switch
+*   Titanium.UI.TableView
+*   Titanium.UI.TextArea
+*   Titanium.UI.TextField
+*   Titanium.UI.WebView
+
+Please comment if I'm missing any.
+
+See also:
+
+<a href="https://wiki.appcelerator.org/display/spe/UI+Layout+API+Spec" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/spe/UI+Layout+API+Spec</a>
+
+Proposal for separation of view/viewgroup.
+
+<a href="https://wiki.appcelerator.org/display/spe/UI+Layout+Limitations" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/spe/UI+Layout+Limitations</a>
+
+Lists non-container views. (Same list as here, minus ActivityIndicator.)
+
+There may be some iOS-specific views that should also be added to this list 
+(ButtonBar, TabbedBar, and Toolbar, for instance).
+
+I propose we address this in the next breaking release.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ivan Skugor 2012-05-28
+
+   Here is first wiki link that is public (so everyone interested can see it): <a href="http://docs.appcelerator.com/titanium/2.0/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.0/index.html#</a>!/guide/UI_Composite_Layout_Behavior_Spec
+   Seconds is private. :(
+   
+   
+   Anyway, if I may say ... I think that the problem is a bit broader than it is presented here and when dealing with some problem it is the best to solve all possible variations.
+   
+   So ... "add" method is one problem. It should be present on views that actually can contain other views. But here is the catch, not all views that have "add" method can contain any other view, but only particular views. So, picker can only contain picker columns/rows, table view can contain only sections/rows, etc. On the other hand, there are top level containers like tabgroup, tab and window that can't be added to "lower" views (for example, tabgroup cannot be added to the scroll view).
+   
+   
+   Because of that, in my library I implemented the following inheritance scheme: 
+   
+   There is one base Element which is inherited by two types of components: Control and Container. Container has methods like "add". There is one type of component that inherits Container and that is Context (Context beside "add" method has "open" method).
+   
+   Now, concrete implementation of UI components can be much more strict, robust and semantically correct. Control can't contain other components because they don't have "add" method. Container can contain other components, but not of the Context type (they can throw an exception if something is being added that is not instance of Element or is instance of Context). Particular Container type implementation that support adding of particular components can throw an exception when non supported component is being added (for example, table view can check if added component is instance of table view section or table view row). Context type implementation like tabgroup and tab can also have similar restriction, so tabgroup can only contain tab and tab can only contain window.
+   
+   
+   
+   Note that in some cases there may be a sense in adding something to Label. For example, if you want to have image surrounded by text (like iOS now implements "add" method on Label). 
+   I would solve that by adding new container by name TextView, or something like that (although, concrete implementation could be Label in the background)  ... just to keep things clean.
+   Also, ImageView has wrong name, because "View" part can be associated with container type, which is wrong. Just Image is better.
+   
+   
+   
+   Hope I helped a bit and that this will make Titanium's inheritance scheme better. :)
+   
+   
+   
+   
+   Cheers, Ivan.</li>
+<li>Ivan Skugor 2012-05-28
+
+   Forgot to mention that this inheritance scheme that I implemented is implemented in JS, which does not support multiple inheritance. Java and (probably) Objective-C do support so even better inheritance scheme could be implemented.</li>
+<li>Bryan Hughes 2012-05-28
+
+   FYI you can do multiple inheritance in JS, if you implement it yourself. Mobile Web's internal methods {Ti._.declare.declare()} and {Ti._.lang.setObject()} both implement multiple inheritance, although I don't think we use it anywhere currently.
+   
+   It's also worth mentioning that whatever scheme is devised, it must be viable on mobile web, so any JavaScript/HTML limitations related to this topic must be considered.</li>
+<li>Ivan Skugor 2012-05-29
+
+   Oh, I forgot about Mobile Web completely. :(
+   
+   
+   
+   Yeah, multiple inheritance in JS can be emulated (like many other things), I wanted to say that it is not supported natively. 
+   
+   
+   
+   I like to stick to native functionality because of better performances and native syntax (I love "instanceof" operator :) ). But, that are just my preferences ...</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9287.json">JSON Source</a></p>

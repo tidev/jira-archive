@@ -1,0 +1,172 @@
+---
+title: "[TIMOB-24629] Android: Add wakeLock to NotificationManager"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-28T18:34:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, notification</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-04-25T18:46:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-09-07T01:29:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Add the possibility to add a wakeLock to <code>Titanium.Android.Notification</code> to switch on the screen when a Notification is fired
+
+
+*Example:*
+<code><pre>
+var win = Ti.UI.createWindow({});
+var btn = Ti.UI.createButton({
+	title: "click"
+});
+win.add(btn);
+
+btn.addEventListener("click", function() {
+	_.delay(function() {
+		var intent = Ti.Android.createIntent({
+			action: Ti.Android.ACTION_MAIN,
+			className: 'com.appcelerator.notificationsample.NotificationsampleActivity',
+			packageName: 'com.appcelerator.notificationsample'
+		});
+		intent.flags |= Ti.Android.FLAG_ACTIVITY_CLEAR_TOP | Ti.Android.FLAG_ACTIVITY_NEW_TASK;
+		intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+
+		var pending = Titanium.Android.createPendingIntent({
+			intent: intent,
+			flags: Titanium.Android.FLAG_UPDATE_CURRENT
+		});
+
+		var notification = Titanium.Android.createNotification({
+			contentTitle: 'Something Happened',
+			contentText: 'Click to return to the application.',
+			contentIntent: pending,
+			wakeLock: 100
+		});
+		Titanium.Android.NotificationManager.notify(1, notification);
+	}, 4000);
+});
+
+win.open();
+</pre></code>
+
+Add permission to tiapp.xml
+
+{noformat}
+<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<manifest>
+			<uses-permission android:name="android.permission.WAKE_LOCK" />
+		</manifest>
+</android>
+{noformat}
+
+
+* start the app
+* click the button and lock the device
+* notification will appear and screen turns on
+
+It will stay on the <code>wakeLock</code> time (+normal screen on time)
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2017-04-25
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8990" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8990</a></li>
+<li>Rainer Schleevoigt 2017-04-25
+
+   <a href="https://developer.android.com/reference/android/os/PowerManager.html#newWakeLock(int" rel="nofollow" target="_blank">https://developer.android.com/reference/android/os/PowerManager.html#newWakeLock(int</a>,%20java.lang.String)
+   
+   There is more then one paramter (time). I think wee need more then one options => KrollDict</li>
+<li>Michael Gangolf 2017-04-26
+
+   I'll have a look at the parameters. In most cases the default parameter is enough because you would just need to turn the screen on (which is better than the current solution not to do it :-) ).
+   But it might be useful to have the levelAndFlags exposed.</li>
+<li>Hans Knöchel 2017-04-26
+
+   This more a <code>Feature</code> than a <code>Bug</code> right? :-) Scheduling for 6.2.0.</li>
+<li>Michael Gangolf 2017-04-26
+
+   Yes, it's a new feature.
+   
+   I've changed the parameter and the example is :
+   <code><pre>
+   var win = Ti.UI.createWindow({});
+   var btn = Ti.UI.createButton({
+   	title: "click"
+   });
+   win.add(btn);
+   
+   btn.addEventListener("click", function() {
+   	_.delay(function() {
+   		var intent = Ti.Android.createIntent({
+   			action: Ti.Android.ACTION_MAIN,
+   			className: 'com.appcelerator.notificationsample.NotificationsampleActivity',
+   			packageName: 'com.appcelerator.notificationsample'
+   		});
+   		intent.flags |= Ti.Android.FLAG_ACTIVITY_CLEAR_TOP | Ti.Android.FLAG_ACTIVITY_NEW_TASK;
+   		intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+   
+   		var pending = Titanium.Android.createPendingIntent({
+   			intent: intent,
+   			flags: Titanium.Android.FLAG_UPDATE_CURRENT
+   		});
+   
+   		var notification = Titanium.Android.createNotification({
+   			contentTitle: 'Something Happened',
+   			contentText: 'Click to return to the application.',
+   			contentIntent: pending, 
+   			wakeLock: {
+   				time: 2000,
+   				flags: Ti.Android.PARTIAL_WAKE_LOCK | Ti.Android.ON_AFTER_RELEASE
+   			}
+   		});
+   		Titanium.Android.NotificationManager.notify(1, notification);
+   	}, 4000);
+   });
+   
+   win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2017-08-11
+
+   6_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9307" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9307</a></li>
+<li>Lokesh Choudhary 2017-08-22
+
+   Failing review. Please see master PR for info.</li>
+<li>Lokesh Choudhary 2017-08-24
+
+   FR Passed for master PR.
+   Master PR merged.</li>
+<li>Lokesh Choudhary 2017-08-28
+
+   FR Passed for 6.2.0 PR & merged.</li>
+<li>Lokesh Choudhary 2017-08-29
+
+    Verified the fix in SDK 6.2.0.v20170828180251 & 7.0.0.v20170828180637.
+    
+    Closing.
+    
+    Studio Ver: 4.9.1.201707200100
+    OS Ver: 10.12.3
+    Xcode Ver: Xcode 8.3.3
+    Appc NPM: 4.2.9
+    Appc CLI: 6.2.3
+    Ti CLI Ver: 5.0.14
+    Alloy Ver: 1.9.13
+    Node Ver: 6.10.1
+    Java Ver: 1.8.0_101
+    Devices: ⇨ google Pixel --- Android 7.1.1
+    ⇨ google Nexus 5 --- Android 6.0.1
+    ⇨ Motorola G2 --- Android 4.4.4</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24629.json">JSON Source</a></p>

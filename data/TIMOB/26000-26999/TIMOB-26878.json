@@ -1,0 +1,568 @@
+{
+	"id": "173063",
+	"key": "TIMOB-26878",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20412",
+				"name": "Release 8.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-08-13"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-05-16T22:54:02.000+0000",
+		"created": "2019-02-26T15:03:32.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"android",
+			"database",
+			"engSchedule",
+			"install"
+		],
+		"versions": [
+			{
+				"id": "20238",
+				"description": "",
+				"name": "Release 7.5.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2018-11-15"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "57174",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "173087",
+					"key": "TIMOB-26877",
+					"fields": {
+						"summary": "Android: Ti.Database.install() should throw exception like iOS if source db file not found",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Low",
+							"id": "4"
+						},
+						"issuetype": {
+							"id": "4",
+							"description": "An improvement or enhancement to an existing feature or task.",
+							"name": "Improvement",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-05-16T22:54:02.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "*Summary:*\r\nAs of Titanium 7.5.0, the {{Ti.Database.install()}} function will throw a {{FileNotFoundException}} on an Android 6.0 device if analytics is disabled and the database was never installed on that device before. This issue only happens if the destination directory does not exist, which seems to happen on Android 6.0 but not newer OS versions.\r\n\r\nNote that you need to disable \"analytics\" in the \"tiapp.xml\" since it will create the \"databases\" directory before the \"app.js\" has a chance to load, which skirts the issue.\r\n\r\n*Steps to reproduce:*\r\n# Create a Classic Titanium app.\r\n# Set the \"tiapp.xml\" property \"analytics\" to false as shown below.\r\n# Copy the below code to the project's \"app.js\" file.\r\n# Copy the [^Database1.sqlite] file to the project's \"Resources\" directory.\r\n# Build and run on Android 6.0.\r\n# Notice the app crashes on startup.\r\n\r\ntiapp.xml\r\n{code:xml}\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ti:app xmlns:ti=\"http://ti.appcelerator.org\">\r\n\t<analytics>false</analytics>\r\n</ti:app>\r\n{code}\r\n\r\napp.js\r\n{code:javascript}\r\nvar dbConnection = Ti.Database.install(\"Database1.sqlite\", \"Database1\");\r\nvar resultSet = dbConnection.execute(\"SELECT key, value FROM properties\");\r\nTi.API.info(\"@@@ Database Table 'properties' row count: \" + (resultSet ? resultSet.rowCount : \"<null>\"));\r\nif (resultSet) {\r\n\tfor (; resultSet.isValidRow(); resultSet.next()) {\r\n\t\tTi.API.info(\"- Key: '\" + resultSet.field(0) + \"', Value: '\" + resultSet.field(1) + \"'\");\r\n\t}\r\n}\r\ndbConnection.execute(\"INSERT OR REPLACE INTO properties(key, value) VALUES (?, ?)\", \"LastLaunchTime\", new Date());\r\ndbConnection.close();\r\n{code}\r\n\r\n\r\n*Recommended Solution:*\r\nAdd a {{mkdirs()}} call to create the destination directory tree (if missing) to our {{DatabaseModule.java}} class' install() method below.\r\n[DatabaseModule.java#L85|https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/database/src/java/ti/modules/titanium/database/DatabaseModule.java#L85]\r\n\r\n\\\\\r\n----\r\n{code:java}\r\nvar db = Ti.Database.install('/src/countries.sqlite', 'countries');\r\n{code}\r\n\r\n{code:java}\r\n[ERROR] :  TiDatabase: (main) [1023,1023] Error installing database: countries msg=/data/user/0/com.test.a/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: java.io.FileNotFoundException: /data/user/0/com.test.a/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: \tat libcore.io.IoBridge.open(IoBridge.java:497)\r\n[ERROR] :  TiDatabase: \tat java.io.FileOutputStream.<init>(FileOutputStream.java:87)\r\n[ERROR] :  TiDatabase: \tat java.io.FileOutputStream.<init>(FileOutputStream.java:72)\r\n[ERROR] :  TiDatabase: \tat ti.modules.titanium.database.DatabaseModule.install(DatabaseModule.java:124)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:162)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:207)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.loadScript(TiLaunchActivity.java:97)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiRootActivity.loadScript(TiRootActivity.java:414)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunchActivity.java:174)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActivity.java:283)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.java:767)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActivity.java:167)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.java:260)\r\n[ERROR] :  TiDatabase: \tat android.app.Activity.performCreate(Activity.java:6309)\r\n[ERROR] :  TiDatabase: \tat android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1113)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2519)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2654)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.access$900(ActivityThread.java:175)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread$H.handleMessage(ActivityThread.java:1488)\r\n[ERROR] :  TiDatabase: \tat android.os.Handler.dispatchMessage(Handler.java:111)\r\n[ERROR] :  TiDatabase: \tat android.os.Looper.loop(Looper.java:207)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.main(ActivityThread.java:5728)\r\n[ERROR] :  TiDatabase: \tat java.lang.reflect.Method.invoke(Native Method)\r\n[ERROR] :  TiDatabase: \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:789)\r\n[ERROR] :  TiDatabase: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:679)\r\n[ERROR] :  TiDatabase: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: \tat libcore.io.Posix.open(Native Method)\r\n[ERROR] :  TiDatabase: \tat libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)\r\n[ERROR] :  TiDatabase: \tat libcore.io.IoBridge.open(IoBridge.java:483)\r\n[ERROR] :  TiDatabase: \t... 25 more\r\n[ERROR] :  TiExceptionHandler: (main) [15,1038] ti:/invoker.js:105\r\n[ERROR] :  TiExceptionHandler: \t\treturn delegate.apply(invoker.__thisObj__, args);\r\n[ERROR] :  TiExceptionHandler:                   ^\r\n[ERROR] :  TiExceptionHandler: Error: /data/user/0/com.test.a/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiExceptionHandler:     at SandboxAPI.invoker [as install] (ti:/invoker.js:105:19)\r\n[ERROR] :  TiExceptionHandler:     at /src/lib/phone_code.js:5:20\r\n[ERROR] :  TiExceptionHandler:     at Module._runScript (ti:/module.js:612:9)\r\n[ERROR] :  TiExceptionHandler:     at Module.load (ti:/module.js:108:7)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadJavascriptText (ti:/module.js:457:9)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadAsFile (ti:/module.js:512:15)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadAsFileOrDirectory (ti:/module.js:429:20)\r\n[ERROR] :  TiExceptionHandler:     at Module.require (ti:/module.js:262:17)\r\n[ERROR] :  TiExceptionHandler:     at Module.global.Module.require (/ti.internal/extensions/binding.js:33:76)\r\n[ERROR] :  TiExceptionHandler:     at require (ti:/module.js:570:15)\r\n[ERROR] :  TiExceptionHandler:\r\n[ERROR] :  TiExceptionHandler:     libcore.io.IoBridge.open(IoBridge.java:497)\r\n[ERROR] :  TiExceptionHandler:     java.io.FileOutputStream.<init>(FileOutputStream.java:87)\r\n[ERROR] :  TiExceptionHandler:     java.io.FileOutputStream.<init>(FileOutputStream.java:72)\r\n[ERROR] :  TiExceptionHandler:     ti.modules.titanium.database.DatabaseModule.install(DatabaseModule.java:124)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:162)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:207)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.loadScript(TiLaunchActivity.java:97)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.loadScript(TiRootActivity.java:414)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunchActivity.java:174)\r\n[INFO] :   I/[MALI][Gralloc]: [+]r_hnd(0xb46ff060), client(26), share_fd(25)\r\n[ERROR] :  V8Exception: Exception occurred at ti:/invoker.js:105: Uncaught Error: /data/user/0/com.test.a/databases/countries: open failed: ENOENT (No such file or directory)\r\n{code}",
+		"attachment": [
+			{
+				"id": "66199",
+				"filename": "app.js",
+				"author": {
+					"name": "andreas.pingas",
+					"key": "andreas.pingas",
+					"displayName": "Andreas Pingas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-02-27T21:29:44.000+0000",
+				"size": 66,
+				"mimeType": "text/javascript"
+			},
+			{
+				"id": "66200",
+				"filename": "countries.sqlite",
+				"author": {
+					"name": "andreas.pingas",
+					"key": "andreas.pingas",
+					"displayName": "Andreas Pingas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-02-27T21:29:54.000+0000",
+				"size": 17408,
+				"mimeType": "application/octet-stream"
+			},
+			{
+				"id": "66237",
+				"filename": "Database1.sqlite",
+				"author": {
+					"name": "jquick",
+					"key": "jquick",
+					"displayName": "Joshua Quick",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-03-12T02:06:36.000+0000",
+				"size": 12288,
+				"mimeType": "application/octet-stream"
+			},
+			{
+				"id": "66238",
+				"filename": "DatabaseInstallTest.js",
+				"author": {
+					"name": "jquick",
+					"key": "jquick",
+					"displayName": "Joshua Quick",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-03-12T02:08:16.000+0000",
+				"size": 557,
+				"mimeType": "application/x-javascript"
+			},
+			{
+				"id": "66219",
+				"filename": "Screenshot 2019-03-05 at 10.47.59.png",
+				"author": {
+					"name": "andreas.pingas",
+					"key": "andreas.pingas",
+					"displayName": "Andreas Pingas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-03-05T09:32:19.000+0000",
+				"size": 340122,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: Ti.Database.install() fails if destination directory does not exist",
+		"creator": {
+			"name": "andreas.pingas",
+			"key": "andreas.pingas",
+			"displayName": "Andreas Pingas",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "andreas.pingas",
+			"key": "andreas.pingas",
+			"displayName": "Andreas Pingas",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1123,
+				"state": "closed",
+				"name": "2019 Sprint 7",
+				"startDate": "2019-03-18T17:27:25.993Z",
+				"endDate": "2019-03-30T17:27:00.000Z",
+				"completeDate": "2019-03-29T18:02:37.441Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1124,
+				"state": "closed",
+				"name": "2019 Sprint 8",
+				"startDate": "2019-03-31T18:03:00.000Z",
+				"endDate": "2019-04-12T18:03:00.000Z",
+				"completeDate": "2019-04-12T19:04:50.175Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1128,
+				"state": "closed",
+				"name": "2019 Sprint 9",
+				"startDate": "2019-04-14T19:05:00.000Z",
+				"endDate": "2019-04-26T19:05:00.000Z",
+				"completeDate": "2019-04-26T22:05:13.933Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1129,
+				"state": "closed",
+				"name": "2019 Sprint 10",
+				"startDate": "2019-04-28T22:06:00.000Z",
+				"endDate": "2019-05-17T22:06:00.000Z",
+				"completeDate": "2019-05-20T16:48:42.522Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1119,
+				"state": "closed",
+				"name": "2019 Sprint 6",
+				"startDate": "2019-03-03T22:20:00.193Z",
+				"endDate": "2019-03-15T22:20:00.000Z",
+				"completeDate": "2019-03-18T17:26:43.120Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "446335",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, please provide a full standalone sample project for us to test the issue on our end. Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2019-02-26T21:57:20.000+0000",
+					"updated": "2019-02-26T21:57:20.000+0000"
+				},
+				{
+					"id": "446374",
+					"author": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I think i Have found the issue:\r\n1. Create a New classic project\r\n2. Copy app.js, countries.sqlite\r\n3. Disable <analytics>false</analytics>\r\n4. Run\r\n(Environment: SDK 8.0.0 ANDROID 6.0, 5.0, 4.4)\r\n\r\n [^app.js] \r\n [^countries.sqlite] \r\n",
+					"updateAuthor": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-27T21:30:26.000+0000",
+					"updated": "2019-02-27T21:30:26.000+0000"
+				},
+				{
+					"id": "446433",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I can't reproduce the issue.\r\n\r\nThe {{Ti.Database.install()}} method is correctly installing the bundled sqlite database. I've built it with Titanium 8.0.0 and ran it on a physical Android 9.0 device.\r\n\r\nI've tested it with the below code which outputs all table names within the installed database. I can see that the database contains a \"countries\" table name.\r\n{code:javascript}\r\nvar dbConnection = Ti.Database.install(\"/src/countries.sqlite\", \"countries\");\r\nvar resultSet = dbConnection.execute(\"SELECT name FROM sqlite_master WHERE type='table'\");\r\nTi.API.info(\"@@@ Fetched Tables: \" + (resultSet ? resultSet.rowCount : \"<null>\"));\r\nif (resultSet) {\r\n\tfor (; resultSet.isValidRow(); resultSet.next()) {\r\n\t\tTi.API.info(\"- Table Name: \" + resultSet.field(0));\r\n\t}\r\n}\r\ndbConnection.close();\r\nTi.API.info(\"@@@ I did it!\");\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-01T02:40:08.000+0000",
+					"updated": "2019-03-01T02:40:08.000+0000"
+				},
+				{
+					"id": "446436",
+					"author": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The issue appears at Android 6.0 5.0 and 4,4 devices. At 9.0 works properly.",
+					"updateAuthor": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-01T07:33:37.000+0000",
+					"updated": "2019-03-01T07:33:37.000+0000"
+				},
+				{
+					"id": "446453",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~andreas.pingas], I have tested the issue with [~jquick]'s sample code provided above with your database. I have tested on Android 6.0.1 physical device(Galaxy j2 Prime), 4.4.4 emulator and 6.0.0 emulator with SDK 7.5.1.GA. I was able to get the expected result in the console. What are the devices you are testing on? Provide the model. \r\n\r\n{code}\r\n[INFO]  newclassicpro 1.0 (Powered by Titanium 7.5.1.4b82d9d6b2)\r\n[INFO]  @@@ Fetched Tables: 1\r\n[INFO]  - Table Name: android_metadata\r\n[INFO]  @@@ I did it!\r\n{code}\r\n\r\nThank you.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2019-03-01T22:00:20.000+0000",
+					"updated": "2019-03-01T22:00:20.000+0000"
+				},
+				{
+					"id": "446463",
+					"author": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Environment \r\nTitanium SDK: 7.5.0.GA OR 7.5.1.GA OR 8_0_X 8.0.0.v20190228092226\r\nDevice: Samsung Galaxy S6 (Android 5.0 OR 6.0)\r\n*<analytics>false</analytics> (FALSE)*\r\n\r\n{code:java}\r\n[ERROR] :  TiDatabase: (main) [306,306] Error installing database: countries msg=/data/data/com.test/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: java.io.FileNotFoundException: /data/data/com.test/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: \tat libcore.io.IoBridge.open(IoBridge.java:456)\r\n[ERROR] :  TiDatabase: \tat java.io.FileOutputStream.<init>(FileOutputStream.java:87)\r\n[ERROR] :  TiDatabase: \tat java.io.FileOutputStream.<init>(FileOutputStream.java:72)\r\n[ERROR] :  TiDatabase: \tat ti.modules.titanium.database.DatabaseModule.install(DatabaseModule.java:124)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:180)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:247)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.loadActivityScript(TiLaunchActivity.java:135)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunchActivity.java:190)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActivity.java:185)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.java:783)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActivity.java:176)\r\n[ERROR] :  TiDatabase: \tat org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.java:174)\r\n[ERROR] :  TiDatabase: \tat android.app.Activity.performCreate(Activity.java:5933)\r\n[ERROR] :  TiDatabase: \tat android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1105)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2251)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2360)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.access$800(ActivityThread.java:144)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread$H.handleMessage(ActivityThread.java:1278)\r\n[ERROR] :  TiDatabase: \tat android.os.Handler.dispatchMessage(Handler.java:102)\r\n[ERROR] :  TiDatabase: \tat android.os.Looper.loop(Looper.java:135)\r\n[ERROR] :  TiDatabase: \tat android.app.ActivityThread.main(ActivityThread.java:5221)\r\n[ERROR] :  TiDatabase: \tat java.lang.reflect.Method.invoke(Native Method)\r\n[ERROR] :  TiDatabase: \tat java.lang.reflect.Method.invoke(Method.java:372)\r\n[ERROR] :  TiDatabase: \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)\r\n[ERROR] :  TiDatabase: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)\r\n[ERROR] :  TiDatabase: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiDatabase: \tat libcore.io.Posix.open(Native Method)\r\n[ERROR] :  TiDatabase: \tat libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)\r\n[ERROR] :  TiDatabase: \tat libcore.io.IoBridge.open(IoBridge.java:442)\r\n[ERROR] :  TiDatabase: \t... 25 more\r\n[ERROR] :  TiExceptionHandler: (main) [1,307] ti:/invoker.js:101\r\n[ERROR] :  TiExceptionHandler: \t\treturn delegate.apply(invoker.__thisObj__, args);\r\n[ERROR] :  TiExceptionHandler:                   ^\r\n[ERROR] :  TiExceptionHandler: Error: /data/data/com.test/databases/countries: open failed: ENOENT (No such file or directory)\r\n[ERROR] :  TiExceptionHandler:     at SandboxAPI.invoker [as install] (ti:/invoker.js:101:19)\r\n[ERROR] :  TiExceptionHandler:     at /app.js:1:122\r\n[ERROR] :  TiExceptionHandler:     at Module._runScript (ti:/module.js:613:9)\r\n[ERROR] :  TiExceptionHandler:     at Module.load (ti:/module.js:105:7)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadJavascriptText (ti:/module.js:457:9)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadAsFile (ti:/module.js:512:15)\r\n[ERROR] :  TiExceptionHandler:     at Module.loadAsFileOrDirectory (ti:/module.js:429:20)\r\n[ERROR] :  TiExceptionHandler:     at Module.require (ti:/module.js:256:17)\r\n[ERROR] :  TiExceptionHandler:     at require (ti:/module.js:570:15)\r\n[ERROR] :  TiExceptionHandler:     at /ti.main.js:27:3\r\n[ERROR] :  TiExceptionHandler:\r\n[ERROR] :  TiExceptionHandler:     libcore.io.IoBridge.open(IoBridge.java:456)\r\n[ERROR] :  TiExceptionHandler:     java.io.FileOutputStream.<init>(FileOutputStream.java:87)\r\n[ERROR] :  TiExceptionHandler:     java.io.FileOutputStream.<init>(FileOutputStream.java:72)\r\n[ERROR] :  TiExceptionHandler:     ti.modules.titanium.database.DatabaseModule.install(DatabaseModule.java:124)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:180)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:247)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.loadActivityScript(TiLaunchActivity.java:135)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunchActivity.java:190)\r\n[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActivity.java:185)\r\n[ERROR] :  V8Exception: Exception occurred at ti:/invoker.js:101: Uncaught Error: /data/data/com.test/databases/countries: open failed: ENOENT (No such file or directory)\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-01T23:19:25.000+0000",
+					"updated": "2019-03-01T23:19:25.000+0000"
+				},
+				{
+					"id": "446465",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Unfortunately, we're still unable to reproduce the issue.\r\n\r\nFrom looking at the stack trace you've posted, it looks like it's failing to create/write the file. If I were to \"guess\" what's wrong, I would think the issue is that the directory {{/data/data/com.test/databases}} doesn't exist on your Galaxy S6 (note that this directory path will be different on different devices too).\r\n\r\nAs a quick *+test+*, try create the \"databases\" directory on your Galaxy S6 before installing the database. Note that the below isn't a work-around and won't work on any other device. It's merely a test to see if the real issue is that it that the \"databases\" subdirectory is missing on your device. Also note the \"com.test\" is your test app's package name, so, make sure your app's package name and subdirectory match here.\r\n{code:javascript}\r\nTi.Filesystem.getFile(\"{/data/data/com.test/databases\"). createDirectory(true);\r\n// Install your database afterwards here.\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-02T05:24:56.000+0000",
+					"updated": "2019-03-02T05:24:56.000+0000"
+				},
+				{
+					"id": "446466",
+					"author": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Yes it works when the Database installs later it runs properly.\r\n\r\nTo find the bug the following has to be valid:\r\n\r\n1) Analytics to be disabled - false. If you run the app and it was true and then you disable it, it work as the Database has been installed properly since the first time. In a situation like this you have to delete all the data of the app from CLEAR DATA setting.\r\n\r\n2) The issue applies to all devices both physical as well as simulator that run android 6.0 or below.",
+					"updateAuthor": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-02T09:42:07.000+0000",
+					"updated": "2019-03-02T09:42:07.000+0000"
+				},
+				{
+					"id": "446502",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "bq. Analytics to be disabled - false. If you run the app and it was true and then you disable it, it work as the Database has been installed properly since the first time. In a situation like this you have to delete all the data of the app from CLEAR DATA setting.\r\n\r\nI've tried this, but I still can't reproduce the issue. The database under the \"Resources\" directory still installs fine for me.\r\n\r\nbq. Yes it works when the Database installs later it runs properly.\r\n\r\nWhat do you mean? Did it work when you called {{createDirectory()}} that I showed you above? If that works, then we can attempt a \"blind\" fix and see about creating the directory tree before installing the database file. But note that this would be a complete guess on our end since we're still unable to reproduce the issue you are seeing.\r\n\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-04T18:53:50.000+0000",
+					"updated": "2019-03-04T18:53:50.000+0000"
+				},
+				{
+					"id": "446536",
+					"author": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The bug does not get fixed even after\r\nTi.Filesystem.getFile(\"{/data/data/com.test/databases\").createDirectory(true);\r\n\r\n\r\nThe bug exists on simulators as well as physical devices.\r\n\r\nThe only way to resolve the issue is analytics - true. Then eveything runs properly.\r\n\r\nAt this point, i will disable analytics in order for the app to work properly, as the issue has to be somewhere there. You can see the results for a TEST app that i have created just yesterday and i have only run it a few times in an Android Device.\r\n\r\n !Screenshot 2019-03-05 at 10.47.59.png|thumbnail! ",
+					"updateAuthor": {
+						"name": "andreas.pingas",
+						"key": "andreas.pingas",
+						"displayName": "Andreas Pingas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-05T09:33:04.000+0000",
+					"updated": "2019-03-05T09:33:04.000+0000"
+				},
+				{
+					"id": "446562",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "We can't reproduce the issue when setting analytics {{false}}. We've already tried that.\r\n\r\nBut I still think this is an issue with the app's \"databases\" subdirectory not existing. The analytics system will automatically create that directory tree if it doesn't exist.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-05T21:14:19.000+0000",
+					"updated": "2019-03-05T21:14:19.000+0000"
+				},
+				{
+					"id": "446567",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Okay. I'm able to reproduce the issue now. I've updated the ticket summary to provide more details. Thanks.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-06T00:02:58.000+0000",
+					"updated": "2019-03-06T00:02:58.000+0000"
+				},
+				{
+					"id": "446752",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/10770",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-12T02:36:14.000+0000",
+					"updated": "2019-03-12T02:36:14.000+0000"
+				},
+				{
+					"id": "448446",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR passed. PR merged",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-16T18:57:38.000+0000",
+					"updated": "2019-05-16T18:57:38.000+0000"
+				},
+				{
+					"id": "448452",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix on sdk 8.1.0.v20190516120244.Works as expected.\r\nTest information found under  the PR https://github.com/appcelerator/titanium_mobile/pull/10770 ",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-16T22:53:57.000+0000",
+					"updated": "2019-05-16T22:53:57.000+0000"
+				}
+			],
+			"maxResults": 16,
+			"total": 16,
+			"startAt": 0
+		}
+	}
+}

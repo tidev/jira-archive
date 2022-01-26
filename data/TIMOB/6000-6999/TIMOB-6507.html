@@ -1,0 +1,216 @@
+---
+title: "[TIMOB-6507] iOS: crash after updating the imageView rapidly with remote images"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-01-11T09:49:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5, Release 1.7.6</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.6, Sprint 2012-01</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Karol Pomaski</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2011-12-07T15:11:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-01-18T17:26:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+The application crashes after updating the imageView rapidly with remote images.
+
+It does work with CI Build 1.8.0 but not with SDK 1.7.5 and 1.7.6.v20111203085900
+
+<h4>Reproducible Steps</h4>
+1. Run the sample code
+2. Press "start" button
+
+<h4>Sample Code</h4>
+<code><pre>
+// this sets the background color of the master UIView (when there are no windows/tab groups on it)
+Titanium.UI.setBackgroundColor('#000');
+
+var SERVICE_EVENT_URL = "<a href="http://api.ticketalternative.com/Services/GetEvents.ashx?months=6&venueid=3&Format=json" rel="nofollow" target="_blank">http://api.ticketalternative.com/Services/GetEvents.ashx?months=6&venueid=3&Format=json</a>";
+var SERVICE_ARTIST_URL = "<a href="http://api.ticketalternative.com/Services/GetArtists.ashx?Format=json&venueId=3" rel="nofollow" target="_blank">http://api.ticketalternative.com/Services/GetArtists.ashx?Format=json&venueId=3</a>";
+var URL_IMAGE_SMALL = "<a href="http://www.ticketAlternative.com/wiu.aspx?w=187&h=97&p=" rel="nofollow" target="_blank">http://www.ticketAlternative.com/wiu.aspx?w=187&h=97&p=</a>";
+
+// create tab group
+var tabGroup = Titanium.UI.createTabGroup();
+
+
+
+
+//
+// create base UI tab and root window
+//
+var win1 = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+var tab1 = Titanium.UI.createTab({  
+    icon:'KS_nav_views.png',
+    title:'Tab 1',
+    window:win1
+});
+
+var label1 = Titanium.UI.createLabel({
+  color:'#999',
+  text:'I am Window 1',
+  font:{fontSize:20,fontFamily:'Helvetica Neue'},
+  textAlign:'center',
+  width:'auto'
+});
+
+//win1.add(label1);
+
+//
+// create controls tab and root window
+//
+var win2 = Titanium.UI.createWindow({  
+    title:'Tab 2',
+    backgroundColor:'#fff'
+});
+var tab2 = Titanium.UI.createTab({  
+    icon:'KS_nav_ui.png',
+    title:'Tab 2',
+    window:win2
+});
+
+var label2 = Titanium.UI.createLabel({
+  color:'#999',
+  text:'I am Window 2',
+  font:{fontSize:20,fontFamily:'Helvetica Neue'},
+  textAlign:'center',
+  width:'auto'
+});
+
+win2.add(label2);
+
+
+
+var button = Titanium.UI.createButton({
+  
+  title:'start',
+  //backgroundColor : "#ff0000",
+  color: "#ff0000",
+  width : 150,
+  height : 100,
+  top:100,
+  left:100
+  
+  
+});
+var imageView = Titanium.UI.createImageView( 
+  {
+    top:0,
+    left:0,
+    width:85,
+    height:44
+    
+  });
+win1.add(imageView);
+win1.add(button);
+
+button.addEventListener("click", callHTTPService);
+
+
+//
+//  add tabs
+//
+tabGroup.addTab(tab1);  
+tabGroup.addTab(tab2);  
+
+
+// open tab group
+tabGroup.open();
+
+
+
+var loadingArtists = false;
+
+var currentURL = SERVICE_EVENT_URL;
+
+var httpClient = null;
+
+// we are going to load artists first, then events, then back to artists to try to make the HTTPClient fail.
+
+function callHTTPService()
+{
+  Titanium.API.debug("calling service: " + currentURL);
+  
+  httpClient = Titanium.Network.createHTTPClient();
+  operation = "GET";
+
+  httpClient.onload = handleOnLoad;
+  //httpClient.ondatastream = ondatastream;
+  httpClient.open(operation, currentURL);
+  
+  
+  
+  
+  httpClient.send();
+  
+  
+}
+
+function handleOnLoad(result )
+{
+  
+  Titanium.API.info("loaded " + currentURL);
+  
+
+  updateData( result);
+
+}
+
+
+
+function updateData( result)
+{
+  var data = JSON.parse(httpClient.responseText);
+  
+  var eventsASjson = data[0].venue.events;
+  
+  var imgTable = new Array();
+  
+  
+  for (var i=0 ;i< eventsASjson.length; i++)
+  {
+    
+    var jsonObject = eventsASjson[i];
+    this.smallImage = URL_IMAGE_SMALL + jsonObject.defaultPhoto;
+      // this.imageView.image = this.smallImage;
+    Ti.API.info(this.smallImage);
+    imgTable.push(this.smallImage);
+    
+     Titanium.API.debug(imgTable[i])
+  }
+  
+  for(var i=0; i<imgTable.length; i++) {
+    imageView.image = imgTable[i];
+  }
+}
+
+
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Karol Pomaski 2011-12-07
+
+   Customer needs the cherry pick back to 1.7.6</li>
+<li>Stephen Tramer 2011-12-28
+
+   Bumping to a sprint when Sabil is back, but this ticket may be updated by either myself or Blain on his remote.</li>
+<li>Eric Merriman  2012-01-18
+
+   Does not occur with SDK 1.9.0.v20120118151633 on iPhone 4s (5.0.1)
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6507.json">JSON Source</a></p>

@@ -1,0 +1,353 @@
+---
+title: "[TIMOB-24177] Android : TiHTTPClient / Request Length Expected Wrong (6.1.0 regression)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-12-01T02:55:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, httpclient, qe-6.1.0, regression</td></tr>
+<tr><th>Reporter</th><td>Dongwoo Gim</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2016-11-21T04:59:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-12-01T19:21:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Ti SDK 6.1.0+ (6.1.0.v20161121162514) has error. But, 6.0.0.GA is ok
+
+When using TiHTTPClient with Non-english language + POST json request, raised errors.
+(No error in only english request)
+
+<code><pre>
+[ERROR] TiHTTPClient: (TiHttpClient-1) [308,308] HTTP Error (java.net.ProtocolException): expected 17 bytes but received 21
+[ERROR] TiHTTPClient: java.net.ProtocolException: expected 17 bytes but received 21
+[ERROR] TiHTTPClient: 	at com.android.okhttp.internal.http.HttpConnection$FixedLengthSink.write(HttpConnection.java:299)
+[ERROR] TiHTTPClient: 	at com.android.okhttp.okio.RealBufferedSink.flush(RealBufferedSink.java:221)
+[ERROR] TiHTTPClient: 	at com.android.okhttp.okio.RealBufferedSink$1.flush(RealBufferedSink.java:204)
+[ERROR] TiHTTPClient: 	at java.io.FilterOutputStream.flush(FilterOutputStream.java:88)
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.httpurlconnection.StringEntity.writeTo(StringEntity.java:64)
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.handleURLEncodedData(TiHTTPClient.java:1394)
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1199)
+[ERROR] TiHTTPClient: 	at java.lang.Thread.run(Thread.java:818)
+[ERROR] {"tlsVersion":3,"timeout":120000,"domain":null,"autoEncodeUrl":true,"username":null,"autoRedirect":true,"password":null,"readyState":1,"responseText":"","statusText":null,"connectionType":"POST","connected":false,"responseXML":null,"status":0,"location":"<a href="http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers" rel="nofollow" target="_blank">http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers</a>","allResponseHeaders":"","validatesSecureCertificate":false,"responseData":null,"bubbleParent":true,"apiName":"Ti.Network.HTTPClient","_events":{"disposehandle":{}}}
+</pre></code>
+
+This is sample code
+First call raised error.
+But second call is ok(english only).
+
+<code><pre>
+httpCall('POST', '<a href="http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers" rel="nofollow" target="_blank">http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers</a>', JSON.stringify({username: "인연"}), console.log, console.error);
+httpCall('POST', '<a href="http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers" rel="nofollow" target="_blank">http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers</a>', JSON.stringify({username: "test"}), console.log, console.error);
+
+function httpCall(method, url, data, success, error) {
+  var handled = false;
+
+  var xhr = Ti.Network.createHTTPClient({
+    timeout : 120000
+  });
+
+  xhr.onload = function(e) {
+    if (handled)
+      return;
+    handled = !0;
+
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var response;
+      try {
+        response = JSON.parse(xhr.responseText);
+      } catch (e) {
+        // error(e.toString());
+        success(xhr.responseText, xhr.status, xhr);
+      }
+      if (response) {
+        success(response, xhr.status, xhr);
+      }
+    } else {
+      error(xhr);
+    }
+  };
+
+  xhr.onerror = function(e) {
+    if (handled)
+      return;
+    handled = !0;
+
+    error(xhr);
+  };
+
+  xhr.open(method, url, !0);
+  xhr.setRequestHeader("Content-Type", "text/plain");
+  xhr.setRequestHeader('X-Parse-Application-Id', 'G7Iqo0zI1d02WsznzwiI6zTl6UL2g5b5');
+  xhr.send(data);
+}
+</pre></code>
+
+Calc expected length functions related unicode string has problem.
+"인연" is 4+4=8byte. "received 21" is right.
+Maybe, string is claculateded 2+2=4byte, it is wrong.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24177_60753/스크린샷 2016-11-22 오후 2.12.48.png">스크린샷 2016-11-22 오후 2.12.48.png</td></td><td>2016-11-22T05:18:23.000+0000</td><td>933778</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-11-21
+
+   Hello, Please provide a sample code which regenerates the issue. Thanks.</li>
+<li>Dongwoo Gim 2016-11-22
+
+   Add runnable sample code. Thank you.
+   Maybe, this is critical bug.</li>
+<li>Sharif AbuDarda 2016-11-22
+
+   Hello, With your sample code, I did not saw the error when I run on Android 6.0.0 emulator with SDK 6.0.0.GA. Here is my log
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [INFO]  I//system/bin/tzdatacheck(   92): tzdata file /data/misc/zoneinfo/curren
+   t/tzdata does not exist. No action required.
+   [INFO]  I/        (  103): debuggerd: Jan 10 2016 20:08:02
+   [INFO]  E/vinput-seamless(  261): found seamless mouse device
+   [INFO]  E/        (  106): batterystats service unavailable!
+   [INFO]  E/        (  106): batterystats service unavailable!
+   [INFO]  E/        (  106): batterystats service unavailable!
+   [INFO]  E/        (  106): batterystats service unavailable!
+   [INFO]  E/        (  259): Failed to connect to host (UnixStream)!!!
+   [INFO]  E/        (  259): Failed to connect to host (UnixStream)!!!
+   [INFO]  E/        (  426): batterystats service unavailable!
+   [INFO]  E/        (  426): batterystats service unavailable!
+   [INFO]  E/        (  426): batterystats service unavailable!
+   [INFO]  E/        (  426): batterystats service unavailable!
+   [INFO]  E/android.os.Debug(  424): failed to load memtrack module: -2
+   [INFO]  I/Radio-JNI(  424): register_android_hardware_Radio DONE
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf70521c0, tid 750
+   [INFO]  D/        (  761): HostConnection::get() New Host Connection established
+    0xf630a0f0, tid 764
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf7052b90, tid 767
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf6d0a0c0, tid 751
+   [INFO]  I/APM::ConfigParsingUtils(  426): loadAudioPolicyConfig() loaded /system
+   /etc/audio_policy.conf
+   [INFO]  D/        (  795): HostConnection::get() New Host Connection established
+    0xdde71240, tid 914
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf7052b50, tid 753
+   [INFO]  E/WifiNative-HAL(  795): Could not start hal
+   [INFO]  D/WifiNative-HAL(  795): Setting external_sim to 1
+   [INFO]  D/WifiNative-HAL(  795): Failing getSupportedFeatureset because HAL isn'
+   t started
+   [INFO]  D/        (  795): HostConnection::get() New Host Connection established
+    0xdd47f5c0, tid 795
+   [INFO]  D/NetworkMonitor/NetworkAgentInfo [WIFI () - 100](  795): Checking http:
+   //connectivitycheck.gstatic.com/generate_204 on "WiredSSID", connectivitycheck.g
+   static.com=103.43.149.234,2404:6800:4002:804::200e
+   [INFO]  D/NetworkMonitor/NetworkAgentInfo [WIFI () - 100](  795): isCaptivePorta
+   l: ret=204 headers={null=[HTTP/1.1 204 No Content], Content-Length=[0], Date=[Tu
+   e, 22 Nov 2016 14:48:00 GMT], X-Android-Received-Millis=[1479826081342], X-Andro
+   id-Response-Source=[NETWORK 204], X-Android-Selected-Protocol=[http/1.1], X-Andr
+   oid-Sent-Millis=[1479826081331]}
+   [INFO]  I/LatinIME:LogUtils( 1073): Dictionary info: dictionary = contacts.en_US
+    ; version = 1479826081 ; date = ?
+   [INFO]  D/Launcher.Model( 1118): Old launcher provider: content://com.android.la
+   uncher2.settings/favorites?notify=true
+   [INFO]  D/Launcher.Model( 1118): Old launcher provider does not exist.
+   [INFO]  E/DcSwitchStateMachine-0( 1104): DctController is not ready
+   [INFO]  I/vol.Events(  952): writeEvent collection_started
+   [INFO]  I/vol.Events(  952): writeEvent external_ringer_mode_changed normal
+   [INFO]  I/vol.Events(  952): writeEvent internal_ringer_mode_changed normal
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_ALARM 6
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_BLUETOOTH_SCO 7
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_MUSIC 15
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_RING 5
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_SYSTEM 5
+   [INFO]  I/vol.Events(  952): writeEvent level_changed STREAM_VOICE_CALL 4
+   [INFO]  E/DcSwitchStateMachine-0( 1104): EVENT_DATA_DISALLOWED failed, com.andro
+   id.internal.telephony.CommandException: REQUEST_NOT_SUPPORTED
+   [INFO]  E/DcSwitchStateMachine-0( 1104): EVENT_DATA_DISALLOWED failed, com.andro
+   id.internal.telephony.CommandException: REQUEST_NOT_SUPPORTED
+   [INFO]  D/        ( 1118): HostConnection::get() New Host Connection established
+    0xf2c7c470, tid 1118
+   [INFO]  D/ConnectivityManager.CallbackHandler(  952): CM callback handler got ms
+   g 524290
+   [INFO]  E/DcSwitchStateMachine-0( 1104): EVENT_DATA_DISALLOWED failed, com.andro
+   id.internal.telephony.CommandException: REQUEST_NOT_SUPPORTED
+   [INFO]  D/        ( 1118): HostConnection::get() New Host Connection established
+    0xee992760, tid 1549
+   [INFO]  I/LatinIME:LogUtils( 1073): Dictionary info: dictionary = userunigram.en
+   _US ; version = 1479826089 ; date = ?
+   [INFO]  D/        (  952): HostConnection::get() New Host Connection established
+    0xdf7d4640, tid 952
+   [INFO]  I/LatinIME:LogUtils( 1073): Dictionary info: dictionary = UserHistoryDic
+   tionary.en_US ; version = 1459448180 ; date = 1476384153
+   [INFO]  I/LatinIME:LogUtils( 1073): Dictionary info: dictionary = main:en ; vers
+   ion = 54 ; date = 1414726273
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf704a3a0, tid 1598
+   [INFO]  D/        (  795): HostConnection::get() New Host Connection established
+    0xdbdba330, tid 816
+   [INFO]  D/        (  952): HostConnection::get() New Host Connection established
+    0xdf7d4e30, tid 1594
+   [INFO]  D/        (  750): HostConnection::get() New Host Connection established
+    0xf704a230, tid 1600
+   [INFO]  E/android.os.Debug( 1779): failed to load memtrack module: -2
+   [INFO]  I/Radio-JNI( 1779): register_android_hardware_Radio DONE
+   [INFO]  I/PackageManager.DexOptimizer(  795): Running dexopt (dex2oat) on: /data
+   /app/vmdl379422257.tmp/base.apk pkg=com.gsl.sha156 isa=x86 vmSafeMode=false debu
+   ggable=false oatDir = /data/app/vmdl379422257.tmp/oat
+   [INFO]  E/android.os.Debug( 1828): failed to load memtrack module: -2
+   [INFO]  I/Radio-JNI( 1828): register_android_hardware_Radio DONE
+   [INFO]  TiApplication: (main) [0,0] checkpoint, app created.
+   [INFO]  TiApplication: (main) [30,30] Titanium 6.0.0 (2016/11/13 01:23 undefined
+   )
+   [INFO]  MultiDex: VM with version 2.1.0 has multidex support
+   [INFO]  MultiDex: install
+   [INFO]  MultiDex: VM has multidex support, MultiDex support library is disabled.
+   [WARN]  V8Object: (main) [825,855] Runtime disposed, cannot set property 'userAg
+   ent'
+   [INFO]  TiApplication: (main) [32,887] Titanium Javascript runtime: v8
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedI
+   nstanceState: null
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activi
+   ty = com.gsl.sha156.Sha156Activity@c1827b
+   [INFO]  OpenGLRenderer: Initialized EGL, version 1.4
+   [WARN]  EGL_emulation: eglSurfaceAttrib not implemented
+   [WARN]  OpenGLRenderer: Failed to set EGL_SWAP_BEHAVIOR on surface 0xdfb69c20, e
+   rror=EGL_SUCCESS
+   [WARN]  TiBlob: (main) [1277,1277] getFile not supported for non-file blob types
+   .
+   [WARN]  TiBlob: (main) [0,1277] getNativePath not supported for non-file blob ty
+   pes.
+   [INFO]  {"result":[]} 200 {"tlsVersion":3,"timeout":120000,"domain":null,"autoEn
+   codeUrl":true,"username":null,"autoRedirect":true,"password":null,"readyState":4
+   ,"responseText":"{\"result\":[]}","statusText":"OK","connectionType":"POST","con
+   nected":false,"responseXML":null,"status":200,"location":"http://parseserver-bsm
+   cf-env.us-east-1.elasticbeanstalk.com/parse/functions/findUsers","allResponseHea
+   ders":"null:HTTP/1.1 200 OK\nAccess-Control-Allow-Headers:X-Parse-Master-Key, X-
+   Parse-REST-API-Key, X-Parse-Javascript-Key, X-Parse-Application-Id, X-Parse-Clie
+   nt-Version, X-Parse-Session-Token, X-Requested-With, X-Parse-Revocable-Session, 
+   Content-Type\nAccess-Control-Allow-Methods:GET,PUT,POST,DELETE,OPTIONS\nAccess-C
+   ontrol-Allow-Origin:*\nConnection:keep-alive\nContent-Length:13\nContent-Type:ap
+   plication/json; charset=utf-8\nDate:Tue, 22 Nov 2016 14:48:31 GMT\nETag:W/\"d-iP
+   5JTs4sm4Lvn177JKLhtQ\"\nServer:nginx/1.8.1\nX-Android-Received-Millis:1479826111
+   815\nX-Android-Response-Source:NETWORK 200\nX-Android-Selected-Protocol:http/1.1
+   \nX-Android-Sent-Millis:1479826111348\nX-Powered-By:Express\n","validatesSecureC
+   ertificate":false,"responseData":{"mimeType":"application/json; charset=utf-8","
+   type":2,"length":13,"width":0,"file":null,"nativePath":null,"height":0,"text":nu
+   ll,"bubbleParent":true,"apiName":"Ti.Blob"},"bubbleParent":true,"apiName":"Ti.Ne
+   twork.HTTPClient","_events":{"disposehandle":{}}}
+   [WARN]  TiBlob: (main) [11,1288] getFile not supported for non-file blob types.
+   [WARN]  TiBlob: (main) [0,1288] getNativePath not supported for non-file blob ty
+   pes.
+   [INFO]  {"result":[{"username":"test","name":"Tester","email":"test@test.com","i
+   sUsingBanTime":true,"banStartHour":23,"banStartMinute":0,"banEndHour":7,"banEndM
+   inute":0,"createdAt":"2016-09-13T03:58:55.785Z","updatedAt":"2016-09-13T03:58:55
+   .785Z","ACL":{"*":{"read":true},"jQiEZlwvHa":{"read":true,"write":true}},"object
+   Id":"jQiEZlwvHa","__type":"Object","className":"_User"}]} 200 {"tlsVersion":3,"t
+   imeout":120000,"domain":null,"autoEncodeUrl":true,"username":null,"autoRedirect"
+   :true,"password":null,"readyState":4,"responseText":"{\"result\":[{\"username\":
+   \"test\",\"name\":\"Tester\",\"email\":\"test@test.com\",\"isUsingBanTime\":true
+   ,\"banStartHour\":23,\"banStartMinute\":0,\"banEndHour\":7,\"banEndMinute\":0,\"
+   createdAt\":\"2016-09-13T03:58:55.785Z\",\"updatedAt\":\"2016-09-13T03:58:55.785
+   Z\",\"ACL\":{\"*\":{\"read\":true},\"jQiEZlwvHa\":{\"read\":true,\"write\":true}
+   },\"objectId\":\"jQiEZlwvHa\",\"__type\":\"Object\",\"className\":\"_User\"}]}",
+   "statusText":"OK","connectionType":"POST","connected":false,"responseXML":null,"
+   status":200,"location":"<a href="http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk." rel="nofollow" target="_blank">http://parseserver-bsmcf-env.us-east-1.elasticbeanstalk.</a>
+   com/parse/functions/findUsers","allResponseHeaders":"null:HTTP/1.1 200 OK\nAcces
+   s-Control-Allow-Headers:X-Parse-Master-Key, X-Parse-REST-API-Key, X-Parse-Javasc
+   ript-Key, X-Parse-Application-Id, X-Parse-Client-Version, X-Parse-Session-Token,
+    X-Requested-With, X-Parse-Revocable-Session, Content-Type\nAccess-Control-Allow
+   -Methods:GET,PUT,POST,DELETE,OPTIONS\nAccess-Control-Allow-Origin:*\nConnection:
+   keep-alive\nContent-Length:369\nContent-Type:application/json; charset=utf-8\nDa
+   te:Tue, 22 Nov 2016 14:48:31 GMT\nETag:W/\"171-863RACH85BNVN9IiDgxp/w\"\nServer:
+   nginx/1.8.1\nX-Android-Received-Millis:1479826111824\nX-Android-Response-Source:
+   NETWORK 200\nX-Android-Selected-Protocol:http/1.1\nX-Android-Sent-Millis:1479826
+   111361\nX-Powered-By:Express\n","validatesSecureCertificate":false,"responseData
+   ":{"mimeType":"application/json; charset=utf-8","type":2,"length":369,"width":0,
+   "file":null,"nativePath":null,"height":0,"text":null,"bubbleParent":true,"apiNam
+   e":"Ti.Blob"},"bubbleParent":true,"apiName":"Ti.Network.HTTPClient","_events":{"
+   disposehandle":{}}}
+   </pre></code>
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.11.6
+     Architecture                = 64bit
+     # CPUs                      = 4
+     Memory                      = 8589934592
+   
+   Node.js
+     Node.js Version             = 4.2.2
+     npm Version                 = 2.14.7
+   
+   Titanium CLI
+     CLI Version                 = 5.0.10
+   
+   Titanium SDK
+     SDK Version                 = 6.0.0.GA
+     Target Platform             = android
+   </pre></code>
+                            
+   </li>
+<li>Dongwoo Gim 2016-11-22
+
+   Yes, Ti SDK 6.0.0.GA is ok.
+   But, Ti SDK 6.1.0+ has this error.</li>
+<li>Dongwoo Gim 2016-11-24
+
+   Hey, This is a critical problems. Why is there no action?</li>
+<li>Sharif AbuDarda 2016-11-24
+
+   Hello, We would suggest you to use the latest SDK 6.0.0.GA. As 6.1.0+ are master release we will keep that in mand and fixed it for the later official release. Right now you need to use the GA release which is fine. Thanks.</li>
+<li>Dongwoo Gim 2016-11-24
+
+   Of course, I know that there is no problem if I use 6.0.0.GA. But this is a simple but critical problem. However, even after several days of reporting, why will not issues issue to TIMOB? Please, change to TIMOB. Thank you.</li>
+<li>Hans Knöchel 2016-11-27
+
+   [~engross] Because it was holiday and weekend :-). [~gmathews], I remember we did some HTTP-Client changes for Android in 6.1.0 already, do you remember the exact ones? /cc [~michael] who also did one I think </li>
+<li>Michael Gangolf 2016-11-28
+
+   </li>
+<li>Hans Knöchel 2016-11-28
+
+    Thanks! So TIMOB-20483 caused the regression with [this changes](<a href="https://github.com/appcelerator/titanium_mobile/pull/8522/files)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8522/files).</a></li>
+<li>Gary Mathews 2016-11-30
+
+    master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8646" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8646</a></li>
+<li>Josh Longton 2016-12-01
+
+    Verified as fixed TiHTTPClient requests are now handled correctly.
+    
+    Tested on:
+    {noformat}
+    macOS Sierra 10.12.1
+    Nexus 5X(6.0.1)
+    Nexus 6p (7.0)
+    android emulator (4.4.2)
+    Studio: 4.8.0.201611121409
+    Ti SDK: 6.1.0.v20161201064221
+    Appc NPM: 4.2.8
+    App CLI: 6.1.0-302
+    Node v4.4.7
+    {noformat}
+    
+    *Closing Ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24177.json">JSON Source</a></p>

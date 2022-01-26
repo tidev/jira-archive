@@ -1,0 +1,160 @@
+---
+title: "[TIMOB-19847] Image won't upload from Android to ArrowDB using API 5.0+"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-03T06:48:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ray Belisle</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2015-11-03T04:39:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T23:08:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If you create a photo object in ArrowDB using an android device, the following error occurs when you try to upload with version 5.0+ of the Titanium API. The SAME CODE running 4.0 - < 5.0 works when uploading an image to Arrow DB. When using 5.0+, I get the following JSON error response after uploading an image:
+
+{"success" : false, "error" : true, "code" : 400, "message" : "Failed to upload photo: Cannot serialize an object of class ActionDispatch::Http::UploadedFile in BSON."}
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ray Belisle 2015-11-03
+
+   Code is as follows for a reproducible test case. Fails when I compile using 5.02GA but works when I use 4.11GA
+   
+   Index.xml
+   
+   <Alloy>
+   	<Window id="win" layout='vertical'>
+   		<TextField id='name' width="Ti.UI.FILL" height="Ti.UI.SIZE"></TextField>
+   		<TextField id='pass' width="Ti.UI.FILL" height="Ti.UI.SIZE"></TextField>
+   		<Button id="login" onClick="init">Login</Button>
+   		<Button id="capture" onClick="captureImage">Take Photo</Button>
+   		<Button id="saveimg" onClick="createPhoto" top="5" bottom="5" height="Ti.UI.SIZE">Save Photo</Button>
+   		<ImageView id="myimage" width="Ti.UI.FILL" height="60%"></ImageView>
+   	</Window>
+   </Alloy>
+   
+   Index.js
+   
+   var args = arguments[0] || {};
+   var Cloud = require('ti.cloud');
+   var user = null;
+   
+   function init() {
+   	Cloud.Users.login({
+   		login : $.name.value,
+   		password : $.pass.value
+   	}, function(e) {
+   		if (e.success) {
+   			user = e.users[0];
+   			alert('Success:\n' + 'id: ' + user.id + '\n' + 'sessionId: ' + Cloud.sessionId + '\n' + 'first name: ' + user.first_name + '\n' + 'last name: ' + user.last_name);
+   			alert(JSON.stringify(user));
+   		} else {
+   			alert('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+   		}
+   	});
+   }
+   
+   function captureImage() {
+   	var dlg = Titanium.UI.createAlertDialog({
+   		message : 'Please Select',
+   		buttonNames : ['Take Photo', 'Photo Library']
+   	});
+   
+   	dlg.addEventListener('click', function(ev) {
+   		if (ev.index == 0) {
+   
+   			Ti.Media.showCamera({
+   				showControls : true,
+   				mediaTypes : Ti.Media.MEDIA_TYPE_PHOTO,
+   				autohide : true,
+   				allowEditing : false,
+   				success : function(event) {
+   					
+   					var f = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, 'test.jpg');
+   					f.write(event.media);
+   
+   					$.myimage.image = f.nativePath;
+   				
+   				},
+   				cancel : function() {
+   				},
+   				error : function(error) {
+   				}
+   			});
+   		} else if (ev.index == 1) {// clicked "No"
+   			Ti.Media.openPhotoGallery({
+   				mediaTypes : [Ti.Media.MEDIA_TYPE_PHOTO],
+   				success : function(event) {
+   					var f = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, 'test.jpg');
+   					f.write(event.media);
+   
+   					$.myimage.image = f.nativePath;
+   				},
+   				cancel : function() {
+   				},
+   				error : function(error) {
+   				}
+   			});
+   
+   		}
+   
+   	});
+   
+   	dlg.show();
+   
+   }
+   
+   function createPhoto() {
+   	Cloud.Photos.create({
+   		photo : Titanium.Filesystem.getFile($.myimage.image),
+   
+   		user_id : user.id
+   
+   	}, function(e) {
+   		if (e.success) {
+   			var photo = e.photos[0];
+   			alert('Success:\n' + 'id: ' + photo.id + '\n' + 'filename: ' + photo.filename + '\n' + 'size: ' + photo.size, 'updated_at: ' + photo.updated_at);
+   
+   		} else {
+   			alert(JSON.stringify(e));
+   		}
+   	});
+   }</li>
+<li>Ashraf Abu 2015-11-03
+
+   [~raybelisle] Could you try running this on terminal to get an updated SDK
+   <code>appc ti sdk install -d -b 5_0_X</code> Which contains 5.0.3 with the fixes.
+   
+   Let me know if it works for you.</li>
+<li>Ray Belisle 2015-11-03
+
+   Yes, that works. Any idea when 5.03GA will be available? I would love to update to the latest SDK but would want it to be a tested version
+   </li>
+<li>Ashraf Abu 2015-11-03
+
+   5.0.3 is essentially 5.0.2.GA with the fixes particular to this issue. Right now what's lined up is 5.1.0.GA.
+   <a href="https://community.appcelerator.com/topic/3897/sdk-5-1-0-beta-and-studio-4-4-0-beta-now-available" rel="nofollow" target="_blank">https://community.appcelerator.com/topic/3897/sdk-5-1-0-beta-and-studio-4-4-0-beta-now-available</a>
+   SDK 5.1.0.Beta is now available. Next would be 5.1.0.GA.</li>
+<li>Ashraf Abu 2015-11-03
+
+   Resolving this issue as Duplicate of TIMOB-19784</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as duplicate as the relevant ticket is linked above.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19847.json">JSON Source</a></p>

@@ -1,0 +1,380 @@
+---
+title: "[TIMOB-20004] iOS: Differences between new permission request responses"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-12-29T10:34:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>notable</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Srikanth Sombhatla</td></tr>
+<tr><th>Created</th><td>2015-11-17T14:24:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-02-10T00:52:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+While working in the [5.1 sample](<a href="https://github.com/appcelerator-developer-relations/appc-sample-ti510)" rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-ti510)</a> I noticed some differences between the responses of the new permission request methods. I created a separate test case to show the differences so we can address them in a next release. Nothing big, except for the first bullet maybe.
+
+* Unlike the others, the callback for <code>requestLocationPermissions()</code> is only called the first time. You have to force close and then re-open the app for it to work again.
+* The response for <code>requestLocationPermissions</code> also has <code>authorizationStatus</code>, which would be very useful to have in the response for the others as well.
+* On success, the response for <code>requestLocationPermissions</code> has an empty string for <code>error</code> where it should either have a message or be undefined.
+* When unknown, <code>requestContactsPermissions</code> has a not very helpful _Access Denied_ <code>error</code> instead of just being undefined like <code>Calendar</code> and <code>Camera</code>.
+* Unless permission was granted, the <code>error</code> for <code>requestLocationPermissions</code> is always _The user is unable to allow access to location._, which is not very helpful or even misleading since the user is perfectly able, he just denied permission to the app. Calendar and Contacts have better error messages.
+* When denied, the response for <code>requestCameraPermissions</code> has no <code>error</code> like the others.
+* I have no idea where <code>code</code> comes from but if I deny it (probably by coincidence) correctly maps to <code>AUTHORIZATION_DENIED</code> for Calendar and Contacts. Would be helpful to have the meaning of this code documented.
+* In iOS 8, denying contacts permission sends success response to callback. 
+
+<h4>Sample</h4>
+
+Don't forget to add <code><key>NSLocationAlwaysUsageDescription</key><string>Deny or grant permission to test different scenarios.</string></code> to <code>tiapp.xml</code>.
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: 'white'
+});
+
+var btn = Ti.UI.createButton({
+	title: 'Request Permissions'
+});
+
+btn.addEventListener('click', function(e) {
+
+	console.log('\n--------------------------------------------------------\n');
+
+	var Calendar = {};
+	Calendar[Ti.Calendar.AUTHORIZATION_AUTHORIZED] = 'AUTHORIZATION_AUTHORIZED';
+	Calendar[Ti.Calendar.AUTHORIZATION_DENIED] = 'AUTHORIZATION_DENIED';
+	Calendar[Ti.Calendar.AUTHORIZATION_RESTRICTED] = 'AUTHORIZATION_RESTRICTED';
+	Calendar[Ti.Calendar.AUTHORIZATION_UNKNOWN] = 'AUTHORIZATION_UNKNOWN';
+
+	console.log('Ti.Calendar.hasCalendarPermissions ' + Ti.Calendar.hasCalendarPermissions());
+	console.log('Ti.Calendar.eventsAuthorization Ti.Calendar.' + Calendar[Ti.Calendar.eventsAuthorization] + '\n');
+
+	var Contacts = {};
+	Contacts[Ti.Contacts.AUTHORIZATION_AUTHORIZED] = 'AUTHORIZATION_AUTHORIZED';
+	Contacts[Ti.Contacts.AUTHORIZATION_DENIED] = 'AUTHORIZATION_DENIED';
+	Contacts[Ti.Contacts.AUTHORIZATION_RESTRICTED] = 'AUTHORIZATION_RESTRICTED';
+	Contacts[Ti.Contacts.AUTHORIZATION_UNKNOWN] = 'AUTHORIZATION_UNKNOWN';
+
+	console.log('Ti.Contacts.hasContactsPermissions ' + Ti.Contacts.hasContactsPermissions());
+	console.log('Ti.Contacts.contactsAuthorization Ti.Contacts.' + Contacts[Ti.Contacts.contactsAuthorization] + '\n');
+
+	var Geolocation = {};
+	Geolocation[Ti.Geolocation.AUTHORIZATION_AUTHORIZED] = 'AUTHORIZATION_AUTHORIZED';
+	Geolocation[Ti.Geolocation.AUTHORIZATION_DENIED] = 'AUTHORIZATION_DENIED';
+	Geolocation[Ti.Geolocation.AUTHORIZATION_RESTRICTED] = 'AUTHORIZATION_RESTRICTED';
+	Geolocation[Ti.Geolocation.AUTHORIZATION_UNKNOWN] = 'AUTHORIZATION_UNKNOWN';
+	Geolocation[Ti.Geolocation.AUTHORIZATION_ALWAYS] = 'AUTHORIZATION_ALWAYS';
+	Geolocation[Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE] = 'AUTHORIZATION_WHEN_IN_USE';
+
+	console.log('Ti.Geolocation.hasLocationPermissions ' + Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS));
+	console.log('Ti.Geolocation.locationServicesAuthorization Ti.Geolocation.' + Geolocation[Ti.Geolocation.locationServicesAuthorization] + '\n');
+
+	var Media = {};
+	Media[Ti.Media.CAMERA_AUTHORIZATION_AUTHORIZED] = 'CAMERA_AUTHORIZATION_AUTHORIZED';
+	Media[Ti.Media.CAMERA_AUTHORIZATION_DENIED] = 'CAMERA_AUTHORIZATION_DENIED';
+	Media[Ti.Media.CAMERA_AUTHORIZATION_RESTRICTED] = 'CAMERA_AUTHORIZATION_RESTRICTED';
+	Media[Ti.Media.CAMERA_AUTHORIZATION_NOT_DETERMINED] = 'CAMERA_AUTHORIZATION_NOT_DETERMINED';
+
+	console.log('Ti.Media.hasCameraPermissions ' + Ti.Media.hasCameraPermissions());
+	console.log('Ti.Media.cameraAuthorizationStatus Ti.Media.' + Media[Ti.Media.cameraAuthorizationStatus] + '\n');
+
+	console.log('--------------------------------------------------------\n');
+
+	Ti.Calendar.requestCalendarPermissions(function(e) {
+		console.log('Ti.Calendar.requestCalendarPermissions ' + JSON.stringify(e, null, 2));
+		console.log('Ti.Calendar.requestCalendarPermissions:code (mapped) ' + Calendar[e.code] + '\n');
+	});
+
+	Ti.Contacts.requestContactsPermissions(function(e) {
+		console.log('Ti.Contacts.requestContactsPermissions ' + JSON.stringify(e, null, 2));
+		console.log('Ti.Contacts.requestContactsPermissions:code (mapped) ' + Contacts[e.code] + '\n');
+	});
+
+	Ti.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS, function(e) {
+		console.log('Ti.Geolocation.requestLocationPermissions ' + JSON.stringify(e, null, 2));
+		console.log('Ti.Geolocation.requestLocationPermissions:code (mapped) ' + Geolocation[e.code]);
+		console.log('Ti.Geolocation.requestLocationPermissions:authorizationStatus ' + Geolocation[e.authorizationStatus] + '\n');
+	});
+
+	Ti.Media.requestCameraPermissions(function(e) {
+		console.log('Ti.Media.requestCameraPermissions ' + JSON.stringify(e, null, 2));
+		console.log('Ti.Media.requestCameraPermissions:code (mapped) ' + Media[e.code] + '\n');
+	});
+
+});
+
+win.add(btn);
+win.open();
+</pre></code>
+
+<h4>Logs</h4>
+
+<h4>Scenario: Deny All</h4>
+
+<code><pre>
+[INFO]  Ti.Calendar.hasCalendarPermissions false
+[INFO]  Ti.Calendar.eventsAuthorization Ti.Calendar.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Contacts.hasContactsPermissions false
+[INFO]  Ti.Contacts.contactsAuthorization Ti.Contacts.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Geolocation.hasLocationPermissions false
+[INFO]  Ti.Geolocation.locationServicesAuthorization Ti.Geolocation.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Media.hasCameraPermissions false
+[INFO]  Ti.Media.cameraAuthorizationStatus Ti.Media.CAMERA_AUTHORIZATION_NOT_DETERMINED
+[INFO]
+[INFO]  Ti.Calendar.requestCalendarPermissions {
+[INFO]    "success": false,
+[INFO]    "code": 1
+[INFO]  }
+[INFO]  Ti.Calendar.requestCalendarPermissions:code (mapped) AUTHORIZATION_RESTRICTED
+[INFO]
+[INFO]  Ti.Contacts.requestContactsPermissions {
+[INFO]    "success": false,
+[INFO]    "error": "Access Denied",
+[INFO]    "code": 100
+[INFO]  }
+[INFO]  Ti.Contacts.requestContactsPermissions:code (mapped) undefined
+[INFO]
+[INFO]  Ti.Media.requestCameraPermissions {
+[INFO]    "success": false,
+[INFO]    "code": 1
+[INFO]  }
+[INFO]  Ti.Media.requestCameraPermissions:code (mapped) CAMERA_AUTHORIZATION_RESTRICTED
+</pre></code>
+
+Because of TIMOB-20002 I use the Ti 5.1 Sample App to read the Geolocation callback:
+
+<code><pre>
+[INFO]  Ti.Geolocation.requestLocationPermissions {
+[INFO]    "success": false,
+[INFO]    "code": 1,
+[INFO]    "authorizationStatus": 2,
+[INFO]    "error": "The user is unable to allow access to location."
+[INFO]  }
+[INFO]  Ti.Geolocation.requestLocationPermissions.code (mapped) Ti.Geolocation.AUTHORIZATION_RESTRICTED
+[INFO]  Ti.Geolocation.requestLocationPermissions.authorizationStatus (mapped) Ti.Geolocation.AUTHORIZATION_DENIED
+</pre></code>
+
+<h4>Scenario: Denied Before</h4>
+
+<code><pre>
+[INFO]  Ti.Calendar.hasCalendarPermissions false
+[INFO]  Ti.Calendar.eventsAuthorization Ti.Calendar.AUTHORIZATION_DENIED
+[INFO]
+[INFO]  Ti.Contacts.hasContactsPermissions false
+[INFO]  Ti.Contacts.contactsAuthorization Ti.Contacts.AUTHORIZATION_DENIED
+[INFO]
+[INFO]  Ti.Geolocation.hasLocationPermissions false
+[INFO]  Ti.Geolocation.locationServicesAuthorization Ti.Geolocation.AUTHORIZATION_DENIED
+[INFO]
+[INFO]  Ti.Media.hasCameraPermissions false
+[INFO]  Ti.Media.cameraAuthorizationStatus Ti.Media.CAMERA_AUTHORIZATION_DENIED
+[INFO]
+[INFO]  --------------------------------------------------------
+[INFO]
+[INFO]  Ti.Calendar.requestCalendarPermissions {
+[INFO]    "success": false,
+[INFO]    "error": "The user has denied access to events in Calendar.",
+[INFO]    "code": 2
+[INFO]  }
+[INFO]  Ti.Calendar.requestCalendarPermissions:code (mapped) AUTHORIZATION_DENIED
+[INFO]
+[INFO]  Ti.Contacts.requestContactsPermissions {
+[INFO]    "success": false,
+[INFO]    "error": "The user has denied access to the address book",
+[INFO]    "code": 2
+[INFO]  }
+[INFO]  Ti.Contacts.requestContactsPermissions:code (mapped) AUTHORIZATION_DENIED
+[INFO]
+[INFO]  Ti.Media.requestCameraPermissions {
+[INFO]    "success": false,
+[INFO]    "code": 1
+[INFO]  }
+[INFO]  Ti.Media.requestCameraPermissions:code (mapped) CAMERA_AUTHORIZATION_RESTRICTED
+</pre></code>
+
+Because of TIMOB-20002 I use the Ti 5.1 Sample App to read the Geolocation callback:
+
+<code><pre>
+[INFO]  Ti.Geolocation.requestLocationPermissions {
+[INFO]    "success": false,
+[INFO]    "code": 1,
+[INFO]    "authorizationStatus": 2,
+[INFO]    "error": "The user is unable to allow access to location."
+[INFO]  }
+[INFO]  Ti.Geolocation.requestLocationPermissions.code (mapped) Ti.Geolocation.AUTHORIZATION_RESTRICTED
+[INFO]  Ti.Geolocation.requestLocationPermissions.authorizationStatus (mapped) Ti.Geolocation.AUTHORIZATION_DENIED
+</pre></code>
+
+<h4>Scenario: Allow All</h4>
+
+<code><pre>
+[INFO]  Ti.Calendar.hasCalendarPermissions false
+[INFO]  Ti.Calendar.eventsAuthorization Ti.Calendar.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Contacts.hasContactsPermissions false
+[INFO]  Ti.Contacts.contactsAuthorization Ti.Contacts.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Geolocation.hasLocationPermissions false
+[INFO]  Ti.Geolocation.locationServicesAuthorization Ti.Geolocation.AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Media.hasCameraPermissions false
+[INFO]  Ti.Media.cameraAuthorizationStatus Ti.Media.CAMERA_AUTHORIZATION_NOT_DETERMINED
+[INFO]
+[INFO]  --------------------------------------------------------
+[INFO]
+[INFO]  Ti.Calendar.requestCalendarPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Calendar.requestCalendarPermissions:code (mapped) AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Contacts.requestContactsPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Contacts.requestContactsPermissions:code (mapped) AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Media.requestCameraPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Media.requestCameraPermissions:code (mapped) CAMERA_AUTHORIZATION_NOT_DETERMINED
+</pre></code>
+
+Because of TIMOB-20002 I use the Ti 5.1 Sample App to read the Geolocation callback:
+
+<code><pre>
+[INFO]  Ti.Geolocation.requestLocationPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0,
+[INFO]    "authorizationStatus": 3,
+[INFO]    "error": ""
+[INFO]  }
+[INFO]  Ti.Geolocation.requestLocationPermissions.code (mapped) Ti.Geolocation.AUTHORIZATION_UNKNOWN
+[INFO]  Ti.Geolocation.requestLocationPermissions.authorizationStatus (mapped) Ti.Geolocation.AUTHORIZATION_AUTHORIZED
+</pre></code>
+
+<h4>Scenario: Allowed All Before</h4>
+
+<code><pre>
+[INFO]  Ti.Calendar.hasCalendarPermissions true
+[INFO]  Ti.Calendar.eventsAuthorization Ti.Calendar.AUTHORIZATION_AUTHORIZED
+[INFO]
+[INFO]  Ti.Contacts.hasContactsPermissions true
+[INFO]  Ti.Contacts.contactsAuthorization Ti.Contacts.AUTHORIZATION_AUTHORIZED
+[INFO]
+[INFO]  Ti.Geolocation.hasLocationPermissions true
+[INFO]  Ti.Geolocation.locationServicesAuthorization Ti.Geolocation.AUTHORIZATION_ALWAYS
+[INFO]
+[INFO]  Ti.Media.hasCameraPermissions true
+[INFO]  Ti.Media.cameraAuthorizationStatus Ti.Media.CAMERA_AUTHORIZATION_AUTHORIZED
+[INFO]
+[INFO]  --------------------------------------------------------
+[INFO]
+[INFO]  Ti.Calendar.requestCalendarPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Calendar.requestCalendarPermissions:code (mapped) AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Contacts.requestContactsPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Contacts.requestContactsPermissions:code (mapped) AUTHORIZATION_UNKNOWN
+[INFO]
+[INFO]  Ti.Media.requestCameraPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0
+[INFO]  }
+[INFO]  Ti.Media.requestCameraPermissions:code (mapped) CAMERA_AUTHORIZATION_NOT_DETERMINED
+</pre></code>
+
+Because of TIMOB-20002 I use the Ti 5.1 Sample App to read the Geolocation callback:
+
+<code><pre>
+[INFO]  Ti.Geolocation.requestLocationPermissions {
+[INFO]    "success": true,
+[INFO]    "code": 0,
+[INFO]    "authorizationStatus": 3,
+[INFO]    "error": ""
+[INFO]  }
+[INFO]  Ti.Geolocation.requestLocationPermissions.code (mapped) Ti.Geolocation.AUTHORIZATION_UNKNOWN
+[INFO]  Ti.Geolocation.requestLocationPermissions.authorizationStatus (mapped) Ti.Geolocation.AUTHORIZATION_AUTHORIZED
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Srikanth Sombhatla 2015-12-02
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7528" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7528</a>
+   
+   See my comments for each bullet item:
+   
+   *Unlike the others, the callback for requestLocationPermissions() is only called the first time. You have to force close and then re-open the app for it to work again.*
+   Already fixed in TIMOB-20002
+   
+   *The response for requestLocationPermissions also has authorizationStatus, which would be very useful to have in the response for the others as well.*
+   This needs to get in parity with Android. Will investigate and do as a separate ticket TIMOB-20084 
+   
+   *On success, the response for requestLocationPermissions has an empty string for error where it should either have a message or be undefined.*
+   Sriks: Already fixed in TIMOB-20002
+   
+   *When unknown, requestContactsPermissions has a not very helpful Access Denied error instead of just being undefined like Calendar and Camera.*
+   Fixed in this ticket. Changed to a message similar to other permissions: "The user has denied access to the address book"
+   
+   *Unless permission was granted, the error for requestLocationPermissions is always The user is unable to allow access to location., which is not very helpful or even misleading since the user is perfectly able, he just denied permission to the app. Calendar and Contacts have better error messages.*
+   Already fixed in TIMOB-20002
+   
+   *When denied, the response for requestCameraPermissions has no error like the others.*
+   Fixed in this ticket. Same is fixed for Calendar.
+   
+   *I have no idea where code comes from but if I deny it (probably by coincidence) correctly maps to AUTHORIZATION_DENIED for Calendar and Contacts. Would be helpful to have the meaning of this code documented.*
+   Yes it is coincidence! code in iOS is framework specific. But the docs says 0 is for success and any non zero is for failure. I will create a separate ticket for this since each framework returns a different code and not in parity with Android.</li>
+<li>Fokke Zandbergen 2015-12-02
+
+   Awesome work [~ssombhatla]. It's the details that make a great product!</li>
+<li>Angel Petkov 2015-12-03
+
+   Reviewed , there were some issues with TIMOB-20002, however I've left a comment there and 2 new PRs. Everything else looks good. Thanks [~ssombhatla]! </li>
+<li>Chee Kiat Ng 2015-12-16
+
+   Not sure why this was resolved without a PR being merged. Please address comments in <a href="https://github.com/appcelerator/titanium_mobile/pull/7528" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7528</a></li>
+<li>Hans Knöchel 2015-12-28
+
+   [~ssombhatla] PR on master merged, please provide a backport for 5_2_X to make this change available in 5.2.0.</li>
+<li>Srikanth Sombhatla 2015-12-29
+
+   [~hansknoechel]
+   5_2_X backport PR <a href="https://github.com/appcelerator/titanium_mobile/pull/7603" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7603</a></li>
+<li>Hans Knöchel 2015-12-29
+
+   Backport merged, resolving ticket!</li>
+<li>Eric Wieber 2016-02-10
+
+   Verified fixed, using:
+   
+   MacOS 10.11.3 (15D21)
+   Studio 4.5.0.201602050824
+   Ti SDK 5.2.0.v20160208101502
+   Appc NPM 4.2.3-2
+   Appc CLI 5.2.0-249
+   Alloy 1.7.33
+   Xcode 7.2 (7C68)
+   
+   As stated by Srikanth, many issues from this ticket are addressed elsewhere. Tested with the sample code provided. All proper messages were displayed with allowing or denying permissions. Permissions now are accessed and display similar messaging.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20004.json">JSON Source</a></p>

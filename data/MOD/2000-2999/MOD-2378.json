@@ -1,0 +1,598 @@
+{
+	"id": "170574",
+	"key": "MOD-2378",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10034",
+			"key": "MOD",
+			"name": "Appcelerator Modules",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20029",
+				"name": "Release 7.1.0",
+				"archived": false,
+				"released": false
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-03-01T00:02:31.000+0000",
+		"created": "2017-12-11T01:33:10.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android",
+			"annotation",
+			"customView",
+			"image",
+			"ti.map"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "gmathews",
+			"key": "gmathews",
+			"displayName": "Gary Mathews",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2018-07-13T14:55:02.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "13700",
+				"name": "Map"
+			}
+		],
+		"description": "Adding annotation with customView to a map outputs this warning for every annotation. This blocks the performance when you have 70+ markers.\r\n\r\nTiBlob: (main) [1106,1935] getNativePath not supported for non-file blob types.\r\n\r\nTo reproduce, just do this in your map complete event handler:\r\n{code:javascript}\r\nfunction onMapComplete(event) {\r\n\tvar annot = TI_MAP.createAnnotation({\r\n\t\tlatitude: 41.071004,\r\n\t\tlongitude: 29.015450,\r\n\t\ttitle: 'test #1',\r\n\t\tcustomView: Ti.UI.createImageView({\r\n\t\t\timage: '/images/marker.png',\r\n\t\t\twidth: Ti.UI.SIZE,\r\n\t\t\theight: Ti.UI.SIZE\r\n\t\t})\r\n\t});\r\n\t$.mapView.addAnnotation(annot);\r\n}\r\n{code}\r\n\r\nHere is the [line in TiBlob.java|https://github.com/appcelerator/titanium_mobile/blob/30a9911c4f1d30ba0c3d971903f16ae8cc18b0a6/android/titanium/src/java/org/appcelerator/titanium/TiBlob.java#L526]. `getNativePath()` should not be called in the first place bec. customView already provides the annotation view. Why would it try to get a path for it?\r\n\r\nWhy I use customView? Bec. otherwise if I use the image property, it leaks memory on Android; if you remove and re-add annotations multiple times... I'm tired of Titanium!\r\n\r\n*UPDATE 1:* It still leaks memory both when `.image` or `.customView` used. Doesn't matter.\r\n*UPDATE 2:* It also leaks memory when using default pins (not setting `.image` or `.customView`) but the app stands a bit more longer before it crashes.\r\n\r\n{code:shell}\r\n[WARN] :   art: Throwing OutOfMemoryError \"Failed to allocate a 57612 byte allocation with 55816 free bytes and 54KB until OOM\"\r\n[WARN] :   JNIHelp: Discarding pending exception (java.lang.OutOfMemoryError: Failed to allocate a 57612 byte allocation with 55816 free bytes and 54KB until OOM) to throw java/lang/RuntimeException\r\n[WARN] :   W/System.err: java.lang.RuntimeException: Could not allocate java pixel ref.\r\n[WARN] :   W/System.err: \tat android.graphics.Bitmap.nativeCreateFromParcel(Native Method)\r\n[WARN] :   W/System.err: \tat android.graphics.Bitmap.-wrap0(Bitmap.java)\r\n[WARN] :   W/System.err: \tat android.graphics.Bitmap$1.createFromParcel(Bitmap.java:1564)\r\n[WARN] :   W/System.err: \tat android.graphics.Bitmap$1.createFromParcel(Bitmap.java:1563)\r\n[WARN] :   W/System.err: \tat bsb.a(:com.google.android.gms@11509470:2)\r\n[WARN] :   W/System.err: \tat wpl.onTransact(:com.google.android.gms@11509470:8)\r\n[WARN] :   W/System.err: \tat android.os.Binder.transact(Binder.java:499)\r\n[WARN] :   W/System.err: \tat com.google.android.gms.internal.zzed.zza(Unknown Source)\r\n[WARN] :   W/System.err: \tat com.google.android.gms.maps.model.internal.zzc.zzd(Unknown Source)\r\n[WARN] :   W/System.err: \tat com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(Unknown Source)\r\n[WARN] :   W/System.err: \tat ti.map.AnnotationProxy.handleImage(AnnotationProxy.java:272)\r\n[WARN] :   W/System.err: \tat ti.map.AnnotationProxy.processOptions(AnnotationProxy.java:232)\r\n[WARN] :   W/System.err: \tat ti.map.TiUIMapView.addAnnotation(TiUIMapView.java:438)\r\n[WARN] :   W/System.err: \tat ti.map.ViewProxy.handleAddAnnotation(ViewProxy.java:282)\r\n[WARN] :   W/System.err: \tat ti.map.ViewProxy.handleAddAnnotations(ViewProxy.java:325)\r\n[WARN] :   W/System.err: \tat ti.map.ViewProxy.addAnnotations(ViewProxy.java:313)\r\n[WARN] :   W/System.err: \tat org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)\r\n[WARN] :   W/System.err: \tat org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)\r\n[WARN] :   W/System.err: \tat org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:934)\r\n[WARN] :   W/System.err: \tat org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1157)\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[WARN] :   W/System.err: \tat org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:363)\r\n[WARN] :   W/System.err: \tat android.os.Handler.dispatchMessage(Handler.java:98)\r\n[WARN] :   W/System.err: \tat android.os.Looper.loop(Looper.java:154)\r\n[WARN] :   W/System.err: \tat android.app.ActivityThread.main(ActivityThread.java:6119)\r\n[WARN] :   W/System.err: \tat java.lang.reflect.Method.invoke(Native Method)\r\n[WARN] :   W/System.err: \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:886)\r\n[WARN] :   W/System.err: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:776)\r\n[ERROR] :  TiExceptionHandler: (main) [6051,31629] ----- Titanium Javascript Runtime Error -----\r\n[ERROR] :  TiExceptionHandler: (main) [0,31629] - In /alloy/controllers/index.js:101,13\r\n[ERROR] :  TiExceptionHandler: (main) [0,31629] - Message: Uncaught Could not allocate java pixel ref.\r\n[ERROR] :  TiExceptionHandler: (main) [0,31629] - Source: \t\t\t\t$.vwMap.addAnnotations(annots);\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: WaitForGcToComplete blocked for 21.152ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: WaitForGcToComplete blocked for 16.867ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: WaitForGcToComplete blocked for 21.218ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[ERROR] :  V8Exception: Exception occurred at /alloy/controllers/index.js:101: Uncaught Could not allocate java pixel ref.\r\n[ERROR] :  V8Exception: Could not allocate java pixel ref.\r\n[INFO] :   Choreographer: Skipped 83 frames!  The application may be doing too much work on its main thread.\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: WaitForGcToComplete blocked for 15.277ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[ERROR] :  EGL_emulation: tid 29011: eglSurfaceAttrib(1174): error 0x3009 (EGL_BAD_MATCH)\r\n[WARN] :   OpenGLRenderer: Failed to set EGL_SWAP_BEHAVIOR on surface 0xcb0fc420, error=EGL_BAD_MATCH\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: WaitForGcToComplete blocked for 35.539ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: WaitForGcToComplete blocked for 24.297ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: Alloc partial concurrent mark sweep GC freed 67(2456B) AllocSpace objects, 0(0B) LOS objects, 0% free, 95MB/96MB, paused 357us total 21.130ms\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: Alloc concurrent mark sweep GC freed 3(72B) AllocSpace objects, 0(0B) LOS objects, 0% free, 95MB/96MB, paused 261us total 21.652ms\r\n[INFO] :   art: Forcing collection of SoftReferences for 64KB allocation\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 111MB to 96MB\r\n[INFO] :   art: Alloc concurrent mark sweep GC freed 3(72B) AllocSpace objects, 0(0B) LOS objects, 0% free, 95MB/96MB, paused 235us total 21.648ms\r\n[WARN] :   art: Throwing OutOfMemoryError \"Failed to allocate a 65548 byte allocation with 32104 free bytes and 31KB until OOM\"\r\n[INFO] :   art: WaitForGcToComplete blocked for 68.092ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: WaitForGcToComplete blocked for 67.564ms for cause Background\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: Waiting for a blocking GC Alloc\r\n[INFO] :   art: Clamp target GC heap from 109MB to 96MB\r\n[INFO] :   art: Alloc partial concurrent mark sweep GC freed 3632(322KB) AllocSpace objects, 29(1740KB) LOS objects, 2% free, 93MB/96MB, paused 199us total 19.395ms\r\n[INFO] :   art: WaitForGcToComplete blocked for 21.957ms for cause Alloc\r\n[INFO] :   art: Starting a blocking GC Alloc\r\n[INFO] :   art: WaitForGcToComplete blocked for 18.575ms for cause Background\r\n[INFO] :   APSAnalyticsService: Analytics Service Started\r\n[INFO] :   APSAnalyticsService: Stopping Analytics Service\r\n{code}\r\n\r\n*Environment:*\r\nmacOS High Sierra, node 8.9.3, Ti SDK 7.0.0, javac 1.8.0_112\r\nLast Android device tested: Samsung Galaxy S7, Android 7.1.0 (API 25)\r\n",
+		"attachment": [
+			{
+				"id": "63770",
+				"filename": "map-annot-test.zip",
+				"author": {
+					"name": "onury",
+					"key": "onury",
+					"displayName": "Onur Yıldırım",
+					"active": true,
+					"timeZone": "Europe/Moscow"
+				},
+				"created": "2017-12-11T19:05:05.000+0000",
+				"size": 10035760,
+				"mimeType": "application/zip"
+			},
+			{
+				"id": "63958",
+				"filename": "marker.png",
+				"author": {
+					"name": "gmathews",
+					"key": "gmathews",
+					"displayName": "Gary Mathews",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2018-01-13T00:03:38.000+0000",
+				"size": 4689,
+				"mimeType": "image/png"
+			},
+			{
+				"id": "63771",
+				"filename": "mleak-app-screen.png",
+				"author": {
+					"name": "onury",
+					"key": "onury",
+					"displayName": "Onur Yıldırım",
+					"active": true,
+					"timeZone": "Europe/Moscow"
+				},
+				"created": "2017-12-11T19:05:38.000+0000",
+				"size": 886429,
+				"mimeType": "image/png"
+			},
+			{
+				"id": "63772",
+				"filename": "mleak-full-logs.txt.zip",
+				"author": {
+					"name": "onury",
+					"key": "onury",
+					"displayName": "Onur Yıldırım",
+					"active": true,
+					"timeZone": "Europe/Moscow"
+				},
+				"created": "2017-12-11T19:10:54.000+0000",
+				"size": 29914,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: Memory leak - TiBlob: (main) getNativePath not supported for non-file blob types.",
+		"creator": {
+			"name": "onury",
+			"key": "onury",
+			"displayName": "Onur Yıldırım",
+			"active": true,
+			"timeZone": "Europe/Moscow"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "onury",
+			"key": "onury",
+			"displayName": "Onur Yıldırım",
+			"active": true,
+			"timeZone": "Europe/Moscow"
+		},
+		"environment": "macOS High Sierra, node 8.9.3, Appcelerator Studio 5.0.0, Ti SDK 7.0.0",
+		"comment": {
+			"comments": [
+				{
+					"id": "431913",
+					"author": {
+						"name": "mrahman",
+						"key": "mrahman",
+						"displayName": "Mostafizur Rahman",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~onury],\r\nThanks for sharing with us. Can you please share the the full sample code to reproduce the issue on our end? Also provide share your android device information and console logs.\r\n\r\nBest",
+					"updateAuthor": {
+						"name": "mrahman",
+						"key": "mrahman",
+						"displayName": "Mostafizur Rahman",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-12-11T08:18:52.000+0000",
+					"updated": "2017-12-11T08:18:52.000+0000"
+				},
+				{
+					"id": "431971",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "@Mostafizur Rahman , I've attached a very explanatory sample app, full logs and more info (including environment, etc). I hope this helps you identify the problem quickly because our production app keeps crashing and we're loosing reputation over this. At least a workaround is crucial at this point.\r\n\r\nPls let me know if you need anything else.\r\nBest,",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-11T19:13:53.000+0000",
+					"updated": "2017-12-11T19:17:10.000+0000"
+				},
+				{
+					"id": "431978",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Updated the sample app to show it also leaks memory with default pins. But cannot upload anymore files.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-11T19:49:13.000+0000",
+					"updated": "2017-12-11T19:49:13.000+0000"
+				},
+				{
+					"id": "432087",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Any news on this? At least a confirmation pls.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-13T10:15:05.000+0000",
+					"updated": "2017-12-13T10:15:05.000+0000"
+				},
+				{
+					"id": "432203",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-15T09:59:58.000+0000",
+					"updated": "2017-12-15T09:59:58.000+0000"
+				},
+				{
+					"id": "432246",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Please see the links below that discuss `OutOfMemoryException` when using maps in native Android. Might be helpful...\r\n\r\n* [StackOverflow: 75 markers on Map - memory leaks - OutOfMemoryException|https://stackoverflow.com/questions/14186072/75-markers-on-map-memory-leaks-outofmemoryexception]\r\n* [StackOverflow: Android - Many OutOfMemoryError exceptions only on single Activity with MapView|https://stackoverflow.com/questions/14186072/75-markers-on-map-memory-leaks-outofmemoryexception]\r\n* [Google Issue Tracker:  Memory leak in system when using MapView|https://issuetracker.google.com/issues/36907271]",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-16T16:54:48.000+0000",
+					"updated": "2017-12-16T16:55:15.000+0000"
+				},
+				{
+					"id": "432247",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Additional notes:\r\n\r\n- Adding {{<application  android:largeHeap=\"true\">}} does not help.  Still crashes. (not a guaranteed solution anyway).\r\n- Modifying {{ti.map}} module by using {{.release()}} for {{bitmap}} didn't help. (M. Gangolf)\r\n- Modifying {{ti.map}} module by manually calling {{gc()}} in {{removeAllAnnotations()}}  didn't help. (M. Gangolf)\r\n- As a workaround; considered updating annotations without removing and re-adding but {{.image}} can be only set at creation-time. (And it would still leak anyway without a fix.)\r\n",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-16T18:46:49.000+0000",
+					"updated": "2017-12-16T18:56:06.000+0000"
+				},
+				{
+					"id": "432248",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, We have verified the issue. Our engineers are working on it. The will schedule it for a fix. Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-12-16T19:28:06.000+0000",
+					"updated": "2017-12-16T19:28:06.000+0000"
+				},
+				{
+					"id": "432251",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Great! Thanks Sharif.\r\nLooking forward to that.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-16T19:44:17.000+0000",
+					"updated": "2017-12-16T19:44:17.000+0000"
+				},
+				{
+					"id": "432437",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "@Sharif AbuDarda any kind of news on this?",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2017-12-20T14:04:07.000+0000",
+					"updated": "2017-12-20T14:04:07.000+0000"
+				},
+				{
+					"id": "433076",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Still no updates on this.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2018-01-12T11:54:11.000+0000",
+					"updated": "2018-01-12T11:54:11.000+0000"
+				},
+				{
+					"id": "433085",
+					"author": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hello [~onury], sorry to say the process failed us here. But this looks like a bad one so will ask our senior Android dev to look at this today. Expect some info by end of day.",
+					"updateAuthor": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-01-12T16:04:37.000+0000",
+					"updated": "2018-01-12T16:04:37.000+0000"
+				},
+				{
+					"id": "433087",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Looking forward to it. Thanks.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2018-01-12T16:15:10.000+0000",
+					"updated": "2018-01-12T16:15:10.000+0000"
+				},
+				{
+					"id": "433110",
+					"author": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "titanium_mobile: https://github.com/appcelerator/titanium_mobile/pull/9725\r\nti.map: https://github.com/appcelerator-modules/ti.map/pull/219\r\n\r\nti.map-4.1.1: https://github.com/appcelerator-modules/ti.map/releases/tag/android-4.1.1",
+					"updateAuthor": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-01-13T00:14:57.000+0000",
+					"updated": "2018-01-13T00:14:57.000+0000"
+				},
+				{
+					"id": "433313",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Thanks Gary, hope these get merged soon.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2018-01-18T21:23:02.000+0000",
+					"updated": "2018-01-18T21:23:02.000+0000"
+				},
+				{
+					"id": "433809",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "Gary, a collaborator requested some changes on GitHub, 17 days ago.\r\nCan you please have a look at it? ",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2018-01-30T01:16:50.000+0000",
+					"updated": "2018-01-30T01:16:50.000+0000"
+				},
+				{
+					"id": "434611",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Just about the merge/fix: you could have used the custom SDK with the since Jan 13 since it is linked in the PR (by the build-bot) or even create your 7.0.2 version with the few lines of code or ask in ti-slack for someone to compile it for you. \r\n\r\nSince it is scheduled for 7.1.0 it is not officially merged. ",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-02-18T15:37:54.000+0000",
+					"updated": "2018-02-18T15:37:54.000+0000"
+				},
+				{
+					"id": "434612",
+					"author": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"body": "I could not use non-official releases for the app in production.",
+					"updateAuthor": {
+						"name": "onury",
+						"key": "onury",
+						"displayName": "Onur Yıldırım",
+						"active": true,
+						"timeZone": "Europe/Moscow"
+					},
+					"created": "2018-02-18T15:44:26.000+0000",
+					"updated": "2018-02-18T15:44:26.000+0000"
+				},
+				{
+					"id": "435022",
+					"author": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "7_1_X: https://github.com/appcelerator/titanium_mobile/pull/9894",
+					"updateAuthor": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-02-28T19:33:59.000+0000",
+					"updated": "2018-02-28T19:33:59.000+0000"
+				},
+				{
+					"id": "435038",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed.\r\nPR's merged.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-02-28T23:25:53.000+0000",
+					"updated": "2018-02-28T23:25:53.000+0000"
+				},
+				{
+					"id": "435599",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix in SDK 7.1.0.v20180308150545 & 7.2.0.v20180313125304 downloads map module 4.1.1.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-03-14T18:34:24.000+0000",
+					"updated": "2018-03-14T18:34:24.000+0000"
+				},
+				{
+					"id": "439096",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "I think this PR leads to this error when you try to re-add an existing annotation:\r\n\r\n{code:java}\r\n[WARN]  W/System.err: java.lang.NullPointerException: Attempt to invoke virtual method 'void com.google.android.gms.maps.model.Marker.remove()' on a null object reference\r\n[WARN]  W/System.err: \tat ti.map.TiUIMapView.addAnnotation(TiUIMapView.java:474)\r\n[WARN]  W/System.err: \tat ti.map.TiUIMapView.addAnnotations(TiUIMapView.java:489)\r\n[WARN]  W/System.err: \tat ti.map.TiUIMapView.updateAnnotations(TiUIMapView.java:498)\r\n[WARN]  W/System.err: \tat ti.map.TiUIMapView.propertyChanged(TiUIMapView.java:288)\r\n[WARN]  W/System.err: \tat org.appcelerator.kroll.KrollProxy.firePropertyChanged(KrollProxy.java:969)\r\n[WARN]  W/System.err: \tat org.appcelerator.kroll.KrollProxy.onPropertyChanged(KrollProxy.java:1058)\r\n[WARN]  W/System.err: \tat org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)\r\n[WARN]  W/System.err: \tat org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:55)\r\n[WARN]  W/System.err: \tat org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:41)\r\n[WARN]  W/System.err: \tat ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:166)\r\n[WARN]  W/System.err: \tat android.os.Handler.handleCallback(Handler.java:751)\r\n[WARN]  W/System.err: \tat android.os.Handler.dispatchMessage(Handler.java:95)\r\n[WARN]  W/System.err: \tat android.os.Looper.loop(Looper.java:173)\r\n[WARN]  W/System.err: \tat android.app.ActivityThread.main(ActivityThread.java:6459)\r\n[WARN]  W/System.err: \tat java.lang.reflect.Method.invoke(Native Method)\r\n[WARN]  W/System.err: \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:938)\r\n[WARN]  W/System.err: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:828)\r\n{code}\r\n\r\nExample: \r\n{code:java}\r\nvar Map = require('ti.map');\r\nvar win = Titanium.UI.createWindow();\r\nvar mapview = Map.createView({\r\n\tbottom: 0,\r\n\tright: 0,\r\n\twidth: Ti.UI.FILL,\r\n\theight: Ti.UI.FILL,\r\n\trotateEnabled: true,\r\n\tmapType: Map.MUTED_STANDARD_TYPE,\r\n\tshowsPointsOfInterest: false,\r\n\tuserLocation: true,\r\n});\r\nvar ann = [];\t// store annotations\r\n\r\nfunction setData() {\r\n\tfor (var i = 0; i < 10; i++) {\r\n\t\tann.push(Map.createAnnotation({\r\n\t\t\ttitle: 'Title',\r\n\t\t\tsubtitle: 'subtitle',\r\n\t\t\tlatitude: Math.random() * 10 + 40,\r\n\t\t\tlongitude: Math.random() * 10,\r\n\t\t}));\r\n\t}\r\n\tmapview.setAnnotations(ann);\r\n}\r\nsetData();\r\n\r\n\r\nvar btn = Ti.UI.createButton({\r\n\ttitle: \"add again\",\r\n\tbottom: 40\r\n});\r\nvar btn2 = Ti.UI.createButton({\r\n\ttitle: \"add new\",\r\n\tbottom: 0\r\n});\r\nvar btn3 = Ti.UI.createButton({\r\n\ttitle: \"set\",\r\n\tbottom: 80\r\n});\r\nbtn.addEventListener(\"click\", function() {\r\n\t// remove and add existing annotation\r\n\tmapview.removeAllAnnotations();\r\n\tmapview.addAnnotation(ann[0]);\r\n})\r\n\r\nbtn2.addEventListener(\"click\", function() {\r\n\t// create new annotation and set it\r\n\tvar anno = Map.createAnnotation({\r\n\t\ttitle: 'Title',\r\n\t\tsubtitle: 'subtitle',\r\n\t\tlatitude: Math.random() * 10 + 40,\r\n\t\tlongitude: Math.random() * 10,\r\n\t})\r\n\tmapview.setAnnotations([anno]);\r\n})\r\n\r\nbtn3.addEventListener(\"click\", function() {\r\n\t// reset existing annotation\r\n\tmapview.setAnnotations([ann[0]]);\r\n})\r\nwin.add(btn);\r\nwin.add(btn2);\r\nwin.add(btn3);\r\nwin.add(mapview);\r\nwin.open();\r\n\r\n{code}\r\n\r\nOnly the button \"Add new\" works. If I add or set an existing icon it will crash.\r\n\r\nAndroid 7 (HTC A9)\r\nTi SDK 7.2.0.GA\r\nTi.Map 4.3.0\r\n\r\nit has something todo with: https://github.com/appcelerator-modules/ti.map/blob/999bd092c0d41be8384d01271cc32888b64fcb05/android/src/ti/map/AnnotationProxy.java#L96 \r\n\r\nHere: https://github.com/appcelerator-modules/ti.map/blob/master/android/src/ti/map/TiUIMapView.java#L498\r\nannotation.getTiMarker() returns not-null but tiMarker.getMarker() is null (tiMarker.getMarker().remove();).\r\n\r\nStill investigating what needs to be fixed",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-07-10T16:19:05.000+0000",
+					"updated": "2018-07-10T16:19:05.000+0000"
+				}
+			],
+			"maxResults": 28,
+			"total": 28,
+			"startAt": 0
+		}
+	}
+}

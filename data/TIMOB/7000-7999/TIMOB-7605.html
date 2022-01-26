@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-7605] iOS: httpClient file transfers appear to be cached in 1.8.0.1"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-14T15:42:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-04, Release 2.0.0, Release 1.8.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>1.8.0.1, httpclient, module_filesystem, parity, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Mark Miller</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-01-25T21:00:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-03-22T16:20:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm writing a file-syncing app which requires transfer certain files multiple times into folders to then display the resulting html. This means that some files - like css, js, icon images, etc. - get transferred multiple times. This worked like a charm on 1.7.5. When I upgraded to 1.8.0.1, the SDK now only transfers the file once. The call to httpClient.send appears to work - no error gets thrown, all the callbacks fire as expected - but the actual file that is requested never gets saved where it is told to save.
+
+We're using the standard way of transferring files, where 'assetrowsresult' is the results from the database of the source and destination paths of files to be moved:
+
+c.open('GET', assetrowsresult.fieldByName('source'));
+c.file = Titanium.Filesystem.getFile(basepath(current_project) + assetrowsresult.fieldByName('dest'));
+c.send();
+
+Again, this worked fine in 1.7.5 ... so something changed. I'd be happy just knowing how to turn the cache off for transfers if such a switch exists.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-7605_25717/app.js">app.js</td></td><td>2012-02-09T17:25:43.000+0000</td><td>4141</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Henderson 2012-01-26
+
+   My experience is similar, but seems to stretch to writing all files. For example:
+   
+   var filex = Titanium.Filesystem.getFile(Titanium.Filesystem.tempDirectory + "/tempImg.png");
+   if (filex != null) {
+      filex.deleteFile(); 
+   }
+   	
+   var filename = Titanium.Filesystem.tempDirectory + "/tempImg.png";
+   var f = Titanium.Filesystem.getFile(filename);
+   f.write(event.media);							
+   							
+   image320.image = f.nativePath;
+   
+   Image320's image will not be replaced by the new image in event.media, but use the one that's just been deleted still!
+   The only way I got round this was to not bother deleting and write a new file using a GUID. Not ideal, and only in 1.8.0.1.. Seeing someone else with a similar problem has prompted me to flag it up..
+   
+   Thx.</li>
+<li>Mark Miller 2012-01-26
+
+   What's scary is that my file transfer logic triggers going to the next file in the list on the onload() callback from the current file. And that works fine, even though no file is actually deposited where I'm telling it to go. So TI is acting like it wrote the file and all is well, when in fact it didn't. 
+   
+   I'm writing each instance of the common css/js/png files to different folders. So TI *should* see these as distinct file writes. I even tried adding "'?rand=' + Math.random()" to the URL to make it more unique, but that didn't help either. I also deleted the synced projects and re-synced from scratch - so that the writes would go into empty folders - and the same thing happened, the assets which are common between projects only wrote once, even though my sync status log showed it thinks it wrote them a bunch of times.
+   
+   Anyway ... I've backed off to 1.7.5 for now.</li>
+<li>Mark Miller 2012-02-07
+
+   Any progress on this? I'd love to be able to upgrade to 1.8.1 but it'd break our app with this problem.</li>
+<li>Mark Miller 2012-02-09
+
+   I did some more testing on this. It definitely feels like cache-based. I built a simple function to download a file into a folder. I rigged a button to call that function 5 times - for the same file into 5 different folders. Here's the behavior:
+   
+   1) When called normally, the first time the button was clicked, the file was downloaded into the first 4 folders, but not the fifth.
+   
+   2) When I delete the files that were downloaded and click the button again, the file was not downloaded into any folder.
+   
+   3) When I restart the app and add a 1-second sleep after the call to the first download from the button callback, the file was only downloaded into the first folder, not the other four. So the sleep timer gave Titanium a chance to see that the file was already downloaded and then it bypassed it from there on.
+   
+   Note that in each case I'm getting a valid onload() callback and a fully complete e.progress status. Everything from the system tells me that it has copied the file, even though it has not. That's what really makes this dangerous, the developer is given no indication that the file hasn't been transferred.
+   
+   This bug is preventing us from upgrading from 1.7.5 - which is making the whole app less stable because we can't get the bug fixes since that release.</li>
+<li>Neeraj Gupta 2012-02-09
+
+   We need to make sure that our fix correctly addresses your use case so please provide a complete test case to reproduce this issue.</li>
+<li>Stephen Tramer 2012-02-09
+
+   This ticket duplicates private ticket TIMOB-5052 (which includes a complete test case). git commits will be tagged with this ticket number so that they show up in the history.</li>
+<li>Mark Miller 2012-02-09
+
+   Example uploaded to: <a href="http://cl.ly/1w1k33390I2r2v0h002x" rel="nofollow" target="_blank">http://cl.ly/1w1k33390I2r2v0h002x</a>
+   
+   You can comment in/out the timers. Or just click the button, then delete whatever it manages to download and click again, and see that nothing comes down the wire.</li>
+<li>Stephen Tramer 2012-02-09
+
+   Attaching linked app.js for permanence.</li>
+<li>Stephen Tramer 2012-02-09
+
+   Updated <code>app.js</code> to include directory creation for testing.</li>
+<li>Natalie Huynh 2012-02-17
+
+    Pass: Tested with 1.8.2.v20120216154635 with iPhone Simulator 4.3.2/5.0 and iPhone 4 4.3.5 seeing the downloaded files into the directory</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7605.json">JSON Source</a></p>

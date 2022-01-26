@@ -1,0 +1,70 @@
+---
+title: "[AC-1825] CLI: OTHER_CFLAGS from module.xcconfig only present in Release configurations of app build"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-04T20:04:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Appcelerator CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Paul Mietz Egli</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2013-02-22T18:27:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:40:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have a module that extends the standard Ti.UI.TabGroup and Ti.UI.ImageView classes (<a href="https://github.com/pegli/TiUIEx)." rel="nofollow" target="_blank">https://github.com/pegli/TiUIEx).</a>  The module won't compile without the TiUITabViewProxy and TiUIImageView classes from the SDK, so I added the following to the module's <code>module.xcconfig</code>:
+
+<code><pre>
+OTHER_CFLAGS=$(inherited) -DUSE_TI_UITAB -DUSE_TI_UIIMAGEVIEW
+</pre></code>
+
+When I package the module and add it to an empty app project, the app builds and runs fine using the CLI and Studio when targeted against the simulator.  When I build for the device, however, I get undefined symbols.  The CLI call is:
+
+<code><pre>
+ti build -T device -V 'Paul Mietz Egli' -P 86666302-83C6-42FC-97EF-3EFEA6B3048F -p iphone
+</pre></code>
+
+which outputs an ld error.  If I open the generated project in Xcode and build for device, I get a little more info:
+
+<code><pre>
+Undefined symbols for architecture armv7:
+  "_OBJC_METACLASS_$_TiUITabGroupProxy", referenced from:
+      _OBJC_METACLASS_$_TiUITabGroupProxyEx in libcom.obscure.tiuiex.a(TiUITabGroupProxyEx.o)
+     (maybe you meant: _OBJC_METACLASS_$_TiUITabGroupProxyEx)
+  "_OBJC_CLASS_$_TiUITabGroupProxy", referenced from:
+      _OBJC_CLASS_$_TiUITabGroupProxyEx in libcom.obscure.tiuiex.a(TiUITabGroupProxyEx.o)
+     (maybe you meant: _OBJC_CLASS_$_TiUITabGroupProxyEx)
+  "_OBJC_METACLASS_$_TiUIImageViewProxy", referenced from:
+      _OBJC_METACLASS_$_ComObscureTiUIExImageViewProxy in libcom.obscure.tiuiex.a(ComObscureTiUIExImageViewProxy.o)
+  "_OBJC_CLASS_$_TiUIImageViewProxy", referenced from:
+      _OBJC_CLASS_$_ComObscureTiUIExImageViewProxy in libcom.obscure.tiuiex.a(ComObscureTiUIExImageViewProxy.o)
+  "_OBJC_METACLASS_$_TiUIImageView", referenced from:
+      _OBJC_METACLASS_$_ComObscureTiUIExImageView in libcom.obscure.tiuiex.a(ComObscureTiUIExImageView.o)
+  "_OBJC_CLASS_$_TiUIImageView", referenced from:
+      _OBJC_CLASS_$_ComObscureTiUIExImageView in libcom.obscure.tiuiex.a(ComObscureTiUIExImageView.o)
+</pre></code>
+
+In <code>build/iphone</code>, I see the generated module.xcconfig file with my OTHER_CFLAGS, but when I dig into the generated .xccodeproj/project.pbxproj, I see that those CFLAGS are only applied to Release builds.  The OTHER_CFLAGS settings for Debug and Developer targets are overridden and therefore do not inherit from the project setting.
+
+This issue makes it very hard to test my module in an app, and users of my module are confused as to why they are getting linker errors.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Pedro Enrique 2013-04-04
+
+   You must use the Ti.UI.ImageView and Ti.UI.TabGruop in your JS in order for those classes to be included in the final build. The build scripts will remove the native classes that are not needed according to your JS</li>
+<li>Paul Mietz Egli 2013-04-04
+
+   I'm familiar with how the build process searches through the app JavaScript and adds compiler flags to include the native proxy classes in the compiled application executable.  My issue is that the OTHER_CFLAGS directive in module.xcconfig is being respected only when the build target is Release and not when it is set to Developer or Debug.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1825.json">JSON Source</a></p>

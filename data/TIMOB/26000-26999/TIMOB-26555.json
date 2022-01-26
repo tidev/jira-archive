@@ -1,0 +1,241 @@
+{
+	"id": "172608",
+	"key": "TIMOB-26555",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-11-30T18:46:03.000+0000",
+		"created": "2018-11-13T23:44:39.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"android",
+			"breaking-change",
+			"broadcastReceiver",
+			"exit"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "56993",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"outwardIssue": {
+					"id": "172584",
+					"key": "TIMOB-26538",
+					"fields": {
+						"summary": "Android: Services should be stopped when exiting the app",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2018-12-04T15:33:25.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "*Summary:*\r\nIf you register a {{BroadcastReceiver}} and then back out of the app, the JavaScript runtime is kept alive due to the change we've made via [TIMOB-9831] so that the {{BroadcastReceiver}} JavaScript code can still function after exiting the app. The problem with this is if you re-launch the app after doing the above, you'll be stuck at the splash screen and the \"app.js\" won't be re-executed. The reason is because Titanium only supports running 1 JavaScript runtime at a time. You currently have to unregister the {{BroadcastReceiver}} before exiting the app to avoid this re-launch issue.\r\n\r\nThis is a design issue and needs to change.\r\n\r\nWe should revert the change made by [TIMOB-9831] and automatically unregister all broadcast receivers that were registered in JavaScript when backing out of the app.\r\n\r\nIf an app developer wants a broadcast receiver to keep running when backing out, then they should set up the root window's [exitOnClose|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.UI.Window-property-exitOnClose] property to {{false}} so that the UI and broadcast receiver will continue to run in the background as shown in \"Work-Around 1\" down below (or alternatively use \"Work-Around 2\" solution). This also makes the app work more like iOS.\r\n\r\n*Note:*\r\nAndroid services has this same problem. See: [TIMOB-26538]\r\n\r\n*Steps to reproduce:*\r\n1. Build and run the below code on Android.\r\n2. Back out of the app.\r\n3. Re-launch the app.\r\n4. Notice that you're stuck on the splash screen. _(This is the issue.)_\r\n\r\n{code:javascript}\r\n// Create a window with label displaying current headset state.\r\nvar window = Ti.UI.createWindow();\r\nvar label = Ti.UI.createLabel();\r\nwindow.add(label);\r\nwindow.open();\r\n\r\n// Register a headset broadcast receiver.\r\nvar receiver = Ti.Android.createBroadcastReceiver({\r\n\tonReceived: function(e) {\r\n\t\t// Headset has been connected/disconnected. Display current state via label.\r\n\t\tif (e.intent.action === Ti.Android.ACTION_HEADSET_PLUG) {\r\n\t\t\tvar isPluggedIn = (e.intent.getIntExtra(\"state\", 0) != 0);\r\n\t\t\tlabel.text = \"Headset is \" + (isPluggedIn ? \"Connected\" : \"Disconnected\");\r\n\t\t}\r\n\t},\r\n});\r\nTi.Android.registerBroadcastReceiver(receiver, [Ti.Android.ACTION_HEADSET_PLUG]);\r\n{code}\r\n\r\n*Work-Around 1:*\r\nFor the 1st window you open, set it's [exitOnClose|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.UI.Window-property-exitOnClose] property to {{false}} like the below. This prevents the back button from closing your root window and makes the app work more like iOS. It also allows the broadcast receiver to operate in the background without issue. This is the best solution.\r\n{code:javascript}\r\nvar window = Ti.UI.createWindow({\r\n\texitOnClose: false,\r\n});\r\nwindow.open();\r\n{code}\r\n\r\n*Work-Around 2:*\r\nOverride the root window's \"androidback\" event and use an intent to home-out of the app. This is similar to the work-around 1 solution where the root window is not closed and the broadcast receiver will continue to run in the background. Again, this makes your app effectively work like iOS.\r\n{code:javascript}\r\nvar window = Ti.UI.createWindow();\r\nwindow.addEventListener(\"androidback\", function(e) {\r\n\t// If the back key was press, cancel it and go to the home-screen instead.\r\n\tvar intent = Ti.Android.createIntent({\r\n\t\taction: Ti.Android.ACTION_MAIN,\r\n\t});\r\n\tintent.addCategory(Ti.Android.CATEGORY_HOME);\r\n\tintent.setFlags(Ti.Android.FLAG_ACTIVITY_NEW_TASK);\r\n\tTi.Android.currentActivity.startActivity(intent);\r\n});\r\nwindow.open();\r\n{code}\r\n\r\n*Work-Around 3:*\r\nUnregister the broadcast receiver when the root window is being closed. This is best if you don't need to run it while in the background.\r\n{code:javascript}\r\nwindow.addEventListener(\"close\", function(e) {\r\n\tTi.Android.unregisterBroadcastReceiver(receiver);\r\n});\r\n{code}\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Broadcast receivers should be unregistered when exiting the app",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1093,
+				"state": "closed",
+				"name": "2018 Sprint 23",
+				"startDate": "2018-11-04T23:35:52.006Z",
+				"endDate": "2018-11-18T23:35:00.000Z",
+				"completeDate": "2018-11-19T05:30:34.338Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1095,
+				"state": "closed",
+				"name": "2018 Sprint 24",
+				"startDate": "2018-11-19T05:35:58.310Z",
+				"endDate": "2018-12-03T05:35:00.000Z",
+				"completeDate": "2018-12-03T16:28:57.549Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "443547",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/10453",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-11-14T02:29:37.000+0000",
+					"updated": "2018-11-14T02:29:37.000+0000"
+				},
+				{
+					"id": "443713",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed.\r\nWaiting for CR to merge.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-11-16T23:47:43.000+0000",
+					"updated": "2018-11-16T23:47:43.000+0000"
+				},
+				{
+					"id": "444109",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR Merged.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-11-30T18:45:59.000+0000",
+					"updated": "2018-11-30T18:45:59.000+0000"
+				},
+				{
+					"id": "444226",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix on SDK 8.0.0.v20181203170303. Works fine.\r\n{code}\r\nOperating System\r\n  Name                        = Mac OS X\r\n  Version                     = 10.13.6\r\n  Architecture                = 64bit\r\nNode.js\r\n  Node.js Version             = 8.12.0\r\n  npm Version                 = 6.4.1\r\nTitanium CLI\r\n  CLI Version                 = 5.1.1\r\nStudio\t\t\t=5.1.2.201810301430\r\n SDK version          = 8.0.0.v20181203170303\r\nDevice                    = Samsung s5 android 6, \r\nEmulator                = Nexus 6p android 7\r\n{code}",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-12-04T15:29:42.000+0000",
+					"updated": "2018-12-04T15:31:17.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

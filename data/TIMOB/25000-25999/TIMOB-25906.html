@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-25906] iOS: Native exceptions not thrown when using run-on-main-thread"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-04T07:59:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>mainthread, try-catch</td></tr>
+<tr><th>Reporter</th><td>Michiel van Eerd</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-03-27T08:04:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-07-05T18:11:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+According to the documentation I should get an exception when I try to parse invalid XML with Ti.XML.parseString, but instead the "catch" handler is not called. So either this is a bug or the docs are wrong.
+
+<code><pre>
+try {
+    var doc = Ti.XML.parseString("some invalid XML");
+} catch (ex) {
+    // On iOS we never get here
+    console.log("Exception");
+}
+</pre></code>
+
+*EDIT by [~hknoechel]*: Updating ticket to focus on exceptions on the main thread. The underlaying issue is that we currently do not throw native exceptions (using <code>@throw</code>) when running on main-thread. While this does not crash the app, it still limits the functionality of developers, so it should be fixed. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-03-27
+
+   Quick question: In the title you mention iOS, in the environment Android. Where is this happening? Tested on iOS and it indeed does not call the exception, but also does not crash, it simply logs it:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({ backgroundColor: '#fff' });
+   
+   var button = Ti.UI.createButton({
+     title: 'Trigger'
+   });
+   
+   button.addEventListener('click', function() {
+     try {
+         var doc = Ti.XML.parseString("some invalid XML");
+     } catch (ex) {
+         // On iOS we never get here
+         console.log("Exception");
+     }
+   });
+   
+   win.add(button);
+   win.open();
+   </pre></code>
+   
+   [~vijaysingh] Looking in the source, it might be related to the main-thread vs kroll-thread safety. Can you take a look?</li>
+<li>Michiel van Eerd 2018-03-27
+
+   Sorry my mistake: It's happening on iOS, I haven't tested it on Android.</li>
+<li>Michiel van Eerd 2018-03-27
+
+   I have checked it again and the reason my app crashes is that I did not check the "doc" variable. This was null, so trying to get doc.documentElement causes the app to crash, not the parsing of invalid XML.
+   
+   There is still a bug though or the documentation should be adjusted.
+   
+   A simple solution is to check for the result. </li>
+<li>Vijay Singh 2018-03-28
+
+    On Kroll thread it is working fine. Problem is with main thread. I'll look in this.</li>
+<li>Vijay Singh 2018-03-28
+
+   If I see in code in TiBase.m file -
+   
+   <code><pre>
+   void TiExceptionThrowWithNameAndReason(NSString *exceptionName, NSString *reason, NSString *subreason, NSString *location)
+   {
+     if (TiExceptionIsSafeOnMainThread || ![NSThread isMainThread]) {
+       NSDictionary *details = [NSDictionary dictionaryWithObjectsAndKeys:subreason, kTiExceptionSubreason, location, kTiExceptionLocation, nil];
+       @throw [NSException exceptionWithName:exceptionName reason:reason userInfo:details];
+     } else {
+       NSString *message = [NSString stringWithFormat:@"%@. %@ %@", reason, (subreason != nil ? subreason : @""), (location != nil ? location : @"")];
+       NSLog(@"[ERROR] %@", message);
+     }
+   }
+   </pre></code>
+   
+   If we are on main thread here, it will not throw exception. Only it will log the error. If I remove the condition it is working fine. Need to dig out more why this condition was required.</li>
+<li>Vijay Singh 2018-03-28
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/9966" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9966</a>
+   
+   Test case from TIMOB-5337 -
+   
+   
+   <code><pre>
+   var tab1, tab2, win;
+   var tabs = Ti.UI.createTabGroup();
+   tabs.addTab(tab1 = Ti.UI.createTab({
+       title: 'Click here (1)',
+       window: win = Ti.UI.createWindow({
+           rightNavButton: Ti.UI.createButton({
+               title: 'Launch Popover',
+               url: 'what'
+           })
+       })
+   }));
+   
+   var contentWindow = Ti.UI.createWindow({
+       title: 'Test crash popover'
+   });
+   contentWindow.add(Ti.UI.createLabel({
+       text: "It's not easy being green."
+   }));
+   
+   win.rightNavButton.addEventListener('click',
+       function() {
+           Ti.UI.iPad.createPopover({
+               contentView: Ti.UI.iOS.createNavigationWindow({
+                   width: 250,
+                   height: 100,
+                   window: contentWindow
+               })
+           }).show({
+               view: win.rightNavButton
+           });
+       });
+   tabs.addTab(tab2 = Ti.UI.createTab({
+       title: 'Click here',
+       window: Ti.UI.createWindow({
+           url: 'what'
+       })
+   }));
+   tabs.open();
+   
+   function cycle() {
+       tabs.setActiveTab(0);
+       win.rightNavButton.fireEvent('click');
+       tabs.setActiveTab(1);
+   }
+   
+   win.addEventListener('open', cycle);
+   setInterval(cycle, 1000);
+   </pre></code></li>
+<li>Samir Mohammed 2018-07-05
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25906.json">JSON Source</a></p>

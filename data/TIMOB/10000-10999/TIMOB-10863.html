@@ -1,0 +1,164 @@
+---
+title: "[TIMOB-10863] Android: Application restarts when orientation changes and targetSdkVersion is 13 or higher"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-08-06T19:01:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.3, Release 3.0.0, Sprint 2012-19 Core, 2012 Sprint 19</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core, module_orientation, qe-testadded, triage</td></tr>
+<tr><th>Reporter</th><td>Bill Dawson</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-09-12T03:17:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T23:52:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If an app targets Android api level 13 (Honeycomb MR2, aka Android 3.2) or higher, the <code>screenSize</code> config change (which occurs when the orientation changes, for example) is not handled automatically by Android, and thus causes (by default) an activity restart (cf <a href="http://developer.android.com/reference/android/R.attr.html#configChanges)." rel="nofollow" target="_blank">http://developer.android.com/reference/android/R.attr.html#configChanges).</a>  We don't accept activity restarts in Titanium and instead just restart the app (i.e., close all activities and restart the root activity).  Traditionally we overcome the problem with orientation changes using the <code>configChanges</code> attribute's <code>orientation</code> value in our Activity entries in AndroidManifest.xml.  But now <code>screenSize</code> also needs to be handled.
+
+So if an app developer changes their tiapp.xml to add <code>android:targetApiLevel="13"</code> (or higher) -- which is something they would do to get an ICS look-and-feel, for example, and will therefore occur more and more -- their app will restart (on 3.2 or higher devices) when the orientation changes because of the unhandled screenSize.  So we need to add  <code>screenSize</code> to the <code>configChanges</code> in AndroidManifest.xml Activity entries.  However, it's not that easy: to do that, we need be sure to also build against api 13 or higher, since building against an older version will cause aapt to fail if <code>screenSize</code> is in there; this fails the application build.  So a somewhat clever solution is required.
+
+<h4>Fail Case / Test Case</h4>
+
+
+* Create a Titanium mobile app.
+
+* Change its tiapp.xml so that the <android> section looks like this:
+
+<code><pre>
+<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+	<manifest>
+		<uses-sdk android:targetSdkVersion="13" android:minSdkVersion="8"/>
+	</manifest>
+</android>
+</pre></code>
+
+* Replace the app.js with this:
+
+<code><pre>
+var win = Titanium.UI.createWindow({  
+    title:'Root Window',
+    backgroundColor:'#fff',
+	exitOnClose: true
+}),
+btn = Ti.UI.createButton({
+	title: "Open Heavyweight Window",
+	left: "16dp", right: "16dp", height: "48dp",
+	bottom: "16dp"
+});
+
+win.add(Ti.UI.createLabel({
+	text: "This is the root window",
+	color: "#000",
+	height: "48dp"
+}));
+
+win.add(btn);
+
+btn.on("click", function() {
+	var w = Ti.UI.createWindow({
+		backgroundColor: "#f00",
+		title: "New Activity",
+		fullscreen: false
+	});
+	w.add(Ti.UI.createLabel({
+		text: "This is a new Activity",
+		height: "48dp",
+		color: "#fff"
+	}));
+	w.open();
+});
+
+win.open();
+</pre></code>
+
+* Run the app on 3.2 or higher device.
+
+* After the app loads, click the "Open Heavyweight Window" button.
+
+* After the red window opens, turn the device to a different orientation (i.e., from portrait to landscape or vice-versa).
+
+* In the fail case, the app will actually close completely and re-open back at the first (white, not red) window.  When testing the fix, the app should not close and the red window should still be showing.
+
+* Also build and run the app on a pre-3.2 device (a 2.3 phone, for example) to be sure nothing is broken for older versions of android.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Stepanov 2012-09-14
+
+   Backport PR <a href="https://github.com/appcelerator/titanium_mobile/pull/2960" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2960</a></li>
+<li>Satyam Sekhri 2012-09-17
+
+   Application does not close on orientation change
+   Verified on:
+   Titanium Studio: 2.1.2.201208301612
+   Titanium SDK: 2.1.3.v20120915120319
+   Android Device: LGP970 (v2.2.2), Samsung Note (v2.3.6), Samsung Galaxy Tab (v3.2), Galaxy Nexus (v4.0.2)</li>
+<li>Manoj Kumar 2013-06-04
+
+   I'm facing same issue with Titanium SDK 3.1.0 GA with following on tiapp.xml. Target SDK version on 16 - application restarts on orientation changed.
+   
+   
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <tool-api-level>8</tool-api-level>
+           <manifest>
+               <uses-sdk android:minSdkVersion="8"/>
+               <uses-sdk android:targetSdkVersion="16"/>
+           </manifest>
+       </android></li>
+<li>Manoj Kumar 2013-06-04
+
+   The above issue i mentioned is tested with HTC ONE S - Android 4.1.1</li>
+<li>Michael Gangolf 2013-06-19
+
+   <tool-api-level>11</tool-api-level>
+   
+   <uses-sdk android:minSdkVersion="14"/>
+   
+   SDK 3.1.1, Application is restarting, too</li>
+<li>Michael Gangolf 2013-08-03
+
+   Still restarts in 3.1.2 RC1
+   
+   tiapp.xml
+   {noformat} 
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+     <tool-api-level>8</tool-api-level>
+     <manifest>
+      <uses-sdk android:minSdkVersion="8"/>
+      <uses-sdk android:targetSdkVersion="16"/>
+     </manifest>
+   </android>
+   {noformat} 
+   
+   and
+   
+   {noformat}
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <tool-api-level>11</tool-api-level>
+           <manifest>
+              <uses-sdk android:minSdkVersion="10" android:targetSdkVersion="17"/>
+           </manifest>
+       </android>
+   {noformat}
+   
+   will show the white window again after rotating the example app in the description</li>
+<li>Ping Wang 2013-08-06
+
+   </li>
+<li>Michael Gangolf 2013-08-06
+
+   nice, thank you! That worked</li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10863.json">JSON Source</a></p>

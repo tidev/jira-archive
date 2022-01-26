@@ -1,0 +1,334 @@
+---
+title: "[TIMOB-19241] iOS: Keyboard loses focus after 1 character when TextField is in a TableView TableViewRow"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-12T09:16:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>AL-5.4.0, ios, iphone</td></tr>
+<tr><th>Reporter</th><td>Jannis H</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2015-07-14T15:48:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-01-20T19:03:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a _TextField_ is in a _TableViewRow_, you can only enter one character and then the keyboard disappears.
+
++Expected+: Tap into the grey hint text and enter multiple characters on the keyboard which does not disappear
++Actual+: You can only enter one character and then the keyboard disappears.
+
+Code attached.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19241_56158/app.js">app.js</td></td><td>2015-07-14T15:48:27.000+0000</td><td>306</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jannis H 2015-07-22
+
+   FYI: If you give the TextField some size information upon creation, this doesn't seem to happen.</li>
+<li>Rocco Germinario 2015-09-23
+
+   The problem is still present in SDK 4.1.1.GA
+   See also [<a href="https://community.appcelerator.com/topic/3279/textfield-inside-tableviewrow-loses-focus-after-typing-one-character-on-ios-device-not-in-simulator" rel="nofollow" target="_blank">https://community.appcelerator.com/topic/3279/textfield-inside-tableviewrow-loses-focus-after-typing-one-character-on-ios-device-not-in-simulator</a>]</li>
+<li>Fokke Zandbergen 2015-11-27
+
+   The following test case demonstrates that if you use <code>sections</code> instead of <code>data</code> it *does* work. However, the [documentation](<a href="https://appcelerator.github.io/appc-docs/platform/latest/#" rel="nofollow" target="_blank">https://appcelerator.github.io/appc-docs/platform/latest/#</a>!/api/Titanium.UI.TableView-property-sections) says that <code>sections</code> should not be used because of TIMOB-12616. Also this workaround is not a solution if you use Alloy since there it will always use <code>data</code>.
+   
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+   	backgroundColor: '#fff'
+   });
+   
+   var row = Ti.UI.createTableViewRow();
+   
+   var section = Ti.UI.createTableViewSection({
+   	headerTitle: 'Section'
+   });
+   
+   var text = Ti.UI.createTextField({
+   	width: Ti.UI.FILL,
+   	backgroundColor: 'red'
+   });
+   
+   row.add(text);
+   section.add(row);
+   
+   var table = Ti.UI.createTableView({
+   	top: 20,
+   	// data: [section],		DOES NOT WORK
+   	// data: [row],			DOES NOT WORK
+   	sections: [section]	//	DOES WORK
+   });
+   
+   win.add(table);
+   win.open();
+   </pre></code></li>
+<li>Fokke Zandbergen 2015-11-28
+
+   For Alloy you could use the <code>module</code> tag in <code><TableView></code> with a module like:
+   
+   <code><pre>
+   exports.createTableView = createTableView;
+   
+   function createTableView(parameters) {
+   	parameters.sections = parameters.data;
+   	delete parameters.data;
+   	return Ti.UI.createTableView(parameters);
+   }
+   </pre></code></li>
+<li>Angel Petkov 2015-12-26
+
+   Hello , [~jannis] this issue is actually a layout related issue, if the textfield size is not specified it will be autosized , which coincidently is what's causing the issue. Upon adding character to the textField or textArea it will cause it to get resized which in turn causes the tableRow to be updated, which is what blurs the textField/textArea. After investigating the issue further with [~hansknoechel] we found that enabling autoLayout will fix the issue.In the 6.0.0 release autoLayout will be enabled by default. However for now you shall have to  enable it manually through the tiapp.xml like so 
+   <code><pre>
+     <ios>
+       <use-autolayout>true</use-autolayout>
+     </ios>
+   </pre></code>
+   
+   Also Merry Christmas! </li>
+<li>Michael Hay 2016-02-10
+
+   I don't think auto layout is a fix.
+   
+   I have an example where the keyboard is dismissed on every keypress. Each row contain a textArea with hight set to auto size. The textArea and the row should grow in height  when the user types into the field. This was working before SDK 4.0.
+   
+   
+   <code><pre>
+   var self = Ti.UI.createWindow({
+           titleControl: "Test",
+           //extendEdges: [Titanium.UI.EXTEND_EDGE_ALL],
+           layout: 'vertical',
+           tabBarHidden: true,
+       });
+   ​
+       var table = Titanium.UI.createTableView({
+           backgroundColor: 'red',
+           separatorColor: 'transparent',
+           allowsSelection: true
+       });
+   ​
+       self.add(table);
+   ​
+       var sections = [];
+   ​
+       for (iS = 0; iS < 3; iS++) {
+   ​
+           var section = Ti.UI.createTableViewSection({
+               title: "Section " + iS,
+               height: 32,
+               backgroundColor: "green"
+           });
+   ​
+           for (iR = 0; iR < 5; iR++) {
+   ​
+               Ti.API.info("Create Row:");
+   ​
+               var row = Ti.UI.createTableViewRow({
+                   height: Ti.UI.SIZE,
+                   layout: 'vertical',
+                   selectionStyle: Ti.UI.iOS.TableViewCellSelectionStyle.NONE
+               });
+   ​
+               var textArea = Ti.UI.createTextArea({
+                   top: 1,
+                   left: 45,
+                   right: 50,
+                   height: Ti.UI.SIZE,
+                   color: '#555555',
+                   backgroundColor: "blue",
+                   borderWidth: 0,
+                   verticalAlign: Ti.UI.TEXT_VERTICAL_ALIGNMENT_TOP,
+                   suppressReturn:false,
+                   autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_SENTENCES,
+                   autocorrect: false,
+                   scrollable: false,
+                   returnKeyType: Titanium.UI.RETURNKEY_NEXT,
+                   borderStyle: Ti.UI.INPUT_BORDERSTYLE_NONE,
+               });
+   ​
+               row.add(textArea)
+   ​
+               section.add(row);
+   ​
+           }
+   ​
+           sections.push(section);
+       }
+   ​
+       table.setData(sections)
+   </pre></code>
+   </li>
+<li>Angel Petkov 2016-02-10
+
+   [~korelogic] Hello, this is a layout problem , if you don't specify a size for the keyboard it will be resized the size of the content, which happened every time the textField is updated for better efficiency. This happened when you don't set the size of the keyboard or you set it to Ti.UI.SIZE or the deprecated method "auto'. Every time the textField is resized it causes the tableView row to refresh which forces a blur. If you were to set <code><pre> <use-autolayout>true</use-autolayout></pre></code>  like i described in my previous comment the issue doesn't persist.  I apologize for the inconvenience</li>
+<li>Michael Hay 2016-02-11
+
+   I understand what is happening, the field recalculating size on input.
+   
+   Firstly, why does a relayout cause the field to lose focus? Makes no sense from a functionality point of view... So its a bug.
+   
+   Secondly, Have you tried my example. It is not fixed by using auto layout as you suggest.</li>
+<li>Angel Petkov 2016-02-11
+
+   [~korelogic] I ran your code with some changes.You didn't open the window , there was also non UTF 8 white spaces in the app.js causing issues for the compiler and a wrong delegate namespace for selectionStyle. Ones auto layout is enabled it works as expected. Also please check you are running the most up to date SDK it can be found 
+   [Here](<a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html#5_2_X)" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html#5_2_X)</a>
+   <code><pre>
+   var self = Ti.UI.createWindow({
+       titleControl: "Test",
+       layout: 'vertical',
+       tabBarHidden: true,
+   });
+   
+   var table = Titanium.UI.createTableView({
+       backgroundColor: 'red',
+       separatorColor: 'transparent',
+       allowsSelection: true,
+   });
+   
+   self.add(table);
+   var sections = [];
+   // for (iS = 0; iS < 3; iS++) {
+   
+   var section = Ti.UI.createTableViewSection({
+       title: "Section ",
+       height: 32,
+       backgroundColor: "green"
+   });
+   for (var iR = 0; iR < 5; iR++) {
+       Ti.API.info("Create Row:");
+       var row = Ti.UI.createTableViewRow({
+           height: Ti.UI.SIZE,
+           layout: 'vertical',
+           //selectionStyle: Ti.UI.iOS.TableViewCellSelectionStyle.NONE
+       });
+       var textArea = Ti.UI.createTextArea({
+           top: 1,
+           left: 45,
+           right: 50,
+           height: Ti.UI.SIZE,
+           color: '#555555',
+           backgroundColor: "blue",
+           borderWidth: 0,
+           verticalAlign: Ti.UI.TEXT_VERTICAL_ALIGNMENT_TOP,
+           suppressReturn: false,
+           autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_SENTENCES,
+           autocorrect: false,
+           scrollable: false,
+           returnKeyType: Titanium.UI.RETURNKEY_NEXT,
+           borderStyle: Ti.UI.INPUT_BORDERSTYLE_NONE,
+       });
+       row.add(textArea)
+       section.add(row);
+   }
+   sections.push(section);
+   table.setData(sections);
+   
+   self.open();
+   </pre></code></li>
+<li>Harry Bryant 2016-08-09
+
+    *Reopening this ticket for a future release.* 
+    
+    I can confirm the bug with the above test code, and that setting autolayout to <code>true</code> resolves the issue. After further discussion with [~hansknoechel], it was agreed that this issue should not occur regardless of whether autolayout is enabled or not.</li>
+<li>Vijay Singh 2017-01-11
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8744" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8744</a></li>
+<li>Hans Knöchel 2017-01-11
+
+    Demo-Code (a bit simplified):
+    <code><pre>
+    var self = Ti.UI.createWindow();
+     
+    var table = Titanium.UI.createTableView({
+        backgroundColor: 'red',
+        separatorColor: 'green',
+        
+        // --- Toggle this property to test with the NONE style as well
+        // separatorStyle: Titanium.UI.TABLE_VIEW_SEPARATOR_STYLE_NONE,
+    
+        allowsSelection: true,
+    });
+     
+    self.add(table);
+    var sections = [];
+     
+    var section = Ti.UI.createTableViewSection({
+        title: "Section ",
+        height: 32,
+        backgroundColor: "green"
+    });
+    
+    for (var iR = 0; iR < 5; iR++) {
+        var row = Ti.UI.createTableViewRow({
+            height: Ti.UI.SIZE,
+            layout: 'vertical',        
+        });
+        var textArea = Ti.UI.createTextArea({
+            top: 1,
+            left: 45,
+            right: 50,
+            height: Ti.UI.SIZE,
+            color: '#fff',
+            backgroundColor: "blue",
+            scrollable: false,
+        });
+        row.add(textArea)
+        section.add(row);
+    }
+    sections.push(section);
+    table.setData(sections);
+     
+    self.open();
+    </pre></code></li>
+<li>Lee Morris 2017-01-19
+
+    I have tested the updated code and can confirm that it works fine.
+    Tested on;
+    iPhone 7
+    MacOS 10.11.6 (15G31)
+    Studio 4.8.1.201612050850
+    Ti SDK 6.1.0.v20170118152304
+    Appc NPM 4.2.8
+    Appc CLI 6.1.0
+    Ti CLI 5.0.11
+    Alloy 1.9.5
+    Arrow 1.10.1
+    Xcode 8.2 (8C38)
+    Node v4.6.0
+    Java 1.7.0_80</li>
+<li>Lee Morris 2017-01-20
+
+    I have tested the updated code and can confirm that it works fine. 
+    Tested on; 
+    iPhone 7 
+    MacOS 10.11.6 (15G31) 
+    Studio 4.8.1.201612050850 
+    Ti SDK 6.1.0.v20170118152304 
+    Appc NPM 4.2.8 
+    Appc CLI 6.1.0 
+    Ti CLI 5.0.11 
+    Alloy 1.9.5 
+    Arrow 1.10.1 
+    Xcode 8.2 (8C38) 
+    Node v4.6.0 
+    Java 1.7.0_80</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19241.json">JSON Source</a></p>

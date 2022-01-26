@@ -1,0 +1,224 @@
+---
+title: "[TIMOB-25318] iOS: Cannot build for devices with 6.2.0.GA"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-09-23T08:12:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-6.2.0</td></tr>
+<tr><th>Reporter</th><td>Eric Wieber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2017-09-19T15:58:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-11-09T23:51:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A user is unable to build for device when using 6.2.0.GA. If they switch their SDK to 6.1.2.GA, then the build will succeed. The error they get on build is:
+<code><pre>
+[ERROR] :  Error details: Code Signing Error: No profile for team 'S3R5UHXXXX' matching 'AppName' found:  Xcode couldn't find any provisioning profiles matching 'S3R5UHXXXX/AppName. Install the profile (by dragging and dropping it onto Xcode's dock item) or select a different one in the General tab of the target editor.
+[ERROR] :  Error details: Code Signing Error: Code signing is required for product type 'Application' in SDK 'iOS 11.0'
+</pre></code>
+
+*I am unable to reproduce this issue, but the steps the user is performing is:*
+1. Create a new project
+2. Select the 6.2.0.GA SDK
+3. Build the project for device
+
+*Expected results:*
+The build succeeds without issue
+
+*Actual Results:*
+The build fails with the above error
+
+*Notes:*
+If ONLY the SDK is changed to 6.1.2.GA, the build succeeds.
+The team shown in the error is unknown to the user; their other profiles use a different team.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-09-19
+
+   Did you reproduce it in non-CI builds? There is an open Jenkins issue related to that [here](<a href="https://issues.jenkins-ci.org/browse/JENKINS-43675)." rel="nofollow" target="_blank">https://issues.jenkins-ci.org/browse/JENKINS-43675).</a> Btw, I am unable to reproduce with my 
+   Alloy test-app [here](<a href="https://github.com/hansemannn/studentenfutter-app)" rel="nofollow" target="_blank">https://github.com/hansemannn/studentenfutter-app)</a> using 6.2.0.GA and Xcode 9 GA.</li>
+<li>Eric Wieber 2017-09-19
+
+   This issue appears to affect users who are a part of multiple teams and who have expired or invalid component combinations between them. We are currently investigating and developing improved ways of prompting for teams/certs/profiles that should prevent this error by better filtering out invalid configurations. Targeting a fix in 6.3.0.GA.</li>
+<li>carlo 2017-09-20
+
+   I can confirm the problem.
+   
+   In my case the Team ID is different from the app prefix. At some point Apple give me a new [app prefix](<a href="https://db.tt/RslZXTgmFa)" rel="nofollow" target="_blank">https://db.tt/RslZXTgmFa)</a>, but all my existing apps belongs to the old one.
+   
+   So the line 3145 in iphone\cli\commands\_build.js:
+   
+   bs.DEVELOPMENT_TEAM = this.provisioningProfile.appPrefix;
+   
+   generate a non buildable xcode project with the error reported by Eric.
+   </li>
+<li>Chris Barber 2017-09-20
+
+   [~c3k] In my tests, removing the DEVELOPMENT_TEAM build setting didn't resolve the problem. In Xcode 9, it appears that the certs are now required to be assigned to the provisioning profile. The DEVELOPMENT_TEAM is set to use the team that is specified in the provisioning profile, so as long as your certs and provisioning profiles are correct, you should be able to build just fine.
+   
+   As a resolution to this ticket, I have enabled code signing for device builds and added validation around provisioning profiles to make sure the selected cert is tied to the provisioning profile.</li>
+<li>Chris Barber 2017-09-20
+
+   Ti SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9462" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9462</a>
+   Ti SDK 6_3_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9463" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9463</a>
+   
+   To test, you need to build an iOS app for device, then pick a non-expired provisioning profile that matches the app id, but not the selected developer cert.</li>
+<li>carlo 2017-09-21
+
+   Yes, removing the line didn't fix, I had to statically set my Team ID as a workaround.
+   
+   I've tested 6_3_X cli and the problem is fixed, thank you.</li>
+<li>Eric Wieber 2017-09-21
+
+   Verified in SDK builds 6.3.0.v20170921125635 & 7.0.0.v20170921131230</li>
+<li>Donovan Lewis 2017-09-22
+
+   I'm still having this problem. I'm the one that originally brought this up in a comment on a blog post and Eric reached out to me. 
+   
+   I just tested with 6.3.0.v20170921125635 but I'm still having the exact same problem as with 6.2.0 GA. If I switch the SDK to 6.1.2 all the problems go away. 
+   
+   I have cleared all my developer certs and provisioning profiles and only left one. I do not have multiple team profiles but it keeps attaching this team id # that is not related to me at all. </li>
+<li>Chris Barber 2017-09-22
+
+   [~dlewis23] Double check by running <code>appc ti info -t ios -o json</code> and verify the <code>appPrefix</code> for your provisioning profile. It should match your team id that is associated to your cert and your cert should be listed in the list of the provisioning profile's certs.</li>
+<li>Alberto Marcone 2017-09-22
+
+    </li>
+<li>Hans Knöchel 2017-09-22
+
+    Thanks [~a.marcone], I linked your ticket to be a duplicate of this one to only have one ticket to focus on. Can you please try out the latest 6.3.0 build as well? Either via CLI (appc ti sdk install -b 6_3_X) or download [here|builds.appcelerator.com].</li>
+<li>Donovan Lewis 2017-09-22
+
+    Chris Barber they are not the same when I run that command I get this. _"appPrefix": "S3Rxxxxxxx"_ and then _"team": [ "QHPxxxxxxxx" ],_ 
+    
+    When I build with 6.1.2 GA the Team section in Xcode for provisioning profiles reads as *none* and everything works correctly. </li>
+<li>Chris Barber 2017-09-22
+
+    [~dlewis23] That's very interesting. How did you get an <code>appPrefix</code> that differs from the <code>team</code>? As you may have noticed, <code>team</code> is an array which could potentially have multiple teams, though I have never seen that, so I don't think we can reliably use the first team in the list.
+    
+    I propose reopening this ticket, then add code that prefers the <code><team-id></code> from the tiapp.xml, but then falls back to the <code>appPrefix</code>.
+    
+    In your case [~dlewis23], you would simply add <code><team-id>QHPxxxxxxxx</team-id></code> to the <code><ios></code> section of your tiapp.
+    
+    Sound like a plan?</li>
+<li>Alberto Marcone 2017-09-22
+
+    tried with 6_3_x and setting a <team-id> and still didn't work</li>
+<li>Chris Barber 2017-09-22
+
+    [~a.marcone] That's because I haven't changed the code yet. My proposal was to honor the <code><team-id></code> from the tiapp.xml and I'm finishing up something else before I jump back on this ticket.</li>
+<li>Zachary Litten 2017-09-22
+
+    I downloaded the 6.3.0 sdk to test the fix but when trying to build, very early in the process I get an exception as follows:
+    <code><pre>
+    2017-09-22T14:11:31.464Z | ERROR  | An uncaught exception was thrown!
+    Block-scoped declarations (let, const, function, class) not yet supported outside strict mode
+    2017-09-22T14:11:31.465Z | ERROR  | Block-scoped declarations (let, const, function, class) not yet supported outside strict mode
+    2017-09-22T14:11:31.465Z | TRACE  | SyntaxError: Block-scoped declarations (let, const, function, class) not yet supported outside strict mode
+    </pre></code>
+    
+    </li>
+<li>Chris Barber 2017-09-22
+
+    [~zlitten] Sounds like you are using an old version of Node.js. We recommend Node.js 6.</li>
+<li>Donovan Lewis 2017-09-22
+
+    Chris Barber All of my apps have a different appPrefix then the team ID. I do not have multiple teams. Adding  _<team-id>QHPxxxxxxxx</team-id>_ does nothing because it seems that has not been added yet. 
+    
+    As soon as I select my name for the team if I open the project in Xcode after its built I have no issue building to device with in Xcode. I just don't get the change from 6.1.2 GA to 6.2.0 GA breaking it, going back to 6.1.2GA and the problem goes away and in Xcode 9 Team simple just says *None*.</li>
+<li>Chris Barber 2017-09-22
+
+    [~dlewis23] Correct, I have not change the code yet.
+    
+    Titanium 6.1.x and older does not fully support Xcode 9. As apart of updating Titanium 6.2.x for Xcode 9, we updated the code to added the exact Xcode project build settings that a non-Titanium app would set and this includes <code>DEVELOPMENT_TEAM</code>. Apple added stricter validation around provisioning profiles and so we did too.
+    
+    Part of the problem is we don't have a clear way to get which teams you are apart of. The team id is embedded in the provisioning profile, but this has proven to be unreliable and thus we are about to add a manual override. Xcode has you log into your Apple Developer Account via the Preferences window and then caches the teams locally in a SQLite database. We read that SQLite database, but it is unreliable since this cache may be out-of-date or empty if you have yet to set up Xcode.
+    
+    The best solution is also the worst. If we made it so that you could provide your Apple ID and password to the Titanium tooling, then Titanium could log in on your behalf, query the teams, validate/install provisioning profiles, etc. I would love to add this, but not everyone trusts Titanium with their login. Note that the authentication credentials would be stored encrypted on the user's machines and never transmitted anywhere other than developer.apple.com (i.e. Titanium would not store the password in the Axway/Appc cloud). I'd be curious what people think about supplying their Apple login to the Titanium build tools.</li>
+<li>Donovan Lewis 2017-09-22
+
+    Chris Barber I can see being for and against the best solution you laid out there. Its just a tough one today giving out your user/pass even if its said nothing is stored. 
+    
+    I look forward to testing once you make that change so I can hardcode the team-id. Looking around it seems you were able to make a unique app prefix for each app when iOS development started 9 years ago and this is what I did. Looking around in developer.apple in Certificates, Identifiers & Profiles it doesn't seem like thats possible anymore and Apple wants everyone to just use the Team-ID to avoid this problem I guess. But the problem is for people who did what I did there is no fix because the appPrefix can't be changed for production apps that are already on the store. 
+    </li>
+<li>carlo 2017-09-22
+
+    After recent comments I've just make another test and I have to report that I've made some kind of mistake before my last comment. Maybe I was still using 6.1.2, so I confirm the problem is not fixed (I have different app prefix and team id).</li>
+<li>Chris Barber 2017-09-22
+
+    Ti SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9468" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9468</a>
+    Ti SDK 6_3_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9469" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9469</a>
+    
+    To test, you need to build an app for device where you do not have a <code><team-id></code> in the tiapp.xml and you have development provisioning profile where the <code>appPrefix</code> differs from the list of <code>team</code> in the provisioning profile. Since this is not easy to reproduce, perhaps someone from the community would be so kind to give this PR a go.</li>
+<li>Donovan Lewis 2017-09-22
+
+    Chris Barber I just tested this on my end and it seems to be working good with the team-id in my tiapp.xml. I will be working on my app all day so If I have any building to device issues I will update. But so far so good. Thank you so much for working on a fix for this. :)</li>
+<li>Cameron 2017-09-23
+
+    I updated to 6.3.x and it DID NOT resolve the problem.  Problem still exists.  
+    
+    No problem what-so-ever before the Xcode9 / 6.2.x update
+    
+    Thank you for your continued effort, but there are some of us which are still experiencing this.  
+    
+    Please do not mark it as resolved? :)
+    
+    </li>
+<li>Donovan Lewis 2017-09-23
+
+    Cameron updating to 6.3.x won't fix it yet. You have to change the 2 files mentioned here <a href="https://github.com/appcelerator/titanium_mobile/pull/9469" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9469</a> 
+    
+    I just copied them into my 6.3.x mobileSDK folder and it solved the problem till it gets merged. </li>
+<li>Cameron 2017-09-23
+
+    @Donovan Lewis
+    
+    Well that exactly fixed it...
+    
+    Thanks a million!!!!!</li>
+<li>Chris Barber 2017-09-23
+
+    [~dlewis23], [~ch] Be aware that PR referenced above introduces a bug for simulator builds. Sigh. A fix is on the way.</li>
+<li>Chris Barber 2017-09-23
+
+    PR #3
+    Ti SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9473" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9473</a>
+    Ti SDK 6_3_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9474" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9474</a>
+    
+    To test, do a iOS simulator build.</li>
+<li>Cameron 2017-09-23
+
+    Chris Barber Thx.  So far simulator seems to be a-ok, atleast for me</li>
+<li>Alberto Marcone 2017-09-25
+
+    After updating the sdk and setting the team-id, I get this:
+    
+    <code><pre>
+    ** ARCHIVE SUCCEEDED **
+    Packaging for Ad Hoc distribution
+    Packaging IPA for target dist-adhoc
+    Running: /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -exportArchive -archivePath "[...]/myapp.xcarchive" -exportPath "[...]" -exportOptionsPlist "[...]/build/iphone/export_options.plist"
+     2017-09-25 16:22:59.751 xcodebuild[68344:11748709] [MT] IDEDistribution: -[IDEDistributionLogging _createLoggingBundleAtPath:]: Created bundle at path '/var/folders/hq/km1drj0141v1bf195s13yq740000gp/T/myapp_2017-09-25_16-22-59.748.xcdistributionlogs'.
+    Failed to export archive to ipa
+    The selected provisioning profile "myapp - adhoc (237a354d-d7eb-497d-a56e-6504c1511xxx)" is most likely not a valid Ad Hoc provisioning profile.
+    Please ensure you are using a valid Ad Hoc provisioning that is linked to the signing identity, then try again.
+    </pre></code>
+    
+    The provisioning is actually valid (recreated from scratch), and if I open the newly created Xcode project I can archive it without getting any error.</li>
+<li>Abir Mukherjee 2017-11-09
+
+    FR Passed. Changes are seen on master 7.0.0.v20171109120356</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25318.json">JSON Source</a></p>

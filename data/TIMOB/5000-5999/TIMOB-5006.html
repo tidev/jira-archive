@@ -1,0 +1,336 @@
+---
+title: "[TIMOB-5006] iOS: iAd rotation bug"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-01-23T16:40:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.6.0, Release 1.7.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-48, Sprint 2011-50, Release 2.0.0, Release 1.8.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_orientation, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Matthew Apperson</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2011-08-15T09:37:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a device is rotated, then an iAd is openend and closed, you only see a black screen.
+
+Some users have reported iAd crashing the entire app on iPhone 3G but I did not have one to test and verify. 
+
+<code><pre>
+var win1 = Ti.UI.createWindow();
+
+win1.orientationModes = [
+    Titanium.UI.LANDSCAPE_RIGHT,
+    Titanium.UI.LANDSCAPE_LEFT,
+    Titanium.UI.PORTRAIT
+];
+
+var adView = Ti.UI.iOS.createAdView({
+    width: 'auto',
+    height: 'auto',
+    bottom:-100,
+    zIndex:100
+});
+adView.addEventListener('load', function(){
+    adView.animate({bottom:0, duration:750});
+});
+win1.add(adView);
+adView.show();
+
+win1.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5006_22649/iad.png">iad.png</td></td><td>2011-08-24T11:03:57.000+0000</td><td>88179</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5006_22650/iad2.png">iad2.png</td></td><td>2011-08-24T11:03:57.000+0000</td><td>88500</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Reggie Seagraves 2011-08-15
+
+   This bug is invalid.  The test ad is a black alpha channel mask.  If you insert a backgroundColor onto the adView or the window, you will see the ad just fine and it rotates appropriately on our current build.</li>
+<li>Peter Janett 2011-08-22
+
+   I have proof of this bug, but it seems to only happen if tabs are used.  Here is code that allows you to duplicate the error, as referenced in this support ticket:
+   <a href="http://support.appcelerator.com/tickets/APP-934957" rel="nofollow" target="_blank">http://support.appcelerator.com/tickets/APP-934957</a>
+   
+   ~~~
+   // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+   Titanium.UI.setBackgroundColor('#000');
+   
+   // create tab group
+   var tabGroup = Titanium.UI.createTabGroup();
+   
+   
+   //
+   // create base UI tab and root window
+   //
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+   win1.orientationModes = [
+       Titanium.UI.LANDSCAPE_RIGHT,
+       Titanium.UI.LANDSCAPE_LEFT,
+       Titanium.UI.PORTRAIT
+   ];
+   
+   var tab1 = Titanium.UI.createTab({  
+       icon:'KS_nav_views.png',
+       title:'Tab 1',
+       window:win1
+   });
+   
+   var label1 = Titanium.UI.createLabel({
+       color:'#999',
+       text:'I am Window 1',
+       font:{fontSize:20,fontFamily:'Helvetica Neue'},
+       textAlign:'center',
+       width:'auto'
+   });
+   
+   win1.add(label1);
+   var adView = Ti.UI.iOS.createAdView({
+       width: 'auto',
+       height: 'auto',
+       bottom:-100,
+       zIndex:100
+   });
+   adView.addEventListener('load', function(){
+       adView.animate({bottom:0, duration:750});
+       alert('iad loaded');
+   });
+   win1.add(adView);
+   adView.show();
+   
+   //
+   // create controls tab and root window
+   //
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'#fff'
+   });
+   var tab2 = Titanium.UI.createTab({  
+       icon:'KS_nav_ui.png',
+       title:'Tab 2',
+       window:win2
+   });
+   
+   var label2 = Titanium.UI.createLabel({
+       color:'#999',
+       text:'I am Window 2',
+       font:{fontSize:20,fontFamily:'Helvetica Neue'},
+       textAlign:'center',
+       width:'auto'
+   });
+   
+   win2.add(label2);
+   
+   
+   
+   //
+   //  add tabs
+   //
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+   
+   
+   // open tab group
+   tabGroup.open();
+   ~~~
+   </li>
+<li>Karol Pomaski 2011-08-24
+
+   Hi, I tested it also on simulator iOS 4.2 and iAd works correctly only for portrait. It doesn't rotate. Reggies solution does not work.
+   
+   Sample code to replicate this issue: 
+   
+   // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+   Titanium.UI.setBackgroundColor('#000');
+   
+   // create tab group
+   var tabGroup = Titanium.UI.createTabGroup();
+   
+   
+   //
+   // create base UI tab and root window
+   //
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+   win1.orientationModes = [
+       Titanium.UI.LANDSCAPE_RIGHT,
+       Titanium.UI.LANDSCAPE_LEFT,
+       Titanium.UI.PORTRAIT
+   ];
+   
+   var tab1 = Titanium.UI.createTab({  
+       icon:'KS_nav_views.png',
+       title:'Tab 1',
+       window:win1
+   });
+   
+   var label1 = Titanium.UI.createLabel({
+       color:'#999',
+       text:'I am Window 1',
+       font:{fontSize:20,fontFamily:'Helvetica Neue'},
+       textAlign:'center',
+       width:'auto'
+   });
+   
+   win1.add(label1);
+   var adView = Ti.UI.iOS.createAdView({
+       width: 'auto',
+       height: 'auto',
+       backgroundColor: 'red',
+       backgroundImage: 'none',
+       bottom:0,
+       zIndex:100
+   });
+   adView.addEventListener('load', function(){
+       alert('iad loaded');
+   });
+   win1.add(adView);
+   adView.show();
+   
+   //
+   // create controls tab and root window
+   //
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'#fff'
+   });
+   var tab2 = Titanium.UI.createTab({  
+       icon:'KS_nav_ui.png',
+       title:'Tab 2',
+       window:win2
+   });
+   
+   var label2 = Titanium.UI.createLabel({
+       color:'#999',
+       text:'I am Window 2',
+       font:{fontSize:20,fontFamily:'Helvetica Neue'},
+       textAlign:'center',
+       width:'auto'
+   });
+   
+   win2.add(label2);
+   
+   
+   
+   //
+   //  add tabs
+   //
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+   
+   
+   // open tab group
+   tabGroup.open();
+   
+   I attached the simulators shot on landscape.</li>
+<li>Khurram Ali 2011-09-03
+
+   I resolved this issue by presenting a blank modal view controller (under a willLeave is true check) in:
+   
+   - (BOOL)bannerViewActionShouldBegin:(ADBannerView *)banner willLeaveApplication:(BOOL)willLeave
+   
+   I then dismiss this modal view controller in:
+   
+   - (void)bannerViewActionDidFinish:(ADBannerView *)banner</li>
+<li>Peter Janett 2011-10-23
+
+   This is not fixed in 1.7.3.  Khurram Ali, can you detail what you changed (What files) to resolve this, as it doesn't seem to be getting put into the updated builds.
+   
+   Thanks,
+   
+   Peter</li>
+<li>Stephen Tramer 2011-12-04
+
+   Testing instructions need to mention that the ad must be dismissed to display the bad visual behavior.</li>
+<li>Dustin Hyde 2011-12-09
+
+   Bug fixed. Verified on:
+   SDK: 1.8.0.1.v20111209102124
+   Studio: 1.0.7.201112080131
+   OS: OS X Lion
+   Devices Tested: iPhone Simulator 5.0, iPhone 5.0.1</li>
+<li>Peter Janett 2011-12-14
+
+   This IS NOT FIXED...
+   
+   Please run the example code above, (Karol Pomaski added a comment - 24/Aug/11 10:59 AM) open the app, rotate to landscape, click and open an iad (test one is fine), then close the iad.  Now the app orientation will be opposite of the actual orientation of the device.  (If the device is rotated to landscape, the app will load in portrait, and vise versa.)
+   
+   Please keep on this bug, as it's costing me lots of ad revenue, as I opened the ticket back in August.
+   
+   Thanks SO much!!
+   
+   Peter Janett</li>
+<li>Stephen Tramer 2011-12-15
+
+   I re-tested this against the 1.8.0.1 candidate as the bug is described. The reproduction steps used are:
+   
+   <h4>Rotate into landscape</h4>
+   <h4>Click iAd</h4>
+   <h4>Dismiss iAd</h4>
+   
+   *FAIL*: The screen is blank.
+   *PASS*: The screen is not blank.
+   
+   Testing results were:
+   
+   * iPhone sim / 5.0
+   *# Pass
+   *# Pass
+   *# Pass
+   
+   * iPod 4GT / 4.3.5
+   *# Pass
+   *# Fail
+   *# Fail
+   
+   We will be re-opening this as a bug against iOS 4.x-only.</li>
+<li>Stephen Tramer 2011-12-15
+
+    Reopening this bug against *iOS 4.x only*. iOS 5 has the correct behavior, meaning this is probably an issue with how Apple updates rotation information while iAd is in fullscreen mode.</li>
+<li>Sabil Rahim 2011-12-16
+
+    pull pending # 1036 against master(1.9.0)</li>
+<li>Michael Pettiford 2012-01-12
+
+    Closing issue
+    
+    Tested with Ti Studio 1.0.8.201201101928
+    Ti Mob SDK 1.9.0.v20120111233134
+    OSX Lion
+    iPhone 4S, iPad 2
+    
+    Expected behavior of iAD rotating to landscape is shown</li>
+<li>Miles Lyon 2012-07-26
+
+    We are definitely still seeing an issue with this.  We have two devices using iOS 5.  One is an ipad 2 and the other is an ipad 3.  The ipad 2 seems always show the blank screen and the ipad 3 will work in PORTRAIT only and no other orientation.  Including portrait upside down.
+    
+    I'm not sure on the conclusions in this discussion.  Are we saying this is a known issue with ios or that it is actually resolved?</li>
+<li>Paul Hamilton 2012-08-06
+
+    black screen is reapearing when iad is not in portrait mode. please reinvestigate this bug</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5006.json">JSON Source</a></p>

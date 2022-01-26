@@ -1,0 +1,207 @@
+---
+title: "[TIMOB-23282] HttpClient file upload, Android, int as key in payload causes java.lang.Integer cannot be cast to java.lang.String"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-28T04:46:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>android, fileupload, httpclient</td></tr>
+<tr><th>Reporter</th><td>eric harms</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2016-04-26T21:33:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T21:45:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Having some issues with Android file upload where the key in my payload is an integer.
+
+Sample code to reproduce, taken from Ti API HttpClient file upload docs:
+
+<code><pre>
+Titanium.Media.openPhotoGallery({
+    success: function(event) {
+	    var xhr = Titanium.Network.createHTTPClient();
+	    xhr.onload = function(e) {
+	        Ti.UI.createAlertDialog({
+	            title: 'Success',
+	            message: 'status code ' + this.status
+	        }).show();
+	    };
+            xhr.open('POST', 'REQUESTBI.N URL');
+	    xhr.send({1: event.media});
+    }
+});
+</pre></code>
+
+1. Create a Requestbi.n url and replace it in the .open()
+2. run this on an Android device.  You should receive the following error, specifying that the int  key cannot be cast to a string, and you will not be able to upload the file to requestbin.
+
+[WARN] :   W/System.err: java.lang.ClassCastException: java.lang.Integer cannot be cast to java.lang.String
+[WARN] :   W/System.err: 	at ti.modules.titanium.network.TiHTTPClient.send(TiHTTPClient.java:1012)
+[WARN] :   W/System.err: 	at ti.modules.titanium.network.HTTPClientProxy.send(HTTPClientProxy.java:154)
+[WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function$1.run(V8Function.java:70)
+[WARN] :   W/System.err: 	at android.os.Handler.handleCallback(Handler.java:739)
+[WARN] :   W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+[WARN] :   W/System.err: 	at android.os.Looper.loop(Looper.java:145)
+[WARN] :   W/System.err: 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:118)
+
+3.  as suggested by AppC support, change the .send() to
+
+<code><pre>
+xhr.send(JSON.stringify({1: event.media}));
+</pre></code>
+
+this will fire and upload to requestbin, however if you look at the response in requestbin, the event.media is a json string and not a binary object.
+
+4.  change the .send() to
+
+<code><pre>
+var payload = {};
+var key = '\"' + 1 + '\"';
+payload[key] = event.media;
+xhr.send(payload);
+</pre></code>
+
+this will post the photo and be received as a binary object in requestbin.
+
+I have witnessed this for Android only.  IOS seems to handle things ok, and I can post the object without having to do any additional processing.
+
+I am posting to an API that has been used by our native Android developers, and they are sending the key as an integer.  I believe that the Titanium SDK is somehow tripping over the integer to string conversion
+
+Please let me know if you need any more info.
+
+Thanks
+Eric
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nazmus Salahin 2016-04-27
+
+   Hello,
+   I am able to reproduce this issue.
+   *Steps:*
+   1. Create a default classic project.
+   2. Replace the code in app.js with following.
+   <code><pre>
+   var win1 = Titanium.UI.createWindow({
+   	title : 'Tab 1',
+   	backgroundColor : '#fff'
+   });
+   
+   var label1 = Titanium.UI.createLabel({
+   	color : '#999',
+   	text : 'I am Window 1',
+   	font : {
+   		fontSize : 20,
+   		fontFamily : 'Helvetica Neue'
+   	},
+   	textAlign : 'center',
+   	width : 'auto'
+   });
+   
+   label1.addEventListener("click", function(e) {
+   	Titanium.Media.openPhotoGallery({
+   
+   		success : function(event) {
+   
+   			var xhr = Titanium.Network.createHTTPClient();
+   
+   			xhr.onload = function(e) {
+   
+   				Ti.UI.createAlertDialog({
+   
+   					title : 'Success',
+   
+   					message : 'status code ' + this.status
+   
+   				}).show();
+   
+   			};
+   
+   			xhr.open('POST', 'test');
+   
+   			xhr.send({
+   				1 : event.media
+   			});
+   
+   		}
+   	});
+   
+   });
+   
+   win1.add(label1);
+   
+   win1.open(); 
+   
+   
+   </pre></code>
+   3. Build and run the app.
+   4. Click the label. >> Gallery will be opened
+   5. Select any photo from the gallery. >> Following error log is produced.
+   [Screenshot](<a href="http://s32.postimg.org/g0tei0q11/android.png)" rel="nofollow" target="_blank">http://s32.postimg.org/g0tei0q11/android.png)</a>
+   <code><pre>
+   [ERROR] :  TiExceptionHandler: (main) [47622,47622] ----- Titanium Javascript Runtime Error -----
+   [ERROR] :  TiExceptionHandler: (main) [0,47622] - In ti:/httpclient.js:28,9
+   [ERROR] :  TiExceptionHandler: (main) [0,47622] - Message: Uncaught Error: java.lang.Integer cannot be cast to java.lang.String
+   [ERROR] :  TiExceptionHandler: (main) [1,47623] - Source: 		_send.call(this, options);
+   [ERROR] :  V8Exception: Exception occurred at ti:/httpclient.js:28: Uncaught Error: java.lang.Integer cannot be cast to java.lang.String
+   </pre></code>
+   
+    
+   Thanks
+   
+   *Environment*:
+   
+   *Device info:* Nexus7 (android 6.0.1)
+   *Node.js Version:* 0.12.7
+   *npm Version:* 2.11.3
+   *Titanium SDKs:* 5.2.2.GA and 5.2.1.GA
+   *Java Development Kit Version:* 1.8.0_73
+   *Titanium CLI Version:*  5.0.5
+   *Appcelerator CLI Version:*  5.2.2
+   *Appcelerator Studio:* 4.5.0</li>
+<li>Ashraf Abu 2016-04-28
+
+   [~eric.harms@gmail.com] So I believe, based on point 4
+   <code><pre>
+   var payload = {};
+   var key = '\"' + 1 + '\"';
+   payload[key] = event.media;
+   xhr.send(payload);
+   </pre></code>
+   This is the workaround you are using on Android?</li>
+<li>Ashraf Abu 2016-04-28
+
+   Based on <a href="https://tools.ietf.org/html/rfc7159" rel="nofollow" target="_blank">https://tools.ietf.org/html/rfc7159</a>
+   {quote}
+   An object is an unordered collection of zero or more name/value
+   pairs, where a name is a string and a value is a string, number,
+   boolean, null, object, or array.
+   {quote}
+   
+   Most JSON doc would agree that the key used is a String.
+   Additional info: <a href="http://www.json.org/" rel="nofollow" target="_blank">http://www.json.org/</a>
+   
+   Hence, I would say that this not an issue/bug.
+   
+   In order to insert the key as a number, you could handle it by making it into a string.</li>
+<li>Ashraf Abu 2016-04-28
+
+   I'm resolving this ticket as invalid.</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as invalid with reference to previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23282.json">JSON Source</a></p>

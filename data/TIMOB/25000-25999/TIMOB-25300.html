@@ -1,0 +1,341 @@
+---
+title: "[TIMOB-25300] iOS 11: Window titleControls are not centered in Landscape Orientation"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-16T21:53:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>iphonex, landscape, rotation, titlecontrol, window</td></tr>
+<tr><th>Reporter</th><td>Matthew Delmarter</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-09-16T10:06:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On the iPhone X, building with 6.2.0 and Xcode 9 GM, there is an interesting issue with Window titleControls when rotated to Landscape orientation.
+
+Standard Window Titles are OK.
+When a titleControl is used, it does not center when rotated to Landscape.
+
+See the attached screenshot.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25300_63282/iPhone X issue with Window titleContols.png">iPhone X issue with Window titleContols.png</td></td><td>2017-09-16T10:09:40.000+0000</td><td>96385</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25300_63430/logo@2x.png">logo@2x.png</td></td><td>2017-10-12T09:30:29.000+0000</td><td>4016</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-09-16
+
+   That's very interesting indeed! Will move it to TIMOB and link to our iPhone X epic, thanks!</li>
+<li>Matthew Delmarter 2017-09-17
+
+   Actually I don't think this is specific to the iPhone X at all.
+   
+   I just did a build using Xcode 9 to my iPad mini running iOS 11. And the same issue is happening on the iPad mini even in Portrait - see the screenshot here: <a href="https://www.evernote.com/shard/s1/sh/407b228a-e141-4e79-aa13-5da89b326f2e/a83f04d78c2cd464" rel="nofollow" target="_blank">https://www.evernote.com/shard/s1/sh/407b228a-e141-4e79-aa13-5da89b326f2e/a83f04d78c2cd464</a>
+   
+   !<a href="https://www.evernote.com/shard/s1/sh/407b228a-e141-4e79-aa13-5da89b326f2e/a83f04d78c2cd464/res/9632ace6-8742-424a-a1bf-5fe2507a4e3e/skitch.png?resizeSmall&width=832" rel="nofollow" target="_blank">https://www.evernote.com/shard/s1/sh/407b228a-e141-4e79-aa13-5da89b326f2e/a83f04d78c2cd464/res/9632ace6-8742-424a-a1bf-5fe2507a4e3e/skitch.png?resizeSmall&width=832</a>!
+   
+   This is basically going to stop me building with Xcode 9 at all in the short term. A pretty major issue.
+   
+   If there was a fix for this posted somewhere I would just hotpatch my SDK source... :)</li>
+<li>Hans Knöchel 2017-09-17
+
+   Can you please provide a test-case for this?</li>
+<li>Hans Knöchel 2017-09-17
+
+   Some interesting findings:
+   * If you wrap the tabbed-bar into a view, it looks correct in landscape but a bit miss-aligned in portrait
+   * If you specify a width and height, it get's messed up and positioned to the right
+   * If you specify no width, but a left- and right nav-button, it works as well
+   * Looks like this a common issue for the native world as well: <a href="https://stackoverflow.com/questions/44932084/ios-11-navigationitem-titleview-width-not-set" rel="nofollow" target="_blank">https://stackoverflow.com/questions/44932084/ios-11-navigationitem-titleview-width-not-set</a>
+   
+   Screenshots:
+   
+   No nav-buttons, no width:
+   - <a href="http://abload.de/image.php?img=simulatorscreenshot-i32oai.png" rel="nofollow" target="_blank">http://abload.de/image.php?img=simulatorscreenshot-i32oai.png</a>
+   - <a href="http://abload.de/image.php?img=simulatorscreenshot-i15pow.png" rel="nofollow" target="_blank">http://abload.de/image.php?img=simulatorscreenshot-i15pow.png</a>
+   
+   Nav-buttons, no width:
+   - <a href="http://abload.de/image.php?img=simulatorscreenshot-iowamz.png" rel="nofollow" target="_blank">http://abload.de/image.php?img=simulatorscreenshot-iowamz.png</a>
+   - <a href="http://abload.de/image.php?img=simulatorscreenshot-ieclcx.png" rel="nofollow" target="_blank">http://abload.de/image.php?img=simulatorscreenshot-ieclcx.png</a>
+   
+   Example:
+   <code><pre>
+   var view = Ti.UI.createView({
+     // width: 100,
+     backgroundColor: 'red'
+   });
+   
+   var toolbar = Ti.UI.iOS.createTabbedBar({labels: ['Test 1', 'Test 2']});
+   view.add(toolbar);
+   
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff',
+       titleControl: view
+   });
+   
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: win
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: 'Trigger'
+   });
+   
+   btn.addEventListener('click', function() {
+       Ti.API.info('Hello world!');
+   });
+   
+   win.add(btn);
+   nav.open();
+   </pre></code></li>
+<li>Matthew Delmarter 2017-09-17
+
+   Sorry I see you already created a test case, but because you asked I did one as well :)
+   
+   Built with Ti 6.2.0 SDK with Xcode 9 targeting the iPad Pro 9.7" simulator running iOS 11:
+   
+   <code><pre>
+   var tabGroup = Ti.UI.createTabGroup();
+   
+   var win1 = Ti.UI.createWindow({
+   	title: 'Window 1'
+   });
+   var win2 = Ti.UI.createWindow({
+   	title: 'Window 2'
+   });
+   
+   var tab1 = Ti.UI.createTab({
+   	title: 'Tab 1',
+   	window: win1
+   });
+   
+   var tab2 = Ti.UI.createTab({
+   	title: 'Tab 2',
+   	window: win2
+   });
+   
+   tabGroup.addTab(tab1);
+   tabGroup.addTab(tab2);
+   
+   var buttons = Ti.UI.iOS.createTabbedBar({
+   	labels: ['Left', 'Right'],
+   	width: 200
+   });
+   
+   win1.titleControl = buttons;
+   
+   tabGroup.open();
+   </pre></code>
+   
+   And here is how it looks even in portrait:
+   
+   !<a href="https://www.evernote.com/shard/s1/sh/24b2f22a-be37-48dd-b7e2-6842d627931c/56dedc9d2a0d6400/res/dedea702-6e34-40f2-ab6e-c8eb7dc2ef17/skitch.png?resizeSmall&width=832" rel="nofollow" target="_blank">https://www.evernote.com/shard/s1/sh/24b2f22a-be37-48dd-b7e2-6842d627931c/56dedc9d2a0d6400/res/dedea702-6e34-40f2-ab6e-c8eb7dc2ef17/skitch.png?resizeSmall&width=832</a>!</li>
+<li>Marian Kucharcik 2017-09-21
+
+   I just updated iPhone 6s to iOS 11 and TiSDK to 6.2.1GA, Xcode to version 9.
+   All my titleControls are messed up in portrait mode, labels are in bottom-right corner.
+   Temporary fix is set width of the label to width of the device and set textAlign to center...
+   Please fix this asap...Thanks</li>
+<li>Alberto Marcone 2017-09-22
+
+   reporting the same thing! titleControl is messed up with iOS 11, on any device</li>
+<li>Alberto Marcone 2017-09-22
+
+   I found a sort of workaround, inspired by the stackoverflow solution that requires to edit the SDK:
+   
+   iphone/Classes/TiUIWindowProxy.m
+   <code><pre>
+   -(void)updateTitleView {
+      ....
+   #ifndef TI_USE_AUTOLAYOUT
+   barBounds.size = UILayoutFittingExpandedSize; 
+   #endif
+   ...
+   }
+   </pre></code>
+   
+   this will ignore the size of the view set to the titlecontrol and set it to fill the available space (like if it was a Ti.UI.FILL).
+   
+   If you need to set your own size (like for a buttonbar), you can just wrap the view inside a container view, like this:
+   
+   <code><pre>
+   var buttonBar = Ti.UI.iOS.createTabbedBar({
+   		labels:["test 1","test 2"],
+   		width:400,
+   		height:30,
+   });
+   var containerView = Ti.UI.createView();
+   containerView.add(buttonBar);
+   win.titleControl = containerView;
+   </pre></code>
+   I couldn't come up with anything better and I really don't care at the moment, waiting for a better fix from appcelerator!
+   </li>
+<li>Hans Knöchel 2017-09-23
+
+   [~a.marcone] I noticed the same, the above property would solve it when having a wrapper view. I'd like to prevent it though, so we don't have a breaking change for developers. In order to do that, I need to do more research on why exactly it repositions as it does. It may happen while the updateTitleView method is being called multiple times, so it could be an inconsistency between the expected frames causing it.
+   
+   Please also feel free to help diving into it, any help is greatly appreciated as usual!</li>
+<li>Alberto Marcone 2017-09-25
+
+    I noticed that when you first open the window, the title for a split second is positioned correctly, and then it's moved to the wrong position.</li>
+<li>Caio Perdona 2017-09-29
+
+    Is this only Xcode 9 related?</li>
+<li>Hans Knöchel 2017-10-12
+
+    Yes, only when building for iOS 11 with Xcode 9. The issue is that the <code>viewDidAppear</code> delegate method is now called earlier than before, which makes the title-control layout to jump. I didn't find a proper solution so far, so worst case it will be moved to 6.3.1. Please note that you can workaround it by simply putting the title-control view into a wrapper-view that is then added as the title-control. We will still continue to investigate it to have a backward compatible solution.</li>
+<li>Alberto Marcone 2017-10-12
+
+    Just wanted to add a note that the workaround partially works. The jump is still seen, and sometimes it doesn't look really centered (not sure why though). This was done inside a NavigationWindow.</li>
+<li>Matthew Delmarter 2017-10-12
+
+    Really hoping it won't be pushed to 6.3.1 as this is quite a major issue - having the titleControl slightly off-center or  "jumping" is not cool :/ haven't even gotten to testing when putting into a Split Screen layout etc.</li>
+<li>Hans Knöchel 2017-10-12
+
+    PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9522" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9522</a>
+    PR (6_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9523" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9523</a>
+    
+    Use the attched "logo.png" to also test the image-related title-controls.
+    
+    Test-Case (combining all related title-control related tickets from the past as well):
+    <code><pre>
+    var tabbedBar = Ti.UI.iOS.createTabbedBar({
+      labels: ['Left', 'Right'],
+      width: 200
+    });
+    
+    // create tab group
+    var tabGroup = Titanium.UI.createTabGroup();
+    var titleImage = Ti.UI.createImageView({
+      image: 'logo.png',
+    });
+    
+    var titleView = Ti.UI.createView();
+    
+    var label = Ti.UI.createLabel({
+      text: 'LONG TEXT WILL NOT FIT IN PORTRAIT MODE, EVEN iPHONE X',
+      top: 10
+    })
+    
+    titleView.add(label);
+    
+    var label2 = Ti.UI.createLabel({
+      text: 'ANOTHER LONG TEXT WILL NOT FIT IN PORTRAIT MODE, EVEN iPHONE X',
+      top: 10
+    });
+    
+    var win = Titanium.UI.createWindow({
+      backgroundColor: 'white',
+      titleControl: tabbedBar,
+      orientationModes: [Ti.UI.PORTRAIT, Ti.UI.LANDSCAPE_LEFT, Ti.UI.LANDSCAPE_RIGHT]
+    });
+    
+    var tab1 = Titanium.UI.createTab({
+      title: 'Tab 1',
+      window: win
+    });
+    
+    var btn1 = Ti.UI.createButton({
+      top: 10,
+      height: 30,
+      title: 'Test Label'
+    });
+    
+    btn1.addEventListener('click', function() {
+      win.titleControl = label2;
+    });
+    
+    var btn2 = Ti.UI.createButton({
+      top: 45,
+      height: 30,
+      title: 'Test Image'
+    })
+    
+    btn2.addEventListener('click', function() {
+      win.titleControl = titleImage;
+    });
+    
+    var btn3 = Ti.UI.createButton({
+      top: 80,
+      height: 30,
+      title: 'Test View'
+    })
+    
+    btn3.addEventListener('click', function() {
+      win.titleControl = titleView;
+    });
+    
+    var btn4 = Ti.UI.createButton({
+      top: 115,
+      height: 30,
+      title: 'Test Tabbed Bar (Restore initial state)'
+    });
+    
+    btn4.addEventListener('click', function() {
+      win.titleControl = tabbedBar;
+    });
+    
+    win.add(btn1);
+    win.add(btn2);
+    win.add(btn3);
+    win.add(btn4);
+    
+    tabGroup.addTab(tab1);
+    tabGroup.open();
+    </pre></code>
+    
+    Expected behavior: When running on Portrait *and* Landscape, the layout should stay consistent. Please also validate the fix by rotating the device and changing the different title-control types (here: label, image, view, tabbed-bar).</li>
+<li>Hans Knöchel 2017-10-12
+
+    And guys, please test the PR early, so we ensure to not miss anything.</li>
+<li>Matthew Delmarter 2017-10-12
+
+    Looks like you got into it Hans. Thanks for that. Can you remind me of the best/easiest way to test this? I have been sticking to the RC/GA releases for a while now. I use the appc command line. What's the easiest way to download and test things from here? Also do you have some timeframe you would like things tested by? I am quite busy over the next couple of days but will see what I can do.</li>
+<li>Hans Knöchel 2017-10-12
+
+    [~mdelmarter] Basically you can just patch your existing GA or the latest 6.3.0 build (<code>appc ti sdk install -b 6_3_X</code>), go to <code>~/Library/Application Support/Titanium/mobilesdk/osx/<your-sdk-version>/iphone/Classes/TiUIWindowProxy.m</code> and replace [this line](<a href="https://github.com/appcelerator/titanium_mobile/pull/9523/files#diff-f2f29c78096df4af1181004ad539e96cR758)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9523/files#diff-f2f29c78096df4af1181004ad539e96cR758)</a> with the new one (red means deleted, green means added).</li>
+<li>Matthew Delmarter 2017-10-12
+
+    [~hknoechel] OK I will have a good play with it and let you know before Sunday.</li>
+<li>Caio Perdona 2017-10-13
+
+    Thanks Hans, this was messy here too, partially worked around. Will be happy to help testing!</li>
+<li>Eric Wieber 2017-10-16
+
+    FR Passed. Able to rotate device and have the title controls centered and without being cut off. Tested using provided sample as well as the title bar suite</li>
+<li>Alberto Marcone 2017-11-02
+
+    I just checked this, and with the 6.3.1.v20171101154403 it's still not working. I still expierence the little jump.
+    
+    
+    
+    !<a href="https://i.imgur.com/54wYmqw.png" rel="nofollow" target="_blank">https://i.imgur.com/54wYmqw.png</a>!
+    
+    !<a href="https://i.imgur.com/FSmgUbo.png" rel="nofollow" target="_blank">https://i.imgur.com/FSmgUbo.png</a>!
+    
+    
+    am I the only one experiencing this?</li>
+<li>Eric Merriman  2018-08-06
+
+    Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25300.json">JSON Source</a></p>

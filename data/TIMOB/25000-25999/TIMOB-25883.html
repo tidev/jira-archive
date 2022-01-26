@@ -1,0 +1,105 @@
+---
+title: "[TIMOB-25883] "Callback was already called." error thrown when source contains syntax error and transpiling"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-01T13:38:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0, Hyperloop 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>async.js, hyperloop, ios</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2018-03-19T18:42:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-07-11T22:43:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+(Only seen on iOS)
+
+When trying to build our hyperloop-examples sample app, the <code>Callback was already called.</code> error is thrown. It seems to be an issue thrown from the <code>async</code> library we use. There are [reports](<a href="https://stackoverflow.com/a/27521528/5537752)" rel="nofollow" target="_blank">https://stackoverflow.com/a/27521528/5537752)</a> that see this happening when errors are not guarded inside parallel callback flows, so thats where we need to dig into it. 
+
+*EDIT*:
+Here is a log:
+<code><pre>
+[DEBUG] Copying and minifying /Users/hknoechel/Documents/Apps/hyperloop-examples/Resources/iphone/alloy/controllers/BaseController.js => /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/BaseController.js
+[TRACE] Checking require for: /alloy
+[TRACE] Checking import for: uikit/uialertcontroller
+[TRACE] Checking import for: uikit/uialertaction
+[TRACE] Checking import for: uikit/uikit
+[TRACE] Checking import for: titanium/tiapp
+[DEBUG] Writing /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/alert.js
+[DEBUG] Copying and minifying /Users/hknoechel/Documents/Apps/hyperloop-examples/Resources/iphone/alloy/controllers/alert.js => /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/alert.js
+[TRACE] Checking require for: /alloy
+[TRACE] Checking import for: uikit/uiview
+[TRACE] Checking import for: uikit/uicolor
+[TRACE] Checking import for: coregraphics/coregraphics
+[DEBUG] Writing /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/animateview.js
+[DEBUG] Copying and minifying /Users/hknoechel/Documents/Apps/hyperloop-examples/Resources/iphone/alloy/controllers/animateview.js => /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/animateview.js
+[TRACE] Checking require for: /alloy
+[TRACE] Checking import for: uikit/uilabel
+[TRACE] Checking import for: uikit/uicolor
+[TRACE] Checking import for: uikit/uiscreen
+[TRACE] Checking import for: uikit/uiview
+[TRACE] Checking import for: uikit/nslayoutconstraint
+[TRACE] Checking import for: uikit/uikit
+[DEBUG] Writing /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/autolayout.js
+[DEBUG] Copying and minifying /Users/hknoechel/Documents/Apps/hyperloop-examples/Resources/iphone/alloy/controllers/autolayout.js => /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/autolayout.js
+[TRACE] Checking require for: /alloy
+[TRACE] Checking import for: corelocation/clbeaconregion
+[TRACE] Checking import for: corelocation/cllocationmanager
+[TRACE] Checking import for: corelocation/corelocation
+[TRACE] Checking import for: uikit/uiapplication
+[TRACE] Checking import for: uikit/uilocalnotification
+[TRACE] Checking import for: foundation/nsuuid
+[TRACE] Checking require for: subclasses/locationmanagerdelegate
+[DEBUG] Writing /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/beacons.js
+[DEBUG] Copying and minifying /Users/hknoechel/Documents/Apps/hyperloop-examples/Resources/iphone/alloy/controllers/beacons.js => /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/beacons.js
+[TRACE] Checking require for: /alloy
+[TRACE] Checking import for: uikit/uiview
+[TRACE] Checking import for: uikit/uicolor
+[TRACE] Checking import for: uikit/uiblureffect
+[TRACE] Checking import for: uikit/uivisualeffectview
+[TRACE] Checking import for: uikit/uikit
+[TRACE] Checking import for: coregraphics/coregraphics
+[DEBUG] Writing /Users/hknoechel/Documents/Apps/hyperloop-examples/build/iphone/build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/alloy/controllers/blur.js
+[ERROR] Callback was already called.
+</pre></code>
+I looks like a race condition between our build-hooks and only seems to happen with the 3.1.0 build from the [Hyperloop ES6 PR](<a href="https://github.com/appcelerator/hyperloop.next/pull/270)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/270)</a> so far, so it may be related.
+
+*Update*! It seems to be caused by a <code>const</code> vs. <code>let</code> issue! I remember the compiler detects that different, so maybe its handled different when being used in Hyperloop code? Maybe we need to return somewhere in order to handle the error in a different layer. Lowing the priority ...
+
+Example:
+<code><pre>
+const screenRect = UIScreen.mainScreen.bounds;
+screenRect = CGRectMake(0, 0, UIScreen.mainScreen.bounds.size.width, UIScreen.mainScreen.bounds.size.height - 64);
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2018-03-28
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9969" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9969</a></li>
+<li>Hans Knöchel 2018-07-11
+
+   Test-Case:
+   1. Create  new app
+   2. Add the following at the top (or anywhere else) in your code: 
+   <code><pre>
+   const a = 1;
+   a = 2;
+   </pre></code>
+   Expected behavior: The build should fail with the error: "a" is read-only.</li>
+<li>Eric Wieber 2018-07-11
+
+   Verified fixed and changes are in SDKs 7.3.0.v20180711122153 & 7.4.0.v20180711095209</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25883.json">JSON Source</a></p>

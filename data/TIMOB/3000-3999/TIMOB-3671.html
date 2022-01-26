@@ -1,0 +1,159 @@
+---
+title: "[TIMOB-3671] Android: Facebook module popup windows display in background if called from a fb event listener in a window created with the url property"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-05-26T10:42:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.6.0 M10</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-21</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jon Alter</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-04-25T13:32:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-05-26T10:42:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If a window is opened using the url property and an alert or dialog window is called inside that window in a 'Titanium.Facebook.addEventListener' function the alert or dialog will open behind all windows.
+
+Step 1: Run the code below
+Step 2: click the login button
+Step 3: the 'postToFeed()' dialog will appear behind the open windows.
+Step 4: hit the back button a couple times to see it
+Step 5: click the logout button.
+Step 6: an alert will fire but you will not see it.
+Step 7: hit the back button a few times to see the alert.
+
+If you include the code from fb.js into app.js and not use the url property to open the window, the alert and dialog will open properly as expected even if you use a heavyweight window.
+
+If you hit the 'Post' button after you are logged in, the dialog will pop up as expected. It is not called from a facebook event listener function.
+
+app.js
+<code><pre>
+var win = Ti.UI.createWindow({fullscreen:true});
+
+var button = Ti.UI.createButton({ width:200, height:90, title:"CONNECT"});
+win.add(button);
+
+button.addEventListener('click', function(){
+	var win2 = Ti.UI.createWindow({
+		url:'fb.js',
+		fullscreen:false
+	});
+	win2.open();
+});
+
+win.open();
+</pre></code>
+fb.js
+<code><pre>
+var win = Ti.UI.currentWindow;
+
+Titanium.Facebook.appid = '187692147928682';
+Titanium.Facebook.permissions = ['publish_stream'];
+Titanium.Facebook.addEventListener('logout', function(e) {
+    alert('Logged out');
+	button.title = "Login";
+});
+Ti.Facebook.addEventListener('login', function(e) {
+	Ti.API.info("Logged in now!");
+    if ( ! e.cancelled && ! e.error) {
+		button.title = "Logout";
+		postToFeed();
+                // postButton.fireEvent('click');
+    }
+	else {
+		Ti.API.info("Error logging in");
+	}
+}); 
+
+var button = Ti.UI.createButton({ 
+	top:100,
+	height: 60,
+	width: 200
+});
+if(Ti.Facebook.loggedIn) {
+	button.title = "Logout";
+}
+else {
+	button.title = "Login";
+}
+win.add(button); 
+
+button.addEventListener('click', function(e){
+	if(Ti.Facebook.loggedIn) {
+		Ti.Facebook.logout();
+		button.title = "Login";
+		Ti.API.info("already logged in..");
+	}
+	else {
+		Ti.API.info("Not logged in.. Logging in");
+		Ti.Facebook.authorize();
+		button.title = "Logout";
+	}
+});
+
+var postToFeed = function(e){
+	var data = {
+		link: "<a href="https://developer.mozilla.org/en/JavaScript" rel="nofollow" target="_blank">https://developer.mozilla.org/en/JavaScript</a>",
+		name: "Best online Javascript reference",
+		message: "Use Mozilla's online Javascript reference",
+		caption: "MDN Javascript Reference",
+		picture: "<a href="https://developer.mozilla.org/media/img/mdn-logo.png" rel="nofollow" target="_blank">https://developer.mozilla.org/media/img/mdn-logo.png</a>",
+		description: "This section is dedicated to JavaScript..."
+	};
+	Titanium.Facebook.dialog('feed', data, function(e) {
+	// Titanium.Facebook.requestWithGraphPath('feed', data, 'POST', function(e) {
+		Ti.API.info('Callback ran!');
+        if (e.success&&e.result) {
+           alert('Posted to your Facebook wall');
+        } else {
+            if (e.error) {
+                Ti.UI.createAlertDialog({
+                    title:'Facebook Error',
+                    message:e.error
+                }).show();
+            } else if (e.cancelled) {
+                Ti.API.info('Facebook was cancelled');
+            } else {
+                Ti.API.info('Facebook threw up an unkown result');
+            }
+        }
+    });
+};
+
+var postButton = Ti.UI.createButton({
+	title: 'Post',
+	height: 60,
+	width: 200,
+	top: 200
+});
+postButton.addEventListener('click', function(e){
+	postToFeed();
+});
+
+win.add(postButton);
+</pre></code>
+
+<h4>Associated Helpdesk Ticket</h4>
+<a href="http://appc.me/c/IAQ-38639-246" rel="nofollow" target="_blank">http://appc.me/c/IAQ-38639-246</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jon Alter 2011-05-26
+
+   Confirmed working as of 1.7.0 (05/15/11 17:26 e6afca8)
+   with Android 2.2</li>
+<li>Eric Merriman  2011-05-26
+
+   Also verified fixed with Nexus S, 2.3.4, Titanium Studio, build: 1.0.0.201105260623, Titanium SDK version: 1.7.X r5e4f9c7e. Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3671.json">JSON Source</a></p>

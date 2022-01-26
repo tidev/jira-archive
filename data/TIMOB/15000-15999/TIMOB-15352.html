@@ -1,0 +1,271 @@
+---
+title: "[TIMOB-15352] iOS: Pull to Refresh view not displaying correctly when swiping up before releasing"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-14T19:32:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 21, 2013 Sprint 21 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-26T15:35:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T21:46:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description of the issue</h4>
+Having a table with search bar and pull-to-refresh view; when pulling the table down and swiping a bit up before releasing, the headerPullView and search bar are half hidden.
+
+<h4>Steps to reproduce</h4>
+1) Use the code below
+2) Pull the table down
+3) Before releasing, swipe a bit up
+
+Attached a couple of screenshots of the result of these actions.
+
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+Ti.UI.iPhone.statusBarStyle = Ti.UI.iPhone.StatusBar.LIGHT_CONTENT;
+
+var tabGroup = Titanium.UI.createTabGroup();
+
+var win1 = Titanium.UI.createWindow({
+    title : 'Table with Search',
+    backgroundColor : '#fff',
+    barColor: 'black',
+    statusBarStyle: Ti.UI.iPhone.StatusBar.LIGHT_CONTENT
+});
+var tab1 = Titanium.UI.createTab({
+    icon : 'KS_nav_views.png',
+    title : 'Table w/ Search',
+    window : win1
+});
+
+var allNoteTypes = [];
+for (var i=1; i<=30; i++) {
+	allNoteTypes.push({
+		title : 'Plan ' + i
+	});
+}
+
+var refreshView = Ti.UI.createView({
+    width : "100%",
+    top : 0,
+    height : 22,
+    backgroundColor : "#000"
+});
+
+var lblRefreshTime = Ti.UI.createLabel({
+    left : 5,
+    width : '55%',
+    text : "refreshed 1 min ago"
+});
+
+var searchBar = Ti.UI.createSearchBar({
+    barColor : "#283D5A",
+    autocorrect : false,
+    autocapitalization : Titanium.UI.TEXT_AUTOCAPITALIZATION_NONE,
+    hintText : "SR Number",
+    keyboardType : Ti.UI.KEYBOARD_NUMBERS_PUNCTUATION
+});
+
+var table = Ti.UI.createTableView({
+    top : 0,
+    width : "100%",
+    backgroundColor : 'transparent',
+    hideSearchOnSelection : false,
+    data : allNoteTypes,
+    search : searchBar
+});
+
+refreshView.add(lblRefreshTime);
+win1.add(refreshView);
+win1.add(table);
+
+var border = Ti.UI.createView({
+    backgroundColor : "#576c89",
+    height : 2,
+    bottom : 0
+});
+
+var tableHeader = Ti.UI.createView({
+    backgroundColor : "#bcbdc1",
+    width : Ti.Platform.displayCaps.platformWidth,
+    height : 60
+});
+
+tableHeader.add(border);
+
+var statusLabel = Ti.UI.createLabel({
+    text : "Pull to Reload",
+    left : 55,
+    bottom : 30,
+    height : "auto",
+    color : "#FFF",
+    textAlign : "center"
+});
+
+tableHeader.add(statusLabel);
+table.headerPullView = tableHeader;
+
+var pulling = false;
+var reloading = false;
+
+var overlay = Ti.UI.createView({
+    opacity:.2,
+    backgroundColor:'black'
+});
+
+var timeOutCounter;
+
+function beginReloading() {
+    searchBar.add(overlay);
+    table.scrollable = false;
+    timeOutCounter = setTimeout(function(){
+        Ti.API.info('TIMEOUT');
+        endReloading();
+    }, 2000);
+    Ti.API.info('setTimeout returned '+timeOutCounter);
+}
+
+function endReloading() {
+    Ti.API.info('END Reloading called. Current Counter '+timeOutCounter);
+    clearTimeout(timeOutCounter);
+    searchBar.remove(overlay);
+    table.scrollable = true;
+    table.setContentInsets({
+        top : 0
+    }, {
+        animated : true
+    });
+    reloading = false;
+    statusLabel.text = "Pull down to refresh...";
+}
+
+var offset = 0;
+table.addEventListener('scroll', function(e) {
+    if (reloading) {
+        return;
+    }
+    offset = e.contentOffset.y;
+    if (offset <= -65.0 && !pulling) {
+        pulling = true;
+        statusLabel.text = "Release to refresh...";
+    } else if (pulling && offset > -65.0 && offset < 0) {
+        pulling = false;
+        statusLabel.text = "Pull down to refresh...";
+    }
+});
+
+table.addEventListener('dragEnd', function(e) {
+    if (reloading) {
+        return;
+    }
+    if (pulling && !reloading && offset <= -65.0) {
+        reloading = true;
+        pulling = false;
+        statusLabel.text = "Reloading...";
+        table.setContentInsets({
+            top : 60
+        }, {
+            animated : true
+        });
+        beginReloading();
+    }
+});
+
+function handleSearchBarFocus(_event){
+    Ti.API.info('FOCUS');
+    endReloading();
+    setTimeout(function(){
+        searchBar.focus();
+    },300);
+}
+
+function hideNavBar() {
+    win1.hideNavBar();
+    table.top = 22;
+}
+
+function showNavBar() {
+    win1.showNavBar();
+    table.top = 0;
+}
+
+overlay.addEventListener("click", handleSearchBarFocus);
+
+searchBar.addEventListener("focus", hideNavBar);
+searchBar.addEventListener("blur", showNavBar);
+
+tabGroup.addTab(tab1);
+tabGroup.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15352_42857/iOS Simulator Screen shot 30 Sep 2013 19.24.35.png">iOS Simulator Screen shot 30 Sep 2013 19.24.35.png</td></td><td>2013-09-30T17:25:20.000+0000</td><td>44164</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15352_42858/iOS Simulator Screen shot 30 Sep 2013 19.24.36.png">iOS Simulator Screen shot 30 Sep 2013 19.24.36.png</td></td><td>2013-09-30T17:25:20.000+0000</td><td>45684</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15352_43394/ScreenShot1.PNG">ScreenShot1.PNG</td></td><td>2013-10-23T09:41:14.000+0000</td><td>40080</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15352_43395/ScreenShot2.PNG">ScreenShot2.PNG</td></td><td>2013-10-23T09:41:14.000+0000</td><td>41334</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2013-10-07
+
+   Well if you are swiping up then you should cancel reload.
+   Modify the scroll listener as shown below
+   <code><pre>
+   table.addEventListener('scroll', function(e) {
+       offset = e.contentOffset.y;
+       if (reloading) {
+           if (offset > -60) 
+           {
+               endReloading();
+           };
+           return;
+       }
+       if (offset <= -65.0 && !pulling) {
+           pulling = true;
+           statusLabel.text = "Release to refresh...";
+       } else if (pulling && offset > -65.0 && offset < 0) {
+           pulling = false;
+           statusLabel.text = "Pull down to refresh...";
+       }
+   });
+   </pre></code></li>
+<li>Dhirendra Jha 2013-10-23
+
+   This issue is still reproducible in below environment. Please see the attached screen shots. Hence reopening this issue.
+   Appc Studio - 3.2.0.201310181700
+   SDK - 3.2.0.v20131022171645
+   acs -1.0.7
+   alloy - 1.2.2
+   titanium - 3.2.0
+   titanium-code-processor - 1.0.3
+   Xcode - 5.0.1
+   OS - Mac OS X Mavericks (10.9)
+   Device - iPodTouch1 (v7.0.2)
+   </li>
+<li>Vishal Duggal 2013-11-14
+
+   The blackbar is their own js UI issue. Not ours. The workaround provided works</li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as the issue cannot be reproduced and due to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15352.json">JSON Source</a></p>

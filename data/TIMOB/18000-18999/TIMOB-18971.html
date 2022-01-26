@@ -1,0 +1,137 @@
+---
+title: "[TIMOB-18971] iOS: HTTPClient - If you make a DELETE REST call, then HTTPClient's onload method is not called"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2016-07-12T07:47:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 4.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>httpclient, qe-4.0.1</td></tr>
+<tr><th>Reporter</th><td>Wilson Luu</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-06-01T21:09:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-12T07:47:20.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Details:* If you make a valid DELETE REST call, then HTTPClient's onload method is not called.
+
+*Notes:*
+* This issue is not reproducible on Android
+* Even though the onload method is not being called, the DELETE request still goes through
+* Other Http REST calls (e.g. POST) are triggering HTTPClient's onload method
+
+*Steps to reproduce:*
+<h4>Create a Titanium *and* Arrow project from Appc Studio</h4>
+<h4>In the Titanium project, replace the app.js with the attached app.js</h4>
+<h4>Next, select the Arrow project and run *Local Arrow Server*</h4>
+<h4>In the console, copy the port number after <code><a href="http://127.0.0.1:" rel="nofollow" target="_blank">http://127.0.0.1:</a></code></h4>
+<h4>In the Titanium project's app.js, replace <code>URL_PREFIX</code> (line 2) with your machine's ip address and Arrow project's port number e.g. <code><a href="http://172.16.3.129:62756" rel="nofollow" target="_blank">http://172.16.3.129:62756</a></code></h4>
+<h4>In the same app.js file, replace <code>API_KEY</code> (line 8) with your Arrow project's <code>apikey_development</code>; <ARROW_PROJ>/conf/default.js</h4>
+<h4>Next, install your Titanium project to an iOS device; make sure the device is on the same wifi network as your machine</h4>
+<h4>Open the app and press <code>1. Create</code>; wait for *CREATED MONKEY LORD* alert</h4>
+<h4>Next, press <code>2. DELETE</code></h4>
+
+*Actual:* The onload method is never called i.e. *DATA DELETED* alert is never triggered in the onload method.
+
+*Expected:* The onload method should be called if a valid DELETE Http REST called is made.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18971_55684/app.js">app.js</td></td><td>2015-06-01T20:53:32.000+0000</td><td>1896</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2015-06-02
+
+   Not currently scheduling this for a release, but let me know if you feel otherwise.</li>
+<li>Hans Knöchel 2016-07-12
+
+   Closing issue for now. I tested the requests using an open REST testing-service:
+   <code><pre>
+   // specify the arrow api endpoint
+   var URL_PATH = '<a href="http://jsonplaceholder.typicode.com" rel="nofollow" target="_blank">http://jsonplaceholder.typicode.com</a>';
+   
+   function makeRequest(path, verb, onLoad, data) {
+        var xhr = Ti.Network.createHTTPClient({
+           onload: onLoad,
+           onerror: function() {
+               Ti.API.error('Error ' + verb + ': ' + this.status + '; ' + this.responseText);
+           }
+       });
+       
+       xhr.open(verb, URL_PATH + path);   
+       
+       if(data) {
+           xhr.setRequestHeader("Content-Type","application/json");
+           xhr.send(JSON.stringify(data));      
+       }
+       else {
+           xhr.send();
+       }
+   }
+   
+   var win = Ti.UI.createWindow({
+       backgroundColor: 'white',
+       layout: 'vertical'
+   });
+   
+   var postButton = Ti.UI.createButton({
+       title: '1. Create',
+       top: '30%'
+   });
+   win.add(postButton);
+   postButton.addEventListener('click', function(e) {
+       
+       Ti.API.info('####: POST a monkey');
+       
+       var data = {
+           first_name: 'MONKEY',
+           last_name: 'LORD',
+           email: 'monkey@lord.com'  
+       };
+       makeRequest('/posts', 'POST', function(_e) {
+   		Ti.API.warn(this.status);
+           if(this.status === 201) {
+               alert('CREATED MONKEY LORD');
+           }
+       }, data);
+   });
+   
+   var deleteButton = Ti.UI.createButton({
+       title: '2. DELETE',
+       top: '20dp'
+   });
+   win.add(deleteButton);
+   deleteButton.addEventListener('click', function(e) {
+       makeRequest('/posts/1', 'DELETE', function(_e) {
+           
+           Ti.API.info('####: DELETE calling onload');
+   		Ti.API.warn(this.status);
+           
+           if(this.status === 200) {
+               alert('DATA DELETED');
+           }
+       });
+   });
+   
+   win.open();
+   </pre></code>
+   
+   The onLoad is triggered and the response is 200 (not 204, because there is response). Please validate to make sure you see the same. I would suspect that something was wrong on the arrow-side.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18971.json">JSON Source</a></p>

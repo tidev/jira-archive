@@ -1,0 +1,86 @@
+---
+title: "[TIMOB-24958] Windows: Tooling does not detect winappdeploycmd when only SDK 10.0.15063.0 is installed"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-25T12:35:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ewan Harris</td></tr>
+<tr><th>Assignee</th><td>Ewan Harris</td></tr>
+<tr><th>Created</th><td>2017-07-14T12:30:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-29T18:37:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+
+Historically the winappdeploycmd exe used for Windows 10 device detection, app installation and such would always be installed 'globally' in <code>C:\Program Files (x86)\Windows Kits\10}\bin\x86</code>. Since 10.0.15063.0 this appears to be no longer the case and it is packaged with the SDK, at <code>C:\Program Files (x86)\Windows Kits\10\bin\10.0.15063.0\x86</code>
+
+Our tooling makes the assumption that winappdeploycmd is in this global space, we need to adapt the tooling to inspect an SDK for winappdeploycmd, I'm unsure whether if we detect one we assign it to the overall VS info, overriding one that exists or we keep a winappdeploycmd tied to an SDK.
+
+
+Posted a question here to see whether this will be the norm from here
+
+<a href="https://docs.microsoft.com/en-us/windows/uwp/packaging/install-universal-windows-apps-with-the-winappdeploycmd-tool" rel="nofollow" target="_blank">https://docs.microsoft.com/en-us/windows/uwp/packaging/install-universal-windows-apps-with-the-winappdeploycmd-tool</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2017-08-14
+
+   Considering this a requirement for us to document support for VS2017 as without it will require installing multiple SDKs to build (n)</li>
+<li>Ewan Harris 2017-08-14
+
+   [~kiguchi] I've started to work on this but just wanted some input from you. I'm trying to keep the existing functionality as best as possible.
+   
+   Here's what I'm doing so far
+   
+   - After the detection, if deployCmd is null [here](<a href="https://github.com/appcelerator/windowslib/blob/58823680ebad9d100d5a3226f4cbf8b24868fc29/lib/windowsphone.js#L175-L180)" rel="nofollow" target="_blank">https://github.com/appcelerator/windowslib/blob/58823680ebad9d100d5a3226f4cbf8b24868fc29/lib/windowsphone.js#L175-L180)</a>, starting with the highest SDK work through them and check for <code>C:\\Program Files (x86)\\Windows Kits\\10\\bin\\<SDK_VER>\\x86\\winappdeploycmd.exe</code>. Taking the highest available
+   
+   The problem I have is, if I'm using SDK 15063 and 14393 we will take the globally installed winappdeploycmd, when I feel like I should be taking the latest under 10.0.15063, what're your thoughts?</li>
+<li>Kota Iguchi 2017-08-15
+
+   [~eharris] Yes, it sounds natural to me to select latest version of winappdeploycmd tooling when target sdk is 10.0. (y)</li>
+<li>Ewan Harris 2017-08-15
+
+   Windowslib PR: <a href="https://github.com/appcelerator/windowslib/pull/75" rel="nofollow" target="_blank">https://github.com/appcelerator/windowslib/pull/75</a> 
+   
+   Travis is failing because of a super old node version, I think we should nuke travis, (pr <a href="https://github.com/appcelerator/windowslib/pull/73)" rel="nofollow" target="_blank">https://github.com/appcelerator/windowslib/pull/73)</a> as imo it's not worth the hassle. Maybe we can look into appveyor if we want some sort of configurable ci as a service (which imo we should do to allow us to test diff versions of VS against windowslb)</li>
+<li>Kota Iguchi 2017-08-16
+
+   Merged. need to update titanium_mobile then.</li>
+<li>Ewan Harris 2017-08-23
+
+   Master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9349" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9349</a>
+   6_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9350" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9350</a></li>
+<li>Ewan Harris 2017-08-24
+
+   [~smohammed] [~amukherjee] Do you have a machine available that only has VS2017 installed?</li>
+<li>Samir Mohammed 2017-08-24
+
+   [~eharris] The machine we use for VS2017 has both VS2017 and VS2015 installed.</li>
+<li>Ewan Harris 2017-08-25
+
+   Passing review as it's merged into the SDK now, it is present in latest 6_2_X 6.2.0.v20170824144806 but not latest master 7.0.0.v20170823165814
+   
+   Verification 
+   
+   <h4>Ensure you have the 10.0.15063 tooling installed with VS2017</h4>
+   <h4>Run appc ti info -t windows -o json</h4>
+   <h4>Check the results.windowsphone[10.0] object for the deployCmd value, it should list a file under the 10.0.15063 bin dir like <code>"C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.15063.0\\x86\\WinAppDeployCmd.exe"</code></h4></li>
+<li>Abir Mukherjee 2017-08-29
+
+    Closing ticket as changes present in SDKs:
+    6.2.0.v20170828180251
+    7.0.0.v20170829103419</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24958.json">JSON Source</a></p>

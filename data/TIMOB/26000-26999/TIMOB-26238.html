@@ -1,0 +1,128 @@
+---
+title: "[TIMOB-26238] Android: Storage-permissions issue on Android 8 (API 26+)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-07-26T16:31:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Android8.0, Permissions</td></tr>
+<tr><th>Reporter</th><td>Jorge Macias Garcia</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2018-07-26T08:52:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-07-26T16:34:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I've made a four different ways to check and request storage permissions. One of them fails, combining *Ti.Android.hasPermission* and *Ti.filesystem.requestStoragePermissions*
+
+I attached the sample app. Special attention in tiapp.xml. The permission WRITE_EXTERNAL_STORAGE is declared explicitly in the android manifest section and the override property set to true.
+
+After each test, if you disable storage permissions manually from app settings page the log will be disconnected. For a correct testing:
+
+Uninstall the app and build again.
+
+Behaviour:
+
+*First execution trace*
+
+Check permissions with: Ti.Android.hasPermission
+Requesting permissions with: Ti.Filesystem.requestStoragePermissions
+hasStoragePermission
+Ti.Android.hasPermission("android.permission.WRITE_EXTERNAL_STORAGE"): false
+requestFilesystemPermission
+Ti.Filesystem.requestStoragePermissions
+
+[Prompt permission grant dialog] Allow
+
+requestPermissionCallback
+Permission Filesystem permission granted.
+Finished
+
+OK -> Permission granted
+
+Trying again
+
+Check permissions with: Ti.Android.hasPermission
+Requesting permissions with: Ti.Filesystem.requestStoragePermissions
+hasStoragePermission
+Ti.Android.hasPermission("android.permission.WRITE_EXTERNAL_STORAGE"): false
+requestFilesystemPermission
+Ti.Filesystem.requestStoragePermissions
+
+FAIL
+
+*Second execution trace*
+
+Check permissions with: Ti.Android.hasPermission
+Requesting permissions with: Ti.Filesystem.requestStoragePermissions
+hasStoragePermission
+Ti.Android.hasPermission("android.permission.WRITE_EXTERNAL_STORAGE"): false
+requestFilesystemPermission
+Ti.Filesystem.requestStoragePermissions
+
+FAIL
+
+Other 3 combinations works fine:
+
+*Native method:*
+
+Check permissions with: Ti.Android.hasPermission
+Requesting permissions with: Ti.Android.requestPermissions
+
+OK
+
+*Filesystem method:*
+
+Check permissions with: Ti.Filesystem.hasStoragePermissions
+Requesting permissions with: Ti.Filesystem.requestStoragePermissions
+
+OK
+
+*Mixed method B:*
+
+Check permissions with: Ti.Filesystem.hasStoragePermissions
+Requesting permissions with: Ti.Android.requestPermissions
+
+OK
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26238_65388/CameraExternalTest.js">CameraExternalTest.js</td></td><td>2018-07-26T16:28:23.000+0000</td><td>1268</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26238_65381/PermissionTest.zip">PermissionTest.zip</td></td><td>2018-07-26T08:46:33.000+0000</td><td>9206506</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26238_65385/test-result.txt">test-result.txt</td></td><td>2018-07-26T09:10:11.000+0000</td><td>5152</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-07-26
+
+   This is not a bug.
+   
+   The <code>Ti.Filesystem.requestStoragePermission()</code> requests the <code>READ_EXTERNAL_STORAGE</code> permission. It does *+not+* request the <code>WRITE_EXTERNAL_STORAGE</code>.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Filesystem-method-requestStoragePermissions
+   
+   Android used to be lenient about this where if the end-user granted <code>READ_EXTERNAL_STORAGE</code> permission, your app would also be granted <code>WRITE_EXTERNAL_STORAGE</code> permission since they were both in the same permission group. But Google has changed this for apps which target Android 8.0 or higher, which Titanium 7.3.0 does by default now. Google documents this here...
+   <a href="https://developer.android.com/about/versions/oreo/android-8.0-changes#rmp" rel="nofollow" target="_blank">https://developer.android.com/about/versions/oreo/android-8.0-changes#rmp</a>
+   
+   Please see the attached [^CameraExternalTest.js]. You would not normally request permissions separately like this, but it proves that permission request/detection works. The point being, is if you want <code>WRITE_EXTERNAL_STORAGE</code>, you need to specifically request it.
+   
+   I hope this helps.</li>
+<li>Jorge Macias Garcia 2018-07-26
+
+   It's clear! Thanks.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26238.json">JSON Source</a></p>

@@ -1,0 +1,115 @@
+---
+title: "[TIMOB-19487] Windows: Generate missing app icons based on DefaultIcon.png"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-18T01:17:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2015-09-09T21:45:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T22:06:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If any of the app icons are missing, then search for -<code><project-dir>/platforms/windows/DefaultIcon.png</code>- and <code><project-dir>/DefaultIcon.png</code> and us it to generate missing app icons.
+
+You simply need to the base Builder object's <code>generateAppIcons()</code> method:
+
+<code><pre>
+var missingIcons = [
+    {
+        description: 'Resources/<platform>/appicon.png - Used for iPhone', // some meaningful description... iOS build dynamically generates this
+        file: '/path/to/dest.png', // MUST be a png and MUST have an extension
+        width: 100, // whatever is required
+        height: 100, // should match width
+        required: true // when DefaultIcon.png isn't big enough, true will trigger an error and false will skip the icon
+    }
+];
+
+this.generateAppIcons(missingIcons, function (err) {
+    // err is either true if there was an error or undefined if it was successful
+});
+</pre></code>
+
+Here's a good article on MSDN about the assets for Windows apps: <a href="https://msdn.microsoft.com/en-us/library/windows/apps/mt412102.aspx" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/mt412102.aspx</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2015-09-30
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/442" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/442</a></li>
+<li>Ewan Harris 2015-11-02
+
+   Reopening as it is not implemented for Windows Store applications
+   
+   Applying the generated assets to the appxmanifest was implemented by TIMOB-19628. 
+   
+   Every time the build runs, if the below assets do not exist then it will generate them, as implemented by this ticket:
+   
+   *  Square44x44Logo.png
+   *  Square71x71Logo.png
+   *  Square150x150Logo.png
+   
+   However [based off our documentation](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Icons_and_Splash_Screens) these are only the Windows Phone Store icons, for Windows Store icons we also need Logo.png and SmallLogo.png. *Because of this I am going to reopen the ticket as it is not implemented for Windows Store*
+   
+   Here are my observations for when the above are used:
+   
+   * When building to a Windows Phone emulator it will use Square44x44Logo as the apps logo.
+   * When building to a Windows Phone device it will use Square44x44Logo.scale-100 as the apps logo, which is copied across at build time. Removing this will make the app use  Square44x44Logo
+   * When building to Windows Local it will use SmallLogo.png for the taskbar icon and start menu in Win10 and Logo.png for the tile, both of which are copied across at build time and not generated based off the DefaultIcon provided
+   
+   One further note is that based off the other platforms it seems we should not be copying across the assets from the SDK every build. The assets provided by the SDK should be copied into the Windows specific resources on project creation, although this may be a design decision as pre-existing projects would be unable to be built for Windows if this was the case.</li>
+<li>Kota Iguchi 2015-11-03
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/463" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/463</a></li>
+<li>Ewan Harris 2015-11-09
+
+   Reopening ticket:
+   
+   OS: Microsoft Windows 10 Pro 10.0.10240
+   Appc core: 5.1.0-43
+   Appc NPM: 4.2.1
+   Ti SDK: 5.1.0.v20151104190037
+   
+   When using the above, even if all the correct assets exist then the build will always generate the below assets
+   
+   <code><pre>
+   [INFO]  Missing 3 app icons, generating missing icons
+   [INFO]    Square71x71Logo.png - Used for logo - size: 71x71
+   [INFO]    Logo.png - Used for logo - size: 150x150
+   [INFO]    SmallLogo.png - Used for logo - size: 30x30
+   </pre></code></li>
+<li>Ingo Muschenetz 2015-11-10
+
+   Bumping to 5.1.1 as this is less urgent than other tickets.</li>
+<li>Gary Mathews 2015-11-13
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/475" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/475</a></li>
+<li>Kota Iguchi 2015-11-16
+
+   [~eharris] Let me clarify, did you place icons directly under your project root, or place them into <code><project-dir>/platforms/windows/</code>? I noticed we didn't implement <code><project-dir>/platforms/windows/</code> support.</li>
+<li>Kota Iguchi 2015-11-16
+
+   It looks like <code><project-dir>/platforms/PLATFORM/DefaultIcon.png</code> support is not implemented in the titanium CLI yet. I think we want to skip <code><project-dir>/platforms/windows/</code> support for 5.1.1...should be done in the different ticket & next release. Do you agree, [~eharris] [~gmathews] ?</li>
+<li>Chris Barber 2015-11-16
+
+   [~kota] [~gmathews] The DefaultIcon.png should go in the root of the project (i.e. <code><project-dir>/DefaultIcon.png</code>), not in a platform specific directory.</li>
+<li>Kota Iguchi 2015-11-16
+
+    ok thanks for confirm, updated ticket description.</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as fixed, if there are any problems, please file a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19487.json">JSON Source</a></p>

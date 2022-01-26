@@ -1,0 +1,167 @@
+---
+title: "[TIMOB-26850]  Android: Activity callbacks onStop/onDestroy not invoked on main thread as of 7.5.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-03-04T10:21:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>activity, android, callback, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-02-22T17:09:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-30T22:41:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If "tiapp.xml" property "run-on-main-thread" is set to <code>true</code>, then the activity's <code>onStop</code> and <code>onDestroy</code> callbacks are not invoked upon app exit. This is a regression as of 7.5.0.
+
+*Steps to reproduce:*
+<h4>Set "tiapp.xml" property "run-on-main-thread" to <code>true</code> as shown below.</h4>
+<h4>Use the below "app.js" code.</h4>
+<h4>Build and run on Android.</h4>
+<h4>Wait for the app to launch.</h4>
+<h4>Notice in the log that "onStart()" and "onResume()" were successfully called.</h4>
+<h4>Back out of the app to exit.</h4>
+<h4>Notice in the log that "TopActivity.onStop()", "TopActivity.onDestroy()", and "RootActivity.onDesroy()" did *+not+* get called.</h4>
+
+*tiapp.xml*
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<property name="run-on-main-thread" type="bool">true</property>
+</ti:app>
+</pre></code>
+
+*app.js*
+<code><pre>
+function addActivityListenersTo(activity, name) {
+	if (!activity) {
+		return;
+	}
+	if (!name) {
+		name = "Activity";
+	}
+	activity.onCreate = function() {
+		Ti.API.info("@@@ " + name + ".onCreate() called.");
+	};
+	activity.onRestart = function() {
+		Ti.API.info("@@@ " + name + ".onRestart() called.");
+	};
+	activity.onStart = function() {
+		Ti.API.info("@@@ " + name + ".onStart() called.");
+	};
+	activity.onResume = function() {
+		Ti.API.info("@@@ " + name + ".onResume() called.");
+	};
+	activity.onPause = function() {
+		Ti.API.info("@@@ " + name + ".onPause() called.");
+	};
+	activity.onStop = function() {
+		Ti.API.info("@@@ " + name + ".onStop() called.");
+	};
+	activity.onDestroy = function() {
+		Ti.API.info("@@@ " + name + ".onDestroy() called.");
+	};
+}
+
+addActivityListenersTo(Ti.Android.currentActivity, "RootActivity");
+
+var window = Ti.UI.createWindow();
+window.add(Ti.UI.createLabel({ text: "Activity Callback Test" }));
+window.addEventListener("open", function() {
+	Ti.API.info("@@@ Window 'open' event fired.");
+});
+addActivityListenersTo(window.activity, "TopActivity");
+window.open();
+</pre></code>
+
+*Work-Around 1:*
+If you are building with Titanium 7.5.x, then setting "run-on-main-thread" to <code>false</code> then the <code>onStop()</code> and <code>onDestroy()</code> callbacks will be successfully invoked.
+
+*Work-Around 2:*
+Add a listener to the <code>Ti.UI.Window</code> object's "close" event instead. This event is supported on both Android and iOS, making it a portable solution.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-02-28
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10733" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10733</a>
+   PR (8.0.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10734" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10734</a>
+   </li>
+<li>Joshua Quick 2019-02-28
+
+   I see. Then an alternative solution that will work *+today+* is to use the <code>Ti.UI.Window</code> "focus" and "blur" events. These events will be fired in the same manner as <code>onStop</code> and <code>onStart</code>. And these events are definitely not fired when displaying an alert or tapping on a <code>TextField</code>. You can test out these events with my code below.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.Window-event-focus
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.Window-event-blur
+   <code><pre>
+   var window = Ti.UI.createWindow({
+   	layout: "vertical",
+   	fullscreen: true,
+   });
+   var alertButton = Ti.UI.createButton({
+   	title: "Show Alert",
+   	top: "20%",
+   });
+   alertButton.addEventListener("click", function(e) {
+   	// An alert dialog does not trigger window focus/blur events.
+   	alert("Alert!");
+   });
+   window.add(alertButton);
+   var windowButton = Ti.UI.createButton({
+   	title: "Show Child Window",
+   	top: "20%",
+   });
+   windowButton.addEventListener("click", function(e) {
+   	// Displaying a child window does trigger parent window's focus/blur events.
+   	var childWindow = Ti.UI.createWindow({ backgroundColor: "orange" });
+   	var closeButton = Ti.UI.createButton({ title: "Close Me" });
+   	closeButton.addEventListener("click", function(e) {
+   		childWindow.close();
+   	});
+   	childWindow.add(closeButton);
+   	childWindow.open();
+   });
+   window.add(windowButton);
+   window.addEventListener("focus", function(e) {
+   	Ti.API.info("@@@ Window 'focus' event received.");
+   });
+   window.addEventListener("blur", function(e) {
+   	Ti.API.info("@@@ Window 'blur' event received.");
+   });
+   window.open();
+   </pre></code>
+   
+   
+   We also have a <code>Ti.App</code> "userinteraction" event that we've added to 7.5.0 that was intended to be used by apps that want to implement an auto-logout feature. This event will be fired any time the end-user taps on the app's screen or enters input. The idea is that you would reset a timer every time a "userinteraction" event is received, but if the timer elapses, then go ahead and trigger the auto-logout.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.App-event-userinteraction
+   
+   Also note that in Titanium 8.0.1, we plan on modifying Android's <code>Ti.App</code> "pause" and "resume" events to match iOS' behavior. Where the "pause" event is fired when the app is put into the background and the "resume" event happens when the app is put into the foreground. This would mean that you no longer have to track Android activities anymore.
+   See: [TIMOB-26746]
+   </li>
+<li>Lokesh Choudhary 2019-02-28
+
+   FR Passed.
+   Waiting for Merge to be enabled.</li>
+<li>Lokesh Choudhary 2019-03-01
+
+   PR's merged.</li>
+<li>Samir Mohammed 2019-03-04
+
+   Closing ticket, fix verified in SDK Version 8.1.0.v20190301155716 and SDK Version 8.0.0.v20190301145350.
+   
+   Test and other information can be found at: 
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10733" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10733</a>
+   PR (8.0.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10734" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10734</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26850.json">JSON Source</a></p>

@@ -1,0 +1,162 @@
+---
+title: "[TIMOB-8411] iOS: Ti.UI.TableView swipe event e.source doesn't return the correct object"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-04-03T14:14:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Junaid Younus</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-03-29T09:21:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-23T21:37:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Code*
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: 'white'
+});
+
+var table = Ti.UI.createTableView();
+var data = [];
+
+for (var i = 0; i < 20; i++)
+{
+	var row = Ti.UI.createTableViewRow({
+		myRowID: i
+	});
+	
+	var label = Ti.UI.createLabel({
+		text: i,
+		left: 0,
+		width: 'auto'
+	});
+	
+	row.add(label);
+	data.push(row);
+}
+
+table.setData(data);
+
+table.addEventListener('swipe', function(e)
+{
+	var row = e.source;
+	
+	if (!row)
+		return;
+		
+	Ti.API.info('Row swiped: ' + row);
+	Ti.API.info('Row ID : ' + row.myRowID);
+});
+
+win.add(table);
+win.open();
+</pre></code>
+
+*Expected behavior*
+When you swipe on a row, e.source should return the correct Ti.UI.TableViewRow object and the ID of the row should be printed out in the console.
+
+*Actual behavior*
+Every time you swipe on a row, e.source actually returns the Ti.UI.TableView object itself, not the specific row.
+
+*Notes*
+-If you change 'swipe' to 'click' event, you will see that it prints out the correct values and has the correct behavior. 
+-Only tested on iOS 5 simulator, with TiSDK 1.8.2
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2012-03-29
+
+   Swipe is a gesture and not a touch event like click. Gesture recognizers are not registered unless you add an event handler. Since the swipe event handler was added to the table, the table is the only one generating the swipe events. 
+   
+   Gesture List
+   singletap
+   doubletap
+   twofingertap
+   swipe
+   pinch
+   longpress
+   </li>
+<li>Junaid Younus 2012-03-29
+
+   Vishal, so how would do what the customer is trying to do? Ti.UI.TableViewRow doesn't register any gestures, according to our documentation.</li>
+<li>Vishal Duggal 2012-04-03
+
+   Ok my mistake, gesture recognizers are always registered. Anyways like click events the swipe gesture will report the actual view on which the gesture occurred. Try this code. Swiping should give you the correct row id.
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: 'white'
+   });
+    
+   var table = Ti.UI.createTableView();
+   var data = [];
+    
+   for (var i = 0; i < 20; i++)
+   {
+       var row = Ti.UI.createTableViewRow({
+       });
+       
+       var enabledWrapperView = Ti.UI.createView({
+       	myRowID: i,
+       	width:Ti.UI.FILL,//Set to 100% for 1.8.X
+       	height:Ti.UI.SIZE//Set to auto for 1.8.X
+       })
+       
+       var disabledWarpperView = Ti.UI.createView({
+       	touchEnabled:false,
+       	width:Ti.UI.FILL,//Set to 100% for 1.8.X
+       	height:Ti.UI.SIZE//Set to auto for 1.8.X
+       })
+       var label = Ti.UI.createLabel({
+           text: i,
+           left: 0,
+           width: 'auto',
+       });
+       
+       enabledWrapperView.add(disabledWarpperView);
+       disabledWarpperView.add(label);
+       row.add(enabledWrapperView);
+       data.push(row);
+   }
+    
+   table.setData(data);
+   
+   table.addEventListener('swipe', function(e)
+   {
+       var row = e.source;
+        
+       if (!row)
+           return;
+            
+       Ti.API.info('Row swiped: ' + row);//This should return enabledWrapperView
+       Ti.API.info('Row ID : ' + row.myRowID);
+   });
+   
+   win.add(table);
+   win.open();
+   </pre></code></li>
+<li>Vishal Duggal 2012-04-03
+
+   Provided JS workaround</li>
+<li>Neeraj Gupta 2012-04-03
+
+   Marking this bug invalid as the functionality works as expected. We have just provided information on how to make use of this functionality.</li>
+<li>Paul Dowsett 2012-05-15
+
+   Surely there should be no need for the enabledWrapperView?  Why doesn't the row respond as the source of a table swipe event, if all child views have touchEnabled set to false?</li>
+<li>Lee Morris 2017-03-23
+
+   Closing ticket as invalid with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8411.json">JSON Source</a></p>

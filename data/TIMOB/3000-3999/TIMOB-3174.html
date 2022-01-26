@@ -1,0 +1,130 @@
+---
+title: "[TIMOB-3174] iOS: Iterating Over XML Element Attributes"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2011-11-29T15:45:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-47</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Anirudh Nagesh</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:38:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-11-29T15:45:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><h1>Problem</h1>
+<p>We can't iterate over attributes in a node. We can only access
+them by their name. We do expose the "attributes" property, which
+toStrings as a "[object TiDOMNamedNodeMap]". The length property of
+attributes correctly returns the number of attributes an element
+has, but there is no way to access an individual attribute by index
+(for example, node.attributes[0] is undefined).</p>
+<h1>Solution</h1>
+<p>Fix the attributes property to let you access each attribute by
+index, or expose a function to let you do this. The former approach
+would be more inline with major browsers.</p>
+<h1>Sample Code</h1>
+<p>The following sample code will write 'FAIL: some message' in a
+label if it isn't able to grab an attribute out of a simple XML
+string. Otherwise, it will write out the attribute name and value
+in a happy green color.</p>
+<pre>
+<code class=
+"javascript">var win = Ti.UI.createWindow({ backgroundColor: '#fff' });
+var label = Ti.UI.createLabel();
+win.add(label);
+
+label.color = '#f00';
+label.text += 'FAIL: If you have time to read this, then we never finished reading the attributes.';
+
+var dDocument = Titanium.XML.parseString('&lt;?xml version="1.0" encoding="utf-8"?&gt;\r\n&lt;root foo="bar" /&gt;');
+var node = dDocument.documentElement;
+label.text = 'Found ' + node.attributes.length + ' attributes, ';
+for (var i = 0; i &lt; node.attributes.length; i++) {
+    var attribute = node.attributes[i];
+    if (attribute) {
+        label.color = '#0f0';
+        label.text += attribute.name + " = " + attribute.value;
+    }
+    else {
+        label.color = '#f00';
+        label.text += 'FAIL: attribute undefined.';
+    }
+}
+
+win.open();</code>
+</pre>
+<h1>Tested On</h1>
+<p>Pulled from GitHub master last night: Titanium SDK version:
+1.7.0 (02/17/11 20:28 316c2c7)<br>
+BROKEN on iPhone Simulator 4.2</p>
+<h2>Associated Helpdesk Ticket</h2>
+<p><a href=
+"<a href="http://developer.appcelerator.com/helpdesk/view/73221" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/73221</a>"><a href="http://developer.appcelerator.com/helpdesk/view/73221" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/73221</a></a></p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jeroen K. 2011-04-15
+
+   <div><p>And what about .childNodes ?</p></div></li>
+<li>Anirudh Nagesh 2011-07-28
+
+   Also, we cannot set the attribute value using setAttribute().
+   <h4>Associated helpdesk ticket</h4>
+   
+   appc.me/c/APP-546582</li>
+<li>Dawson Toth 2011-08-22
+
+   Changing reporter to Anirudh, as he bumped it to "Within Release" on the 19th of August.</li>
+<li>Blain Hamon 2011-10-17
+
+   Changing this to a feature request. Turns out that the w3 DOM 2 spec does not specify usage of the attributes as an array. Furthermore, nodes do not have name nor value attributes. ( <a href="http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html" rel="nofollow" target="_blank">http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html</a> )
+   
+   Repeat: attributes[index], node.name, and node.value are all browser extensions and NOT part of the w3 spec. The w3 spec is attributes.item(index), node.nodeName, and node.nodeValue. After fixing the sample code to reflect this.
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({ backgroundColor: '#fff' });
+   var label = Ti.UI.createLabel();
+   win.add(label);
+   
+   label.color = '#f00';
+   label.text += 'FAIL: If you have time to read this, then we never finished reading the attributes.';
+   
+   var dDocument = Titanium.XML.parseString('<?xml version="1.0" encoding="utf-8"?>\r\n<root foo="bar" />');
+   var node = dDocument.documentElement;
+   label.text = 'Found ' + node.attributes.length + ' attributes, ';
+   for (var i = 0; i < node.attributes.length; i++) {
+       var attribute = node.attributes.item(i);
+       if (attribute) {
+           label.color = '#0f0';
+           label.text += attribute.nodeName + " = " + attribute.nodeValue;
+       }
+       else {
+           label.color = '#f00';
+           label.text += 'FAIL: attribute undefined.';
+       }
+   }
+   
+   win.open();
+   </pre></code>
+   
+   The code ran fine. Changing this to a feature request to allow for the browser extension usage.</li>
+<li>Stephen Tramer 2011-11-29
+
+   Not necessary. Here's the DOM2 IDL definition for NamedNodeMap:
+   
+   <a href="http://www.w3.org/TR/DOM-Level-2-Core/idl-definitions.html" rel="nofollow" target="_blank">http://www.w3.org/TR/DOM-Level-2-Core/idl-definitions.html</a>
+   
+   Instead, this can be done with the "length" attribute, and by calling the "item()" method to get the item at that index. NamedNodeMap objects should not behave like arrays.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3174.json">JSON Source</a></p>

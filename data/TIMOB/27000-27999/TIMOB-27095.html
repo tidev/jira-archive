@@ -1,0 +1,74 @@
+---
+title: "[TIMOB-27095] Android:High rate of Android ANRs and frozen frames"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2019-07-30T04:23:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rakhi Mitro</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-05-22T11:32:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-07-30T04:23:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The enterprise customer  received reports from a customer that their Android app has been producing a high number of ANRs (0.73%, over the bad behaviour threshold of 0.47% and way over their peers median of 0.2%). We have looked into the analytics on the Google Play developer panel and there are multiple causes.  Have attached the top singular ANR (Input dispatching timed out (Waiting because no window has focus but there is a focused application that may eventually add a window when it finishes starting up.), VisibleToUser) and also one that seems to be more prevalent, but as the main error is slightly different they aren't grouped together (Input dispatching timed out (Waiting to send non-key event because the touched window has not finished processing certain input events that were delivered to it over 500.0ms ago. Wait queue length: 29. Wait queue head age: 6053.5ms.), VisibleToUser). 
+
+
+*Is it possible to assist them in tracking down the cause of these ANRs? The testing team have been unable to reproduce them, so even any advice as to where they can find them would be appreciated. *
+
+
+Additionally, the app has a high percentage of users that encounter frozen frames (just shy of 50%). 
+
+Some queries from the customer:
+<code><pre>
+Do you have a set of best practices in order to avoid this? 
+Do I understand correctly that the Ti.Worker module doesn't actually spin up other threads and instead just simulates it on one thread by running a worker asynchronously? 
+
+</pre></code>
+ *Note:* this seems to just be happening on android 8+ and titanium SDK 7.5.1.GA.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27095_66633/play.google.com_apps_publish__account5105261945650023619_(1).png">play.google.com_apps_publish__account5105261945650023619_(1).png</td></td><td>2019-05-22T11:33:37.000+0000</td><td>796781</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27095_66632/play.google.com_apps_publish__account5105261945650023619.png">play.google.com_apps_publish__account5105261945650023619.png</td></td><td>2019-05-22T11:33:38.000+0000</td><td>565882</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-05-29
+
+   Regarding the ANR referencing <code>TiActivity</code>, do you have an intent-filter set up for the <code>TiActivity</code> class? Can I see the "tiapp.xml" file so that I can see how it's setting up the AndroidManifest.xml settings? Because I suspect an <code>Intent</code> is attempting to start <code>TiActivity</code> which is intended to be used as a Titanium child window. Normally you would set up an intent-filter to launch the main launcher activity. But doing so won't cause a hang (ie: ANR) for me and will instead launch a child window that does nothing since the main "app.js" hasn't been loaded yet. I'm totally guessing here since the stack trace isn't helpful.
+   
+   Regarding the ANR referencing <code>TiTranslucentActivity</code>, the fact that it only happens on Android 9 and we see several calls to <code>dispatchApplyWindowInsets()</code> suggests that this is "notch" related. Although the Moto G6 Play doesn't have a notch that I'm aware of. We test on an Android 9 device with a notch nearly every day here, so, this is curious that this is happening to you. Try testing in an Android 9 emulator with "notch" support enabled to see if you can reproduce it.
+   
+   Or perhaps the app is loading a lot of content when a <code>Ti.UI.Window</code> has been opened?
+   As of Titanium 8.0.0, the JavaScript runtime can only be ran on the main UI thread. Titanium no longer supports running the script on a separate thread. So, long "blocking" operations in JavaScript will block the main UI thread too. And yes, "ti.worker" runs on the main thread as well and merely simulates worker behavior. We instead suggest using Titanium's async APIs as much as possible. The only major feature that Titanium has that does NOT support async APIs is <code>Ti.Database</code> which we're looking into.
+   
+   You can measure how long your JavaScript operations take by doing the following.
+   <code><pre>
+   var startTime = new Date();
+   // Your code...
+   Ti.API.info("@@@ Duration: " + ((new Date()) - startTime));
+   </pre></code>
+   </li>
+<li>Joshua Quick 2019-06-11
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27095.json">JSON Source</a></p>

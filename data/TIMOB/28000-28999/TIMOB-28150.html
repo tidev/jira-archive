@@ -1,0 +1,111 @@
+---
+title: "[TIMOB-28150] iOS 14: Updating backgroundImage displays irrelavant image inbetween change"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-10-02T14:17:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 9.0.3, Release 9.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.2.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, ios14</td></tr>
+<tr><th>Reporter</th><td>nicolomonili</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2020-09-23T09:38:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-10-02T14:17:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When updating a <code>backgroundImage</code> of a <code>View</code> after a timeout (or click event), while the new image is loading a different image (unreferenced, but bundled with the app) will display before the new image is displayed. This problem does not occur with <code>ImageView:image</code>.
+
+The problem shows with SDK 9.2.0 *and* 9.0.3.GA on iOS 14. The problem does *not* show with SDK 9.2.0 on iOS 13 or iOS 12.
+
+*Expected result* 
+Irrelevant image should not display, only the <code>backgroundImage</code> that was set on creation and the one that is set after a timeout/click event.
+
+*Code*
+
+Sample app.js:
+<code><pre>
+
+    var win = Ti.UI.createWindow({
+        backgroundColor:'black'
+    });
+   
+    var test1 = Ti.UI.createImageView({
+       width : 100,
+       height : 100,
+       left : 10,
+       top : 30,
+       backgroundImage : "/images/arm1.png"
+    });
+    
+    win.add(test1);
+    win.open();
+    
+    win.addEventListener('click', e => {
+        test1.backgroundImage = "/images/arm0.png";
+    });
+ </pre></code>
+
+Attached are images from the assets directory. Do extract all of the images to reproduce the problem. (put them either in <code>/Resources/images</code> or <code>/Resources/iphone/images</code>.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28150_67571/assets_images.zip">assets_images.zip</td></td><td>2020-09-23T09:36:17.000+0000</td><td>40820</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28150_67572/Test image iOS 14.mov">Test image iOS 14.mov</td></td><td>2020-09-23T09:39:43.000+0000</td><td>1043889</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2020-09-23
+
+   For those watching, this issue does not occur with <code><ImageView image="image.jpg" /></code>. So recommended path is to update to imageviews right now.</li>
+<li>Vijay Singh 2020-09-24
+
+   In titanium, Ti.UI.backgroundImage is implemented using CALayer.
+   In iOS 14+,  CALayer comes with 'animation' (CABasicAnimation) while in iOS < 14 there is no such property in object. See below layer's properties on iOS < 14 and iOS14+ -
+   
+   iOS < 14 -
+   
+   <code><pre>
+   <CALayer:0x600003faf9a0; position = CGPoint (50 50); bounds = CGRect (0 0; 100 100); contents = <CGImage 0x7f85bb70caa0> (IP)
+   	<<CGColorSpace 0x600001b98180> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; sRGB IEC61966-2.1)>
+   		width = 74, height = 74, bpc = 8, bpp = 32, row bytes = 296 
+   		kCGImageAlphaPremultipliedLast | 0 (default byte order)  | kCGImagePixelFormatPacked 
+   		is mask? No, has masking color? No, has soft mask? No, has matte? No, should interpolate? Yes; masksToBounds = YES; allowsGroupOpacity = YES; contentsScale = 2>
+   </pre></code>
+   
+   iOS 14+ -
+   
+   <code><pre>
+   CALayer:0x6000025aa1e0; position = CGPoint (50 50); bounds = CGRect (0 0; 100 100); contents = <CGImage 0x7f844a206950> (IP)
+   	<<CGColorSpace 0x6000001bc2a0> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; sRGB IEC61966-2.1)>
+   		width = 74, height = 74, bpc = 8, bpp = 32, row bytes = 296 
+   		kCGImageAlphaPremultipliedLast | 0 (default byte order)  | kCGImagePixelFormatPacked 
+   		is mask? No, has masking color? No, has soft mask? No, has matte? No, should interpolate? Yes; masksToBounds = YES; allowsGroupOpacity = YES; contentsScale = 2; ; animations = [contents=<CABasicAnimation: 0x600002590f40>]>
+   </pre></code>
+   
+   Due to animations in iOS 14+ CALayer.contents is animating. </li>
+<li>Vijay Singh 2020-09-25
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/12133" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12133</a></li>
+<li>Samir Mohammed 2020-10-02
+
+   *Closing ticket*. Fix verified in SDK version <code>9.2.1.v20201001120538</code>, and <code>9.3.0.v20201001144501</code>.
+   
+   *Test and other information can be found at:*
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/12133" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12133</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28150.json">JSON Source</a></p>

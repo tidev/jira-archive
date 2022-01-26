@@ -1,0 +1,95 @@
+---
+title: "[ALOY-1000] Model Binding a View generates multiple calls to update the data of bound objects."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-05-28T16:06:53.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.5.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Bert Grantges</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2014-05-01T03:02:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-22T23:27:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have a simple view  that creates a Model instance and binds the model properties to two labels.
+
+Code samples are here:
+<a href="https://gist.github.com/grantges/28241878e3886c1cec51" rel="nofollow" target="_blank">https://gist.github.com/grantges/28241878e3886c1cec51</a>
+
+When looking at the compiled JavaScript, you'll notice that the generated function to update the text properties on the bound Labels is being called twice.
+
+Expectation
+It should only be called once per label/property
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-05-13
+
+   [~fmiao] would you confirm this is still  happening with Alloy 1.4? Thanks.</li>
+<li>Feon Sua Xin Miao 2014-05-26
+
+   [~skypanther] it's still happening with Alloy 1.4.0-alpha4.</li>
+<li>Feon Sua Xin Miao 2014-05-27
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/418" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/418</a>
+   Test app: <a href="https://github.com/feons/alloy/tree/ALOY-1000/test/apps/testing/ALOY-1000" rel="nofollow" target="_blank">https://github.com/feons/alloy/tree/ALOY-1000/test/apps/testing/ALOY-1000</a>
+   
+   Functional Test:
+       1. Run the test app on iOS 
+       2. Check Resources/iphone/alloy/controllers/index.js:
+   <code><pre>
+    66     doClick ? $.__views.genre.addEventListener("click", doClick) : __defers["$.__views.genre!click!doClick"] = true;
+    67     var __alloyId4 = function() {
+    68         $.title.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["title"] : Alloy.Models.book.get("title");
+    69         $.author.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["author"] : Alloy.Models.book.get("author");
+    70         $.genre.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["genre"] : Alloy.Models.book.get("genre");
+    71     };
+    72     Alloy.Models.book.on("fetch change destroy", __alloyId4);
+   </pre></code>
+       3. For each property, the update function is generated once.</li>
+<li>Tim Poulsen 2014-05-28
+
+   PR tested and merged</li>
+<li>Ewan Harris 2014-08-22
+
+   Verified fix on:
+   
+   Mac OSX 10.9.4
+   Appcelerator Studio, build: 3.4.0.201408210941
+   Titanium SDK build:  3.4.0.v20140821144114
+   Titanium CLI, build: 3.4.0-dev
+   Alloy: 1.5.0-dev
+   iOS Simulator 7.1
+   
+   Built the test to iOS and then checked Resources/iphone/alloy/controllers/index.js, the update function is generated once for each property.
+   
+   <code><pre>
+   doClick ? $.__views.genre.addEventListener("click", doClick) : __defers["$.__views.genre!click!doClick"] = true;
+       var __alloyId2 = function() {
+           $.title.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["title"] : _.template("<%=book.title%>", {
+               book: Alloy.Models.book.toJSON()
+           });
+           $.author.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["author"] : _.template("<%=book.author%>", {
+               book: Alloy.Models.book.toJSON()
+           });
+           $.genre.text = _.isFunction(Alloy.Models.book.transform) ? Alloy.Models.book.transform()["genre"] : _.template("<%=book.genre%>", {
+               book: Alloy.Models.book.toJSON()
+           });
+       };
+       Alloy.Models.book.on("fetch change destroy", __alloyId2);
+   </pre></code>
+   
+   Closing ticket.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1000.json">JSON Source</a></p>

@@ -1,0 +1,146 @@
+---
+title: "[AC-6181] $.destroy undefined exception on Collection callback"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-23T17:37:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Zachary Litten</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-03-25T16:15:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-23T17:37:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have two instanced Collections in one of my Views with data binding. I have the close of the view hooked up to a cleanup function which calls '$.destroy'. Whenever that destroy function is thrown I get an undefined exception <code>Uncaught ReferenceError: __alloyId488 is not defined</code>. In the alloy code, I see that id is the callback to my collection, but I'm unsure of what could be happening to it. I'm only doing a reset on the collection once I get data back from a request.
+<code><pre>
+    var __alloyId487 = Alloy.Collections['$.Experts'] || $.Experts;
+
+function __alloyId488(e) {
+    if (e && e.fromAdapter) {
+        return;
+    }
+    var opts = __alloyId488.opts || {};
+    var models = __alloyId487.models;
+    var len = models.length;
+    var __alloyId483 = [];
+    for (var i = 0; i < len; i++) {
+        var __alloyId484 = models[i];
+        __alloyId484.__transform = TF.transformExpert(__alloyId484);
+        var __alloyId486 = {
+            properties: {
+                backgroundColor: "transparent",
+                selectedBackgroundColor: Alloy.CFG.design.colors.primary,
+                itemId: __alloyId484.__transform.expertusername
+            },
+            expHeader: {
+                text: 'Preferred ' + __alloyId484.__transform.field + ' Expert'
+            },
+            expImg: {
+                image: __alloyId484.__transform.prefImage
+            },
+            expName: {
+                text: __alloyId484.__transform.expertname
+            },
+            expCompany: {
+                text: __alloyId484.__transform.company
+            },
+            expPhone: {
+                text: __alloyId484.__transform.expert_ph1
+            },
+            expEmail: {
+                text: __alloyId484.__transform.expert_email
+            },
+            expWeb: {
+                text: __alloyId484.__transform.webAddress
+            },
+            template: "expertCard"
+        };
+        __alloyId483.push(__alloyId486);
+    }
+    opts.animation ? $.__views.expSection.setItems(__alloyId483, opts.animation) : $.__views.expSection.setItems(__alloyId483);
+};
+__alloyId487.on('fetch destroy change add remove reset', __alloyId488);
+}
+__alloyId482.push($.__views.expSection);
+$.__views.propSection = Ti.UI.createListSection({
+    backgroundColor: "transparent",
+    id: "propSection"
+});
+</pre></code>
+
+Both collections are included in the XML as follows
+<code><pre>
+<Alloy>
+    <Collection id="Properties" instance="true" src="Property" />
+    <Collection id="Experts" instance="true" src="Expert" />
+</pre></code>
+
+I have tried multiple different 7.X sdk versions, as well as different appc CLI versions to see if it was an error with their specific bundled alloy version, but still received the error. Same even after checking out a previous commit of the project where I know the error didn't exist but just keeps cropping up. 
+
+Completely reinstalled the cli and all my SDKs, but still getting the error. Hopefully commenting out the destroy and manually calling .off() on both Collections is enough of a workaround for now.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2019-03-26
+
+   Hello,
+   Thanks for reaching out! Can you test the issue on SDK 8.0.0.GA and share a 
+   simple test case to demonstrate what you are trying?
+   </li>
+<li>Zachary Litten 2019-03-26
+
+   I can confirm that upgrading to TiSDK 8.0.0 alleviates the issue although had to do a few workarounds in order to get to that point in the app as our project is not fully ready for 8.</li>
+<li>Rakhi Mitro 2019-03-28
+
+   [~zlitten],Thanks for your feedback. It would be better if you share the complete logs and a simple test project to reproduce the issue on our end.</li>
+<li>Sharif AbuDarda 2019-04-09
+
+   Hello [~zlitten], can you get back to us with the sample code and trace log? Thanks.</li>
+<li>Zachary Litten 2019-04-09
+
+   Hello,
+   I attempted to decouple my code in that specific controller from the rest of the app to bundle a sample. However, after checking out my previous commit of my project where I was experiencing the issue I was unable to reproduce the same error.
+   To meet deadlines I had to triage the issue and move on, but I'm not exactly sure what fixed it.
+   
+   </li>
+<li>Zachary Litten 2019-04-19
+
+   The issue ended up reoccurring, however I _think_ I may have found and fixed the cause due to a different error being encountered.
+   
+   On iOS I was having issues opening the Window with the same ListView mentioned above. For some reason it was crashing when initializing the ListView in the Alloy generated code. I didn't see the same behavior on Android.
+   
+   After some playing around I attributed the crash to one of my conditional statements in a ListSection similar to this example:
+   <code><pre>
+   <ListView>
+     <ListSection id="someSection" if="Alloy.CFG.someVar" >
+       <ListItem title="someTitle" />
+     </ListSection>
+     <ListSection id="someOtherSection">
+       <ListItem title="anotherTitle" />
+     </ListSection>
+   </ListView>
+   </pre></code>
+   
+   By moving that conditional if statement into the ListItem instead it fixed the iOS crash on open and seems to have also fixed the original crash reported in this ticket.</li>
+<li>Sharif AbuDarda 2019-04-22
+
+   Hello [~zlitten], So, I assume your issue is fixed now? do you need any more help? We will close the ticket if we are done here. Thanks. </li>
+<li>Zachary Litten 2019-04-23
+
+   Yes, I believe the issue is fixed and this ticket can be closed.
+   
+   You have my appreciation for your attention on this matter.</li>
+</ol>
+
+
+<p><a href="/AC/AC-6181.json">JSON Source</a></p>

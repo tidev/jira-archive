@@ -1,0 +1,190 @@
+---
+title: "[TIMOB-20234] Streaming Audio not working on Android Marshmallow with Alloy"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-02T07:08:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Ashraf Abu</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2016-01-14T02:23:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-08T21:12:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+As mentioned in ticket: TIMOB-20140 reported by [~patrickmounteney]
+
+{quote}I did try a nightly build about a week ago and again today and found that although some of my Shoutcast streams now played under Android 6.0 (on a Nexus 7), others did not and produced our old friend error (1, -2147483648)
+Examples:
+Won't play: <a href="http://sc2.radiocaroline.net:10558" rel="nofollow" target="_blank">http://sc2.radiocaroline.net:10558</a>
+Will play: <a href="http://sc2.radiocaroline.net:8000" rel="nofollow" target="_blank">http://sc2.radiocaroline.net:8000</a>
+The error starts at: E/NuCachedSource2(16101): source returned error -1, 10 retries left
+In a further test using 'Classic' Ti the stream that would not play in an Alloy build now plays and we see the following printed in the Console, which I have never seen in an Alloy implementation:
+AAS: Asking for stream handler for protocol: 'http'
+Audio in Android seems to be a bit of a lottery - if it works great. If it does't we're stuffed as nobody seems to be able to say what the cause is!{quote}
+
+{quote}As far as I can tell both of the above Shoutcast streams are the same protocol as they come from the same server (Shoutcast 1.9.8), be it different ports. But read on as I spent some time testing this yesterday and my conclusion is that there is some difference between the way the 'Classic Ti' implements AudioPlayer behind the scenes and the way Alloy does. I can run the same very simple test (below) and get two different results, depending on if it was built with Alloy or not and version of Android the test is run under.
+Test code built with Ti. SDK 6.0.0.v20160112093414 and targeting Android API 23
+<code><pre>
+var player = Titanium.Media.createAudioPlayer(
+{ allowBackground: true, url: "<a href="http://sc2.radiocaroline.net:10558" rel="nofollow" target="_blank">http://sc2.radiocaroline.net:10558</a>" }
+);
+function streamButtonClick()
+{ Ti.API.info("Playing : "+ player.url); player.play(); }
+</pre></code>
+Test 1:
+Alloy build - run on Nexus 7 Tablet Android 6.0.1 - It doesn't play and throws error (1, -2147483648)
+Classic build - run on Nexus 7 Tablet Android 6.0.1 - streams plays
+Test 2:
+Alloy build - run on Lenovo Tablet Android 4.2.2 - streams plays
+Classic build - run on Lenovo Tablet Android 4.2.2 - streams plays
+Observations: When it works we see this printed in the Ti Console:
+[DEBUG] : AAS: Asking for stream handler for protocol: 'http'
+[DEBUG] : MediaPlayer: setSubtitleAnchor in MediaPlayer
+When it doesn't work we get:
+[ERROR] : MediaPlayer: error (1, -2147483648)
+And when it does work, in the Android log we see:
+01-12 07:48:55.722: D/audio_hw_primary(16101): enable_audio_route: apply and update mixer path: low-latency-playback
+01-12 07:48:55.988: E/NuCachedSource2(16101): source returned error -1, 10 retries left
+Conclusion: There is something in an Alloy build, when run under Android 6.0, that is causing NuCachedSource2 to error and the stream never plays.{quote}
+
+<h3>Comments</h3>
+
+<ol>
+<li>Patrick Mounteney 2016-02-08
+
+   Further in this issue: It looks to be a case of needing permissions for WRITE_EXTERNAL_STORAGE for streaming to work when run under Android 6.0. - at least for an Alloy build. I did a number of tests, mainly with a Nexus 7 device, but it was not until trying a Genymotion emulated Galaxy 6 that its log gave more detail of the issue:
+   
+   02-06 15:58:11.667: E/FFmpegExtractor(480): android-source:0xf60d9cc0|file:<a href="http://sc2.radiocaroline.net:8000:" rel="nofollow" target="_blank">http://sc2.radiocaroline.net:8000:</a> avformat_open_input failed, err:Operation not permitted
+   
+   But the clincher was that on deleting and reinstalling my app I noticed some images that need downloading and storing in the applicationDataDirectory were failing with a large number of errors to do with permissions. It was only after adding runtime permission for WRITE_EXTERNAL_STORAGE that the streams suddenly started working again. But this only seemed to affect apps built with Alloy - a 'Classic' built app did not need these permissions.
+   
+   But if the failure to play audio streams is to do with permissions - what is being written to the applicationDataDirectory? Surely not the buffer? That would be to RAM memory would it not?
+   </li>
+<li>Ashraf Abu 2016-02-10
+
+   Tested this with the fix in TIMOB-20251. Issue is resolved.
+   
+   Resolving ticket as fixed.</li>
+<li>Ashraf Abu 2016-02-10
+
+   [~patrickmounteney] Thanks for the investigation.</li>
+<li>Fokke Zandbergen 2016-02-16
+
+   [~msamah] if this is fixed with TIMOB-20251, which is in 5.2 then the fixVersion for this ticket should be 5.2 right?</li>
+<li>Ashraf Abu 2016-02-17
+
+   [~fokkezb] You are right.</li>
+<li>Fokke Zandbergen 2016-02-18
+
+   Reopening since a TiSlack user reported it's still not working with the RC. He'll leave a comment with his findings here.</li>
+<li>Miguel Ángel Castaño 2016-02-18
+
+   Tested with SDK 5.2.0RC and the error is still there.
+   
+   Genimotion Nexus 5 - Android 6.0
+   Result:
+   [ERROR] : MediaPlayer: error (1, -2147483648)</li>
+<li>Patrick Mounteney 2016-02-18
+
+   As I understood it the fix was in SDK 6.0.0 (which is what I tested using a continuous build) - it certainly said the fix was in 6.00 at the top of one of the tickets relating to this, which I thought was TIMOB-20140, but I now see it's saying the fix is in Release 5.4.0!
+   
+   But still nobody has been able to tell me and the others what this fix actually is (not the permissions one as that appears to be required on top of the '6.00' fix).</li>
+<li>Fokke Zandbergen 2016-02-18
+
+   [~msamah] I guess [~patrickmounteney] is right and this is not included by TIMOB-20251 (5.2) but TIMOB-20140 (5.4) so this ticket should be re-linked and resolved as fixed in 5.4</li>
+<li>Ashraf Abu 2016-02-19
+
+    [~macasfaj] Could you provide a sample code for me to test this out?
+    The link that would reproduce this error.</li>
+<li>Miguel Ángel Castaño 2016-02-19
+
+    Sure!
+    
+    alloy.js
+    
+    <code><pre>
+    Alloy.Globals.AUDIOPLAYER = Ti.Media.createAudioPlayer({
+    	url : '<a href="http://194.169.201.177:8085/stream/prisacom_Sevilla" rel="nofollow" target="_blank">http://194.169.201.177:8085/stream/prisacom_Sevilla</a>',
+    	allowBackground : true
+    }); 
+    </pre></code>
+    
+    index.js:
+    
+    <code><pre>
+    Alloy.Globals.AUDIOPLAYER.addEventListener('change', function(e){
+    											Ti.API.info(e.state);
+    });
+    
+    Alloy.Globals.AUDIOPLAYER.start();
+    </pre></code>
+    
+    The result is:
+    
+    <code><pre>
+    [ERROR] :  MediaPlayer: error (-2147483648, 0)
+    [ERROR] :  MediaPlayer: start called in state 0
+    [ERROR] :  MediaPlayer: error (-38, 0)
+    [ERROR] :  MediaPlayer: Error (-2147483648,0)
+    </pre></code></li>
+<li>Ashraf Abu 2016-02-22
+
+    Thanks [~macasfaj] for the test case!</li>
+<li>Ashraf Abu 2016-03-02
+
+    Tested that link with both Alloy and Classic with Android 6.0, same error occurs.
+    <code><pre>
+    003-01 19:31:47.969   381  5751 D NuPlayerDriver: notifyListener_l(0xb332d120), (1, 0, 0)
+    03-01 19:31:47.970  5511  5526 D MediaPlayer: setSubtitleAnchor in MediaPlayer
+    03-01 19:31:47.982   381  1573 E MediaPlayerService: getDuration returned -2147483648
+    03-01 19:31:47.982  5511  5526 W MediaPlayer: Attempt to seek to invalid position: -1
+    03-01 19:31:47.982   381  1265 E MediaPlayerService: getDuration returned -2147483648
+    03-01 19:31:47.983  5511  5526 W MediaPlayer: Stream has no duration and is therefore not seekable.
+    03-01 19:31:47.983  5511  5526 E MediaPlayer: error (-2147483648, 0)
+    03-01 19:31:47.985  5511  5526 E MediaPlayer: start called in state 0
+    03-01 19:31:47.985  5511  5526 E MediaPlayer: error (-38, 0)
+    03-01 19:31:47.986  5511  5526 I TiAPI   :  1
+    03-01 19:31:47.987  5511  5526 E MediaPlayer: Error (-2147483648,0)
+    03-01 19:31:47.988   381  1573 D NuPlayerDriver: reset(0xb332d120)
+    03-01 19:31:47.988   381  1573 D NuPlayerDriver: notifyListener_l(0xb332d120), (8, 0, 0)
+    03-01 19:31:47.990   381  5766 I NuCachedSource2: caching reached eos.
+    03-01 19:31:47.991   381  5751 D NuPlayerDriver: notifyResetComplete(0xb332d120)
+    03-01 19:31:47.993  5511  5526 W MediaPlayer: mediaplayer went away with unhandled events
+    03-01 19:31:47.994  5511  5526 I TiAPI   :  3
+    </pre></code></li>
+<li>Ashraf Abu 2016-03-02
+
+    Don't think it's an Alloy issue. More of an Android 6.0 (Marshmallow issue)</li>
+<li>Ashraf Abu 2016-03-02
+
+    5.2.0.GA seems to have this bug and it's not working.
+    
+    Tried this with Master (5.4.0) and alloy and classic version both are able to work.</li>
+<li>Ashraf Abu 2016-03-02
+
+    Resolving this as fixed in 5.4.0.</li>
+<li>Josh Longton 2016-07-08
+
+    Verified as fixed. 
+    Tested on:  
+    Nexus 5 (6.0.1)
+    android emulator (6.0, 4.2.2) 
+     Mac OSX El Capitan 10.11.5 
+    Studio: 4.7.0.201607070843
+     Ti SDK: 5.4.0.v20160705213725 
+     Appc NPM: 4.2.8-1 
+    Appc CLI: 5.4.0-29 
+    Node v4.4.4 
+    * Closing Ticket*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20234.json">JSON Source</a></p>

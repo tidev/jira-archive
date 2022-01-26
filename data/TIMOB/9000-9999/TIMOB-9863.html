@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-9863] Android: Custom url doesn't open the app on 3.x+ devices"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-02-19T13:48:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Allen Yeung</td></tr>
+<tr><th>Assignee</th><td>Rene Pot</td></tr>
+<tr><th>Created</th><td>2012-07-02T17:14:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-02-19T13:48:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description </h4>
+Customer wants to registrate his own url in android, so he can open the app with something like this://is.sparta from the browser in android. We got a really nice recipe on this, but it's not working anymore. 
+
+<h4>Actual Results</h4>
+The custom url is not registered.
+
+<h4>Expected Results</h4>
+The custom url should work nice.
+
+<h4>Test case:</h4>
+1. Create mobile project.
+2. Add this to the app.js:
+<code><pre>
+var win = Ti.UI.createWindow({ backgroundColor: '#fff' });
+win.add(Ti.UI.createLabel({ text: 'Type <a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a> in a browser, and this app will get launched. Try it!' }));
+win.open();
+</pre></code>
+3. Add this to launchFromURL.js:
+<code><pre>
+var activity = Ti.Android.currentActivity;
+var win = Ti.UI.currentWindow;
+
+activity.addEventListener("create", function(e) {
+    win.add(Ti.UI.createButton({title: 'Our app was launched when you typed <a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>!'}));
+});
+</pre></code>
+4. Add this to the tiapp.xml
+<code><pre>
+ <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+    	 <activities>
+            <activity url="launchFromURL.js">
+                <intent-filter>
+                    <action android:name="android.intent.action.VIEW"/>
+                    <category android:name="android.intent.category.DEFAULT"/>
+                    <category android:name="android.intent.category.BROWSABLE"/>
+                    <data android:scheme="http" android:host="www.appcelerator.com"/>
+                </intent-filter>
+            </activity>
+        </activities>
+    </android>
+</pre></code>
+
+<h4>Extra info</h4>
+Part of our research was:
+
+Generic for Android: <a href="http://stackoverflow.com/questions/3469908/make-a-link-in-the-android-browser-start-up-my-app/3472228" rel="nofollow" target="_blank">http://stackoverflow.com/questions/3469908/make-a-link-in-the-android-browser-start-up-my-app/3472228</a>
+
+From Dawson: <a href="https://gist.github.com/840600" rel="nofollow" target="_blank">https://gist.github.com/840600</a>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tamila Smolich 2012-08-07
+
+   The same behavior exists on Android versions 3.X and 4.X, but works well on 2.X.
+   
+   Tested on:
+   Titanium Studio, build: 2.1.1.201207271312
+   Titanium SDK, build: 2.0.3.v20120806151610
+   Devices: Nexus 7 (4.1), Sony Tablet S (3.2)
+   Host OS: Mac OS X Mountain Lion 10.8; Mac OS X Lion 10.7.3</li>
+<li>Fokke Zandbergen 2013-08-23
+
+   Changing the <code>tiapp.xml</code> code to point it to <code>app.js</code> instead of a separate file works, but has the nasty side-effect of launching the intent in the context of the browser where you click the link. This can be fixed by adding <code>android:launchMode="singleTask"</code> to <code><activity></code>.
+   
+   This does cause my app to crash every now and then and I have no idea why. Investigating...
+   
+   <code><pre>
+       <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <activities>
+              <activity android:alwaysRetainTaskState="true" android:launchMode="singleTask" url="app.js">
+                  <intent-filter>
+                      <action android:name="android.intent.action.VIEW"/>
+                      <category android:name="android.intent.category.DEFAULT"/>
+                      <category android:name="android.intent.category.BROWSABLE"/>
+                      <data android:scheme="http" android:host="www.appcelerator.com"/>
+                  </intent-filter>
+              </activity>
+          </activities>
+      </android>
+   </pre></code></li>
+<li>Tim Poulsen 2013-08-23
+
+   (admittedly a slightly different use case) The following works to define a custom URL scheme instead of overriding http. It's from the training lab example:
+   
+   <code><pre>
+   <activity
+       android:configChanges="keyboardHidden|orientation"
+       android:label="URLSchemes"
+       android:name=".UrlschemesActivity" android:theme="@style/Theme.Titanium">
+       <intent-filter>
+           <action android:name="android.intent.action.MAIN"/>
+           <category android:name="android.intent.category.LAUNCHER"/>
+       </intent-filter>
+       <intent-filter>
+           <action android:name="android.intent.action.VIEW"/>
+           <category android:name="android.intent.category.DEFAULT"/>
+           <category android:name="android.intent.category.BROWSABLE"/>
+           <data android:host="" android:scheme="urlschemes"/>
+       </intent-filter>
+   </activity>
+   </pre></code>
+   
+   See <a href="https://github.com/appcelerator-training/tce_training/tree/master/labcode/Finished_code/URLSchemes" rel="nofollow" target="_blank">https://github.com/appcelerator-training/tce_training/tree/master/labcode/Finished_code/URLSchemes</a>
+   
+   In my testing, the app would not launch if I used a single <intent-filter> tag; it has to be written as shown to work.</li>
+<li>Fokke Zandbergen 2013-08-23
+
+   (removed)</li>
+<li>Ingo Muschenetz 2014-05-01
+
+   Unfortunately out of time for 3.3.0. Bumping to 3.3.1.</li>
+<li>Ingo Muschenetz 2014-08-14
+
+   3.4.0 is moved forward, and 3.5.0 is taking its place in the calendar.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9863.json">JSON Source</a></p>

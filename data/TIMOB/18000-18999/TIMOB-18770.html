@@ -1,0 +1,121 @@
+---
+title: "[TIMOB-18770] HAL: Variables using unicode characters cause Application Error"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-07-14T23:16:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, Windows</td></tr>
+<tr><th>Labels</th><td>HAL, JavaScriptCore</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2015-03-31T14:48:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-16T21:55:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you use a special unicode character in a variable name (which is perfectly fine on iOS and Android and valid JS) the application will crash.
+
+<h4>Test case</h4>
+
+<code><pre>
+var φ = 'hello world';
+
+Ti.UI.createWindow({
+  backgroundColor: "white"
+}).open();
+</pre></code>
+
+<h4>Crash</h4>
+
+<code><pre>
+[ERROR] Application Error: {
+[ERROR]   "message": "Error while require(./app) Invalid character '\\u0966'",
+[ERROR]   "native_stack": [
+[ERROR]     "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+[ERROR]   ],
+[ERROR]   "stack": "require@[native code]\nglobal code",
+[ERROR]   "line": 2
+[ERROR] }
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2015-03-31
+
+   Kota, can you please take a look when you get a moment?</li>
+<li>Kota Iguchi 2015-04-07
+
+   Confirmed that this issue originally came from JavaScriptCore C API itself on Windows. Thus HAL on Windows can not handle this well. For instance following code should return "hello, world" string but on Windows it returns "undefined". I'm expecting there's some issue handling UTF-8 string on JavaScriptCore Windows but I'm not sure where it is and how to fix this.
+   
+   <code><pre>
+   	JSGlobalContextRef context = JSGlobalContextCreate(NULL);
+   	JSStringRef jsScriptString = JSStringCreateWithUTF8CString("var φ = 'hello world'; φ;");
+   	JSStringRef jsFilenameString = JSStringCreateWithUTF8CString("app.js");
+   	JSValueRef exception = NULL;
+   
+   	JSValueRef result = JSEvaluateScript(context, jsScriptString, NULL, jsFilenameString, 0, &exception);
+   
+   	JSStringRelease(jsScriptString);
+   	JSStringRelease(jsFilenameString);
+   </pre></code></li>
+<li>Kota Iguchi 2015-05-10
+
+   Confirmed that the character <code>φ</code> is successfully converted into valid UTF-8 bytes (0xcf86) and passed to JSC functions. It means the issues are inside JavaScriptCore so in order to fix this issue we need to update JavaScriptCore. may be related: <a href="https://github.com/WebKit/webkit/commits/master/Source/JavaScriptCore/parser/Lexer.cpp" rel="nofollow" target="_blank">https://github.com/WebKit/webkit/commits/master/Source/JavaScriptCore/parser/Lexer.cpp</a></li>
+<li>Christopher Williams 2015-05-20
+
+   This may the commit that fixes the issue in webkit/JSC? <a href="https://github.com/WebKit/webkit/commit/2eb5f4de2fb20e7dddaba89da5118e84d71d82c5#diff-0af0b457165c27ee7ef19b92709c2df1" rel="nofollow" target="_blank">https://github.com/WebKit/webkit/commit/2eb5f4de2fb20e7dddaba89da5118e84d71d82c5#diff-0af0b457165c27ee7ef19b92709c2df1</a></li>
+<li>Kota Iguchi 2015-06-08
+
+   While trying to apply recent changes around [JavaScriptCore Lexer | <a href="https://github.com/WebKit/webkit/commit/2eb5f4de2fb20e7dddaba89da5118e84d71d82c5#diff-0af0b457165c27ee7ef19b92709c2df1" rel="nofollow" target="_blank">https://github.com/WebKit/webkit/commit/2eb5f4de2fb20e7dddaba89da5118e84d71d82c5#diff-0af0b457165c27ee7ef19b92709c2df1</a>], I found that recent JavaScriptCore is trying to eliminates use of <code>WTF::Unicode</code> but instead use ICU directly. The problem here is that our JavaScriptCore for Windows is relying on custom <code>WTF::Unicode</code> handler for <code>wchar_t</code> which is built specifically for Windows, which doesn't depend on ICU. That's why we can't merge latest changes around Lexer as it is. So the actual issue now is that, it looks like we actually didn't implement Unicode detection in our custom <code>WTF::Unicode</code> handler. See [WTF/wtf/unicode/wchar/UnicodeWchar.cpp](<a href="https://github.com/appcelerator/webkit/blob/javascriptcore-wp8.1/Source/WTF/wtf/unicode/wchar/UnicodeWchar.cpp#L33)" rel="nofollow" target="_blank">https://github.com/appcelerator/webkit/blob/javascriptcore-wp8.1/Source/WTF/wtf/unicode/wchar/UnicodeWchar.cpp#L33)</a>, we can see some <code>FIXME: implement</code> comment there. I would assume at least we should implement these to handle Unicode correctly to make JavaScriptCore Lexer work well.
+   </li>
+<li>Kota Iguchi 2015-06-08
+
+   <a href="https://github.com/appcelerator/webkit/pull/5" rel="nofollow" target="_blank">https://github.com/appcelerator/webkit/pull/5</a></li>
+<li>Kota Iguchi 2015-06-14
+
+   Original issue in JavaScriptCore is already fixed by [webkit#PR5](<a href="https://github.com/appcelerator/webkit/pull/5)." rel="nofollow" target="_blank">https://github.com/appcelerator/webkit/pull/5).</a> Waiting for TIMOB-18948 to be done.</li>
+<li>Ewan Harris 2015-07-13
+
+   Reopening ticket, when building with:
+   
+   Windows 8.1
+   Appc CLI (NPM): 4.1.0
+   Appc CLI (Registry): 4.1.0
+   Ti SDK: 4.1.0.GA, 4.2.0.v20150710092422
+   
+   When using the code attached I still see the error
+   
+   <code><pre>
+   [ERROR] Application Error: {
+   [ERROR]   "message": "Error while require(./app) Invalid character '\\u0966'",
+   [ERROR]   "native_stack": [
+   [ERROR]     "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+   [ERROR]   ],
+   [ERROR]   "stack": "require@[native code]\nglobal code",
+   [ERROR]   "line": 2
+   [ERROR] }
+   </pre></code></li>
+<li>Gary Mathews 2015-07-14
+
+   This is because the build server for <code>titanium_mobile_windows</code> is using an old <code>JavaScriptCore</code> build to compile the SDK.
+   
+   [titanium_mobile_windows/Tools/Scripts/setup.js](<a href="https://github.com/appcelerator/titanium_mobile_windows/blob/master/Tools/Scripts/setup.js#L33)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/blob/master/Tools/Scripts/setup.js#L33)</a>
+   
+   We should be using [JavaScriptCore-Windows-1433795599.zip](<a href="http://studio-jenkins.appcelerator.org/job/JavaScriptCore/lastSuccessfulBuild/artifact/dist/JavaScriptCore-Windows-1433795599.zip)" rel="nofollow" target="_blank">http://studio-jenkins.appcelerator.org/job/JavaScriptCore/lastSuccessfulBuild/artifact/dist/JavaScriptCore-Windows-1433795599.zip)</a></li>
+<li>Gary Mathews 2015-07-14
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/373" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/373</a></li>
+<li>Lee Morris 2017-03-16
+
+    Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18770.json">JSON Source</a></p>

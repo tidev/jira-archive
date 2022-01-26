@@ -1,0 +1,276 @@
+---
+title: "[TIMOB-8314] iOS: Close event is not firing when closing a window"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-12-16T18:16:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1, Release 2.0.0, Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-08</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, module_window, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-03-26T15:26:27.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-16T21:46:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+I have a NavigationGroup, and two windows. Intermittently, when the second window is closed, the first window goes comatose (won't respond to any clicks).
+
+<h4>Actual results</h4>
+the window is not throwing the close event when closing. 
+
+<h4>Expected results</h4>
+the window should throw the close event when closing
+
+<h4>Test case</h4>
+1. Create a mobile project
+2. Add this three files
+<code><pre>
+var FirstWindow=Ti.UI.createWindow({
+                  url:'MOMain.js',
+                  layout:'vertical',
+                  navBarHidden:false
+                });
+Ti.App.NavGroup=Ti.UI.iPhone.createNavigationGroup({window:FirstWindow});
+var NavBase=Ti.UI.createWindow();
+NavBase.add(Ti.App.NavGroup);
+NavBase.open(); // this opens the "root" window, which is FirstWindow, automatically
+</pre></code>
+
+<code><pre>
+var MainWin=Ti.UI.currentWindow;
+
+  function OnFocus(evt)
+  {
+    if (evt.source == MainWin)
+    {
+      Ti.App.CurrentWindow=MainWin;
+    }
+  }
+
+MainWin.title='Here is something';
+Ti.App.CurrentWindow=MainWin;
+MainWin.addEventListener('focus',OnFocus);
+
+  function SetupButtonClick()
+  {
+    var SecondWin=Ti.UI.createWindow({
+                      url:'MOSetup.js',
+                      layout:'vertical',
+                      navBarHidden:false
+                    });
+    Ti.App.NavGroup.open(SecondWin,{animated:true});
+  }
+var SetupButton=Ti.UI.createButton({width:200,
+                                    height:100,
+                                    title:'Hit Me'});
+SetupButton.addEventListener('click',SetupButtonClick);
+MainWin.add(SetupButton);
+</pre></code>
+
+<code><pre>
+var Win2=Ti.UI.currentWindow;
+
+  function HandleiPhoneCloseEvent()
+  {
+    if (Ti.App.DevelopmentMode)
+      Ti.API.info('# Window HandleiPhoneCloseEvent fired');
+    Win2.removeEventListener('close',HandleiPhoneCloseEvent);
+    Win2=null; // attempt to release the window's memory
+  }
+
+Win2.title='Window 2';
+Ti.App.CurrentWindow=Win2;
+Win2.addEventListener('close',HandleiPhoneCloseEvent); // catches the iPhone NavGroup back button close
+</pre></code>
+
+3. Run the app
+4. Click on the "Hit Me" button
+5. Click the navgroup's back button
+6. Try to click on the "Hit Me" button again
+
+<h4>Extra info</h4>
+This seems to be timing dependent, so you may have to repeat the 2 clicks several times. I can make it happen in under 30 seconds...usually within 5 seconds. My best reproduction comes by waiting 2.5 seconds before clicking the back button. If you have trouble reproducing this, vary the time between seeing the second window and clicking the back button (faster and then slower).
+
+After some investigation, I can see that the 'close' event of the second window never fires when the problem occurs (neither does the focus event of the first window).
+
+This seems to point to a serious flaw. In a larger app, the failure occurs 80% of the time. Our app is totally dead in the water because of this, and we need to release it soon. Can you please take a look into this?
+
+Please note that I've reduced this down about as far as possible, while still demonstrating the error. Removing any of the references to Ti.App or removing any of the event listeners hides the problem, but all of my apps are dependent on these.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-8314_28661/TIMOB-8314.zip">TIMOB-8314.zip</td></td><td>2012-06-23T15:35:57.000+0000</td><td>3123518</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shawn Lipscomb 2012-04-04
+
+   The issue isn't just that the 'close' event doesn't occur...it's that no events occur and the entire UI goes dead.  It has something to do with going "back" from a NavigationGroup (either by calling NavGroup.close(TheWindow) or simply clicking the native "back" button).  The *previous* window doesn't get a focus event either, although it is shown.
+   </li>
+<li>Shawn Lipscomb 2012-04-04
+
+   HD ticket: <a href="http://support.appcelerator.com/tickets/APP-494437" rel="nofollow" target="_blank">http://support.appcelerator.com/tickets/APP-494437</a></li>
+<li>Shawn Lipscomb 2012-04-04
+
+   More info: This is a *regression* that occurred between SDK 1.7.5 and SDK 1.8.0.1.
+   
+   Works fine in 1.7.5
+   
+   Broken in 1.8.0.1, 1.8.1, 1.8.2, and 2.0.0.v...
+   </li>
+<li>Shawn Lipscomb 2012-04-13
+
+   More info: I can make this happen in a larger app, even after I removed the NavigationGroup and native Navbar, so the root cause of the problem may not be NavigationGroups at all.</li>
+<li>Stephen Tramer 2012-04-16
+
+   Can't reproduce. Attempted with sample app on iPod 4GT and iPhone Sim 5.1, with specified instructions with 2.1.0.c7fc284 (master @ 4/13/2012). We either require a more specific test which can reliably demonstrate this issue, or a confirmation that the problem has been resolved.</li>
+<li>Shawn Lipscomb 2012-04-16
+
+   Stephen, please consider reopening this ticket.  The highest version of iOS I tested on is iOS *5.0*, as specified in the Environment details.  I have never found an exact set of steps that will reproduce this problem consistently, but the testcase I have presented in this ticket will produce the problem within 5 to 30 seconds max if you keep at it.  I think your best bet for finding this problem is to use the 2.0.0 (03/25/12 21:33 963fcfe) SDK version with the iOS 5.0 simulator and see it break.  Hopefully you can look at some kind of trace/log to find the problem, and then look for that same problem in the latest master SDK.
+   
+   I can provide a full-sized project that reproduces this problem.  Federico reproduced it with the testcase (see the HD ticket referenced above).</li>
+<li>Shawn Lipscomb 2012-04-17
+
+   I just reproduced this with the testcase shown in this ticket with *2 clicks*, using SDK 2.1.0.v20120416160358 and the 5.0 iOS simulator.  Like I said in the ticket's text, "My best reproduction comes by waiting 2.5 seconds before clicking the back button."  Stephen, please email me directly if you still can't make this happen.  Thanks.</li>
+<li>Vishal Duggal 2012-04-19
+
+   Issue reopened because the test case is reproducable</li>
+<li>Max Stepanov 2012-04-20
+
+   PR merged <a href="https://github.com/appcelerator/titanium_mobile/pull/2038" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2038</a></li>
+<li>Shawn Lipscomb 2012-06-11
+
+    Verified fixed in SDK 2.1.0.v20120608174150.</li>
+<li>Dustin Hyde 2012-06-23
+
+    Closing as Fixed.
+    
+    SDK: 2.1.0.v20120622174154
+    Studio: 2.1.0.201206221045
+    OS: Lion 10.7.4
+    Xcode: 4.3.2
+    Devices Tested: iPod 4.3.3, iPad3 5.1.1, iPhone Simulator 5.1
+    
+    Test Steps
+    
+    1. Run attached project TIMOB-8314.zip
+    2. Perform the following cycle 30 times:
+    
+    Open and close the window by pressing: 'Hit Me' then 'Here is something'
+    
+    Expected Result:
+    
+    First window should never freeze up.</li>
+<li>Lokesh Choudhary 2014-12-16
+
+    This issue is seen with SDK : 3.5.0.v20141215113314. The close event does not fire & the first window goes dead(nothing happens on clicking "Hit Me"). 
+    
+    I am able to reproduce this issue with in 2 clicks.
+    
+    This is a regression. Issue is not seen with 3.4.1.GA.
+    
+    Reopening.
+    
+    Environment:
+    Appc Studio : 3.4.1.201410281743
+    Ti SDK : 3.5.0.v20141215113314
+    CLI : 3.4.1
+    Alloy : 1.5.1 GA
+    Code Processor : 1.1.1
+    MAC Yosemite : 10.10
+    Iphone 5S - 8.0.2
+    Ipad 3 - 8.1
+    XCode - Version 6.1.1
+    </li>
+<li>Ingo Muschenetz 2014-12-16
+
+    Moving into 3.5.0. We can bump it out if necessary. [~jalter] and [~cng], could you take a look?</li>
+<li>Chee Kiat Ng 2014-12-16
+
+    At a glance, the sample code uses Ti.UI.iPhone.NavigationGroup which has been removed since 3.2.0.
+    It has been replaced with Ti.UI.iOS.NavigationWindow. (since 3.1.3)
+     [~lchoudhary], Is there an updated code sample so that we can reproduce this error?</li>
+<li>Chee Kiat Ng 2014-12-16
+
+    Here's a simple test case for catching the close event:
+    <code><pre>
+    var win2 = Titanium.UI.createWindow({
+        backgroundColor: 'red',
+        title: 'Red Window'
+    });
+    
+    var win1 = Titanium.UI.iOS.createNavigationWindow({
+       window: win2
+    });
+    
+    var win3 = Titanium.UI.createWindow({
+        backgroundColor: 'blue',
+        title: 'Blue Window'
+    });
+    
+    var button = Titanium.UI.createButton({
+        title: 'Open Blue Window'
+    });
+    button.addEventListener('click', function(){
+        win1.openWindow(win3, {animated:true});
+    });
+    
+    win2.add(button);
+    var button2 = Titanium.UI.createButton({
+        title: 'Close Blue Window'
+    });
+    button2.addEventListener('click', function(){
+        win1.closeWindow(win3, {animated:false});
+    });
+    
+    win3.add(button2);
+    
+    function HandleiPhoneCloseEvent()
+    {
+        Ti.API.info('# Window HandleiPhoneCloseEvent fired');
+    }
+     
+    win3.addEventListener('close',HandleiPhoneCloseEvent); // also catches the iPhone back button close
+    
+    win1.open();
+    </pre></code>
+    
+    Works fine in Environment:
+    Appc Studio : 3.4.1.201410281743
+    Ti SDK : latest build, 3.5.0.v20141125154115, 3.4.1 GA
+    CLI : 3.4.1
+    MAC Yosemite : 10.10.1
+    iOS simulator - 7.1, 8.1
+    XCode - Version 6.1</li>
+<li>Lokesh Choudhary 2014-12-16
+
+    [~cng] Verified it & the issue is not reproducible when using Ti.UI.iOS.NavigationWindow. 
+    Closing the ticket.
+    
+    </li>
+<li>Lokesh Choudhary 2014-12-16
+
+    The reopening of the issue was not valid as the test used NavigationGroup which is removed & is not reproducible with Navigationwindow.
+    
+    Reverting back to the original resolution: "Fixed".</li>
+<li>Lee Morris 2017-03-16
+
+    Closing ticket as the issue has been fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8314.json">JSON Source</a></p>

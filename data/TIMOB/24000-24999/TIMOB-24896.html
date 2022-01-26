@@ -1,0 +1,105 @@
+---
+title: "[TIMOB-24896] Android: HTTPClient does not support literal IPv6 URLs"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, engSchedule, httpclient</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-06-26T23:13:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-14T15:35:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Titanium's "HTTPClient" API does not support square bracketed literal IPv6 URLs such as "http://[::1]".
+
+This is a bug in Google's "Uri" class which fails to parse the hostname and port number in this case.
+   <a href="https://issuetracker.google.com/issues/37069493" rel="nofollow" target="_blank">https://issuetracker.google.com/issues/37069493</a>
+
+*Steps to Reproduce:*
+<h4>Run the below code on an Android device.</h4>
+<h4>Tap the "Send" button.</h4>
+<h4>Observe the Android log.</h4>
+
+<code><pre>
+var listenSocket = Ti.Network.Socket.createTCP(
+{
+	host : "localhost",
+	port : 40404,
+	accepted : function(e)
+	{
+		Ti.API.info("@@@ accepted() host: " + e.inbound.host);
+		Ti.Stream.pump(e.inbound, function(e)
+		{
+			var httpRequestMessage = "";
+			if (e.buffer) {
+				httpRequestMessage = e.buffer.toString();
+			}
+			Ti.API.info("@@@ Received HTTP Request:\n" + httpRequestMessage);
+			listenSocket.accept({ timeout: 30000 });
+		}, 1024, true);
+	},
+	error : function(e)
+	{
+		Ti.API.info("@@@ Socket Listener Error: " + e.error);
+	},
+});
+listenSocket.listen();
+listenSocket.accept({ timeout: 30000 });
+
+var window = Titanium.UI.createWindow();
+var buttonView = Ti.UI.createButton(
+{
+	title: "Send HTTP Request",
+	center: {x: "50%", y: "50%"},
+});
+var url = "http://[::1]:40404/Test";
+buttonView.addEventListener("click", function(e)
+{
+	Ti.API.info("@@@ Sending HTTP request for url:\n" + url);
+	var httpClient = Ti.Network.createHTTPClient();
+	httpClient.open("POST", url);
+	httpClient.send("Original URL:\n" + url);
+});
+window.add(buttonView);
+window.open();
+</pre></code>
+
+*Result:*
+The HTTP request does not get sent and the following caught exception can be seen in the log.
+
+
+<code><pre>
+[ERROR] :  TiHTTPClient: java.net.MalformedURLException: invalid port: :1%%5D:40404
+[ERROR] :  TiHTTPClient: 	at java.net.URL.<init>(URL.java:623)
+[ERROR] :  TiHTTPClient: 	at java.net.URL.<init>(URL.java:486)
+[ERROR] :  TiHTTPClient: 	at java.net.URL.<init>(URL.java:435)
+[ERROR] :  TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1143)
+[ERROR] :  TiHTTPClient: 	at java.lang.Thread.run(Thread.java:761)
+[ERROR] :  TiHTTPClient: Caused by: java.lang.IllegalArgumentException: invalid port: :1%%5D:40404
+[ERROR] :  TiHTTPClient: 	at java.net.URLStreamHandler.parseURL(URLStreamHandler.java:238)
+[ERROR] :  TiHTTPClient: 	at java.net.URL.<init>(URL.java:618)
+</pre></code>
+
+*Recommended Solution:*
+The Java "URL" class (all caps) doesn't have this IPv6 parsing bug. In our "TiHTTPClient.java" code, we should use the URL class to fetch the hostname and port number instead. Note that our TiHTTPClient class is already doing this in the open() method if a "username:password" component has been found in the URL.
+
+*Work-Around:*
+Use a literal IPv4 address instead.
+And for IPv6 "http://[::1]", use "http://localhost" instead.
+
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-24896.json">JSON Source</a></p>

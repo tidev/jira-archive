@@ -1,0 +1,107 @@
+---
+title: "[TIMOB-24895] AssetCryptImpl.java symbol not found while build for Android on Linux"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Hold</td></tr>
+<tr><th>Resolution Date</th><td>2019-07-30T15:08:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, Tooling</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Simon Mang</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2017-06-23T07:38:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-07-30T15:08:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When building a freshly created Titanium Alloy project the build fails when building the Java source files with the following error:
+
+{noformat}
+[ERROR] : Failed to compile Java source files:
+[ERROR] : 
+[ERROR] : /home/simon/test/Asdf/build/android/gen/de/viinet/asdf/AssetCryptImpl.java:44: error: cannot find symbol
+[ERROR] : 		Range range = assets.get(path);
+[ERROR] : 		              ^
+[ERROR] :   symbol:   variable assets
+[ERROR] :   location: class AssetCryptImpl
+[ERROR] : /home/simon/test/Asdf/build/android/gen/de/viinet/asdf/AssetCryptImpl.java:48: error: cannot find symbol
+[ERROR] : 		return new String(filterDataInRange(assetsBytes, range.offset, range.length));
+[ERROR] : 		                                    ^
+[ERROR] :   symbol:   variable assetsBytes
+[ERROR] :   location: class AssetCryptImpl
+[ERROR] : Note: /home/simon/test/Asdf/build/android/gen/de/viinet/asdf/AssetCryptImpl.java uses unchecked or unsafe operations.
+[ERROR] : Note: Recompile with -Xlint:unchecked for details.
+[ERROR] : 2 errors
+{noformat}
+
+This is because the asset encryption does not finish and the AssetCryptImpl.java does not contain the generated variables. Manually executing the command included in the build output gives a Segmentation Fault. So there seems to be some error with the ELF <code>.titanium/mobilesdk/linux/6.1.0.GA/android/titanium_prep.linux64</code>
+
+{noformat}
+[INFO] :   Encrypting JavaScript files: /home/simon/.titanium/mobilesdk/linux/6.1.0.GA/android/titanium_prep.linux64 "de.viinet.asdf" "/home/simon/test/Asdf/build/android/assets" "alloy/CFG.js" "app.js" "alloy/backbone.js" "alloy/constants.js" "alloy/controllers/BaseController.js" "alloy/controllers/index.js" "alloy/styles/index.js" "alloy/sync/localStorage.js" "alloy/sync/properties.js" "alloy/sync/sql.js" "alloy/underscore.js" "alloy/widget.js" "alloy.js" "ti.cloud/ti.cloud.js" "_app_props_.json"
+{noformat}
+
+Not quite sure who's responsible because with kernel <code>linux-image-4.4.0-79-generic 4.4.0-79.100~14.04.1</code> it works like expected.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24895_62729/build.log">build.log</td></td><td>2017-06-23T07:37:53.000+0000</td><td>137453</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24895_62737/hello.jar">hello.jar</td></td><td>2017-06-26T07:32:22.000+0000</td><td>760</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>knd_rt@hotmail.com 2017-06-23
+
+   Got same issue in ubuntu 17.10, it worked perfctly a couple of days ago, so I bet it was a kernel update the "problem" but it is exacly same output error</li>
+<li>Chris Barber 2017-06-23
+
+   [~smang] So if <code>linux-image-4.4.0-79-generic 4.4.0-79.100~14.04.1</code> works, what kernel version does not work? Also, what Linux distro are you using? Ubuntu?
+   
+   [~knd_rt@hotmail.com] Ubuntu 17.10 does not exist.</li>
+<li>Chris Barber 2017-06-23
+
+   Also note that the Titanium Android build chooses the 32-bit vs 64-bit version of titanium_prep by using the cpu architecture for which Node.js was compiled. In other words, if it is running <code>titanium_prep.linux64</code>, then you are running the 64-bit version of Node.js which means you're on a 64-bit Linux kernel and 64-bit hardware.
+   
+   Now, here's the important part, <code>titanium_prep</code> dynamically links to the Java Virtual Machine library. In this case, it is critical that you have the 64-bit version of this library installed. From what I recall, there should be a <code>i386</code> and <code>amd64</code> versions of <code>libjvm.so</code>.
+   
+   It's possible that the seg fault is being caused by <code>libjvm.so</code>. I'm not sure how to test this. Maybe you could check if <code>java</code> and/or a Java app works with your updated kernel?</li>
+<li>Simon Mang 2017-06-26
+
+   @cbarber <code>Linux 4.4.0-81-generic #104~14.04.1-Ubuntu x86_64 GNU/Linux</code> like I mentioned above in the "Environment" tag of this issue does not work. And I guess knd_rt meant 16.10 ;)
+   
+   I created a HelloWorld java example. And compiling and running it works great on the 4.4.0-81 kernel.</li>
+<li>Simon Mang 2017-06-26
+
+   BTW my java version
+   
+   {noformat}
+   java -version
+   java version "1.8.0_72"
+   Java(TM) SE Runtime Environment (build 1.8.0_72-b15)
+   Java HotSpot(TM) 64-Bit Server VM (build 25.72-b15, mixed mode)
+   {noformat}
+   </li>
+<li>Chris Barber 2017-06-26
+
+   [~smang] Doh, I missed the environment information. Thanks for the info. I'll see about trying to reproduce the issue.</li>
+<li>Chris Barber 2017-06-26
+
+   Confirmed the seg fault on Ubuntu 17.04 with Java 1.8 OpenJDK 64-bit and kernel 4.10.0-24-generic.</li>
+<li>Chris Barber 2017-06-26
+
+   It appears the bug is widespread and affects other software besides Titanium: <a href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699772." rel="nofollow" target="_blank">https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1699772.</a> I'm not certain at this time that A) we can do anything or B) we need to do anything. Once the problem is fixed, we can revisit this ticket and see if it's fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24895.json">JSON Source</a></p>

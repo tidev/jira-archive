@@ -1,0 +1,121 @@
+---
+title: "[TIMOB-23971] Hyperloop: iOS not working in 2.0.0 (regression)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-10-07T11:54:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0, Hyperloop 2.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0, Hyperloop 2.0.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>hyperloop, qe-6.0.0, regression</td></tr>
+<tr><th>Reporter</th><td>Jan Vennemann</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-10-01T18:03:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-10-12T19:57:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Building the hyperloop-examples app with the current hyperloop 2.0.0 from master results in various errors regarding constructor functions in iOS.
+
+For example:
+* Auto Layout: <code>CallbackObject is not a constructor (evaluating 'new UILabel()') at autolayout.js (line 57)</code>
+* Apple Touch ID: <code>CallbackObject is not a constructor (evaluating 'new LAContext()') at touchid.js (line 64)</code>
+* View Animation: <code>CallbackObject is not a constructor (evaluating 'new UIView()') at animateview.js (line 66)</code>
+
+
+*Steps to reproduce*
+- Build the Hyperloop Examples project with Hyperloop 2.0.0
+- Open one of the above Views
+
+*Expected behaviour*
+The examples run without any error
+
+*Actual behaviour*
+Exception is thrown
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-10-03
+
+   More errors (using the latest 2.0.0 build from Jan):
+   <code><pre>
+   -[HyperloopModule jsobject]: unrecognized selected sent to instance xxxx at collectionviewdatasourcedelegate.js
+   </pre></code>
+   The same is occurring for every other Hyperloop-based class as well. It must be some commit that has not been pushed to master but 1_2_X. It tried to access [this propery](<a href="https://github.com/appcelerator/hyperloop.next/blob/master/iphone/titanium/HyperloopModule.m#L38)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/blob/master/iphone/titanium/HyperloopModule.m#L38)</a> from [here](<a href="https://github.com/appcelerator/hyperloop.next/blob/master/iphone/titanium/HyperloopModule.m#L318)." rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/blob/master/iphone/titanium/HyperloopModule.m#L318).</a>
+   
+   *EDIT*: HyperloopModule.m is in sync, see [master](<a href="https://github.com/appcelerator/hyperloop.next/commits/master/iphone/titanium/HyperloopModule.m)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/commits/master/iphone/titanium/HyperloopModule.m)</a> and [1_2_X](<a href="https://github.com/appcelerator/hyperloop.next/commits/1_2_X/iphone/titanium/HyperloopModule.m)." rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/commits/1_2_X/iphone/titanium/HyperloopModule.m).</a>
+   
+   *EDIT2*: The only notable change between the iOS-part of the repos (diff'd) is [this commit](<a href="https://github.com/appcelerator/hyperloop.next/commit/dec27e658567368eac21710fe6edc4de2d08869d)." rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/commit/dec27e658567368eac21710fe6edc4de2d08869d).</a></li>
+<li>Christopher Williams 2016-10-06
+
+   Diffing the two branches, it seems pretty clear to me that the bulk of the iOS changes have actually been to the metabase folder. If I were to guess at what might be related it'd be:
+   - <a href="https://github.com/appcelerator/hyperloop.next/compare/master...1_2_X?expand=1#diff-046d6eb9ae3b93ed6ce43ec97615921fR372" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/compare/master...1_2_X?expand=1#diff-046d6eb9ae3b93ed6ce43ec97615921fR372</a>
+   - <a href="https://github.com/appcelerator/hyperloop.next/compare/master...1_2_X?expand=1#diff-90680d080481b4bc4e5c23fcdf677533R116" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/compare/master...1_2_X?expand=1#diff-90680d080481b4bc4e5c23fcdf677533R116</a>
+   
+   
+   Looks like those links don't work well. They are metabase/ios/lib/generate/block.js#L116, and metabase/ios/lib/generate/util.js#L372</li>
+<li>Christopher Williams 2016-10-06
+
+   Hmm, reverting those changes locally in the plugins of hyperloop-examples with the new module didn't work either. The generated hyperloop js files are identical for UIKit/uilabel.js with both versions of the module. Not sure what would be causing this...</li>
+<li>Christopher Williams 2016-10-06
+
+   So, if I use 1.2.8 against 5.5.0.GA, hyperloop-examples works. If I use it against a 6.1.0 build of the SDK, it fails. I think this may be an SDK issue, not hyperloop module. (Specifically, I tried 6.1.0.v20161003125638 and 6.0.0.v20160929031439 - both fail)</li>
+<li>Christopher Williams 2016-10-06
+
+   Ok, so I think the only change that could possibly have affected this is the changes to require behavior in 6+. I'm going to test that theory out now locally.</li>
+<li>Christopher Williams 2016-10-06
+
+   <a href="https://github.com/appcelerator/hyperloop.next/pull/83" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/83</a></li>
+<li>Jan Vennemann 2016-10-07
+
+   Just for the record and as a conclusion of what Chris wrote in the PR: Since Hyperloop is a native module the new require logic tries to load the module instead of the actual hyperloop js files when doing a <code>require('hyperloop/uikit/uilabel')</code>. 
+   
+   Relevant code:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/KrollBridge.m#L1122" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/KrollBridge.m#L1122</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/KrollBridge.m#L816" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/KrollBridge.m#L816</a>
+   
+   The first path part matches Hyperloop's module id so it will load the module. For now this is solved by adding a forward slash to the hyperloop requires so it will skip trying to load the hyperloop module and instead load the actual Hyperloop JS files.</li>
+<li>Harry Bryant 2016-10-07
+
+   [~jvennemann] Where is the fix for this? Downloaded the latest SDK (6.0.0.v20161007121506), removed my hyperloop module (2.0.0) and re downloaded the module from preprod. Ran the Hyperloop example from the master branch on an iOS10 & iOS9 device and still experience the reported errors.
+   
+   Tested On:
+   iPhone 6 Plus 10.0.2 Device & Simulator
+   iPhone 5S 9.3.5 Device
+   Mac OSX El Capitan 10.11.6
+   Ti SDK:  6.0.0.v20161007121506
+   Appc Studio: 4.8.0.201610060953
+   Appc NPM: 4.2.8-7
+   App CLI: 6.0.0-57
+   Xcode 8.0 
+   Node v4.4.7
+   </li>
+<li>Jan Vennemann 2016-10-10
+
+   [~htbryant], the latest beta is now on preprod which includes this fix.</li>
+<li>Harry Bryant 2016-10-12
+
+    Verified as fixed, using the 2.0.0-dev branch of the hyperloop example app and the latest 2.0.0 (Beta 3) Hyperloop module from preprod, the example app now launches and functions correctly without issue.
+    
+    Tested On:
+    iPhone 6 Plus 10.0.2 Device & Simulator
+    iPhone 5S 9.3.5 Device
+    Hyperloop Module 2.0.0 
+    Mac OS Sierra (10.12)
+    Ti SDK:  6.0.0.v20161012041242
+    Appc Studio: 4.8.0.201610060953
+    Appc NPM: 4.2.8-7
+    App CLI: 6.0.0-57
+    Xcode 8.0 
+    Node v4.4.7
+    
+    *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23971.json">JSON Source</a></p>

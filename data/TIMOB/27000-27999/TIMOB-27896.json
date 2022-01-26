@@ -1,0 +1,294 @@
+{
+	"id": "175011",
+	"key": "TIMOB-27896",
+	"fields": {
+		"issuetype": {
+			"id": "2",
+			"description": "A new feature of the product, which has yet to be developed.",
+			"name": "New Feature",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2020-05-16T00:09:37.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"android",
+			"background",
+			"ios"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "58395",
+				"type": {
+					"id": "10620",
+					"name": "Gantt End to End",
+					"inward": "has to be finished together with",
+					"outward": "has to be finished together with"
+				},
+				"outwardIssue": {
+					"id": "175070",
+					"key": "ALOY-1732",
+					"fields": {
+						"summary": "Add ability to run in the background without UI",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Medium",
+							"id": "3"
+						},
+						"issuetype": {
+							"id": "2",
+							"description": "A new feature of the product, which has yet to be developed.",
+							"name": "New Feature",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2021-02-22T18:51:07.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			},
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "*Summary:*\r\nThe Titanium JS (JavaScript) runtime is currently tightly bound to the UI. The JS runtime is created when the native UI is created and the 1st script executed (the \"app.js\" or \"alloy.js\") is expected to immediately create a window. On Android, the JS runtime is terminated once all windows have been destroyed and a new JS runtime will be created when the app's UI has been re-launched.\r\n\r\nWe should add a new feature which will create the Titanium JS runtime on app startup before it can natively host UI (if applicable) and keep the JS runtime running for the lifetime of the application process. On Android, this means destroying all UI will no longer terminate the JS runtime and a re-launch will re-use the existing JS runtime.\r\n\r\nThis should be an opt-in feature since this may require the app developers to re-architect their app launch behavior.\r\n\r\n*Use-Cases:*\r\n* On iOS, allow app to run tasks in the background via [BGTaskScheduler|https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler?language=objc].\r\n* On Android, prevent JS runtime from being terminated after end-user backs out of all windows or OS forcibly destroys all windows but keeps app process alive.\r\n* On Android, allow developer to set up a {{BOOT_COMPLETED}} broadcast receiver to run backgrounding tasks after device boot-up.\r\n\r\n*New \"tiapp.xml\" property:*\r\nSetting this to {{true}} will enable this feature. The default is {{false}}.\r\n{code:xml}\r\n<ti:app>\r\n\t<property name=\"run-in-background\" type=\"bool\">true</property>\r\n</ti:app>\r\n{code}\r\n\r\n*New {{Ti.UI}} property:*\r\n* {{Ti.UI.hasSession}}: A read-only boolean property which returns {{true}} if the app can currently host UI. Will returns {{false}} if unable to host UI and creating windows is impossible.\r\n\r\n*New {{Ti.UI}} event:*\r\n(This event will only be fired if \"tiapp.xml\" property \"run-in-background\" is set {{true}}.)\r\n* {{\"sessionbegin\"}}: Fired when it's time for the app to create its windows. Will only be fired if {{Ti.UI.hasSession}} property was previously {{false}}.\r\n\r\n*Bootstrap JS Changes:*\r\nFiles ending with {{*.bootstrap.js}} should no longer display UI via their async {{execute()}} function anymore. We will add the following optional function that will be called just before the {{Ti.UI}} \"sessionbegin\" event gets fired so that bootstrap can inject their UI before the app can show its first window.\r\n* {{showUI(callback)}}: Invoked on app startup after {{execute()}} only if {{Ti.UI.hasSession}} is {{true}}. From then on, this method will be invoked just before the {{Ti.UI}} \"sessionbegin\" event is fired.\r\n\r\nKnown bootstrap that show UI are...\r\n[ti.playservices.bootstrap.js|https://github.com/appcelerator-modules/ti.playservices/blob/master/android/Resources/ti.playservices/ti.playservices.bootstrap.js]\r\n[mocha - ui.bootstrap.js|https://github.com/appcelerator/titanium-mobile-mocha-suite/blob/master/Resources/bootstraps/ui.bootstrap.js]\r\n\r\n*Classic App Usage:*\r\nFor a Classic app, the \"app.js\" should look like the below. Note that the \"app.js\" can be executed in the background while the app is incapable of hosting UI.\r\n{code:javascript}\r\n// Listen for an event indicating when it's time to create/re-create app UI.\r\n// On Android, this will be fired every time you back out and re-launch.\r\nTi.UI.addEventListener('sessionbegin', () => {\r\n\topenRootWindow();\r\n});\r\n\r\n// On startup, only create window if app is currently capable of hosting UI.\r\nif (Ti.UI.hasSession) {\r\n\topenRootWindow();\r\n}\r\n{code}\r\n\r\n*Alloy App Usage:*\r\nAlloy users do not have to worry about window creation at launch. It is Alloy's responsibility to open/re-open the root window when needed.\r\n\r\nOn our end, we will have to change Alloy's \"app.js\" code generation to do something similar to the Classic code example above.\r\n\r\n*Backgrounding Pro-Tips:*\r\n* On iOS, you must use [URLSession|https://docs.appcelerator.com/platform/latest/#!/api/Modules.URLSession] to do networking in the background.\r\n* On Android, you must set up a [Foreground Service|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.Android.Service] to perform networking, geolocation, and other tasks in the background. It also signals the OS to not forcibly terminate the backgrounded app.\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "TiAPI: Add ability to run in the background without UI",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1201,
+				"state": "closed",
+				"name": "2020 Sprint 14",
+				"startDate": "2020-07-06T15:40:00.000Z",
+				"endDate": "2020-07-17T15:40:00.000Z",
+				"completeDate": "2020-07-20T22:16:28.367Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1202,
+				"state": "closed",
+				"name": "2020 Sprint 15",
+				"startDate": "2020-07-20T22:16:05.601Z",
+				"endDate": "2020-07-31T22:16:00.000Z",
+				"completeDate": "2020-08-03T20:27:12.585Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1203,
+				"state": "closed",
+				"name": "2020 Sprint 16",
+				"startDate": "2020-08-03T20:57:55.114Z",
+				"endDate": "2020-08-14T20:57:00.000Z",
+				"completeDate": "2020-08-14T15:19:51.647Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1204,
+				"state": "closed",
+				"name": "2020 Sprint 17",
+				"startDate": "2020-08-17T15:48:00.000Z",
+				"endDate": "2020-08-28T15:48:00.000Z",
+				"completeDate": "2020-08-31T15:36:28.040Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1205,
+				"state": "closed",
+				"name": "2020 Sprint 18",
+				"startDate": "2020-08-31T15:45:10.220Z",
+				"endDate": "2020-09-11T15:45:00.000Z",
+				"completeDate": "2020-09-11T19:56:20.674Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1206,
+				"state": "closed",
+				"name": "2020 Sprint 19",
+				"startDate": "2020-09-14T20:01:00.000Z",
+				"endDate": "2020-09-25T20:01:00.000Z",
+				"completeDate": "2020-09-28T15:30:19.875Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1207,
+				"state": "closed",
+				"name": "2020 Sprint 20",
+				"startDate": "2020-09-28T15:30:47.481Z",
+				"endDate": "2020-10-09T15:30:00.000Z",
+				"completeDate": "2020-10-09T16:33:43.453Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1208,
+				"state": "closed",
+				"name": "2020 Sprint 21",
+				"startDate": "2020-10-12T16:34:00.000Z",
+				"endDate": "2020-10-23T16:34:00.000Z",
+				"completeDate": "2020-10-23T02:32:43.674Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1196,
+				"state": "closed",
+				"name": "2020 Sprint 11",
+				"startDate": "2020-05-26T15:56:00.000Z",
+				"endDate": "2020-06-05T15:56:00.000Z",
+				"completeDate": "2020-06-08T21:05:50.356Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1198,
+				"state": "closed",
+				"name": "2020 Sprint 12",
+				"startDate": "2020-06-08T21:06:41.849Z",
+				"endDate": "2020-06-19T21:06:00.000Z",
+				"completeDate": "2020-06-19T15:54:38.493Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1199,
+				"state": "closed",
+				"name": "2020 Sprint 13",
+				"startDate": "2020-06-19T16:41:04.099Z",
+				"endDate": "2020-07-02T16:41:00.000Z",
+				"completeDate": "2020-07-02T15:37:12.455Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "455542",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Does this mean even if we kill the app from the app-switcher (while the fg service is running) the service continues to run? If so: awesome news! ",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2020-05-22T08:59:18.000+0000",
+					"updated": "2020-05-22T08:59:18.000+0000"
+				},
+				{
+					"id": "455543",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~michael], yes, the runtime continues to run when you swipe off the app from the app switcher. I tested it. :)",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2020-05-22T22:03:17.000+0000",
+					"updated": "2020-05-22T22:03:17.000+0000"
+				},
+				{
+					"id": "455544",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/11728\r\nPR (ti.playservices): https://github.com/appcelerator-modules/ti.playservices/pull/39",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2020-05-22T22:04:15.000+0000",
+					"updated": "2020-06-04T03:36:24.000+0000"
+				}
+			],
+			"maxResults": 3,
+			"total": 3,
+			"startAt": 0
+		}
+	}
+}

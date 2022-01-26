@@ -1,0 +1,302 @@
+---
+title: "[TIMOB-7152] iOS: Memory Leak: Objects created in a Ti.UI.tabGroup are not released when the tabGroup is closed"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-06T00:43:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-04, Release 2.0.0, Release 2.1.0, Release 1.8.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_memory, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Francisco Antonio Duran Ramirez</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2012-01-12T17:09:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-06T15:52:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+Objects created in a Ti.UI.tabGroup are not released when the tabGroup is closed.
+
+<h4>Reproducible steps:</h4>
+ 
+1. Run the code below.
+2. Use the instruments application to monitor the memory
+3. Click on Open tabgroup button
+4. Click on close button
+
+Please see TiUITabproxy on the category. It is never released from the memory.
+
+
+<h4>Expected behavior:</h4>
+Customer wants to release the memory of a tab.
+
+<h4>Tested with the next specs:</h4>
+
+Simulator
+
+iPhone 4
+Version of the device: 5.0.1
+
+Titanium Studio, build: 1.0.8.201112291658
+Titanium SDK: 1.8.0.1 
+
+<h4>More info:</h4>
+Please see the video attached.
+
+<h4>Code:</h4>
+{Code}
+function createTabGroup() 
+{
+	var colors = ['#ff9966', '#99ff66', '#6699ff', '#66ffff', '#ffff66'];
+
+	function openWindowOnStack(i) 
+	{
+		var win = Ti.UI.createWindow(
+		{
+			title : 'Window ' + i,
+			backgroundColor : colors[i]
+		});
+		
+		win.addEventListener('open', function(evt) 
+		{
+			Ti.API.info('Opened: ' + evt.source.title);
+			if(i < 4) 
+			{
+				setTimeout(function() 
+				{
+					openWindowOnStack(i + 1);
+				}, 500);
+			}
+		});
+		
+		win.addEventListener('close', function(evt) 
+		{
+			Ti.API.info('Closed: ' + evt.source.title);
+			trackClosedWindow(tab1, evt.source);
+		});
+		
+		openInTab(tab1, win);
+	}
+
+	var navButton = Ti.UI.createButton(
+	{
+		title : 'Open Windows'
+	});
+
+	var outer = Ti.UI.createWindow(
+	{
+		title : 'Root Window',
+		backgroundColor : '#d0d0d0',
+		rightNavButton : navButton
+	});
+
+	outer.rightNavButton.addEventListener('click', function() 
+	{
+		openWindowOnStack(0);
+	});
+	
+	function trackClosedWindow(thistab, window) 
+	{
+		var windows = thistab.windows || [];
+		
+		for(var w = windows.length - 1; w >= 0; w--) 
+		{
+			if(windows[w] == window) 
+			{
+				windows[w] = null;
+				windows.splice(w, 1);
+				break;
+			}
+		}
+		
+		thistab.windows = windows;
+	}
+
+	function closeAllInTab(thistab) 
+	{
+		var windows = thistab.windows || [];
+		
+		for(var w = 0; w < windows.length; w++) 
+		{
+			windows[w].close();
+			windows[w] = null;
+		}
+		
+		thistab.windows = windows = [];
+	}
+
+	function openInTab(thistab, window) 
+	{
+		var windows = thistab.windows || [];
+		windows.push(window);
+		thistab.open(window);
+		thistab.windows = windows;
+	}
+
+	var tabGroup = Ti.UI.createTabGroup();
+	
+	var tab1 = Ti.UI.createTab(
+	{
+		window : outer,
+		title : 'Touch Me'
+	});
+	
+	tabGroup.addTab(tab1);
+
+	var button2 = Ti.UI.createButton(
+	{
+		title : 'close',
+		height : 35,
+		width : 200
+	});
+	
+	outer.add(button2);
+	
+	button2.addEventListener('click', function(e) 
+	{
+
+		outer.remove(button2);
+		outer.rightNavButton = null;
+		button2 = null;
+		navButton = null;
+
+		closeAllInTab(tab1);
+		tabGroup.removeTab(tab1);
+		tab1.window = null;
+		tab1 = null;
+
+		tabGroup.tabs = null;
+		tabGroup.close();
+		tabGroup = null;
+
+		outer.close();
+		outer = null;
+
+		Ti.API.info('Closed tab group');
+	});
+	
+	return tabGroup;
+
+}
+
+var win1 = Ti.UI.createWindow(
+{
+	backgroundColor : '#fff',
+	title : "Home"
+});
+
+var button1 = Ti.UI.createButton(
+{
+	title : 'Open tabgroup',
+	height : 35,
+	width : 200
+});
+
+button1.addEventListener('click', function(e) 
+{
+	var tabGroup1 = createTabGroup();
+	tabGroup1.open();
+	Ti.API.info('Opened tab group');
+});
+
+win1.add(button1);
+
+win1.open();
+
+{Code}
+
+<h4>Helpdesk</h4>
+APP-443889
+           
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-7152_25053/Screen Recording.mov">Screen Recording.mov</td></td><td>2012-01-12T17:09:44.000+0000</td><td>3028823</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jonatan Lundin 2012-02-06
+
+   Has there been any progress made on this issue? I would very much like to see this fixed as well. </li>
+<li>Stephen Tramer 2012-02-21
+
+   Failing as PR 1474. Repo steps:
+   
+   1. Profile ticket code
+   2. "Open Tabgroup"
+   3. -> Note 1 TiUITabGroupProxy
+   4. "Open Windows"
+   5. Either:
+   5a. Click back through the nav back button
+   5b. Click the tab to return to the main window
+   6. "Close Tabgroup"
+   
+   *PASS*: No <code>TiUITabGroupProxy</code> or <code>TiUITabProxy</code> objects in memory
+   *FAIL*: Otherwise
+   
+   *NOTE*: When clicking back through the nav back buttons, note that *none* of the <code>TiUIWindowProxy</code> objects are released (although they are when you click the tab). This is another memory leak.</li>
+<li>Wilson Luu 2012-03-15
+
+   Closing bug. Verified fix on:
+   
+   SDK build: 2.0.0.v20120315123246
+   Titanium Studio, build: 2.0.0.201203142055
+   xcode: 4.2
+   Device: iphone 4s (5.0.1)
+   
+   Note to QE: It takes a while for the last TiUITabGroupProxy object to be released on device.</li>
+<li>Michael Pettiford 2012-04-17
+
+   Reopening/closing to add/remove labels</li>
+<li>Neha Chhabra 2012-06-28
+
+   Both TiUITabGroupProxy and TiUITabProxy objects are not being released 
+   
+   Tested with Titanium SDK: 2.1.0.v20120627151616
+   Tested with Titanium  Studio: 2.1.0.201206251749
+   Devices: iphone 3GS(5.0.1)
+   OS: OSX 10.7.3
+   
+   This was working fine on 2.1.0.v20120625134154 and 2.0.2
+   </li>
+<li>Michael Pettiford 2012-06-28
+
+   *Verified this is indeed not working on iOS 5.0+ devices but is working on 4.X devices.*
+   
+   The Tab group is still visible on device on 5.0+ devices, while it is removed on 4.X devices
+   
+   Tested with Ti Studio build 2.1.0.201206251749
+   Ti Mobile SDK 2.1.0.v20120627151616 hash r87081627
+   OSX Lion 10.7.3
+   iPhone 4S OS 5.0.1 (Fail)
+   iPhone 3GS OS 4.3.5 (Pass)
+   </li>
+<li>Michael Pettiford 2012-06-28
+
+   Tested with Ti Studio build 2.1.0.201206251749
+   Ti Mobile SDK 2.1.0.v20120628121617 hash r6e3cab6a
+   OSX Lion 10.7.3
+   iPhone 4S OS 5.0.1, iPhone 3GS OS 4.3.5
+   
+   Verified that the expected behavior is shown. *Note* It can take a few minutes for the proxy to be released</li>
+<li>Shyam Bhadauria 2012-07-06
+
+   Re-opening to edit labels.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7152.json">JSON Source</a></p>

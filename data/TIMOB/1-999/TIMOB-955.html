@@ -1,0 +1,169 @@
+---
+title: "[TIMOB-955] WebView + addEventListener('swipe', ...) disables scrolling"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2011-07-27T11:22:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-31</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Max Marttinen</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:40:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T19:06:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Hi there.</p>
+<p>When you add a EventListener for swipe either on a window (with
+a webview) or at a webview, it'll disable scrolling the
+webView.</p>
+<p>Howto reproduce:</p>
+<p>1) Create a new project<br>
+2) Add a webView to one of the windows (with enough content, so it
+scrolls...)<br>
+3) Add the EventListener to the window or view
+"foo.addEventListener('swipe', function (e) {} )"</p>
+<p>Every function will do, even empty ones.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Marttinen 2011-04-15
+
+   <div><p>Forgot:</p>
+   <p>This affects the mobile sdk on ipad.<br>
+   Testet with 1.2.x and 1.3.0.</p></div></li>
+<li>Thomas Aylott 2011-04-15
+
+   <div><p>Workaround:</p>
+   <p>You could use custom webview url handler events instead.</p>
+   <p><a href=
+   "<a href="http://github.com/subtleGradient/titanium_mobile/tree/develop-webview-shouldStartLoadWithRequest-handler" rel="nofollow" target="_blank">http://github.com/subtleGradient/titanium_mobile/tree/develop-webview-shouldStartLoadWithRequest-handler</a>">
+   <a href="http://github.com/subtleGradient/titanium_mobile/tree/develop-webvi..." rel="nofollow" target="_blank">http://github.com/subtleGradient/titanium_mobile/tree/develop-webvi...</a></a></p>
+   <p>Detect the swipe in your page's JavaScript and then fire an
+   event on the webView instance from the page.<br>
+   Even works from external sites!</p>
+   <pre>
+   <code class=
+   "javascript">webView.addEventListener('my-swipe', handleSwipe)</code>
+   </pre>
+   <p>And then in the page&hellip;</p>
+   <pre>
+   <code class=
+   "javascript">window.location = "app-my-swipe://?_" + +new Date;</code>
+   </pre>
+   <p>And it'll fire your 'my-swipe' event in your Titanium
+   context.</p></div></li>
+<li>Thomas Aylott 2011-04-15
+
+   <div><p>ug&#8230; broken formatting :/</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>May not be able to support this, because if you intercept swipes
+   on a webview, they stop working.</p></div></li>
+<li>Pedro Enrique 2011-04-15
+
+   <div><p>This is happening, not only with the swipe event, but with any
+   touch events. Example:</p>
+   <pre>
+   <code class="javascript">  var win = Titanium.UI.createWindow();
+       var web =  Titanium.UI.createWebView({url: 'some.pdf'});
+       var view = Ti.UI.createView({});
+       view.add(web);
+       win.add(view);
+       win.open({modal:true});
+   
+       web.addEventListener('click', function(e){
+           alert('click');
+       });
+   
+       /*
+       view.addEventListener('click', function(e){
+           alert('click');
+       });
+       */
+       /*
+       win.addEventListener('click', function(e){
+           alert('click');
+       });
+       */</code>
+   </pre>
+   <p>HD Ticket: <a href=
+   "<a href="http://developer.appcelerator.com/helpdesk/view/74881" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/74881</a>"><a href="http://developer.appcelerator.com/helpdesk/view/74881" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/74881</a></a><br>
+   Tested on iPhone Simulator 4.2<br>
+   Ti SDK 1.6.0 RC1</p></div></li>
+<li>Blain Hamon 2011-07-27
+
+   Unfortunately, this is something we can't fix, as UIWebView, the underlying view, is quite a black box in iOS. Because of that, touch events have to be handled either exclusively by the titanium view holding the web view (IE, webview.addEventListener('swipe'...) ) or the native Webview (Ie, scrolling, buttons, etc.)
+   
+   As a workaround, if you must have any handling inside the webview, make gesture recognizers inside the HTML itself, and generate an app event to relay it outside.</li>
+<li>Ramakrishna 2014-08-13
+
+   Hi,
+   
+     I did a quick fix. Hope this sample solution will help to have both swipe and scroll web view content.
+    
+     Index.xml:
+     <Alloy>
+   	<Window class="container">
+   		<ScrollableView id="scrollView" showPagingControl="true">		
+   		</ScrollableView>
+   	</Window>
+   </Alloy>
+   
+   Index.tss:
+   ".container": {
+   	backgroundColor:"77d065"
+   }
+   
+   "#scrollView":{
+   	top:"20%",
+   	width:"100%",
+   	backgroundColor:"red"	
+   }
+   
+   Index.js:
+   
+   var webviewnews = [];
+   
+   for(var i = 0; i < 6; i++){
+   	webviewnews[i] = Ti.UI.createWebView({
+   		hideLoadIndicator : true,
+   		width: "100%",
+   		height: "100%"
+   	});	
+   }
+   
+   webviewnews[0].url = "<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>";
+   webviewnews[1].url = "<a href="http://www.facebook.com" rel="nofollow" target="_blank">http://www.facebook.com</a>";
+   webviewnews[2].url = "<a href="http://www.twitter.com" rel="nofollow" target="_blank">http://www.twitter.com</a>";
+   webviewnews[3].url = "<a href="http://www.yahoo.com" rel="nofollow" target="_blank">http://www.yahoo.com</a>";
+   webviewnews[4].url = "<a href="http://www.flipkart.com" rel="nofollow" target="_blank">http://www.flipkart.com</a>";
+   webviewnews[5].url = "<a href="http://www.amazon.com" rel="nofollow" target="_blank">http://www.amazon.com</a>";
+   
+   $.scrollView.views = webviewnews;
+   $.scrollView.setCurrentPage(2);
+   
+   $.scrollView.addEventListener('scrollend', function(e){
+   	Ti.API.info('scrollend got called');
+   	var position = $.scrollView.getCurrentPage();
+   	//Write logic here to dynamic load of web view content
+   });
+   
+   $.index.open();
+   
+   
+   Hope this will help.</li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-955.json">JSON Source</a></p>

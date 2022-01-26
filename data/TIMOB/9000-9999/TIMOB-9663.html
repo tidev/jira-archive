@@ -1,0 +1,112 @@
+---
+title: "[TIMOB-9663] iOS: Parity issue with 'NaN'"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-12-21T05:35:17.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 API, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, module_api, qe-automatedtest</td></tr>
+<tr><th>Reporter</th><td>Jeff English</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-06-20T14:07:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-01-16T00:04:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+An issue has been identified during the investigation of MOD-682 having to do with how 'NaN' is converted to a string only on iOS. I have narrowed down the issue to the 'NaN' value being converted to lowercase 'nan' in certain situations. This causes an issue when the OAuth signature, for example, has been calculated based on a string value of 'NaN' but the value sent in the HTTP request is converted internally to a string value of 'nan' (ie. signature mismatch occurs). The serialization of the dictionary argument that is passed to the HTTPClient.send method is where the value is getting converted to 'nan' instead of 'NaN'.
+
+This works correctly on Android and MobileWeb, but not on iOS.
+
+I have reproduced this in the following sample application:
+<code><pre>
+var a1 = NaN;
+var b1 = parseInt("X", 10);
+Ti.API.info("A1:" + a1);
+Ti.API.info("B1:" + b1);
+Ti.API.info(a1);
+Ti.API.info(b1);
+
+var y = {
+	a2: NaN,
+	b2: parseInt("X", 10)
+};
+Ti.API.info("A2:" + y.a2);
+Ti.API.info("B2:" + y.b2);
+Ti.API.info(y.a2);
+Ti.API.info(y.b2);
+</pre></code>
+
+
+The following output is generated on each of the platforms:
+
+|| iOS || Android || MobileWeb ||
+| A1: NaN | A1: NaN | A1: NaN |
+| B1: NaN | B1: NaN | B1: NaN |
+| {color:red}nan{color} | NaN | NaN |
+| {color:red}nan{color} | NaN | NaN |
+| A2: NaN | A2: NaN | A2: NaN |
+| B2: NaN | B2: NaN | B2: NaN |
+| {color:red}nan{color} | NaN | NaN |
+| {color:red}nan{color} | NaN | NaN |
+
+Notice that the value of 'nan' is generated when the value is being converted directly to a string and not being concatenated to another string.
+
+
+Some additional information regarding this issue on iOS. Given the following Objective-C code:
+
+<code><pre>
+    NSString* test;
+
+    NSDecimalNumber *v1 = [NSDecimalNumber notANumber];
+    NSString *className = NSStringFromClass([v1 class]); 
+    test = [v1 stringValue];
+
+    NSNumber *v2 = [NSNumber numberWithDouble:NAN];
+    className = NSStringFromClass([v2 class]); 
+    test = [v2 stringValue];
+    
+    NSNumber *v3 = [NSNumber numberWithDouble:[v1 doubleValue]];
+    className = NSStringFromClass([v3 class]); 
+    test = [v3 stringValue];
+</pre></code>
+
+When this is run from XCode, note the following values (in order of being set):
+
+1. value of classname is 'NSDecimalNumber'
+2. value of test is 'NaN'
+3. value of classname is '__NSCFNumber'
+4. value of test is 'nan'
+5. value of classname is '__NSCFNumber'
+6. value of test is 'nan'
+
+Not sure if that helps pinpoint the issue.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2012-07-12
+
+   PR 2539 against master</li>
+<li>Jeff English 2012-07-12
+
+   The PR addresses the symptom and not the root of the problem. It only masks the problem when logging the value via Ti.API.info, but will still fail when the value is being serialized internally. The conversion of the data value in the HTTPClient.send method does not call 'logMessage', so this PR will not resolve that issue. 
+   
+   The calls to Ti.API.info in the example code demonstrates that what should be the same value (NaN) is being treated differently in the 2 cases. </li>
+<li>Vishal Duggal 2012-07-13
+
+   Accepted PR 2551 against master
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/2551" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2551</a></li>
+<li>Shyam Bhadauria 2012-08-09
+
+   Re-opening to edit label</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9663.json">JSON Source</a></p>

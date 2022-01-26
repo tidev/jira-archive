@@ -1,0 +1,340 @@
+---
+title: "[TIMOB-6499] iOS: UI - Fire "click" event from tabs"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-16T09:56:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>parity, tbs-1.8.2</td></tr>
+<tr><th>Reporter</th><td>Marshall Culpepper</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2011-12-07T11:14:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-16T09:56:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Expected behavior</h4>
+
+Click events should be fired on the tab regardless of whether or not the tab is currently selected.
+
+<h4>Actual behavior</h4>
+
+The click event in a tab element of a tabGroup is not fired in either Titanium versions listed above
+
+Note that this also did not work on Android 1.7.5, but the issue has been fixed in Android 1.8.0.1. Thus, this is a parity issue to match a recent Android feature request (see linked ticket).
+
+<h4>Test case</h4>
+
+With the following code, no click event is fired on iOS when tab1 is clicked:
+
+<code><pre>
+Ti.UI.setBackgroundColor('#000');
+
+var tabGroup = Ti.UI.createTabGroup();
+
+var win1 = Ti.UI.createWindow({
+  title:'Tab 1',
+  backgroundColor:'#fff'
+});
+var tab1 = Ti.UI.createTab({
+  title:'Tab 1',
+  window:win1
+});
+
+var label1 = Ti.UI.createLabel({
+  color:'#999',
+  text:'I am Window 1',
+  textAlign:'center',
+  width:'auto'
+});
+
+win1.add(label1);
+
+var win2 = Ti.UI.createWindow({
+  title:'Tab 2',
+  backgroundColor:'#fff'
+});
+var tab2 = Ti.UI.createTab({
+  title:'Tab 2',
+  window:win2
+});
+
+var label2 = Ti.UI.createLabel({
+  color:'#999',
+  text:'I am Window 2',
+  textAlign:'center',
+  width:'auto'
+});
+
+win2.add(label2);
+
+tabGroup.addTab(tab1);
+tabGroup.addTab(tab2);
+
+tabGroup.open();
+
+tab1.addEventListener('click', function(e) {
+  Ti.API.info("tab1 clicked.");
+});
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Wilson Luu 2012-01-23
+
+   Bug still occurs on:
+   
+   SDK build: 1.8.1.v20120123130147
+   Titanium Studio, build: 1.0.8.201201210622
+   xcode: 4.2
+   Device: iPad 1 (5.0.1)</li>
+<li>Esben Maaløe 2012-10-05
+
+   bug still occurs on iOS -
+   
+   Host OS: Mac OS X
+   OS Arch: x86
+   JRE Version: 1.6.0_35
+   JRE Vendor: Apple Inc.
+   Titanium Mobile SDK Version: 2.1.3
+   Mobile SDK Modules API Version:2
+   Mobile SDK Timestamp: 10/02/12 16:16
+   Mobile SDK Build Number: 15997d0
+   Titanium Mobile SDK Location: /Users/acebone/Library/Application Support/Titanium/mobilesdk/osx/2.1.3.GA</li>
+<li>Danny Pham 2013-04-26
+
+   I was also looking for this function, but it is still missing in official SDK 3.1.0 GA.
+   
+   Here my quick workaround in TiUITabGroup.m:
+   
+   <code><pre>
+   - (void)tabBarController:(UITabBarController *)tabBarController didSelectViewController:(UIViewController *)viewController
+   {
+   	NSUInteger tabIndex = [tabBarController.viewControllers indexOfObject:viewController];
+   	NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys: NUMINT(tabIndex), @"index", nil];
+   	[self.proxy fireEvent:@"click" withObject:event];
+   
+   	...
+   }
+   </pre></code></li>
+<li>Priya Agarwal 2014-07-03
+
+   Issue is still reproducible for iOS.
+   Verified with doc. On doc also mentioned that click event on tabs is not supported for iOS.
+   Tested Environment:
+   
+   Appcelerator-Studio: 3.3.0.201406271159
+   Sdk:3.3.0.v20140702175712
+   acs:1.0.15
+   alloy:1.4.0-rc3
+   npm:1.3.2
+   titanium:3.3.0-rc4
+   titanium-code-processor:1.1.1
+   OS:Maverick(10.9.3)
+   Device:iPhone5s(v7.1.1)
+   </li>
+<li>Ivan Skugor 2014-10-31
+
+   Ah, just got surprised tabgroup click event doesn't work! :(
+   
+   
+   Too bad simple thing like this with provided solution is not fixed in SDK!</li>
+<li>Mark Mokryn 2014-11-04
+
+   What do you need this for? In iOS you can listen to the "focus" and "blur" events on each tab (works properly in 3.4.x and prior as well), and in Android listen for the "selected" and "unselected" tab events (starting in 3.5.0). Note that in Android if you listen for tab focus/blur you will get more events than you wish, probably, which is why I added selected and unselected. If these work, why do you need the click event?
+   
+   Also note that in 3.5.0 "click" on a tab doesn't make sense for Android because tabs can be selected by swipes :)
+   
+   Final edit: I do not think the click event is necessary or appropriate. If changing anything, I would change in IOS the tab event names from focus/blur to selected/unselected to match Android, since these event names make more sense. Personally I would not use the tab focus/blur events on Android at all - use Window focus/blur if that is the intent.</li>
+<li>Ivan Skugor 2014-11-04
+
+   Hi Mark. 
+   
+   I need it because I want to be able to do something when particular tab is selected or deselected.
+   
+   
+   Actually, you can't use focus/blur event in all use cases! If new window is opened above tabgroup, window inside tab group will receive blur/focus event which is not generated by navigation through tabs.
+   
+   
+   Beside that, it's way easier to add one event than 2 times number of tabs events.
+   
+   
+   That event is documented and should really be implemented, especially if implementation is simple!</li>
+<li>Mark Mokryn 2014-11-04
+
+   [~ivan.skugor] I think you misunderstood me: in iOS the TAB focus/blur events function as tab selected/unselected. Try those and then tell me why they don't do the job.</li>
+<li>Danny Pham 2014-11-04
+
+   I am using a custom sidedrawer module that works within a tabGroup.
+   
+   If you are in a child window and click on the tab icon, you will return to the initial "home" screen. That's the normal behaviour and it works fine if you are using the regular tab functionality (with Ti.UI.currentTab.open(newWin)). But I have a different architecture because of the sidedrawer so I have to detect this tab icon click to mimic the native behaviour. In my case I don't have a focus event as I am still in the active tab.
+   
+   That's just an explanation why a tabGroup click event makes sense in some (rare) cases ;)</li>
+<li>Mark Mokryn 2014-11-04
+
+    [~crossbits] tab or tabgroup click event? Ivan wants a tab click event which I think is redundant with focus/blur and on Android selected/unselected</li>
+<li>Danny Pham 2014-11-04
+
+    tab click event, thats what this thread is about, right? I have posted here my workaround in Apr 2013 and it's still working with latest SDK ;) Maybe I will just make a simple module so I don't have to touch the source code with every SDK update.</li>
+<li>Ivan Skugor 2014-11-05
+
+    Mark, same problem exists if I use tab events instead of window events.
+    
+    I really don't understand why you think this is not necessary ... your solution if it worked would be a workaround, not a solution. "click" event is documented and should work. Solution is provided and it takes 5 seconds to integrate it in SDK, I guess it would take more time to update documentation :D
+    
+    
+    Anyway, considering Mark's Android info update, maybe we should have "change" event that would be fired if current tab changes Ingo Muschenetz?</li>
+<li>Mark Mokryn 2014-11-05
+
+    [~ivan.skugor] I still don't understand your issue. Can you please run this, look at the console and explain why the following events don't fulfill your needs?
+    (For iOS only. For Android since 3.5.0 you can use 'selected' and 'unselected' with the same effect, and click is meaningless since tabs are usually swiped).
+    [~crossbits] To be quite honest, I still don't get your use case. In my opinion a user who want to close a side drawer will click on the button that opened it, or swipe to restore the window/tab group. It's really unintuitive to me that a user will click a tab to do anything other than select the tab. 
+    In fact, I think the click event should be removed, since do you really want it fired if the user clicks the tab of the already selected tab? Makes no sense. The only thing I think is appropriate is to rename the iOS TAB focus/blur events to selected/unselected. But this is purely for name parity with Android. I would then remove the tab focus/blur events from the docs for both iOS and Android.
+    <code><pre>
+    // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+    Titanium.UI.setBackgroundColor('#000');
+    
+    // create tab group
+    var tabGroup = Titanium.UI.createTabGroup();
+    
+    
+    //
+    // create base UI tab and root window
+    //
+    var win1 = Titanium.UI.createWindow({  
+        title:'Tab 1',
+        backgroundColor:'#fff'
+    });
+    var tab1 = Titanium.UI.createTab({  
+        icon:'KS_nav_views.png',
+        title:'Tab 1',
+        window:win1
+    });
+    
+    var label1 = Titanium.UI.createLabel({
+    	color:'#999',
+    	text:'I am Window 1',
+    	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+    	textAlign:'center',
+    	width:'auto'
+    });
+    
+    win1.add(label1);
+    
+    //
+    // create controls tab and root window
+    //
+    var win2 = Titanium.UI.createWindow({  
+        title:'Tab 2',
+        backgroundColor:'#fff'
+    });
+    var tab2 = Titanium.UI.createTab({  
+        icon:'KS_nav_ui.png',
+        title:'Tab 2',
+        window:win2
+    });
+    tab2.addEventListener('focus', function(e){
+    	Ti.API.info('tab2 selected');
+    });
+    
+    tab2.addEventListener('blur', function(e){
+    	Ti.API.info('tab2 unselected');
+    });
+    
+    var label2 = Titanium.UI.createLabel({
+    	color:'#999',
+    	text:'I am Window 2',
+    	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+    	textAlign:'center',
+    	width:'auto'
+    });
+    
+    win2.add(label2);
+    
+    //
+    //  add tabs
+    //
+    tabGroup.addTab(tab1);  
+    tabGroup.addTab(tab2);  
+    
+    
+    // open tab group
+    tabGroup.open();
+    </pre></code></li>
+<li>Ivan Skugor 2014-11-06
+
+    Mark, add this code to your code:
+    
+    <code><pre>
+    win2.addEventListener('click', function() {
+    	var newWin = Ti.UI.createWindow({
+    		backgroundColor: '#f00'
+    	});
+    
+    	newWin.addEventListener('click', function() {
+    		newWin.close();
+    	});
+    
+    	newWin.open();
+    });
+    </pre></code>
+    
+    click on "Tab 2" and then click on window inside that tab. You'll get log that tab is not selected, while that is not true (it has just lost focus because new window opened).
+    
+    
+    Now, you can make workaround for that - but again, it has no sense to provide complicated workaround instead of simple solution. The only sense as I can see is implementation of "change" event to cover Android swipe thing (which, tbh I never use :D ). </li>
+<li>Mark Mokryn 2014-11-06
+
+    </li>
+<li>Ivan Skugor 2014-11-06
+
+    Mark, I'm not opening my window in wrong way!! It's totally valid approach. :D
+    
+    You can open new window that is not part of tab group - and still have tab group below, I use that often in apps that I develop and I'm sure many other developers do (for example, if tab group has action bar - on some action new window is always opened as new activity EDIT: I was referring to Android functionality here, but similar thing stand for iOS ... after all, we're developing cross platform apps ;) ).
+    
+    If that is not enough, you can open camera activity for example, and you'll again see your workaround doesn't work. Please don't tell me that is not valid too! :D
+    
+    
+    
+    I really don't understand you, 3 lines of code that implements this is overhead? Come on :D</li>
+<li>Mark Mokryn 2014-11-06
+
+    LOL it's very simple: for normal tab group functionality, open windows from tabs, etc you have all the events you need.
+    If you open other windows in other ways..... well, then you have their close events to hook on, and you know which tab is selected in any case!
+    As I said, in 3.5.0 in Android you will lose the tab click functionality in any case since your users will swipe tabs in most cases, so you're hanging on to an event which will soon be irrelevant... Of course if you disable tab swipes you will still get your clicks..... but most Android users won't be too happy with that... Most users swipe (since in Android the tab buttons are too far from the thumbs....). 
+    
+    As to the "three lines of code" - that would be a good place to fire the selected event, but not "click". It's "didSelect", right? :) Let's keep the SDK clean please....
+    </li>
+<li>Ivan Skugor 2014-11-06
+
+    Mark, I have solution that works for me :D But that's not the point, I want to make this part of SDK better for everyone. 
+    IMO - it's way simpler to have one event listener that works for sure, then 2 x number of tabs event listeners which may work. Latter kind of usage is overhead (consider complications - you have to listen to "close" event of every new window you open outside tab group + camera + gallery + etc).
+    
+    
+    No, I wouldn't stick to "click" listener since it wouldn't be reliable on Android, I would implement new "change" event that would indicate when current tab has been changed (on iOS that would basically be "click" event, on Android combination of "click" and "selected/deselected" event).</li>
+<li>Mark Mokryn 2014-11-06
+
+    </li>
+<li>Ivan Skugor 2014-11-06
+
+    We need "change" event because of parity - there are no select/deselect events on iOS. On the other hand, if user clicks on tab on Android, selected/deselected would not work (as you said). Because of that I suggested new event that would work on both platforms for every use case.
+    
+    
+    Enough said, we have to wait until someone from AppC comments. :)</li>
+<li>Mark Mokryn 2014-11-06
+
+    On Android selected/unselected fire at the right time, whether by tab swipe or by click. Basically the same as tab focus/blur on iOS.</li>
+<li>Hans Knöchel 2016-03-16
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6499.json">JSON Source</a></p>

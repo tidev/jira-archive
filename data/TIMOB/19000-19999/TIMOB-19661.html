@@ -1,0 +1,170 @@
+---
+title: "[TIMOB-19661] Android: 5.0.0 GA SDK HTTPClient Fails to POST Form Data with File Correctly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-10-02T07:28:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.0.1, Release 5.0.2, Release 5.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0, Release 5.0.3</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, defect, httpclient, regression</td></tr>
+<tr><th>Reporter</th><td>Ryan Asleson</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-10-02T02:08:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-11-02T19:19:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am unable to upload data to a remote server using the HTTPClient on Titanium SDK 5.0.0 GA.  The same code works correctly on SDK 4.1.0 GA.
+
+The data object that is sent to HTTPClient looks like this:
+
+<code><pre>
+
+    var data = {
+        "entry.id": entryBean.id
+        , "_eventName": "uploadPhoto"
+        , "imageData": selectedImage
+        , "caption": $.caption.value
+        , "fileName": getFileNameFrom(selectedImage)
+    };
+
+</pre></code>
+
+Where <code>imageData</code> is a photo selected from the device.  
+
+On the server, it seemed like the imageData was coming through, but nothing else: <code>entry.id</code>, <code>_eventName</code>, <code>caption</code>, and <code>fileName</code> were no populated on my server-side form.
+
+In an effort to help debug the issue, I dumped the "raw" incoming POST data to the server console.  The results looked something like this:
+
+
+
+<code><pre>
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ
+Content-Disposition: form-data; name="_eventName
+Content-Type: ; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+uploadPhoto
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ
+Content-Disposition: form-data; name="fileName
+Content-Type: ; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+IMAG0527.jpg
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ
+Content-Disposition: form-data; name="entry.id
+Content-Type: ; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O1wJEoXb1lfhdYfwkn38UawovA4pG6hHecZ6DGv2-Wx0Ww-rmjihfM41D4jyCXs4
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ
+Content-Disposition: form-data; name="imageData"; filename="tixhr-1575133492.jpeg"
+Content-Type: image/jpeg
+Content-Transfer-Encoding: binary
+
+(lots of binary data for the image)
+
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ
+Content-Disposition: form-data; name="caption
+Content-Type: ; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+final.
+--4UVkNoCkrozvPT0TuugeoVAr0YbFCJ--
+
+</pre></code>
+
+
+
+I immediately saw the problem.  Note how for the non-binary fields, such as <code>_eventName</code> at the top, the right quote is missing at the end of the name value.  
+
+This explains why my web framework was unable to correctly populate the data model with the form data; it was unable to read it due to the missing double quote.
+
+This is a new regression from 4.1.0.  It works correctly if I use the 4.1.0 SDK.
+
+For those who are seeing this bug, one possible work around is to convert the file to be  uploaded to a base64 encoded string.  This is how my example from above updated to use a base64 encoded string:
+
+
+<code><pre>
+
+   var data = {
+        "entry.id": entryBean.id
+        , "_eventName": "uploadPhoto"
+        // , "imageData": selectedImage
+        , encodedImage: Ti.Utils.base64encode(selectedImage).toString()
+        , "caption": $.caption.value
+        , "fileName": getFileNameFrom(selectedImage)
+    };
+
+</pre></code>
+
+Of course, this only works if you also control the server-side and can handle the base64 encoded file appropriately.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ashraf Abu 2015-10-02
+
+   [~ryan@asleson.net] Thanks for the detailed investigation and ticket. It helps a lot in understanding the problem and getting it fix fast! :)
+   
+   Will look into this now.</li>
+<li>Ashraf Abu 2015-10-02
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7263" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7263</a>
+   5_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7264" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7264</a></li>
+<li>Ashraf Abu 2015-10-02
+
+   Test code:
+   <code><pre>
+   var url = "<a href="http://httpbin.org/post" rel="nofollow" target="_blank">http://httpbin.org/post</a>";
+   var data = {
+       "entry.id": "data"
+       , "_eventName": "name"
+       , "caption": "the caption"
+       , "fileName": "Name of file"
+   };
+   
+   var xhr = Ti.Network.createHTTPClient();
+       xhr.onload = function (event) {
+            Ti.API.info("Received text: " + this.responseText);
+            alert('success');
+       };
+       xhr.onerror = function (event) {
+            Ti.API.debug(e.error);
+            alert('error');
+       };
+       xhr.url = url;
+       xhr.open("POST", url);
+       xhr.send(data);
+   </pre></code></li>
+<li>Chee Kiat Ng 2015-10-02
+
+   APPROVED. PRs merged.</li>
+<li>Lokesh Choudhary 2015-11-02
+
+   Verified the fix.
+   POST happens successfully with file.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio : 4.4.0.201510290507
+   Ti SDK :  5.1.0.v20151028190028,  5.0.3.v20151028143139
+   Ti CLI : 5.0.5
+   Alloy : 1.7.18
+   MAC Yosemite : 10.10.5
+   Appc NPM : 4.2.1-6
+   Appc CLI : 5.1.0-38
+   Node: v0.10.37
+   Nexus 5 - Android 6.0</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19661.json">JSON Source</a></p>

@@ -1,0 +1,169 @@
+---
+title: "[TIMOB-20111] Android: trayClickFocusedApp event not fired when push notification clicked in tray"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-19T06:25:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, pushnotification</td></tr>
+<tr><th>Reporter</th><td>Brad Ball</td></tr>
+<tr><th>Assignee</th><td>Srikanth Sombhatla</td></tr>
+<tr><th>Created</th><td>2015-11-30T16:00:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-04-19T06:25:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a view is opened and app is placed into background, tapping on a push notification does not fire the trayClickFocusedApp event. This works fine if I don't open a window in the app. However, if even a single window is opened, trayClickFocusedApp stops working (I'm guessing this is due to the fact that there are more than a single activity if windows are opened). In the attached test code, simply comment out the following line and trayClickFocusedApp to start working again:
+
+<code><pre>
+ win.open(); 
+</pre></code>
+
+Steps to reproduce
+<h4>Create a cloud enabled app</h4>
+#Paste the following into app.js
+
+<code><pre>
+var win = Titanium.UI.createWindow({
+	title: 'Push Test',
+	backgroundColor: '#fff'
+});
+ 
+var login = ""; // Replace with an ACS user login
+var password = ""; // Replace with an ACS user password
+ 
+// If you comment out this line, everything works as expected
+win.open();
+ 
+ 
+ 
+// --------------------------------------------------------------------------------
+//
+// Push notification stuff
+//
+// --------------------------------------------------------------------------------
+ 
+var CloudPush = require('ti.cloudpush');
+CloudPush.debug = true;
+CloudPush.enabled = true;
+ 
+var deviceToken;
+var Cloud = require('ti.cloud');
+ 
+CloudPush.retrieveDeviceToken({
+	success: function deviceTokenSuccess(e) {
+		Ti.API.info('Device Token: ' + e.deviceToken);
+		deviceToken = e.deviceToken;
+		loginDefault(deviceToken);
+	},
+	error: function deviceTokenError(e) {
+		Ti.API.error('Failed to register for push! ' + e.error);
+	}
+});
+ 
+function loginDefault(e) {
+ 
+	Cloud.Users.login({
+		login: login,
+		password: password
+	}, function(e) {
+		if (e.success) {
+ 
+			defaultSubscribe();
+ 
+			//Place app in background
+			Ti.Platform.openURL("<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>");
+ 
+			//Send a push in 2 seconds
+			setTimeout(function() {
+				Cloud.PushNotifications.notify({
+					channel: 'message',
+					payload: {
+						"badge": 2,
+						"sound": "default",
+						"alert": "Push Notification Test",
+						"icon": "app_icon"
+					}
+				}, function(e) {
+					if (e.success) {
+						Ti.API.info('Success notify');
+					} else {
+						Ti.API.error('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+					}
+				});
+			}, 2000);
+		} else {
+			Ti.API.error('Error:\\n' + ((e.error && e.message) || JSON.stringify(e)));
+		}
+	});
+ 
+}
+ 
+function defaultSubscribe() {
+ 
+	Cloud.PushNotifications.subscribe({
+		channel: 'message',
+		device_token: deviceToken,
+		type: 'gcm'
+	}, function(e) {
+		if (e.success) {
+			Ti.API.info('Subscribed!');
+ 
+			CloudPush.addEventListener('callback', function(evt) {
+				Ti.API.info("callback" + JSON.stringify(evt));
+				alert('got the callback event');
+			});
+ 
+			CloudPush.addEventListener('trayClickFocusedApp', function(evt) {
+				Ti.API.info('Tray Click Focused App (app was already running)' + JSON.stringify(evt));
+				alert('got the trayClickFocusedApp event')
+			});
+		} else {
+			Ti.API.error('Error:' + ((e.error && e.message) || JSON.stringify(e)));
+		}
+	});
+}
+</pre></code>
+
+<h4>Set your login/password to a valid user (lines 6 & 7)</h4>
+<h4>Launch the app on a device. The app should launch, fire off a push notification then go into the background by launching the browser.</h4>
+<h4>Tap the notification to return to the app.</h4>
+
+Expected Results
+The trayClickFocusedApp event listener should run and display a message.
+
+Actual Results
+The trayClickFocusedApp event listener does not run.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Srikanth Sombhatla 2016-02-26
+
+   [~bradleycorn],
+   
+   In the app.js L:53 when calling <code>Cloud.PushNotifications.notify</code> are you getting success response? Because that API expects <code>to_ids</code>.
+   <a href="http://docs.appcelerator.com/arrowdb/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/arrowdb/latest/#</a>!/api/PushNotifications-method-notify
+   
+   Once I change it to current logged-in userid, I am getting <code>trayClickFocusedApp</code> event. Please verify and let me know.  
+   [~aislam] Please confirm.
+   </li>
+<li>Brad Ball 2016-03-01
+
+   @Srikanth, 
+   
+   Sorry, I posted a bad example. I DO get the trayClickFocusedApp event when running the sample above. 
+   
+   I believe the issue (the event not getting fired) actually occurs when the app has more than one activity. I can put together a sample app to test and verify that, but it'll probably take a me a few weeks, because I'm swamped with other work at the moment.
+   
+   Again, sorry for the bad sample posted in the ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20111.json">JSON Source</a></p>

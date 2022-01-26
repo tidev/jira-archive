@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-11340] Android: Can't add menu items to ActionBar-style tab group"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-10-15T21:39:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Release 3.1.0, 2012 Sprint 21 API, 2012 Sprint 21</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, tabgroup</td></tr>
+<tr><th>Reporter</th><td>Arthur Evans</td></tr>
+<tr><th>Assignee</th><td>Josh Roesslein</td></tr>
+<tr><th>Created</th><td>2012-10-10T01:19:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-12-04T00:28:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In 3.0, we have support for ActionBar-based tabs and menu items.
+
+However, to add a menu item to the action bar, we need to access the current activity. Attempting to access the window activity for the tab window doesn't work in 3.0, though it works in 2.X. Currently attempting to set the optionsmenu on the window activity in a tab group crashes for *both* 2.X and 4.X devices on 3.0.
+
+Using Ti.Android.currentActivity fails in the same way.
+
+I think there are two issues here:
+
+* We don't seem to expose the activity associated with the tab group in any fashion I can see.
+* We have a regression that is causing the following code to throw an exception in 3.0.
+
+<code><pre>
+//
+// create base UI tab and root window
+//
+var tg = Ti.UI.createTabGroup();
+var win1 = Titanium.UI.createWindow({
+	title : 'Tab 1',
+	backgroundColor : '#fff',
+	layout : 'vertical'
+});
+
+var label1 = Titanium.UI.createLabel({
+	color : '#999',
+	text : 'I am Window 1',
+	font : {
+		fontSize : 20,
+		fontFamily : 'Helvetica Neue'
+	},
+	textAlign : 'center',
+	width : 'auto'
+});
+
+var tf = Titanium.UI.createTextField({
+	hintText : 'Hello',
+	width : 300,
+	color : 'white',
+	backgroundColor: '#333',
+});
+
+
+win1.add(label1);
+win1.add(tf);
+if (Ti.Platform.name === 'android') {
+	win1.addEventListener('open', function(e) {
+		Ti.API.info("win1.activity is: " + win1.activity);
+		Ti.API.info("Ti.Android.currentActivity is: " + Ti.Android.currentActivity);
+		
+		win1.activity.onCreateOptionsMenu = function(e) {
+			var menu = e.menu;
+			var menuItem = menu.add({
+				title : "Item 1",
+				showAsAction : Ti.Android.SHOW_AS_ACTION_WITH_TEXT
+			});
+			menuItem.icon = "KS_nav_ui.png";
+			menuItem.addEventListener("click", function(e) {
+				Ti.API.info("I was clicked");
+			});
+		};
+	});
+}
+
+var tab1 = Ti.UI.createTab({
+	title : 'Quarks',
+	window : win1
+});
+
+tg.addTab(tab1);
+
+var win2 = Titanium.UI.createWindow({
+	title : 'Tab 2',
+	backgroundColor : '#f33',
+});
+
+var tab2 = Ti.UI.createTab({
+	title : 'Snoodles',
+	window : win2
+});
+
+tg.addTab(tab2);
+tg.open();
+</pre></code>
+
+Tested with SDK 3.0.0.v20121009034227.
+Nexus 7 
+Galaxy S 2 (2.3.6).
+
+Error message is:
+
+<code><pre>
+E/TiExceptionHandler( 9242): (main) [170,233] ----- Titanium Javascript Runtime Error -----
+E/TiExceptionHandler( 9242): (main) [0,233] - In ti:/window.js:313,34
+E/TiExceptionHandler( 9242): (main) [0,233] - Message: Uncaught TypeError: Cannot call method 'extend' of undefined
+E/TiExceptionHandler( 9242): (main) [0,233] - Source: 			this.window._internalActivity.extend(this.cachedActivityProxy);
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Josh Roesslein 2012-10-12
+
+   Created [PR #3191 | <a href="https://github.com/appcelerator/titanium_mobile/pull/3191" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3191</a>] to resolve the crash seen with this test case.
+   
+   Run the test case and verify there is no crash and you can see the menu item.</li>
+<li>Hieu Pham 2012-10-13
+
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/3191" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3191</a></li>
+<li>Josh Roesslein 2012-10-14
+
+   Created [PR #3231](<a href="https://github.com/appcelerator/titanium_mobile/pull/3231)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3231)</a> to back port fix into 3.0 release.</li>
+<li>Hieu Pham 2012-10-15
+
+   3.0.X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/3231" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3231</a></li>
+<li>Natalie Huynh 2012-12-04
+
+   Tested with 3.0.0.v201211300200208 on Galaxy S3 4.0.4</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11340.json">JSON Source</a></p>

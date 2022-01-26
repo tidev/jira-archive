@@ -1,0 +1,83 @@
+---
+title: "[AC-4657] ListView Retrieve Selected Item"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-12-08T08:45:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>ios, listview</td></tr>
+<tr><th>Reporter</th><td>Nicholas Thurston</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2016-12-07T21:11:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-12-19T23:36:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Would like a way to retrieve the selected list item at any given time. We can track the itemclick, but the "selected" status gets removed by various other actions (i.e. window blur, resetting the data, begin editing a row, etc.) thereby making whatever variable you've kept not match what is seen in the list.
+
+iOS has a method on UITableView for retrieving the selected index path:
+[indexPathForSelectedRow](<a href="https://developer.apple.com/reference/uikit/uitableview/1615000-indexpathforselectedrow?language=objc)" rel="nofollow" target="_blank">https://developer.apple.com/reference/uikit/uitableview/1615000-indexpathforselectedrow?language=objc)</a>
+
+This could also be solved by exposing the didDeselectRow delegate method:
+[tableView:didDeselectRowAtIndexPath:](<a href="https://developer.apple.com/reference/uikit/uitableviewdelegate/1614916-tableview?language=objc)" rel="nofollow" target="_blank">https://developer.apple.com/reference/uikit/uitableviewdelegate/1614916-tableview?language=objc)</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-12-08
+
+   You would rather watch the <code>itemclick</code> event and set the index-pair or even <code>itemId</code> based on that. A new API for something that can be achieved that easy would rather produce possible loop-holes then supporting the general performance. Example:
+   
+   <code><pre>
+   var selecedItem = null;
+   
+   list.addEventListener("itemclick", function(e) {
+       selectedItem = e.itemId; // or {sectionIndex: e.sectionIndex, itemIndex: e.itemIndex}
+   });
+   </pre></code></li>
+<li>Nicholas Thurston 2016-12-08
+
+   Right - as I said, you could do that, but your variable would not match what is shown as selected after certain actions. E.g. The row background is normally red, my selected background color is blue, I cannot reliably say that my selectedItem variable will match the blue "selected" row with Titanium.
+   
+   I gave 3 examples that cause the item not to be "selected" anymore:
+   
+   1. As soon as you swipe the item to reveal the edit actions, the item reverts to unselected. This is the killer because we don't even have an event here or a chance to unset our variable.
+   
+   2. On window blur the item gets unselected, or more accurately when window focuses again. This one could be solved with event listeners on the window.
+   
+   3. If you reset the data, the item gets unselected. This one is pretty obvious, but again forces more code to maintain your variable.
+   
+   The fact of the matter is that if your app depends on knowing which row is shown as selected at any given time, you cannot determine that with Titanium.</li>
+<li>Hans Knöchel 2016-12-18
+
+   I understand your use-cases. You could try to add the following to your <code>TiUIListViewProxy.m</code>:
+   <code><pre>
+   -(id)selectedItem
+   {
+       NSIndexPath *selectedItem = [[self listView] pathForSearchPath:[[[self listView] tableView] indexPathForSelectedRow]];
+       
+       return @{
+           @"itemIndex": NUMINTEGER(selectedItem.row ?: -1),
+           @"sectionIndex": NUMINTEGER(selectedItem.section ?: -1),
+           @"section": selectedItem.section ? [self sectionForIndex:selectedItem.section] : [NSNull null]
+       };
+   }
+   </pre></code>
+   and <code>-(NSIndexPath*)pathForSearchPath:(NSIndexPath*)indexPath;</code> in the <code>TiUIListView.h</code>.
+   
+   You can now call it with <code>myTableView.selectedItem</code> or <code>myTableView.getSelectedItem()</code>. Is that something you would come along with?</li>
+<li>Nicholas Thurston 2016-12-19
+
+   Yes, this looks great. I will try it out soon.
+   
+   Thank you</li>
+</ol>
+
+
+<p><a href="/AC/AC-4657.json">JSON Source</a></p>

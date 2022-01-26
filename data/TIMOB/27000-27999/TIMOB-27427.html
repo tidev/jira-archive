@@ -1,0 +1,216 @@
+---
+title: "[TIMOB-27427] iOS 13: Natively presented modal windows are not dismissed properly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-11T14:03:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.2.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-09-30T07:31:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-10-05T08:37:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When using iOS 13, native modal windows like the one from <code>Ti.Media.showCamera</code> are not presented correctly, causing the underlaying view controller to not be dismissed correctly.
+
+<code><pre>
+var win = Ti.UI.createWindow();
+var btn = Ti.UI.createButton({ title: 'Show camera' });
+
+btn.addEventListener('click', () => {
+  Ti.Media.requestCameraPermissions(event => {
+    Ti.Media.showCamera({
+      success: () => {},
+      error: () => {},
+      cancel: () => {},
+    });
+  });
+});
+
+win.add(btn);
+win.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2019-09-30
+
+    This should be handled it 8.2.1!</li>
+<li>Hans Knöchel 2019-09-30
+
+   Better test case:
+   <code><pre>
+   var window = Ti.UI.createWindow({ backgroundColor: 'green' });
+   var nav = Ti.UI.createNavigationWindow({ window })
+   var btn = Ti.UI.createButton({ title: 'Show camera' });
+    
+   btn.addEventListener('click', () => {
+     Ti.Media.requestCameraPermissions(event => {
+   	if (!event.success) return;
+   	
+   	Ti.Media.showCamera({
+         success: () => {},
+         error: () => {},
+         cancel: () => {},
+       });
+     });
+   });
+    
+   window.add(btn);
+   nav.open({ modal: true });
+   </pre></code></li>
+<li>Vijay Singh 2019-09-30
+
+   [~hknoechel]
+   1. The first test case (mentioned in description) is working fine for me.
+   2. In second test case, as you are trying to open navigation window modally, default presentation style in iOS 13 will be page sheet. It looks when dismissing the camera controller it takes away the controller behind it. So better is use "forceModal" property. You can use "modalStyle" also if you want full screen. See updated example-
+   
+   
+   <code><pre>
+   var window = Ti.UI.createWindow({ backgroundColor: 'green' });
+   var nav = Ti.UI.createNavigationWindow({ window })
+   var btn = Ti.UI.createButton({ title: 'Show camera' });
+    
+   btn.addEventListener('click', () => {
+     Ti.Media.requestCameraPermissions(event => {
+   	if (!event.success) return;
+   	
+   	Ti.Media.showCamera({
+         success: () => {},
+         error: () => {},
+         cancel: () => {},
+       });
+     });
+   });
+    
+   window.add(btn);
+   //nav.open({ modal: true, forceModal:true});
+   nav.open({ modal: true, forceModal:true, modalStyle: Titanium.UI.iOS.MODAL_PRESENTATION_FULLSCREEN});
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2019-09-30
+
+   Sorry, but that's just the workaround to the breaking change. Please fix this properly in the SDK.</li>
+<li>Vijay Singh 2019-09-30
+
+   I'll check how it behaves if we open Camera on modally presented view controller in native iOS app. </li>
+<li>Vijay Singh 2019-10-02
+
+   PR(master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/11256" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11256</a>
+   PR(8_2_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/11257" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11257</a>
+   
+   Apart from test case mentioned in this ticket need to test following test cases from TIMOB-27169
+   
+   1. 
+   
+   <code><pre>
+   var window1 = Ti.UI.createWindow({
+       title: "Modal Window",
+       backgroundColor: 'white'
+   });
+    
+   var win = Ti.UI.createNavigationWindow({
+       window: window1
+   });
+    
+   var button1 = Ti.UI.createButton({
+       title: 'Open Window'
+   });
+    
+   window1.add(button1);
+    
+   win.open();
+    
+   var window2 = Ti.UI.createWindow({
+       backgroundColor: 'blue'
+   });
+    
+   var button2 = Ti.UI.createButton({
+       title: 'Close Window'
+   });
+    
+   window2.add(button2);
+    
+   button1.addEventListener('click', function(e){
+     window2.open({
+       modal:true,
+       forceModal: true,
+     });
+   });
+    
+   button2.addEventListener('click', function(e){
+     window2.close();
+   });
+   </pre></code>
+   
+   2. 
+   
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+    
+   var btn = Ti.UI.createButton({
+       title: 'Trigger'
+   });
+    
+   var winClose = Ti.UI.createButton({
+       title: 'Close'
+   });
+    
+   btn.addEventListener('click', function() {
+       var win2 = Ti.UI.createWindow({ backgroundColor: 'white' });
+    
+       win2.addEventListener('close', () => {
+           Ti.API.warn('CLOSED')
+       });
+    
+       var nav = Ti.UI.createNavigationWindow({
+           window: win2
+       });
+      
+       nav.add(winClose);
+    
+       nav.addEventListener('open', () => {
+           Ti.API.warn('OPENED')
+       });
+    
+       nav.open({ modal: true })
+    
+       winClose.addEventListener('click', () => {
+           nav.close()
+       });
+    
+   });
+    
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Satyam Sekhri 2019-10-03
+
+   FR passed.
+   PR on master branch merged.
+   Waiting for build to pass on 8_2_X branch.</li>
+<li>Hans Knöchel 2019-10-08
+
+   This caused a regression where modal windows cannot be presented fullscreen anymore. See TIMOB-27453 for details.</li>
+<li>Sohail Saddique 2019-10-11
+
+   Verified on latest build: 8.2.1.v20191010112656. Modal window dismissed correctly. Ticked closed.
+   
+   This ticked causes a regression, however, as indicated above.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27427.json">JSON Source</a></p>

@@ -1,0 +1,430 @@
+---
+title: "[TIMOB-20272] iOS: Interactive notifications with activationMode background don't work when app is not already in memory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-11T18:16:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>core, defect, ios</td></tr>
+<tr><th>Reporter</th><td>Steven van Loef</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-01-12T17:04:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-11T18:38:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+For interactive notifications to work you have to listen for event 'localnotificationaction' (and/or remotenotificationaction for push notifications). I have an action set to activationMode: Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND which should allow execution of some code without launching the app to foreground. This only seems to work when the app is already/still in memory.
+
+Expected behavior would be that it always works even if the app has never been started yet. This works fine with WhatsApp for example. Looking at the ObjC code (mainly in TiApp.m) for this and placing some debug logging here and there I don't see how this can work. The code in TiApp.m triggers the fireevent but at that time the JS part of the app has not fully loaded yet, causing the event to be missed in JS because the listener could not be setup yet.
+
+Another issue that will cause this not to work is that when handling an interactive notification in the background is that the full app is loaded (at least attempted). This will fail because UI interaction is not allowed when in background.
+
+Code in TiApp.m that should handle this:
+
+<code><pre>
+- (void) application:(UIApplication *)application handleActionWithIdentifier:(NSString *)identifier forLocalNotification:(UILocalNotification *)notification withResponseInfo:(NSDictionary *)responseInfo completionHandler:(void (^)())completionHandler
+</pre></code>
+
+and
+
+<code><pre>
+- (void) application:(UIApplication *)application handleActionWithIdentifier:(NSString *)identifier forRemoteNotification:(NSDictionary *)userInfo completionHandler:(void (^)())completionHandler
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-01-14
+
+   Hello, 
+   
+   Can you provide a sample case of the issue that's not working when the app in not in the memory or not started yet. Please provide a sample code and steps to follow to properly reproducing the issue. 
+   
+   Thanks. </li>
+<li>Steven van Loef 2016-01-14
+
+   Hi Sharif,
+   
+   I took the example code from <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/iOS_Interactive_Notifications and added an if statement to also check for the 'reject' action and if picked log it to the console.
+   
+   Here is a demo of it:
+   <a href="https://www.dropbox.com/s/z8bv3xg43d2sb95/appc5830.gif" rel="nofollow" target="_blank">https://www.dropbox.com/s/z8bv3xg43d2sb95/appc5830.gif</a>
+   
+   Steps I did:
+   1) open app, trigger notification, kill app, wait for notification, pick 'Accept' action, app opens, alert is NOT displayed (not expected)
+   2) kill app, open app, trigger notification, kill app, wait for notification, pick 'Reject' action, app does not open because this is a background action, in console 'reject action in background' should be displayed: not happening (not expected)
+   3) kill app, open app, trigger notification, wait for notification, pick 'Accept' action, app opens, alert IS displayed (expected)
+   4) kill app, open app, trigger notification, wait for notification, pick 'Reject' action, in console 'reject action in background' is displayed (expected)
+   
+   So step 3 and 4 work as expected, this is because the app is already loaded in memory. Step 1 and 2 do not work as expected, not even step 1 where the app opens, no alert is shown. For step 2 nothing happens, well almost nothing. If you run this on device and check the device log while performing this step you'll notice that iOS does start the app after tapping the Reject action. This is where "- (void) application:(UIApplication *)application handleActionWithIdentifier:(NSString *)identifier forLocalNotification:(UILocalNotification *)notification withResponseInfo:(NSDictionary *)responseInfo completionHandler:(void (^)())completionHandler" gets called by iOS. But at that point the JS code has not loaded yet, the event listener has not been added yet, but the ObjC code already sends the notification to a place that's not alive yet.
+   
+   Regards,
+    Steven
+   
+   <code><pre>
+   // Check for iOS 8 or greater
+   if (Ti.Platform.name == "iPhone OS" && parseInt(Ti.Platform.version.split(".")[0]) >= 8) {
+       Ti.API.info("I am iOS 8!");
+       // Create notification actions
+       var acceptAction = Ti.App.iOS.createUserNotificationAction({
+           identifier: "ACCEPT_IDENTIFIER",
+           title: "Accept",
+           activationMode: Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_FOREGROUND,
+           destructive: false,
+           authenticationRequired: true
+       });
+       
+       var rejectAction = Ti.App.iOS.createUserNotificationAction({
+           identifier: "REJECT_IDENTIFIER",
+           title: "Reject",
+           activationMode: Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND,
+           destructive: true,
+           authenticationRequired: false
+       });
+       // Create a notification category
+       var downloadContent = Ti.App.iOS.createUserNotificationCategory({
+         identifier: "DOWNLOAD_CONTENT",
+         actionsForDefaultContext: [acceptAction, rejectAction]
+       });    
+       // Register for user notifications and categories
+       Ti.App.iOS.registerUserNotificationSettings({
+           types: [
+               Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT,
+               Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE,
+               Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND
+           ],
+           categories: [downloadContent]
+       });
+       // Monitor notifications received while app is in the background
+       Ti.App.iOS.addEventListener('localnotificationaction', function(e) {
+           if (e.category == "DOWNLOAD_CONTENT" && e.identifier == "ACCEPT_IDENTIFIER") {
+               alert("start download");
+           }
+           
+           if (e.category == "DOWNLOAD_CONTENT" && e.identifier == "REJECT_IDENTIFIER") {
+               // this should show up in the device log without the app going to
+               // foreground and being visible in the application switcher
+               console.log("reject action in background");
+           }
+           
+           // Reset the badge value
+           if (e.badge > 0) {
+               Ti.App.iOS.scheduleLocalNotification({
+                   date: new Date(new Date().getTime() + 3000),
+                   badge: "-1"
+               });
+           }
+           Ti.API.info(JSON.stringify(e));
+       });
+   }
+   // Monitor notifications received while app is in the foreground 
+   Ti.App.iOS.addEventListener('notification', function(e) { 
+       // Reset the badge value
+       if (e.badge > 0) {
+           Ti.App.iOS.scheduleLocalNotification({
+               date: new Date(new Date().getTime() + 3000),
+               badge: "-1"
+           });
+       }
+       Ti.API.info(JSON.stringify(e));
+   });
+   // App UI
+   var win = Ti.UI.createWindow({backgroundColor: 'white'});
+   var button = Ti.UI.createButton({title: 'Trigger Notification'});
+   button.addEventListener('click', function(e){ 
+       // Send a notification in 3 seconds
+       var note = Ti.App.iOS.scheduleLocalNotification({
+           date: new Date(new Date().getTime() + 3000),
+           alertBody: "New content available! Download now?",
+           badge: 1,
+           userInfo: {"url": "<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>", id:"1"},
+           category: "DOWNLOAD_CONTENT"
+       });    
+   });
+   win.add(button);
+   win.open();
+   </pre></code>
+   
+   Log of simulator:
+   
+   <code><pre>
+   -- Start simulator log -------------------------------------------------------
+   [INFO]  Application started
+   [DEBUG] Reading stylesheet from: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/stylesheet.plist
+   [INFO]  appc5830/1.0 (5.1.1.e46100b)
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/app.js, Resource: app_js
+   [INFO]  I am iOS 8!
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/_app_props_.json, Resource: _app_props__json
+   [DEBUG] Application booted in 428.928018 ms
+   [INFO]  Application started
+   [DEBUG] Reading stylesheet from: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/stylesheet.plist
+   [INFO]  appc5830/1.0 (5.1.1.e46100b)
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/app.js, Resource: app_js
+   [INFO]  I am iOS 8!
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/_app_props_.json, Resource: _app_props__json
+   [DEBUG] Application booted in 140.964031 ms
+   [INFO]  {"category":"DOWNLOAD_CONTENT","badge":1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":"New content available! Download now?","sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:11.246Z","userInfo":{"url":"<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>","id":"1"},"identifier":"ACCEPT_IDENTIFIER","bubbles":true,"type":"notification","source":{},"cancelBubble":false}
+   [INFO]  {"category":null,"badge":-1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":null,"sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:18.097Z","userInfo":null,"identifier":null,"bubbles":true,"type":"notification","source":{},"cancelBubble":false}
+   [INFO]  Application started
+   [DEBUG] Reading stylesheet from: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/stylesheet.plist
+   [INFO]  appc5830/1.0 (5.1.1.e46100b)
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/app.js, Resource: app_js
+   [INFO]  I am iOS 8!
+   [DEBUG] Loading: /Volumes/Data Disk 2TB/Users/steven/Library/Developer/CoreSimulator/Devices/B788A42B-6934-400D-B096-8BA1D51808CB/data/Containers/Bundle/Application/2A6CBC0A-05AA-45AE-A8B5-B74B71C315E9/appc5830.app/_app_props_.json, Resource: _app_props__json
+   [DEBUG] Application booted in 367.496014 ms
+   [INFO]  {"category":"DOWNLOAD_CONTENT","badge":1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":"New content available! Download now?","sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:27.825Z","userInfo":{"url":"<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>","id":"1"},"identifier":"REJECT_IDENTIFIER","bubbles":true,"type":"notification","source":{},"cancelBubble":false}
+   [INFO]  {"category":"DOWNLOAD_CONTENT","badge":1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":"New content available! Download now?","sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:46.083Z","userInfo":{"url":"<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>","id":"1"},"identifier":"ACCEPT_IDENTIFIER","bubbles":true,"type":"localnotificationaction","source":{},"cancelBubble":false}
+   [INFO]  {"category":null,"badge":-1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":null,"sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:51.292Z","userInfo":null,"identifier":null,"bubbles":true,"type":"notification","source":{},"cancelBubble":false}
+   *[INFO]  reject action in background*
+   [INFO]  {"category":"DOWNLOAD_CONTENT","badge":1,"alertAction":null,"timezone":"Europe/Amsterdam","alertBody":"New content available! Download now?","sound":null,"alertLaunchImage":null,"date":"2016-01-14T09:20:54.411Z","userInfo":{"url":"<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>","id":"1"},"identifier":"REJECT_IDENTIFIER","bubbles":true,"type":"localnotificationaction","source":{},"cancelBubble":false}
+   </pre></code></li>
+<li>Steven van Loef 2016-01-14
+
+   Just noticed something interesting. It seems like the 'localnotificationaction' event is never called in background but the 'notification' event is and it has the same data. Is this then the correct way to handle these cases? If so, the documentation needs to be clear on that: use 'notification' event to handle background (and when app is not yet loaded) trigger actions and use 'localnotificationaction' for other cases.
+   
+   Also which event should be used when handling remote interactive notification actions (push notifications) in this case? I mean what is the equivalent for 'notification' when dealing with remote notifications (and the app is not in memory yet)?</li>
+<li>Sharif AbuDarda 2016-01-17
+
+   Hello, Starting with Release 3.4.0, you can create interactive notifications, where users can respond to application notifications without launching the application to the foreground. The user needs to reveal notification actions in the notification, then press a notification action to respond to the notification. This feature is available on devices running iOS 8 or later.
+   
+   To create an interactive notification, the applications needs to:
+   
+       1. Create and configure notification actions
+   
+       2. Create notification categories and assign notification actions to them
+   
+       3. Register the notification categories
+   
+       4. Monitor the localnotificationaction event to respond to local notifications and the remotenotificationaction event to respond to push notifications.
+   
+   Yes, When the app in not in the memory yet, it should be recommended to use push notification. Thanks.
+   
+   </li>
+<li>Steven van Loef 2016-01-18
+
+   Why did you close this issue? This is not solved. The previous comment is not a solution. 
+   I'm using push notifications, some of which have interactive actions. The remotenotificationaction event never gets called when the app is not in memory for actions that have activationMode of  Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND like I mentioned before and showed in the example.
+   
+   Same thing for the localnotificationaction event, it is never called when app is not in memory.
+   
+   Please reopen this ticket to get this solved.</li>
+<li>Hans Knöchel 2016-01-26
+
+   Just validated it using the below code and reproduced the issue, when the app was closed before. It's a valid issue, will move it to TIMOB.
+   
+   Demo:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: "Schedule notification"
+   });
+   
+   btn.addEventListener("click", sendLocalNotification);
+   
+   win.add(btn);
+   win.open();
+   
+   Ti.App.iOS.addEventListener('localnotificationaction', function(e) {
+   	Ti.API.warn("Event: localnotificationaction");
+   	Ti.API.warn(e);
+   });
+   
+   Ti.App.iOS.addEventListener('notification', function(e) {
+   	Ti.API.warn("Event: notification");
+   	Ti.API.warn(e);
+   });
+   
+   function sendLocalNotification() {
+   
+       var answerAction = Ti.App.iOS.createUserNotificationAction({
+           identifier: "ANSWER_IDENTIFIER",
+           title: "Answer",
+           activationMode: Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND,
+   		behavior: Ti.App.iOS.USER_NOTIFICATION_BEHAVIOR_TEXTINPUT
+       });
+   
+       var invitationCategory = Ti.App.iOS.createUserNotificationCategory({
+           identifier: "INVITE_CATEGORY",
+           actionsForDefaultContext: [answerAction],
+           actionsForMinimalContext: [answerAction]
+       });
+   
+   	Ti.App.iOS.registerUserNotificationSettings({
+   	   types: [
+   		   Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT,
+   		   Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE,
+   		   Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND
+   	   ],
+   	   categories: [invitationCategory]
+      });
+   
+       Ti.App.iOS.scheduleLocalNotification({
+           date: new Date(new Date().getTime() + 3000),
+           alertBody: "New content available! Answer?",
+           badge: 1,
+           category: "INVITE_CATEGORY"
+       });
+   }
+   </pre></code></li>
+<li>Hans Knöchel 2017-05-10
+
+   *PR*: <a href="https://github.com/appcelerator/titanium_mobile/pull/9040" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9040</a>
+   
+   *Test-Cases*:
+   1) Notifications
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+    
+   var btn = Ti.UI.createButton({
+       title: "Schedule notification"
+   });
+    
+   btn.addEventListener("click", sendLocalNotification);
+    
+   win.add(btn);
+   win.open();
+    
+   Ti.App.iOS.addEventListener('localnotificationaction', function(e) {
+       // As soon as the app-badge increases to __THREE__, we now it works
+       Ti.UI.iOS.appBadge = 3;
+   	Ti.API.info(e);
+   });
+    
+   Ti.App.iOS.addEventListener('notification', function(e) {
+   	alert("Event: notification");
+   	Ti.API.warn(e);
+   });
+    
+   function sendLocalNotification() {
+    
+       var answerAction = Ti.App.iOS.createUserNotificationAction({
+           identifier: "ANSWER_IDENTIFIER",
+           title: "Answer",
+           activationMode: Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND,
+   		behavior: Ti.App.iOS.USER_NOTIFICATION_BEHAVIOR_TEXTINPUT
+       });
+    
+       var invitationCategory = Ti.App.iOS.createUserNotificationCategory({
+           identifier: "INVITE_CATEGORY",
+           actionsForDefaultContext: [answerAction],
+           actionsForMinimalContext: [answerAction]
+       });
+    
+   	Ti.App.iOS.registerUserNotificationSettings({
+   	   types: [
+              Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT,
+              Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE,
+   		   Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND
+   	   ],
+   	   categories: [invitationCategory]
+      });
+    
+       Ti.App.iOS.scheduleLocalNotification({
+           date: new Date(new Date().getTime() + 10000),
+           alertBody: "New content available! Answer?",
+           badge: 1,
+           category: "INVITE_CATEGORY"
+       });
+   }
+   </pre></code>
+   
+   2) User Activities
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+   
+   var activity =  Ti.App.iOS.createUserActivity({
+       activityType:'com.foo.message',
+       title:'Handoff Messenger',
+       userInfo:{
+           msg: 'Tag! You\'re it!'
+       }
+   });
+    
+   if (!activity.isSupported()){
+       alert('activity is not supported');
+   } else {
+       activity.becomeCurrent();
+   }
+    
+   activity.addEventListener('useractivitywascontinued', function(e) {
+       Ti.API.info('Activity moved to a different device.');
+   });
+    
+   Ti.App.iOS.addEventListener('continueactivity', function(e){
+       if (e.activityType === 'com.foo.message' && e.userInfo.msg) {
+           alert(e.userInfo.msg);
+       }
+   });
+   
+   win.open();
+   </pre></code>
+   
+   3) Shortcut-Items
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+   
+   Ti.App.iOS.addEventListener('shortcutitemclick', function(e) {
+       alert('WORKS');
+   });
+   
+   var activity =  Ti.App.iOS.createUserActivity({
+       activityType:'com.foo.message',
+       title:'Handoff Messenger',
+       userInfo:{
+           msg: 'Tag! You\'re it!'
+       }
+   });
+    
+   if (!activity.isSupported()){
+       alert('activity is not supported');
+   } else {
+       activity.becomeCurrent();
+   }
+    
+   activity.addEventListener('useractivitywascontinued', function(e) {
+       Ti.API.info('Activity moved to a different device.');
+   });
+    
+   Ti.App.iOS.addEventListener('continueactivity', function(e){
+       if (e.activityType === 'com.foo.message' && e.userInfo.msg) {
+           alert(e.userInfo.msg);
+       }
+   });
+   
+   win.open();
+   </pre></code>
+   
+   Basically what happens is what [~ludolphus] suspected: The boot-delegates are fire before the <code>Ti.App.iOS</code> namespace is able to register the events. We used some delays 1-2sec for background-mode events and user-activities before, but that was no suitable solution anymore. The way it is now implemented, we are able to queue the events and process them when the Core is ready (which makes the events fire earlier now). Thanks again [~ludolphus] for the help on tracking things down! 
+   
+   *EDIT*: For the QE: As I also fixed the <code>backgroundtransfer</code>, <code>shortcutitemclick</code> and <code>continueactivity</code> events, please test those events as well. I've validate all notifications so far, but need to set-up test-cases for the above as well.</li>
+<li>Abir Mukherjee 2017-08-09
+
+   [~hknoechel] can you please do 6.2.0 backport?</li>
+<li>Hans Knöchel 2017-08-09
+
+   PR (6_2_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9295" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9295</a></li>
+<li>Abir Mukherjee 2017-08-10
+
+    FR passed, PR merged for the backport version. Fix found in SDK 6.2.0.v20170810134640. Awaiting for build issues on master to be fixed before merging on master.
+    
+    Edit 8/11: PR merged on master. Closing ticket as fix also seen on 7.0.0.v20170811094808.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20272.json">JSON Source</a></p>

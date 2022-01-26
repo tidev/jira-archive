@@ -1,0 +1,96 @@
+---
+title: "[ALOY-1037] Expose instantiation arguments of createController"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-06T19:51:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Matthew Congrove</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2014-06-03T17:37:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-10-06T19:51:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Expose the controller name and parameters passed to Alloy.createController() so that they can be accessed later on.
+
+For instance:
+
+<code><pre>
+var w = Alloy.createController("userProfile", {
+	userId: 1234
+});
+
+var controller = w.controllerPath; // "userProfile"
+var arguments = w.controllerArguments; // { "userId": 1234 }
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-06-03
+
+   A couple of quick thoughts:
+   
+   1. You should already have access to these values already in whatever controller instantiates the new child controller. What does this new feature add? This would be just as valid as your sample:
+   
+   <code><pre>
+   var childController = 'userProfile';
+   var userId = 1234;
+   
+   var w = Alloy.createController(childController, { userId: userId});
+   
+   // then use childController and userId as needed instead of 
+   // controller or arguments
+   </pre></code>
+   
+   2. Making these arguments accessible will cause some confusion -- are they mutable values? If I change w.controllerArguments.userId would my child view update? What if I change w.controllerPath? 
+   
+   3. Isn't there at least some minimal risk of increased memory use or leaks by adding references to variables you already reference elsewhere? Simple types are copied by value, so there could be copies created instead of references.</li>
+<li>Matthew Congrove 2014-06-03
+
+   1. The use-case here is for when someone is creating a custom navigation stack to control windows. In this situation, they are simply pushing a pointer to the controller to a stack array, and later on they may want to determine what params were passed to instantiate one of those controllers. This means that, unless they also store the name/params in an array, the values are lost as they were temporary variables.
+   
+   2. Agree, it could cause confusion. The idea is that they would not be able to be changed, but instead are just a way to reference what was initially used. Just like the __controllerPath property currently used by Alloy (internally).
+   
+   3. As I mentioned in #1, the use-case is that the parameters were stored as temporary, local vars. Could someone do it wrong and run into this issue? Probably.
+   
+   I admittedly haven't thought through all of the different possible use-cases, I was just filing a request for a specific use-case my client is running into and seeing if you guys had any thoughts on the matter. There are workarounds which are quite simple (e.g. exporting the values from the controller), but that's something they'd have to remember to add to every controller... figured it may be worth just building it in. If there are too many downsides, though, we can close this.</li>
+<li>Peter Eddy Pritchard 2014-10-05
+
+   I suggest invoking function in BaseController module ... the generated code already passes the args to the BaseController module ... I just added named args in Constructor function:
+   
+   var Controller = function(inArgs) {
+   
+   and then invoke a second function at the end of the constructor function itself:
+   
+   	var initReturn = this.init(inArgs);
+   
+   (ignore the return value ... I return a deferred to trigger a custom render() when remote objects are available)
+   
+   As long as you pass those args to a subclass hook function (like initialize or beforeRender), then there is no need to "record" the value as an object property.  Developers need only override the function to get at the value.</li>
+<li>Tim Poulsen 2014-10-06
+
+   (Not truly a duplicate, but I don't see a better Resolution option to choose.)</li>
+<li>Tim Poulsen 2014-10-06
+
+   This is going to be resolved by the ALOY-1092 change. Though, the controller path was already available as child.__controllerPath. The change I made will also make the args available. 
+   
+   <code><pre>
+   var child = Alloy.createController('childWindow', { someProperty: true});
+   // worked previously
+   console.log("__controllerPath = " + child.__controllerPath);
+   // will work with the ALOY-1092 PR
+   console.log("args = " + JSON.stringify(child.args));
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1037.json">JSON Source</a></p>

@@ -1,0 +1,240 @@
+---
+title: "[TIMOB-13261] BlackBerry: TextField and Label are not displaying German umlauts"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-09T23:06:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 08 BB, 2013 Sprint 08, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>BlackBerry</td></tr>
+<tr><th>Labels</th><td>qe-testadded, sdk-bb</td></tr>
+<tr><th>Reporter</th><td>Russell McMahon</td></tr>
+<tr><th>Assignee</th><td>Josh Roesslein</td></tr>
+<tr><th>Created</th><td>2013-03-28T23:06:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:44:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Test Case</h4>
+<code><pre>
+var win = Ti.UI.createWindow({
+  layout: 'vertical'
+});
+
+var label = Ti.UI.createLabel({
+    text : 'Label äöüÄÖÜ'
+});
+win.add(label);
+
+var textField = Ti.UI.createTextField({
+    value : 'TextField äöüÄÖÜ '
+});
+win.add(textField);
+
+win.open();
+</pre></code>
+
+Expected: Both the label and text field should properly display the German unicode text.
+Actual: Garbage characters are drawn instead.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Josh Roesslein 2013-04-09
+
+   Is there a test case we can reproduce the issue? Is this with typing or using textField.setValue(someText)?</li>
+<li>Matthias Kroeger 2013-04-09
+
+   Josh, here is my example from [appc-ti-mobile-blackberry Group](<a href="https://groups.google.com/forum/?fromgroups=#" rel="nofollow" target="_blank">https://groups.google.com/forum/?fromgroups=#</a>!topic/appc-ti-mobile-blackberry/1_w7rivtmt0)
+   
+   
+   I reported some more issues in this group post, so here's my complete comment:
+   
+   {quote}
+   Hi Russ,
+   
+   I wrote a litte test app for testing Label wordwrap and realized even more stuff not working.
+   
+   I tested this on BB10 Simulator, BB10 Dev Alpha B and iOS Simulator.
+   On iOS Simulator everything works as expected, but not on BB10 side.
+   
+   This is what is not working properly:
+   1. German Umlauts are not displayed correctly in Ti.UI.Label and Ti.UI.TextField.
+   2. wordwrap don't work (we know that)
+   3. backgroundColor for Ti.UI.TextField don't work
+   4. Ti.UI.ScrollView EventListener("click") gets fired if I attempt to scroll the ScrollView
+   5. In Ti.UI.ScrollView EventListener("click")  I can not access "e.source" and "e.source.myRowIndex"
+   6. for Ti.UI.ScrollView I have to set ContentHeight explicit, because 'auto' don't work
+   {quote}
+   
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor : 'darkgray'
+   });
+   
+   Ti.API.info('Ti.Platform.displayCaps.density: ' + Ti.Platform.displayCaps.density);
+   Ti.API.info('Ti.Platform.displayCaps.dpi: ' + Ti.Platform.displayCaps.dpi);
+   Ti.API.info('Ti.Platform.displayCaps.platformHeight: ' + Ti.Platform.displayCaps.platformHeight);
+   Ti.API.info('Ti.Platform.displayCaps.platformWidth: ' + Ti.Platform.displayCaps.platformWidth);
+   
+   /* iPhone Simulator
+    [INFO] Ti.Platform.displayCaps.density: medium
+    [INFO] Ti.Platform.displayCaps.dpi: 160
+    [INFO] Ti.Platform.displayCaps.platformHeight: 480
+    [INFO] Ti.Platform.displayCaps.platformWidth: 320
+    */
+   /* BlackBerry Simulator BB10_0_10.261
+    [INFO] Ti.Platform.displayCaps.density: high
+    [INFO] Ti.Platform.displayCaps.dpi: 326.0563532730535
+    [INFO] Ti.Platform.displayCaps.platformHeight: 1280 (392dp)
+    [INFO] Ti.Platform.displayCaps.platformWidth: 768   (235)
+    */
+   var myFontSize; 
+   if (Ti.Platform.osname === 'blackberry') {
+       myFontSize = 8;
+   } else {
+       // Android, iOS
+       myFontSize = 14;
+   }
+           
+   
+   function createRow(i) {
+       var row = Ti.UI.createView({
+           myRowIndex : i,
+           layout : 'vertical',
+           backgroundColor : 'darkgray',
+           borderColor : '#bbb',
+           // borderWidth: 1, ==> don't work for BlackBerry
+           width : '100%',
+           height : 65,
+           left : 0
+       });
+   
+       // invisible Label to keep a url
+       var urlLabel = Ti.UI.createLabel({
+           touchEnabled : false,
+           backgroundColor : 'darkgray',
+           color : 'darkgray',
+           text : '<a href="http://www.google.de" rel="nofollow" target="_blank">http://www.google.de</a>',
+           wordWrap : false,
+           font : {
+               fontSize : myFontSize,
+               fontFamily : 'Helvetica Neue'
+           },
+           left : 5,
+           right : 5,
+           width : Titanium.UI.FILL,
+           height : 5
+       });
+       
+       var headerLabel = Ti.UI.createLabel({
+           touchEnabled : false,
+           backgroundColor : 'darkgray',
+           color : 'white',
+           text : 'Header Label äöüÄÖÜ ' + (i + 1) + ' with a long text to see if it can span over more than one row or not',
+           textAlign : Ti.UI.TEXT_ALIGNMENT_LEFT,
+           wordWrap : true,
+           font : {
+               fontSize : myFontSize,
+               fontWeight : 'bold',
+               fontFamily : 'Helvetica Neue'
+           },
+           left : 5,
+           right : 5,
+           width : Titanium.UI.FILL,
+           height : 37
+       });
+   
+   
+       var textField = Ti.UI.createTextField({
+           touchEnabled : false,
+           backgroundColor : 'darkgray',
+           color : 'white',
+           value : 'Text Label äöüÄÖÜ ' + (i + 1),
+           textAlign : Ti.UI.TEXT_ALIGNMENT_LEFT,
+           font : {
+               fontSize : myFontSize,
+               fontFamily : 'Helvetica Neue'
+           },
+           left : 5,
+           right : 5,
+           width : Titanium.UI.FILL,
+           height : 22 
+       });
+   
+       var line = Ti.UI.createLabel({
+           touchEnabled : false,
+           backgroundColor : 'lightgray',
+           width : '100%',
+           height : 0.5
+       });
+   
+       row.add(urlLabel);
+       row.add(headerLabel);
+       row.add(textField);
+       row.add(line);
+   
+       return row;
+   }
+   
+   var scrollView = Ti.UI.createScrollView({
+       contentHeight : 65 * 20, //'auto',
+       layout : 'vertical',
+       horizontalBounce : false
+   });
+   
+   var i = 0;
+   for (i; i < 20; i++) {
+       var row = createRow(i);
+       scrollView.add(row);
+   }
+   
+   scrollView.addEventListener("click", function(e) {
+       alert('source=' + JSON.stringify(e.source));
+       alert('source.myRowIndex=' + e.source.myRowIndex);
+   });
+   
+   win.add(scrollView);
+   
+   win.open();
+   </pre></code>
+   
+   
+   Hope that helps,
+   Matthias</li>
+<li>Josh Roesslein 2013-04-09
+
+   Thanks Matthias! Just found that myself a few minutes ago. Added a simplified test case for this bug above.
+   The fix was pretty quick, so it should be pushed in a few minutes and available via CI and the next release.</li>
+<li>Matthias Kroeger 2013-04-09
+
+   Perfect!
+   Thanks Josh.</li>
+<li>Lokesh Choudhary 2013-04-09
+
+   Verified the fix & the german emlauts are displays properly.
+   
+   Environment:
+   Ti Studio : 3.1.0.201304051530
+   Ti BB SDK : 3.2.0.v20130409153013
+   Mac OSX : 10.8.2
+   win 7 
+   Win 8 
+   BB simulator : 10.0.10.261
+   Z10 device running 10.0.10.88</li>
+<li>Lokesh Choudhary 2013-04-09
+
+   Reopening to correct the ti sdk version.</li>
+<li>Lokesh Choudhary 2013-04-09
+
+   Closing after editing the Ti sdk version which was put wrong my me.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13261.json">JSON Source</a></p>

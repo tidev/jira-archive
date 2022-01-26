@@ -1,0 +1,125 @@
+---
+title: "[TIMOB-23887] iOS: Attributed string link on a TextArea doesn't fire link event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-05-09T18:06:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>merge-6.1.0</td></tr>
+<tr><th>Reporter</th><td>youri hanssens</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2016-07-30T11:15:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-05-10T16:14:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I use non-editable textarea's for multi-line text sections in my app. For setting the value I use attributed strings because some parts are links. Visually the clickable parts look like they are processed correctly because they turn blue and underlined. But when I click on one of the links I expect  the 'link' event to be triggered but all it does is select the word I just clicked, the listener get's nothing.
+
+When replacing textarea with label the link event works fine. Unfortunately labels are not an option for me because they do not handle Ti.UI.ATTRIBUTE_BASELINE_OFFSET, which I use to create a better looking line sacing, very well. Using that attribute on a label makes the it clip the text or unwanted ellipsis. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-08-05
+
+   Hello, Can uou share a sample test code that regenerates the issue. Also please update your ticket with effected SDK version and your platform information. We will look into your testcode. Thanks.</li>
+<li>Issei Komatsu 2016-09-05
+
+   </li>
+<li>Vijay Singh 2017-04-03
+
+   This problem is due to TIMOB-19165 . In this NSLinkAttributeName attribute is removed in order to fulfill the requirement of ticket. The UITextView recognize URL on basis of NSLinkAttributeName and delegates get called , which is handled by UITextView itself. So link event is not getting fired. 
+   </li>
+<li>Vijay Singh 2017-04-04
+
+   There are two solutions - 
+   1. Revert changes of TIMOB-19165 then UITextView's native link recognizer will be called.
+   2. Made changes similar to UILabel's link recognizer which is custom.
+   
+   In this PR, I have followed solution 2.
+   
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8923" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8923</a>
+   
+   Test Case :
+   
+   <code><pre>
+   // With padding
+   var win = Titanium.UI.createWindow({
+     backgroundColor: '#ddd',
+   });
+   
+   var string = Ti.UI.createAttributedString({
+     text: 'Appcelerator always give blue and underlined',
+     attributes: [{
+       type: Ti.UI.ATTRIBUTE_LINK,
+       value: '<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>',
+       range: [0, 12]
+     }, {
+       type: Ti.UI.ATTRIBUTE_FOREGROUND_COLOR,
+       value: 'red',
+       range: [0, 12]
+     }, {
+       type: Ti.UI.ATTRIBUTE_UNDERLINES_STYLE,
+       value: Ti.UI.ATTRIBUTE_UNDERLINE_STYLE_NONE,
+       range: [0, 12]
+     }, {
+       type: Ti.UI.ATTRIBUTE_LINK,
+       value: '<a href="https://www.youtube.com" rel="nofollow" target="_blank">https://www.youtube.com</a>',
+       range: [25, 4]
+     }]
+   });
+   
+   var textarea = Ti.UI.createTextArea({
+     top: 100,
+     attributedString: string,
+     padding: {
+       left: 20,
+       right: 10
+     }
+   });
+   
+   win.add(textarea);
+   win.open();
+   
+   textarea.addEventListener("link", function(e) {
+     Ti.API.info('link clicked');
+     win.add(Titanium.UI.createWebView({
+       url: e.url,
+       height: 300,
+       width: 300
+     }));
+   });
+   </pre></code></li>
+<li>Hans Knöchel 2017-05-03
+
+   Backport for 6.1.0 please</li>
+<li>Vijay Singh 2017-05-04
+
+   Backport PR (6_1_X):<a href="https://github.com/appcelerator/titanium_mobile/pull/9013" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9013</a></li>
+<li>Eric Wieber 2017-05-09
+
+   FR Passed, using:
+   MacOS 10.12 (16A323)
+   Studio 4.9.0.201704061825
+   Ti SDK 6.1.0.v20170503211832
+   Appc NPM 4.2.9
+   Appc CLI 6.2.0
+   Alloy 1.9.11
+   Xcode 8.3.2 (8E2002)
+   
+   Attributed strings, inside non-editable text areas, with links now correctly fire the link event when clicked. Tested using the sample code and modified it to fully apply to the test case.</li>
+<li>Eric Wieber 2017-05-10
+
+   Fixes verified in builds:
+   6.1.0.v20170509170935
+   6.2.0.v20170510084833</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23887.json">JSON Source</a></p>

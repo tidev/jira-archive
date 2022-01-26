@@ -1,0 +1,86 @@
+---
+title: "[ALOY-744] Alloy: Specify controller code that needs to come before generated view code"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 2.0.0</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>alloy, controller, scope, views</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-07-14T11:49:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Right now, compiled Alloy controllers will start with any functions defined in the original controller, then adds the generated view code and finally any inline controller code.
+
+Because of this, we are not able to refer to any variables in the Alloy XML views. This could be either view component factories using the <code>ns</code> attribute or models by using <code>{someField}</code> in attributes.
+
+In [this blog](<a href="http://fokkezb.nl/2013/07/14/custom-alloy-view-components/)" rel="nofollow" target="_blank">http://fokkezb.nl/2013/07/14/custom-alloy-view-components/)</a> I show both the need and a workaround for the component factory use-case.
+
+There should be a way to specify code that needs to come before the generated view code. Maybe some kind of boundary or and object whose properties will be extracted into the current scope?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-07-15
+
+   I totally agree with this need, but unfortunately I don't want to do it as a band-aid at the moment. Any additional object or clever use of specific "exports" functions would create weird scoping issues and edge cases. The end goal would be to structure Alloy controllers more like true commonjs modules and then have a simple means of converting legacy controllers to the new format. In any case, this is a long discussion for which I am planning to compose a spec document and put forth to the community (google group) in the coming weeks. Sorry for the slightly evasive response, but believe me, this is one of the primary goals of a controller revamp. </li>
+<li>Fokke Zandbergen 2013-07-15
+
+   Good to know you're on it... looking forward to the doc ;)</li>
+<li>Fokke Zandbergen 2013-07-21
+
+   Looking at what this would be used for, we actually may find a solution in how we already handle binding not yet defined callbacks to UI events by using <code>__defers</code>.
+   
+   Of course this might be more challenging since both the suggested binding of not-yet-defined models and using not-yet-defined <code>ns</code> are not as easy to postpone as event-binding is. But I just want the idea here for the record ;)
+   
+   The other way around, IF we find a good solutions for changing the order of execution of code, we might have no need anymore for using <code>__defers</code> for events as well ;)</li>
+<li>Fokke Zandbergen 2013-07-21
+
+   A third solution I was thinking of is analyzing the code to determine what parts of the controller code need to come before the UI.
+   
+   I couldn't find an existing Node module that can do this out of the box, but if we can pull it off, it would filter out any variables and functions used in the UI code and move those to the top of the controller.
+   
+   This would solve both event-binding, model-binding, namespaces etc.</li>
+<li>Tony Lukasavage 2013-07-22
+
+   </li>
+<li>Fokke Zandbergen 2013-07-24
+
+   At the London Titanium meetup, while speaking about this with people I thought about another solution. Since, the Alloy compiler moves all functions to the top, why not use a self-executing function to do any pre-UI stuff. But a quick test showed these type of functions don't get promoted :(
+   
+   Maybe we can tweek UglifyJS to actually do promote (hoist) self-executing functions to the top. I think coming from jQuery and other frameworks, didn't would feel like a hack at all:
+   
+   <code><pre>
+   (function($) {
+   
+     $.myModel = Alloy.Collections.myCollection.get(arguments[0].modelId);
+   
+   })(this);
+   </pre></code>
+   
+   
+   Of course we could move the <code>$ = this;</code> statement even before the functions, it can be even more simple.</li>
+<li>Tony Lukasavage 2013-07-24
+
+   Definitely not. [Immediately-invoked function expressions](<a href="http://benalman.com/news/2010/11/immediately-invoked-function-expression/)" rel="nofollow" target="_blank">http://benalman.com/news/2010/11/immediately-invoked-function-expression/)</a> (IIFE) are meant to be invoked exactly where they are placed. Plain declarations can be hoisted since they are considered to be global to the current context anyway. Variables can be hoisted due to the lack of block scope. But moving IIFEs is dangerous and almost certainly would lead to bad, unexpected behavior.</li>
+<li>Fokke Zandbergen 2013-07-24
+
+   Ouch... ;)</li>
+<li>Peter Eddy Pritchard 2014-10-05
+
+   How about a method that is invoked in BaseController.js?  BaseController is required() in before any View XML is executed.
+   
+   Invoking a subclass method (like initialize() or beforeRender()) ... to let sub-classes hook into this seems simple and natural.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-744.json">JSON Source</a></p>

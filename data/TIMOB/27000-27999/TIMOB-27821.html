@@ -1,0 +1,189 @@
+---
+title: "[TIMOB-27821] ti.urlsession - Event sessioncompleted does not get all specified values"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-08-11T15:01:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.1.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Mikael Norrman</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2020-03-18T10:15:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-08-11T15:01:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm using the module [ti.urlSession](<a href="https://github.com/appcelerator-modules/ti.urlsession)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.urlsession)</a> to fetch data in the background.
+The issue is that when the download is complete and the event "sessioncompleted" fires, the input argument object doesn't contain all the values specified in the [documentation](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.App.iOS-event-sessioncompleted), it's missing success, errorCode, message, responseText and statusCode. Basically all attributes connected to the http response.
+
+To test this I set up a test application:
+
+*index.js*
+<code><pre>
+var URLSession = require("com.appcelerator.urlSession");
+function doClick(e) {
+	alert($.label.text);
+	var sessionConfig = URLSession.createSessionConfiguration({identifier: "test"});
+	var session = URLSession.createSession({configuration: sessionConfig});
+	var task = session.downloadTask({url: "<a href="http://ip.jsontest.com" rel="nofollow" target="_blank">http://ip.jsontest.com</a>"});
+}
+Ti.App.iOS.addEventListener('downloadcompleted', function(e) {
+	console.log('download complete', JSON.stringify(e));
+	if (e.data) {
+		console.log(e.data.text);
+	}
+});
+Ti.App.iOS.addEventListener('sessioncompleted', function(e) {
+	console.log('Session complete', JSON.stringify(e));
+});
+$.index.open();
+</pre></code>
+
+*index.html*
+<code><pre>
+<Alloy>
+	<Window class="container">
+		<Label id="label" onClick="doClick">Hello, World</Label>
+	</Window>
+</Alloy>
+</pre></code>
+
+And this is the output that I get from running the application and tapping on the label:
+
+{noformat}
+[INFO] :   download complete {"sessionIdentifier":"test","taskIdentifier":1,"data":{},"bubbles":true,"type":"downloadcompleted","source":{},"cancelBubble":false}
+[INFO] :   {"ip": "5.150.230.124"}
+[INFO] :   Session complete {"taskIdentifier":1,"sessionIdentifier":"test","bubbles":true,"type":"sessioncompleted","source":{},"cancelBubble":false}
+{noformat}
+
+I had this working last in Ti SDK 7.4.1.v20180927102822
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2020-03-23
+
+   [~mnorrman] Did this same module version work with older SDK's? Or did an upgrade of the module break it?</li>
+<li>Mikael Norrman 2020-03-23
+
+   I'm pretty sure the same version (2.2.0) was working in TiSDK 7.4.1 but not in TiSDK 8+
+   </li>
+<li>Vijay Singh 2020-06-12
+
+   This is regression , introduced in SDK 7.5.0, due to PR <a href="https://github.com/appcelerator/titanium_mobile/pull/8860." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8860.</a></li>
+<li>Vijay Singh 2020-06-18
+
+   PR  - <a href="https://github.com/appcelerator/titanium_mobile/pull/11782" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11782</a>
+   Test Case (Download task)-
+   
+   <code><pre>
+       var win = Ti.UI.createWindow({
+           backgroundColor: '#fff'
+       });
+   
+       var label = Ti.UI.createLabel({
+           text: 'click',
+           color: "#333",
+           font: {
+               fontSize: 20
+           }
+       });
+   
+       win.add(label);
+   
+   var URLSession = require("com.appcelerator.urlSession");
+       var sessionConfig = URLSession.createSessionConfiguration({identifier: "test"});
+       var session = URLSession.createSession({configuration: sessionConfig});
+       var task = session.downloadTask({url: "<a href="http://ip.jsontest.com" rel="nofollow" target="_blank">http://ip.jsontest.com</a>"});
+   label.addEventListener('click', function (e) {
+       var sessionConfig = URLSession.createSessionConfiguration({identifier: "test"});
+       var session = URLSession.createSession({configuration: sessionConfig});
+       var task = session.downloadTask({url: "<a href="http://ip.jsontest.com" rel="nofollow" target="_blank">http://ip.jsontest.com</a>"});
+   });
+   
+   Ti.App.iOS.addEventListener('downloadcompleted', function(e) {
+       console.log('download complete', JSON.stringify(e));
+       if (e.data) {
+           console.log(e.data.text);
+       }
+   });
+   Ti.App.iOS.addEventListener('sessioncompleted', function(e) {
+       console.log('Session complete', JSON.stringify(e));
+   });
+   win.open();
+   </pre></code>
+   
+   Test Case (Data Task) -
+   
+   <code><pre>
+   var URLSession = require('com.appcelerator.urlSession');
+    
+   var sessionConfig = URLSession.createSessionConfiguration({
+     identifier: 'com.test.test2'
+   });
+    
+   var session = URLSession.createSession({
+     configuration: sessionConfig
+   });
+    
+   var window = Ti.UI.createWindow({
+     backgroundColor: 'white',
+     title: 'Ti.URLSession'
+   });
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: window
+   });
+    
+   var triggerButton = Titanium.UI.createButton({
+     title: 'Start Data Task'
+   });
+    
+   triggerButton.addEventListener('click', function() {
+    
+     var taskIdentifier = session.dataTask({
+       url: '<a href="https://httpbin.org/post" rel="nofollow" target="_blank">https://httpbin.org/post</a>',
+       method: "POST",
+       requestHeaders: {
+         'Content-Type': 'application/json'
+       }
+     });
+    
+     Ti.API.info('Starting data task with task identifier: ' + taskIdentifier);
+   });
+    
+   window.add(triggerButton);
+   nav.open();
+    
+   // Called when the data task completes
+   Ti.App.iOS.addEventListener('sessioncompleted', function(event) {
+       alert('Session completed');
+       Ti.API.info(JSON.stringify(event));
+   });
+   </pre></code>
+   
+   Note - @QE Need to verify the event parameters are accordance with document. e.g
+    1. In download task 'sessioncomplete' will have 'statusCode' as well but no 'responseText'. 
+    2. In dataTask it will have both properties</li>
+<li>Samir Mohammed 2020-07-02
+
+   FR Passed, waiting on Jenkins build</li>
+<li>Christopher Williams 2020-07-06
+
+   merged to master for 9.1.0 target</li>
+<li>Samir Mohammed 2020-08-11
+
+   *Closing ticket*. Improvement verified in SDK version <code>9.1.0.v20200810120239</code>.
+   
+   *Test and other information can be found at:*
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/11782" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11782</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27821.json">JSON Source</a></p>

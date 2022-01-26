@@ -1,0 +1,81 @@
+---
+title: "[TIMOB-24732] CLI: Module zip process will not wait for the zip to be fully complete"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-21T15:32:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0, Release 6.0.4</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Ewan Harris</td></tr>
+<tr><th>Created</th><td>2017-05-24T10:29:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-23T15:31:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When trying to package a (large) module with CLI 6.2.1, the following error is thrown:
+<code><pre>
+[INFO]  Creating universal library
+[INFO]  Verifying universal library
+[INFO]  Creating module zip
+[INFO]  Writing module zip: /Users/hknoechel/Documents/appcelerator_modules/ti.googlemaps/ios/ti.googlemaps-iphone-3.4.1.zip
+An uncaught exception was thrown!
+undefined
+undefined
+</pre></code>
+Rolling back to 6.2.0 with <code>appc use 6.2.0</code> resolved the issue for me, so it has to be a regression.
+
+To reproduce:
+1. Fork and download [this module](<a href="https://github.com/hansemannn/titanium-google-maps)" rel="nofollow" target="_blank">https://github.com/hansemannn/titanium-google-maps)</a>, which is the Ti.GoogleMaps module for Titanium
+2. Ensure the SDK version in ios/titanium.xcconfig is set to one available on your machine
+3. Build the module with <code>appc ti build -p ios --build-only</code>
+
+Expected: Module builds, new zip is writtent to the project root.
+Actual: Module packaging crashes, a corrupt module zip is written to the project root.
+
+However, trying the same with [Ti.Facebook](<a href="https://github.com/appcelerator-modules/ti.facebook)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.facebook)</a> does not throw an error, but installs the app on the similator instead of just building it (the <code>--build-only</code> flag is ignored). Something weird happened with this release.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2017-05-24
+
+   [~hansknoechel] so looking at it, the error occurs not when packaging the module but when extracting it, because the CLI is dropping the <code>--build-only</code> flag the build process is then creating, and building a titanium project with the examples in the repo. It attempts to unzip the module into a temporary directory and errors out with the below. 
+   <code><pre>
+   /usr/local/lib/node_modules/titanium/node_modules/longjohn/dist/longjohn.js:192
+           throw e;
+           ^
+   Invalid or unsupported zip format. No END header found
+   </pre></code>
+   
+   Based off some bits that I saw I think we're not waiting for the zip to be fully written before moving on from [this function](<a href="https://github.com/appcelerator/titanium_mobile/blob/028882de90ef9e2c6d5c7e434178f28d276010fc/iphone/cli/commands/_buildModule.js#L541-L670)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/028882de90ef9e2c6d5c7e434178f28d276010fc/iphone/cli/commands/_buildModule.js#L541-L670)</a>, and this module is just exposing that because it produces a pretty big zip file
+   
+   I'm gonna move this over to TIMOB as it's in Titanium</li>
+<li>Ewan Harris 2017-05-24
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9083" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9083</a></li>
+<li>Harry Bryant 2017-06-23
+
+   Verified as fixed, modules are now built correctly, and a working zip file was created. Running the example app as a new project with the newly built module to simulators and devices was also successful.
+   
+   Tested On:
+   
+   iPhone 7 10.3.2 Device & Simulator
+   Mac OS Sierra (10.12.5)
+   Ti SDK: 6.2.0.v20170622105148
+   Appc NPM: 4.2.9
+   App CLI: 6.2.2
+   Xcode 8.3.3
+   Node v4.6.0
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24732.json">JSON Source</a></p>

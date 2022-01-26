@@ -1,0 +1,101 @@
+---
+title: "[TIMOB-15796] iOS: Restoring from iCloud does not restore app's sqlite database"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-29T22:31:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 02, 2014 Sprint 02 API, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, iphone4, iphone5, sqlite, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Eric Wieber</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2013-11-22T21:41:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-29T22:33:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem:</h4>
+Restoring from an iCloud backup does not restore an app's sqlite database info.
+
+<h4>Steps to reproduce:</h4>
+1. Create a new classic project using the code below:
+<code><pre>
+var db = Ti.Database.open('test');
+db.file.setRemoteBackup(true);
+
+db.execute('CREATE TABLE IF NOT EXISTS testtable (name TEXT)');
+
+var win = Ti.UI.createWindow({
+	backgroundColor : "pink",
+	layout : "vertical"
+});
+win.open();
+
+var button = Ti.UI.createButton({
+	top: 100,
+	title : "Click to update value"
+});
+
+button.addEventListener("click", function(e) {
+	db.execute("INSERT INTO testtable (name) VALUES (\"hello\")");
+	alert("updated");
+});
+
+var check = Ti.UI.createButton({
+	title : "Check Value"
+});
+
+check.addEventListener("click", function(e) {
+	var rows = db.execute("SELECT name FROM testtable");
+
+	while (rows.isValidRow()) {
+		alert(rows.fieldByName('name'));
+		Ti.API.info(rows.fieldByName('name'));
+		rows.next();
+	}
+	rows.close();
+	
+});
+
+win.add(button);
+win.add(check);
+</pre></code>
+
+2. Install the app on an iPhone 4 and run it
+3. Click the "Click to update value" button several times
+4. Click the "Check Value" button and see that an alert is shown for each time you pressed the "Clik to update value" button
+5. Make sure that the app data is included in iCloud backups
+6. Backup the device to iCloud
+7. Do a factory reset on the device
+8. Restore from the iCloud backup
+9. Install the app again
+10. Press the "Check value" button and see that no alert is shown
+
+<h4>Additional notes:</h4>
+I also tried restoring an iPhone 5 with the iPhone 4S' iCloud backup and it has the same issue.
+Factory resets were also done at the beginning of the test to ensure that the devices were "clean".
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2014-01-29
+
+   Alright so this is what's happening.
+   
+   We consciously made a change where database is stored in TIMOB-6273 (before the ticket: DB files was being stored in documents directory, now its being stored in <code>Private Documents</code> folder), this was done when iOS 5 introduced iCloud and apparently Apple specified that, database files should not be kept in Documents directory and should not be backed up to the cloud. Any app trying to keep DB files in documents directory, where being rejected. See [following thread](<a href="http://stackoverflow.com/questions/8612133/app-rejected-for-storing-database-in-documents-directory)" rel="nofollow" target="_blank">http://stackoverflow.com/questions/8612133/app-rejected-for-storing-database-in-documents-directory)</a> for more information. 
+   
+   So this is by design that database files are not being backed up to the iCloud.
+   
+   Marking ticket as invalid. </li>
+<li>Lee Morris 2017-03-29
+
+   Closing ticket as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15796.json">JSON Source</a></p>

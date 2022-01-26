@@ -1,0 +1,144 @@
+---
+title: "[TIMOB-4114] Filesystem rename and move broken due to conversion to file urls"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-05-18T15:31:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-20</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Blain Hamon</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-05-16T16:56:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-05-18T15:31:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Test code: 
+{{
+var f = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'test.txt');
+Ti.API.info('file = ' + f);
+var contents = f.read();
+Ti.API.info("contents blob object = "+contents);
+Ti.API.info('contents = ' + contents.text);
+Ti.API.info('mime type = ' + contents.mimeType);
+Ti.API.info('nativePath = ' + f.nativePath);
+Ti.API.info('exists = ' + f.exists());
+Ti.API.info('size = ' + f.size);
+Ti.API.info('readonly = ' + f.readonly);
+Ti.API.info('symbolicLink = ' + f.symbolicLink);
+Ti.API.info('executable = ' + f.executable);
+Ti.API.info('hidden = ' + f.hidden);
+Ti.API.info('writeable = ' + f.writeable);
+Ti.API.info('name = ' + f.name);
+Ti.API.info('extension = ' + f.extension());
+Ti.API.info('resolve = ' + f.resolve());
+Ti.API.info('created = ' + String(new Date(f.createTimestamp()))); // #2085 test
+
+var dir = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory);
+Ti.API.info('directoryListing = ' + dir.getDirectoryListing());
+Ti.API.info('getParent = ' + dir.getParent());
+Ti.API.info('spaceAvailable = ' + dir.spaceAvailable());
+
+var newDir = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory+'/mydir');
+Ti.API.info("Creafffted mydir: " + newDir.createDirectory());
+Ti.API.info('newdir ' + newDir.nativePath);
+var newFile = Titanium.Filesystem.getFile(newDir.nativePath,'newfile.txt');
+newFile.write(f.read());
+Ti.API.info('directoryListing for newDir = ' + newDir.getDirectoryListing());
+Ti.API.info("newfile.txt created: " + String(new Date(newFile.createTimestamp())));
+Ti.API.info("newfile.txt modified: " + String(new Date(newFile.modificationTimestamp())));
+Ti.API.info("newfile.txt renamed as b.txt: " + newFile.rename('b.txt'));
+var renamedFile = Titanium.Filesystem.getFile(newDir.nativePath, 'b.txt');
+Ti.API.info('check to see if renamedFile is TiFilesystemFile object: '+renamedFile);
+
+// try moving the file to the data directory
+var moveNewFile = renamedFile.move(Titanium.Filesystem.applicationDataDirectory+'/b.txt');
+Ti.API.info('move file result (should be true): '+moveNewFile);
+}}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2011-05-16
+
+   Forgot to update Rename and move to handle file urls.</li>
+<li>Natalie Huynh 2011-05-17
+
+   
+   Tested with [INFO] Bugs/1.0 (1.7.0.631e153)
+   Returning false on the last line when expecting true.
+   
+   
+   [DEBUG] Analytics is enabled = YES
+   
+   [DEBUG] loading: /Users/nhuynh/Documents/Titanium Studio Workspace/Bugs/Resources/app.js, resource: Users/nhuynh/Documents/Titanium Studio Workspace/Bugs/Resources/app_js
+   
+   [INFO] file = [object TiFilesystemFile]
+   
+   [INFO] contents blob object = 
+   
+   [INFO] contents = 
+   
+   [INFO] mime type = text/plain
+   
+   [INFO] nativePath = file://localhost/Users/nhuynh/Documents/Titanium%20Studio%20Workspace/Bugs/Resources/test.txt
+   
+   [INFO] exists = true
+   
+   [INFO] size = 0
+   
+   [INFO] readonly = false
+   
+   [INFO] symbolicLink = false
+   
+   [INFO] executable = false
+   
+   [INFO] hidden = false
+   
+   [INFO] writeable = true
+   
+   [INFO] name = test.txt
+   
+   [INFO] extension = txt
+   
+   [INFO] resolve = /Users/nhuynh/Documents/Titanium Studio Workspace/Bugs/Resources/test.txt
+   
+   [INFO] created = Tue May 17 2011 14:54:29 GMT-0700 (PDT)
+   
+   [INFO] directoryListing = android,app.js,iphone,KS_nav_ui.png,KS_nav_views.png,test.txt
+   
+   [INFO] getParent = /Users/nhuynh/Documents/Titanium Studio Workspace/Bugs
+   
+   [INFO] spaceAvailable = 312587337728
+   
+   [INFO] Creafffted mydir: false
+   
+   [INFO] newdir file://localhost/Users/nhuynh/Library/Application%20Support/iPhone%20Simulator/4.3/Applications/90D9CBC0-AFE5-41D3-BA3A-21A31400DDC6/Documents/mydir/
+   
+   [INFO] directoryListing for newDir = newfile.txt
+   
+   [INFO] newfile.txt created: Tue May 17 2011 14:54:29 GMT-0700 (PDT)
+   
+   [INFO] newfile.txt modified: Tue May 17 2011 14:54:29 GMT-0700 (PDT)
+   
+   [INFO] newfile.txt renamed as b.txt: true
+   
+   [INFO] check to see if renamedFile is TiFilesystemFile object: [object TiFilesystemFile]
+   
+   [INFO] move file result (should be true): false
+   
+   [DEBUG] application booted in 31.489015 ms</li>
+<li>Natalie Huynh 2011-05-18
+
+   Tested with 1.7.0.631e153</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4114.json">JSON Source</a></p>

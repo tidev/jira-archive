@@ -1,0 +1,80 @@
+---
+title: "[TIMOB-23755] iOS: Hyperloop - Cannot build Hyperloop project if Xcode is not in default location"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-15T16:42:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Backlog</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>notable, qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Eric Wieber</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-08-10T16:49:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If Xcode is not in the default location (<code>/Applications/Xcode.app</code>), Hyperloop projects fail to build (the metabase fails to generate).
+
+*Steps to reproduce issue*
+1. Ensure there is not an Xcode in the default location (<code>/Applications/Xcode.app</code>)
+2. Select your Xcode, not in the default location, using <code>sudo xcode-select -s /path_to_xcode/Contents/Developer</code>
+3. Create a new project with Hyperloop
+4. Change the code of the project to reference Hyperloop
+5. Build the project for sim or device
+
+*Actual Results*
+The build fails with:
+<code><pre>
+[TRACE] [Hyperloop] metabase took 37 ms to generate
+2016-08-10T16:32:54.320Z | ERROR  | An uncaught exception was thrown!
+ENOENT: no such file or directory, open '/Users/Eric/Documents/Appcelerator_Studio_Workspace/HLTEST/build/hyperloop/ios/metabase-7.1-iphonesimulator-2e0197f93f6a8a0561f89e29961fab80.json'
+2016-08-10T16:32:54.322Z | ERROR  | ENOENT: no such file or directory, open '/Users/Eric/Documents/Appcelerator_Studio_Workspace/HLTEST/build/hyperloop/ios/metabase-7.1-iphonesimulator-2e0197f93f6a8a0561f89e29961fab80.json'
+</pre></code>
+
+*Expected Results*
+The build succeeds and the metabase is created
+
+*Notes*
+After the error I have the <code>.h</code> file in my <code>build/hyperloop/ios</code> folder, but the <code>.json</code> files and <code>js</code> folder are not populated. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-10
+
+   I don't think that's a Hyperloop-issue. If you change the default Xcode-location (which is really not recommended), you need to run <code>sudo xcode-select -s /path_to_xcode/Content/Developer</code>. Please validate.</li>
+<li>Eric Wieber 2016-08-10
+
+   That was part of the validation and reproduction steps. However, I have edited the description and broke it out into a separate step to make it clear. To repro, you should have a selected Xcode and not have an Xcode in the default location.</li>
+<li>Hans Knöchel 2016-08-14
+
+   After some more research and testing, I found out that if you build the module with the non-default location and run it afterwards, it does work. I checked the logs and the <code>metabase</code> binary and found out that the path of the Xcode-installation is referenced inside the binary by Xcode itself. So I don't really know if we can actually fix it without touching the binary after being built. 
+   
+   So two options I can propose:
+   <h4>Make this ticket a docs issue and add a note to the Hyperloop-guides to keep Xcode in the default (recommended) location</h4>
+   <h4>Touch the metbase in <code>plugins/hyperloop/node_modules/hyperloop-metabase/bin/metabase</code> by manually regex'ing the location.</h4>
+   
+   Besides that, it also affects the Xcode-beta version which would currently fail if we build the module with Xcode-beta and try to run it on a installation that does not have Xcode (stable) installed. But that won't be a problem, because we can and will compile Hyperloop for SDK 5.5.0 with the Golden Master of Xcode which will be "Xcode.app".
+   
+   Thats it for now, feedback appreciated.
+   
+   *EDIT*: I tried #2 and obviously it didn't work, because the binary hashes differ now causing the metabase to fail even earlier. So unless we know something else, I would update the docs to inform users about this behavior. And it is not only for our binary put also for every other native library that needs to reference other (system) libraries in it.</li>
+<li>Hans Knöchel 2016-08-15
+
+   Updated the [Hyperloop guide](<a href="https://wiki.appcelerator.org/display/guides2/Enabling+Hyperloop)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/Enabling+Hyperloop)</a> with this information. [~bimmel] please include this page in the next guides-push.</li>
+<li>(deactived) Brian Immel 2016-08-15
+
+   Thanks Hans. This document, along with the rest of the Hyperloop docs, will be published on the next doc push which should be the Dashboard 4.9.0 some time this week.</li>
+<li>Eric Merriman  2018-08-06
+
+   Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23755.json">JSON Source</a></p>

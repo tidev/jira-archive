@@ -1,0 +1,164 @@
+---
+title: "[AC-1746] Error: 'Email is already taken' on ACS Facebook login"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-05T23:39:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Daniel Mahon</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2013-01-25T18:28:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:40:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Steps to Reproduce</h4>
+Log in user with external account to ACS. This doesnt seem to happen with every user. I have tried with 2 accounts, my personal account logs in, creates new ACS user fine, logs out. The other is inconsistent. It will login and create a user the first time but it will not allow me to update that ACS user. Logout is fine but on the next external login I will get the error: Email is already taken.
+
+<h4>Actual Result</h4>
+Error: Email is already taken.
+
+<h4>Expected Result</h4>
+Success
+
+<h3>Comments</h3>
+
+<ol>
+<li>Alan Leard 2013-01-26
+
+   Please provide a code sample of what you are doing and I will research.</li>
+<li>Daniel Mahon 2013-01-29
+
+   Code Sample: <a href="https://gist.github.com/4667734" rel="nofollow" target="_blank">https://gist.github.com/4667734</a>
+   
+   Notes:
+   If I remove the email from the update call it works, the account logs in and updates correctly but if I make a call to ACS after the login, the user record doesnt seem to exist. I see and can query only 2 of 3 created accounts. I have now tested on 3 facebook accounts 2 of which work 1 still does not. It is acting almost as if there is a corrupt record in ACS for that specific user.</li>
+<li>Daniel Mahon 2013-02-07
+
+   Please reopen as I have provided the code sample.
+   
+   Also, I notice that the user I try to login is prompted with the "Save this device" dialog through facebook on EVERY login. I also noticed that the ACS USER ID is different upon sequential logins. It is still acting as if the initial login is NEVER getting persisted to ACS and therefore generating new ids on each attempt, however it still gives the "Email is already taken" error. I am at the end of the rope on this one. I was hoping to use ACS for my user profiles and migrate away from my own DB. I just need to know if its something I'm doing on my end or a problem with ACS. If it has to do with some facebook settings that is a deal breaker as well because I cant assume to know my users FB settings.
+   
+   I would appreciate ANY direction you could give. Thanks!</li>
+<li>Alan Leard 2013-02-08
+
+   When you use Social Intergration to login to Facebook, it auto creates an account in ACS with the Facebook email and the users first and last name from facebook.  It gives that user a unique ID, and then you are logged in.  There is no need to try and update the user with the Facebook details.  I believe this is why you are getting the error that the email is already taken.  Have you looked in your ACS control panel for the app to see if the user exists with the proper email?</li>
+<li>Daniel Mahon 2013-02-08
+
+   The ACS control panel (and API calls) never show that user and it does not add the email from facebook. Though the update callback returns the proper user with custom_fields and anything else I added. Never persists in ACS though. Side note: there is a bug with the ACS panel that shows incorrect record count (ie: 7 results was found, when there are only 2 records), refreshing a couple times solves it.</li>
+<li>Daniel Mahon 2013-02-08
+
+   I created FB test users and played with multiple security settings, they all login and persist in ACS just fine. Cannot figure out why this specific user cannot be created in ACS... 
+   
+   FYI: Not getting the "Email is already taken" error anymore though, since I am not trying to update the profiles email after login.</li>
+<li>Alan Leard 2013-02-08
+
+   So is this still an issue for you?</li>
+<li>Daniel Mahon 2013-02-08
+
+   Sorry if that was confusing but YES, this is still an issue for me because I have found it basically impossible to save that user into ACS. It worries me because I don't want to run into the same problem in production without knowing the cause. Also I would LIKE to put the email back into the login/update request as to save as much info as I can from the FB details.</li>
+<li>Mostafizur Rahman 2013-12-08
+
+   We tried to reproduce this issue with Titanium SDK 3.1.3GA and were not able to reproduce it. Please test this issue using the latest release and let us know if the issue persists.
+   
+   <h4>Test Environment: </h4>
+   
+   OS: MAC OS X 10.8.5
+   Ti SDK: 3.1.3 GA, 3.2.0.x
+   Ti CLI: 3.3.0
+   IOS simulator   7.0
+   Cloud Module 3.2.0
+   Facebook Module 3.1.1
+   
+   
+   <h4>Test Code</h4>
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+   	backgroundColor : '#ccc'
+   });
+   var Cloud = require('ti.cloud');
+   //  Cloud.debug = true;
+   var fb = require('facebook');
+   fb.appid = XXXXXXXXXXXXXXX;
+   fb.permissions = ['publish_stream'];
+   fb.addEventListener('login', function(login) {
+   	if (login.success) {
+   
+   		fbDetails = login.data;
+   		Ti.API.info('login.success ' + JSON.stringify(fbDetails.email));
+   
+   		Cloud.SocialIntegrations.externalAccountLogin({
+   			type : 'facebook',
+   			token : fb.accessToken
+   
+   		}, function(e) {
+   			if (e.success) {
+   
+   				var user = e.users[0];
+   				currentUser = e.users[0];
+   				loggedIn = true;
+   
+   				Cloud.Users.update({
+   					email : fbDetails.email,
+   					first_name : fbDetails.first_name,
+   					last_name : fbDetails.last_name,
+   					custom_fields : {
+   						facebook : fbDetails
+   					}
+   				}, function(e) {
+   					alert(' Success:  ' + JSON.stringify(e. success));
+   
+   				});
+    
+   			} else {
+   				alert('Error: ' + ((e.error && e.message) || JSON.stringify(e)));
+   			}
+   		});
+   
+   	}
+   });
+   fb.addEventListener('logout', function(e) {
+   	alert('Logged out');
+   });
+   
+   win.add(fb.createLoginButton({
+   	top : 50,
+   	style : fb.BUTTON_STYLE_WIDE
+   }));
+   
+   win.open();
+   
+   </pre></code>
+   
+   
+   
+   <h4>Step to reproduces</h4>
+   <h4>Create a new project</h4>
+   <h4>Activate ACS cloud and Facebook module</h4>
+   <h4>Paste test code in app.js</h4>
+   <h4>Now run on iOS simulator  </h4>
+   <h4>Click on Facebook login button</h4>
+   <h4>Success alert will display after FB login complete </h4>
+   
+   
+   
+   <h4>Test Result</h4>
+   
+   User email, first_name, last_name and custom_object update will successfully completed.</li>
+<li>Shak Hossain 2013-12-28
+
+    Closing since a functional test sample has been posted. This is invalid with the latest version of the SDK & ACS.</li>
+<li>Ritu Agrawal 2014-01-05
+
+    [~creativejunky] Please let us know if you can still reproduce the issue and we would be happy to reopen the ticket and investigate it for you.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1746.json">JSON Source</a></p>

@@ -1,0 +1,253 @@
+{
+	"id": "173346",
+	"key": "TIMOB-26943",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20432",
+				"name": "Release 8.0.1",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-05-15"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-04-16T13:58:31.000+0000",
+		"created": "2019-03-27T19:25:07.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"WebView",
+			"engSchedule",
+			"file",
+			"html",
+			"ios",
+			"regression"
+		],
+		"versions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "vijaysingh",
+			"key": "vijaysingh",
+			"displayName": "Vijay Singh",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2020-04-02T13:08:39.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "*Summary:*\r\nAs of Titanium 8.0.0, a call to {{WebView.setHtml()}} with a \"baseURL\" set to an \"app://\" URL such as {{Ti.Filesystem.resourcesDirectory}} will fail to load HTML content such as {{<img/>}} or {{<script/>}} if they're assigned relative paths or \"file://\" URLs.\r\n\r\nThis is *not* an issue if:\r\n* \"baseURL\" is set to a \"file://\" URL.\r\n* If \"baseURL\" was never assigned in the {{setHtml()}} call.\r\n* If the contents such as {{<img/>}} use an \"app://\" URL instead, but this is not support on Android or Windows.\r\n\r\n*Steps to reproduce:*\r\n# Create a Classic \"Default Project\" Titanium app.\r\n# Set {{<use-app-thinning/>}} to {{false}} in the \"tiapp.xml\" as shown below.\r\n# Copy the below code to the project's \"app.js\".\r\n# Build and run on iOS.\r\n# Notice that 3 of the 4 images fail to load within the {{WebView}}.\r\n\r\ntiapp.xml\r\n{code:xml}\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ti:app xmlns:ti=\"http://ti.appcelerator.org\">\r\n\t<use-app-thinning>false</use-app-thinning>\r\n</ti:app>\r\n{code}\r\n\r\napp.js\r\n{code:javascript}\r\nvar sourceFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, \"assets/images/tab1.png\");\r\nvar targetFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, \"tab1.png\");\r\nsourceFile.copy(targetFile.nativePath);\r\n\r\nvar htmlText =\r\n\t\t'<!DOCTYPE html>\\n' +\r\n\t\t'<html>\\n' +\r\n\t\t'\t<head>\\n' +\r\n\t\t'\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\\n' +\r\n\t\t'\t</head>\\n' +\r\n\t\t'\t<body>\\n' +\r\n\t\t'\t\t<p>Resource File (Relative Path)</p>\\n' +\r\n\t\t'\t\t<img src=\"assets/images/tab1.png\"/>\\n' +\r\n\t\t'\t\t<br/>\\n' +\r\n\t\t'\t\t<p>Resource File (app:// URL; iOS-only)</p>\\n' +\r\n\t\t'\t\t<img src=\"app://Resources/assets/images/tab1.png\"/>\\n' +  // <- This works.\r\n\t\t'\t\t<br/>\\n' +\r\n\t\t'\t\t<p>Resource File (file:// URL)</p>\\n' +\r\n\t\t'\t\t<img src=\"' + sourceFile.nativePath + '\"/>\\n' +\r\n\t\t'\t\t<br/>\\n' +\r\n\t\t'\t\t<p>App Data File (file:// URL)</p>\\n' +\r\n\t\t'\t\t<img src=\"' + targetFile.nativePath + '\"/>\\n' +\r\n\t\t'\t</body>\\n' +\r\n\t\t'</html>\\n';\r\nTi.API.info(\"### htmlText:\\n\" + htmlText);\r\n\r\nvar window = Ti.UI.createWindow();\r\nvar webView = Ti.UI.createWebView({\r\n//\thtml: htmlText,  // <- This works.\r\n});\r\n//webView.setHtml(htmlText);  // <- This works.\r\nwebView.setHtml(htmlText, { baseURL: Ti.Filesystem.resourcesDirectory });  // <- This fails!!!\r\n//webView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });  // <- This works.\r\nwindow.add(webView);\r\nwindow.open();\r\n{code}\r\n\r\n*Work-Around:*\r\nSet \"baseURL\" to a \"file://\" URL instead. For example instead of doing this...\r\n{code:javascript}\r\nwebView.setHtml(htmlText, { baseURL: Ti.Filesystem.resourcesDirectory });\r\n{code}\r\n...do this instead...\r\n{code:javascript}\r\nwebView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });\r\n{code}\r\n\r\nAlternatively, don't set the \"baseURL\" in the {{setHtml()}} function call. By default, the HTML's contents are relative to the Titanium app's \"Resources\" directory.\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: WebView.setHtml() fails to load inner contents with \"file://\" URLs and relative paths if \"baseURL\" uses \"app://\" URL as of 8.0.0",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1124,
+				"state": "closed",
+				"name": "2019 Sprint 8",
+				"startDate": "2019-03-31T18:03:00.000Z",
+				"endDate": "2019-04-12T18:03:00.000Z",
+				"completeDate": "2019-04-12T19:04:50.175Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1128,
+				"state": "closed",
+				"name": "2019 Sprint 9",
+				"startDate": "2019-04-14T19:05:00.000Z",
+				"endDate": "2019-04-26T19:05:00.000Z",
+				"completeDate": "2019-04-26T22:05:13.933Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "447435",
+					"author": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR(master) - https://github.com/appcelerator/titanium_mobile/pull/10818\r\nPR(8_0_X) - https://github.com/appcelerator/titanium_mobile/pull/10819",
+					"updateAuthor": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-03T00:33:07.000+0000",
+					"updated": "2019-04-03T00:33:07.000+0000"
+				},
+				{
+					"id": "447650",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed, waiting on Jenkins build. ",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-12T14:50:36.000+0000",
+					"updated": "2019-04-12T14:50:36.000+0000"
+				},
+				{
+					"id": "447690",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Merged to 8_0_X. Waiting for a clean build on master PR...",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-04-15T12:58:34.000+0000",
+					"updated": "2019-04-15T12:58:34.000+0000"
+				},
+				{
+					"id": "447693",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "merged to master as well",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-04-15T13:49:07.000+0000",
+					"updated": "2019-04-15T13:49:07.000+0000"
+				},
+				{
+					"id": "447709",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket. Fix verified in SDK version {{8.1.0.v20190416001251}} and SDK version {{8.0.1.v20190415060903}}.\r\n\r\nTest and other information can be found at:\r\nPR(master) - https://github.com/appcelerator/titanium_mobile/pull/10818\r\nPR(8_0_X) - https://github.com/appcelerator/titanium_mobile/pull/10819",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-16T13:58:24.000+0000",
+					"updated": "2019-04-16T13:58:24.000+0000"
+				},
+				{
+					"id": "454940",
+					"author": {
+						"name": "teunklijn@telfort.nl",
+						"key": "teunklijn@telfort.nl",
+						"displayName": "Teun Klijn",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"body": "This is no longer working in 8.3.0.GA-9.0.0.GA, is there any reason for that?",
+					"updateAuthor": {
+						"name": "teunklijn@telfort.nl",
+						"key": "teunklijn@telfort.nl",
+						"displayName": "Teun Klijn",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"created": "2020-04-02T13:08:39.000+0000",
+					"updated": "2020-04-02T13:08:39.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

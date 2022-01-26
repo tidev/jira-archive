@@ -1,0 +1,158 @@
+---
+title: "[AC-2493] Android service does not run after app close if started in event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-09T21:53:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Documentation, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, api</td></tr>
+<tr><th>Reporter</th><td>John Louderback</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2013-06-14T22:39:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+An android service which is started inside an App level event listener stops after the application is closed (For instance, via Recent Apps). This is not experienced when the service is started initially with the App. This can be seen when viewing running services. Normal behavior will show that there is a process and/or service running. When started from an event listener, it show app as cached process with no services or, when closed, as a terminated app. I don't know if this expected behavior or a bug, but there is not mention of this possibility in the API documentation.
+(Sorry if I'm filing this bug report incorrect, this is my first time). 
+
+<h3>Comments</h3>
+
+<ol>
+<li>John Louderback 2013-06-14
+
+   I'm so sorry, I was very much mistaken. I didn't see it until now. The difference between the two behaviors I mentioned above are not the result of being in an event listener or not, it's the difference between Ti.Android.createService(intent).start(); and Ti.Android.startService(intent);. I don't see the difference in behavior documented still. Why do these operate so vastly different from each other?</li>
+<li>Carter Lathrop 2013-07-09
+
+   Hello John,
+   
+   The difference between the two is this:
+   <code><pre>
+   Ti.Android.createService(intent).start(); 
+   </pre></code>
+   creates the service from an intent AND starts the service in one fell swoop.
+   Whereas
+   <code><pre>
+   Ti.Android.startService(intent);
+   </pre></code>
+   can start a service but ONLY after is has already been created. 
+   
+   I hope this can shed some light on your inquiry. 
+   
+   Regards,
+   
+   Carter</li>
+<li>Mostafizur Rahman 2013-12-31
+
+   Hello,
+   
+   We tested this issue with the test code below. We can't reproduce this issue in the latest TiSDK build. Please check my test code and let me know if have any problem.
+   
+   
+   <h4>Test Environment</h4>
+   
+   Windows 7,
+   Titanium SDK 3.2.0 GA
+   Android 4.2.2
+   Ti CLI 3.2.0
+   
+   
+   <h4>Test Code</h4>
+   
+   app.js
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor : 'black',
+   	layout:'vertical'
+   });
+    
+   var label = Ti.UI.createLabel({
+   	text : 'A service is now running: you will see a notification every 10 seconds\nEven after closing your apps',
+   	width : Ti.UI.SIZE,
+   	top : 10,
+   	color : 'white'
+   });
+    
+   win.add(label);
+    
+   // create the background service
+   var SECONDS = 10;
+   // every 10 seconds
+   var intent = Titanium.Android.createServiceIntent({
+   	url : 'notification.js'
+   });
+   intent.putExtra('interval', SECONDS * 1000);
+   // Needs to be milliseconds
+    
+   if (!Ti.Android.isServiceRunning(intent)) {
+   	Titanium.Android.startService(intent);
+   }
+    
+   var btnStop = Ti.UI.createButton({
+   	title : "Stop service",
+   	top:50
+   });
+   win.add(btnStop);
+   btnStop.addEventListener("click", function() {
+   	Ti.Android.stopService(intent);
+   });
+   var btnStart = Ti.UI.createButton({
+   	title : "Start service",
+   	top:10
+   });
+   btnStart.addEventListener("click", function() {
+   	Titanium.Android.startService(intent);
+   });
+   win.add(btnStop);
+   win.add(btnStart);
+   win.open();
+   </pre></code>
+   
+   notification.js
+   <code><pre>
+   var intent = Ti.Android.createIntent({
+       flags : Ti.Android.FLAG_ACTIVITY_CLEAR_TOP | Ti.Android.FLAG_ACTIVITY_NEW_TASK,
+       //here paste your app id and activityName like this code
+       className : 'com.bd.motiur.MotiurRahmanActivity'
+   });
+   intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+    
+   var pending = Titanium.Android.createPendingIntent({
+       intent: intent,
+       flags: Titanium.Android.FLAG_UPDATE_CURRENT
+   });
+    
+   // create a random id
+   var nId = parseInt(10000 * Math.random());
+    
+   // Create the notification
+   var notification = Titanium.Android.createNotification({
+       contentTitle: 'Notification #' + nId,
+       contentText : 'Click to return to the application.',
+       contentIntent: pending
+   });
+    
+   // Send the notification.
+   Ti.Android.NotificationManager.notify(nId, notification);
+   </pre></code>
+   
+   tiapp.xml
+   <code><pre>
+   <property name="ti.ui.defaultunit">system</property>
+       <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <services>
+               <service type="interval" url="notification.js"/>
+           </services>
+       </android>
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/AC/AC-2493.json">JSON Source</a></p>

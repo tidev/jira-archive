@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-28532] iOS: openPhotoGallery() does not invoke cancel callback if swiped down"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-10-05T11:22:50.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.1.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, media, openPhotoGallery, photogallery</td></tr>
+<tr><th>Reporter</th><td>Ferdinando Traversa</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-08-28T21:55:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-11-17T10:46:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Bug</h4>
+If a user swipes down a gallery in iOS, the second time I open programmatically the photo gallery, an error is thrown and the error callback is called. This doesn’t happen when the user clicks cancel: the cancel callback is called and the second time the user opens the gallery no error is thrown.
+
+Other kind users of the ti.slack community have investigated this issues and reached the same conclusions. One of them in particular suggested a (working) fix.
+
+Jason David Miller wrote:
+{quote}I can confirm that it's happening with TiSDK 10.1.0.v20210824071502 . The very first time Ti.Media.openPhotoGallery() is called, all works well. If the user clicks 'cancel', the gallery hides and the cancel method is called. However, if the user simply swipes down to cancel (normal iOS 14+ behavior), the gallery does not call the cancel method and an error is thrown when attempting to call Ti.Media.openPhotoGallery() again. — Also, it takes two clicks to open the gallery again (after hidden via swipe). I'm assuming that since the gallery's success, cancel, or error methods aren't being called, maybe iOS assumes the gallery is still shown and/or hasn't been deallocated).
+Summary: it seems like the 'swipe down to cancel' needs to actually call the cancel method (in TiSDK), although I'm unsure if that's currently the case...
+{quote}
+
+*Example Code*
+
+<code><pre>
+Ti.Media.openPhotoGallery({
+    success: (e) => {
+        Ti.API.info('Photo gallery success: ', e);
+    },
+    cancel: () => {
+        Ti.API.warn('Photo gallery cancel');
+    },
+    error: (error) => {
+        Ti.API.error('Photo gallery error: ', error);
+    },
+    autohide: true,
+    allowEditing: false,
+    saveToPhotoGallery: false,
+    mediaTypes: [Ti.Media.MEDIA_TYPE_PHOTO],
+    videoQuality: Ti.Media.QUALITY_HIGH
+});
+</pre></code>
+
+so it looks like presentationControllerDidDismiss is not being called when the photo gallery is dismissed via swipe (being pulled down)...
+*/iphone/Classes/MediaModule.m*
+<code><pre>
+#if IS_SDK_IOS_13
+- (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController
+{
+#if defined(USE_TI_MEDIASHOWCAMERA) || defined(USE_TI_MEDIAOPENPHOTOGALLERY) || defined(USE_TI_MEDIASTARTVIDEOEDITING)
+#if IS_SDK_IOS_14 && defined(USE_TI_MEDIAOPENPHOTOGALLERY)
+  [self closeModalPicker:picker ?: _phPicker];
+#else
+  [self closeModalPicker:picker];
+#endif
+  [self sendPickerCancel];
+#endif
+}
+#endif
+</pre></code>
+
+<h4>Proposed solution</h4>
+Marc Bender proposed this solution
+{quote}I found the problem!
+add these lines in the phpickerdeledate:
+{quote}
+<code><pre>
+#pragma mark PHPickerViewControllerDelegate
+- (void)presentationControllerDidDismiss:(PHPickerViewController *)picker
+{
+  [self sendPickerCancel];
+}
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results
+
+</pre></code>
+
+The proposed solution was also put in a discussion on GitHub: <a href="https://github.com/appcelerator/titanium_mobile/discussions/13046" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/discussions/13046</a>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28532_67979/Screenshot 2021-08-26 delle 12.34.19.mp4">Screenshot 2021-08-26 delle 12.34.19.mp4</td></td><td>2021-08-28T21:55:30.000+0000</td><td>7584146</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2021-09-07
+
+   so it won't get lost in the other tickets: <a href="https://github.com/appcelerator/titanium_mobile/pull/13057" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13057</a>
+   
+   works fine in my simulator test</li>
+<li>Ewan Harris 2021-10-08
+
+   This was backported onto the 10_1_X branch</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28532.json">JSON Source</a></p>

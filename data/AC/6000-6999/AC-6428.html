@@ -1,0 +1,141 @@
+---
+title: "[AC-6428] iOS13: DocumentViewer not working"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>iOS13</td></tr>
+<tr><th>Reporter</th><td>Thomas Weber</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-11-09T22:32:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-11-12T10:32:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Using Ti SDK 8.2.0GA and iOS13.2 Simulator Titanium.UI.iOS.DocumentViewer is not showing any document, but only displays filename and filetype. Running on iOS11.0.1 Simulator it works as expected.
+
+
+<code><pre>
+
+var win = Ti.UI.createWindow({
+  backgroundColor: '#fff'
+});
+ 
+var btn = Ti.UI.createButton({
+  title: 'Open PDF'
+});
+ 
+btn.addEventListener('click', openPDF);
+ 
+win.add(btn);
+win.open();
+ 
+// Open the PDF file
+function openPDF() {
+  var fileName = 'example.pdf';
+  
+  // For iOS 11.2, workaround the Apple issue by creating a temporary file and
+  // reference it. It will be removed from filesystem once the app closes.
+  // Read more here: <a href="http://nshipster.com/nstemporarydirectory/" rel="nofollow" target="_blank">http://nshipster.com/nstemporarydirectory/</a>
+  if (isiOS11_2()) {
+    fileName = fileInTemporaryDirectory(fileName);
+  }
+  
+  var docViewer = Ti.UI.iOS.createDocumentViewer({
+    url: fileName
+  });
+ 
+  docViewer.show();
+}
+ 
+// Check if the current device runs iOS 11.2+
+function isiOS11_2() {
+	var version = Ti.Platform.version.split(".");	
+	return (parseInt(version[0]) >= 11 && parseInt(version[1]) >= 2);
+}
+ 
+// Create a temporary file with the contents of the old file
+// Expects the file to be in the resources directory. If you receive the file 
+// from an API-call, receive pass the Ti.Blob/Ti.File/text to "write" directly.
+function fileInTemporaryDirectory(fileName) {
+  var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, fileName);
+  
+  if (!file.exists()) {
+    alert('File does not exist in resources!');
+    return;
+  }
+  
+  var newFile = Titanium.Filesystem.getFile(Ti.Filesystem.tempDirectory, fileName);
+  newFile.createFile();
+  
+  if (!newFile.exists()) {
+    alert('New file could not be created in temporary directory!');
+    return;
+  }
+  
+  newFile.write(file);
+  
+  return newFile.nativePath;
+}
+</pre></code>
+
+
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6428_67114/screenshot.jpg">screenshot.jpg</td></td><td>2019-11-09T22:30:54.000+0000</td><td>199693</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2019-11-11
+
+   The issue is the hard coded workaround:
+   <code><pre>
+   return (parseInt(version[0]) >= 11 && parseInt(version[1]) >= 2);
+   </pre></code>
+   This would return <code>false</code> for iOS 12.1 and iOS 13.1. Instead, just check for iOS >= 11 or don't check at all, since caching the PDF for later file access is always a good idea.</li>
+<li>Rene Pot 2019-11-12
+
+   [~tw] can you confirm it works if you follow [~hknoechel]'s instruction?</li>
+<li>Thomas Weber 2019-11-12
+
+   Ok, it probably was not the best idea to simply copy the example code, but the simulator problem can also be reproduced with this example:
+   
+   {{var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "test.pdf");
+   var docViewer = Ti.UI.iOS.createDocumentViewer({
+     url: file.resolve()
+   });
+   docViewer.show();}}
+   
+   
+   Simulator
+   iOS 13.2 / Only shows filename and filetype (as on the screenshot)
+   MacOS 10.14.6 / Xcode 11.2
+   
+   Simulator
+   iOS 11.0.1 / works
+   MacOS 10.14.6 / Xcode 11.2
+   
+   Device
+   iOS 13.2 / works
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-6428.json">JSON Source</a></p>

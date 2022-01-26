@@ -1,0 +1,329 @@
+---
+title: "[TIMOB-26860] iOS: HTML assigned to WebView "html" property is unable to access app's local files as of 8.0.0.RC"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-03-07T14:27:50.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>WebView, html, ios, regression</td></tr>
+<tr><th>Reporter</th><td>Matthew Delmarter</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-02-14T23:22:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-03-13T02:00:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+When loading an HTML string to a <code>WebView</code> via its "html" property, it is no longer able to access the app's local files under the "Resources" directory as of Titanium 8.0.0.RC.
+
+*Steps to reproduce:*
+<h4>Create a Classic "Default Project" app.</h4>
+<h4>Replace the "app.js" code with the below code.</h4>
+<h4>Build with Titanium 8.0.0 and run on iOS.</h4>
+<h4>Notice that an image failed to load within the web view.</h4>
+<h4>Build with Titanium 7.5.x and run on iOS.</h4>
+<h4>Notice that the image successfully loaded within the web view.</h4>
+
+<code><pre>
+var htmlText =
+		'<!DOCTYPE html>' +
+		'<html>' +
+		'	<head>' +
+		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+		'	</head>' +
+		'	<body>' +
+		'		<p>Local Image File</p>' +
+		'		<img src="assets/images/tab1.png"/>' +
+//		'		<img src="app://Resources/images/tab1.png"/>' +
+		'	</body>' +
+		'</html>';
+
+var window = Ti.UI.createWindow();
+var webView = Ti.UI.createWebView({
+	html: htmlText,
+});
+window.add(webView);
+window.open();
+</pre></code>
+
+*Note:*
+Loading local resource files via <code>app://Resources/</code> also fails to load on iOS in Titanium 8.0.0.RC, but worked in older versions. Note that this URL scheme is undocumented and is not supported on Android.
+
+*Work-Around:*
+On iOS, the <code>WebView.setHtml()</code> method supports a 2nd argument where you can provide a "baseURL" parameter. This parameter allows you to set the directory (or URL) that file paths should be relative to. So, the below will work-around the problem.
+
+<code><pre>
+var htmlText =
+		'<!DOCTYPE html>' +
+		'<html>' +
+		'	<head>' +
+		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+		'	</head>' +
+		'	<body>' +
+		'		<p>Local Image File</p>' +
+		'		<img src="assets/images/tab1.png"/>' +
+//		'		<img src="app://Resources/images/tab1.png"/>' +
+		'	</body>' +
+		'</html>';
+
+var window = Ti.UI.createWindow();
+var webView = Ti.UI.createWebView({
+// Don't do this.
+//	html: htmlText,
+});
+// Do this. It will work-around the 8.0.0.RC bug.
+webView.setHtml(htmlText, {
+	baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath,
+});
+window.add(webView);
+window.open();
+</pre></code>
+
+\\
+----
+*Original Bug Report Below*
+----
+The upcoming change in 8.0 from UIWebView to WKWebView is major and because of my reliance on the WebView I wanted to start testing this. There is a ticket TIMOB-26095 that indicates the transition is complete and tested, but there are so many use cases that are not included in the sample tests provided that I have major concerns.
+
+For example, I cannot get local resources like images to be rendered inside the WebView.
+
+Test case:
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var html = '<html><body><img src="app://Resources/images/logo.png" /></body></html>';
+
+var webview = Ti.UI.createWebView({
+  html: html
+});
+
+win.add(webview);
+win.open();
+</pre></code>
+
+Works fine in SDK 7.5.1, but the image does not load in 8.0.
+Am I doing something wrong? Is there a low-level change that I should know about for this?
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26860_66184/Screen Shot 2019-02-24 at 9.54.23 AM.png">Screen Shot 2019-02-24 at 9.54.23 AM.png</td></td><td>2019-02-24T15:14:33.000+0000</td><td>745880</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2019-02-20
+
+   Hello [~mdelmarter], I was able to verify the issue here. Tested with SDK 8.0.0.v20190219113758  and 7.5.1.v20190124152315(where it works). [~jquick], [~vijaysingh], [~jvennemann], Is any change made on how the webview handle local resources? Thanks.</li>
+<li>Joshua Quick 2019-02-20
+
+   [~sdarda], the iOS <code>Ti.UI.WebView</code> implementation in Titanium has completely changed in 8.0.0 to use the native <code>WKWebView</code> instead of Apple's now deprecated <code>UIWebView</code>. So, yes, everything has changed.</li>
+<li>Joshua Quick 2019-02-20
+
+   [~mdelmarter], I recommend that you use the following path instead. The below will work on both Android and iOS in Titanium 8.0.0 and older versions.
+   <code><pre>
+   <img src="assets/images/logo.png" />
+   </pre></code>
+   
+   I have verified that "app://Resources/..." broke on iOS in Titanium 8.0.0. It used to work in 7.5.1. So, yes it's a bug. But... I also want to note that this never worked on Android either. This was an iOS only feature. The portable way to do it is via a relative path as shown above.
+   
+   Also, make sure to set the following in your "tiapp.xml" to make sure that your PNGs do not get archived. Otherwise, the PNGs will be unreachable by the <code>WebView</code>.
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+   	<ios>
+   		<use-app-thinning>false</use-app-thinning>
+   	</ios>
+   </ti:app>
+   </pre></code>
+   </li>
+<li>Joshua Quick 2019-02-21
+
+   I don't think "app://" is publicly documented.
+   This URL scheme is used internally, but the documented portable way to do this is via relative paths.</li>
+<li>Matthew Delmarter 2019-02-23
+
+   I appreciate the comments [~jquick], thank you. However even when I change the <code>src</code> as suggested it still does not work for me. And yes I do have <code>use-app-thinning</code> set to false.
+   
+   Note that I am testing this with a classic app, not alloy. The image is inside the <code>Resources/images</code> folder. I have moved the image around to the root folder etc but it does not seem to help.
+   
+   Here is my latest code:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   var html = '<html><body><img src="images/logo.png" /></body></html>';
+   
+   var webview = Ti.UI.createWebView({
+     html: html
+   });
+   
+   win.add(webview);
+   win.open();
+   </pre></code>
+   
+   Any other suggestions? I am at a stalemate on my new app until I can get this working :(</li>
+<li>Matthew Delmarter 2019-02-23
+
+   Further to my previous comment, I just discovered that if I move the <code>html</code> code into a file, and then call that file url in the WebView then all works ok.
+   
+   So this works ok and displays the image...
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   var webview = Ti.UI.createWebView({
+     url: 'test.html' // contains the same html as the previous code sample
+   });
+   
+   win.add(webview);
+   win.open();
+   </pre></code>
+   
+   But when the HTML is provided via the webview <code>html</code> property, it does not work.</li>
+<li>chrishaff@gmail.com 2019-02-24
+
+   I will second everything @Matthew Delmarter is reporting.  
+   
+   I am using the 8.0GA but had the same issue with the pre release version.
+   
+   <h4>Links to any local files (.png, .jpg, .css, .js, .jslocal) do not work if the HTML is provided as a string to the html property.</h4>
+   <h4>The same links work if same string is provided via a local file.  Unfortunately the content must be generated dynamically so this is not a workaround.</h4>
+   
+    !Screen Shot 2019-02-24 at 9.54.23 AM.png|thumbnail! </li>
+<li>Matthew Delmarter 2019-02-24
+
+   Also if I wanted tooad an html file that is not in the Resources directory but in other iOS directories such as the temp or document directory how would I do this? If this could be clarified it would be helpful.</li>
+<li>chrishaff@gmail.com 2019-02-25
+
+   @matthew, near the top the [documentation for the WebView](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.WebView) does state
+   
+   bq. When running local web content (that is, *content that is included in the application's {color:red}resources{color}*),...
+   
+   You can't read content from the temp or other local directories. It's always been that way (I started with SDK 1.6). I'm pretty sure that's an OS level security concern to prevent you from accessing/executing data on the phone that has not shipped with your app. As they now have changed the underlying webview on iOS I thought I'd try what you are asking about and confirmed that this still does not work.  
+   
+   I image you are trying to come up with a workaround for this embarrassing oversight?  It's gross, but you could do the browser's work: Concatenate what you want from the local system into one big string that you throw at the webview. (i.e. read  .js or .css from disk and in the case of an image base64 encode it and inject). If you wanted to make changes after the load you could use fireEvent/addEventListener retrieve resources.
+   
+   I'm not going to bother with this. I will wait for Axway will fix this - assuming that they will get on this asap...?
+   </li>
+<li>Joshua Quick 2019-02-25
+
+    When loading a local HTML file via the <code>WebView</code> "url" property, then file paths are relative to that HTML file... just like how it works on the web.
+    
+    When setting the <code>WebView</code> "html" property to a string, file paths are relative to the app's root "resources" directory on all platforms (Android, iOS, and Windows). Although I have confirmed that this is now a bug on iOS in Titanium 8.0.0.RC and relative paths no longer work in this case.
+    
+    
+    But there is a solution...
+    
+    On iOS, you can change what the file paths are relative to via the [WebView.setHtml()](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.WebView-method-setHtml) method's 2nd argument via a "baseURL" dictionary setting. All other platforms currently ignore this 2nd argument. The below will set the "baseURL" to the resources directory and will work with a JS file in any subdirectory.
+    <code><pre>
+    var htmlText =
+    		'<!DOCTYPE html>' +
+    		'<html>' +
+    		'	<head>' +
+    		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    		'	</head>' +
+    		'	<body>' +
+    		'		<p>Local Image File</p>' +
+    		'		<img src="assets/images/tab1.png"/>' +
+    		'	</body>' +
+    		'</html>';
+    var window = Ti.UI.createWindow();
+    var webView = Ti.UI.createWebView();
+    webView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });
+    window.add(webView);
+    window.open();
+    </pre></code>
+    
+    The above will work-around the 8.0.0.RC iOS bug you two are seeing.
+    </li>
+<li>Matthew Delmarter 2019-02-25
+
+    [~chrishaff@gmail.com] - thanks for your response.
+    
+    It is not totally correct however. I have loaded images and other files from the Documents directory into a WebView for many years. My first app that did this was released in 2012 and I have used this in several apps since then. It is the only way to have the user download a file, such as an EPUB file, and to then load the HTML and images from that EPUB into a WebView. It has always worked fine. The secret with the old WebView was to prefix the image path with the path to the full <code>Titanium.Filesystem.applicationDataDirectory</code> - i.e. the apps Documents directory.
+    
+    However, again since SDK 8.0+ and the change to WKWebView, this is not working. I was initially hoping that it was similar to the `app://' suggestion from [~jquick] above where he mentioned that this was not the suggested approach and there was another way. I am hoping that there is just another way to achieve the required end result. 
+    
+    Overall I am sure that it can all work as expected - the developers just have not fully tested for these scenarios. The WebView is the core to so much functionality, and I have been using Ti WebView to the full inside my apps for many years. I am sure they will not let me down now. At the moment the issues in this ticket are a major roadblock for me to switch my existing apps over to 8.0 and to my carrying on with a new app I am working on that allows users to save web pages offline (including images) and to display them inside a WebView.
+    
+    We will get there!</li>
+<li>Matthew Delmarter 2019-02-25
+
+    [~jquick] thanks so much for the workaround I will give it a go.
+    
+    Just further to the above comments, should I be able to open an HTML file and related resources (CSS/images) from the Documents directory? As I mentioned above I do this with a live app at the moment that loads EPUB files that the user has downloaded...
+    
+    Can the baseURL property be used for this as well maybe? To define base path inside the Documents folder?</li>
+<li>Joshua Quick 2019-02-26
+
+    Yes, you can point the "baseURL" to the Documents directory. I tested the following on Titanium 8.0.0 and it definitely works. Just note that this is an iOS only feature for the moment.
+    <code><pre>
+    var sourceFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "assets/images/tab1.png");
+    var targetFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, "tab1.png");
+    sourceFile.copy(targetFile.nativePath)
+    
+    var htmlText =
+    		'<!DOCTYPE html>' +
+    		'<html>' +
+    		'	<head>' +
+    		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    		'	</head>' +
+    		'	<body>' +
+    		'		<p>Local Image File</p>' +
+    		'		<img src="tab1.png"/>' +
+    		'	</body>' +
+    		'</html>';
+    
+    var window = Ti.UI.createWindow();
+    var webView = Ti.UI.createWebView();
+    webView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory).nativePath });
+    window.add(webView);
+    window.open();
+    </pre></code>
+    
+    What's important is that you need to tell the web view which directory files should be relative to. The "baseURL" can be set to a web URL or a local filesystem directory path.</li>
+<li>Joshua Quick 2019-02-26
+
+    Also note that we want to add "baseURL" support to Android in the future. The other thing that feature is needed for is iframes because they need to be told which website their resources are relative to. It's especially needed for playing YouTube videos in iframes. Please see: [TIMOB-26848]</li>
+<li>Vijay Singh 2019-03-05
+
+    PR(8_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/10750" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10750</a>
+    PR(master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10751" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10751</a>
+    
+    [~mdelmarter] and [~chrishaff@gmail.com]
+    UIWebView support custom NSURLProtocol, to load a custom url scheme which we were using to implement TiUIWebView till 7.5.x. We were using above protocol to load resources for url scheme "app".
+    
+    From 8.0.0 we have moved to WKWebView to implement TiUIWebView. WKWebview doesn’t support custom NSURLProtocol. 
+    
+    But in iOS 11+ Apple added WKURLSchemeHandler. It works same as NSURLProtocol.
+    So I have integrated WKURLSchemeHandler  to load custom url scheme for iOS 11.0+ only via above PR. 
+    
+    If your app supports  iOS 11+ only, this PR will fix your issue.
+    
+    Otherwise workaround given by [~jquick], is recommended.
+    Thanks!</li>
+<li>Samir Mohammed 2019-03-06
+
+    FR Passed, waiting on Jenkins builds. </li>
+<li>Matthew Delmarter 2019-03-12
+
+    [~jquick] and [~vijaysingh] thank you so much for the detailed responses. Joshua, the sample code works as advertised and has allowed me to continue with my project. I really appreciate the quality support and the quick turnaround on these important tickets.</li>
+<li>Joshua Quick 2019-03-13
+
+    Happy to help [~mdelmarter]. And thank you for reporting the issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26860.json">JSON Source</a></p>

@@ -1,0 +1,453 @@
+---
+title: "[TIMOB-20279] Android: Ti.Contacts.getAllPeople() crashes with overflow on Android < 6"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-07-21T03:21:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0, Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Kiley Williams</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2016-01-27T18:39:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-26T16:54:16.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am getting the “[ERROR] dalvikvm: JNI ERROR (app bug): local reference table overflow (max=512)” issue when simply calling Ti.Contacts.getAllPeople(). Literally, that ONE line of code is causing the error.
+
+* I have 2900 contacts (and I know plenty of people with more), so I am not an abnormal use case.
+* I know it is this one line because I have removed any other code around it (after the permissions of course), and the call works on Android 6.0+, but does not work on versions prior to Android 6.0.
+* It works perfectly fine when I run it against an emulator with 0 contacts, or even 5 contacts. I suspect that it is not releasing the memory when it iterates over the contacts that it is retrieving.
+
+The environments that I tested this on were:
+1. Multiple Android emulators, but they all follow the same specs (besides the screen size) as the attached image shows
+2. On a Galaxy S4 running Android 4.4.2
+
+Here is a snippet of the code:
+
+<code><pre>
+// Get permission to access the user's contacts
+var contactsAuthorizationValue = Ti.Contacts.getContactsAuthorization();
+
+if (contactsAuthorizationValue === Ti.Contacts.AUTHORIZATION_AUTHORIZED) {
+var rawContacts = Ti.Contacts.getAllPeople(); // This is where the crash occurs
+
+// Do more things down here
+}
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20279_58079/AVD Configuration.png">AVD Configuration.png</td></td><td>2016-01-27T19:35:21.000+0000</td><td>192991</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2016-01-27
+
+   I've heard other users who had the same thing with only 1 person in the address book so for sure this is a bug.</li>
+<li>Kiley Williams 2016-01-28
+
+   Great, let me know if you need any more information provided. You guys are quick!</li>
+<li>Kiley Williams 2016-02-16
+
+   @Fokke / @Radamantis, this is getting to a point where it is starting to block us. Is there any update on this? Thanks guys! =)</li>
+<li>Fokke Zandbergen 2016-02-17
+
+   [~Yrkh8trnoy] could you make sure this is still a bug using the 5.2.0 nightly?
+   
+   <code>[appc] ti sdk install -b 5_2_X</code></li>
+<li>Kiley Williams 2016-02-18
+
+   @Fokke it seems to be working on the latest nightly build. Thank you! I will let you know if we encounter this any more.
+   
+   Would you be able to shed some light on the final investigation discovery, and what the fix ended up being? I'd like to be able to identify this issue a lot quicker if it happens again elsewhere.</li>
+<li>Fokke Zandbergen 2016-02-18
+
+   That's good news. What SDK version did you use before? Because since 5.1.2 nothing changed on the contacts front AFAIK:
+   <a href="https://github.com/appcelerator/titanium_mobile/search?l=java&q=contacts" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/search?l=java&q=contacts</a></li>
+<li>Kiley Williams 2016-02-19
+
+   We were on 5.1.1.GA! and prior to that, 5.0.2.GA. When using an earlier build of 5.2, we encountered some issues which made us retreat to 5.1.1. Thanks for checking back in!</li>
+<li>Fokke Zandbergen 2016-02-19
+
+   [~Yrkh8trnoy] could you check if 5.1.2 also fixes it for you?</li>
+<li>Kiley Williams 2016-02-20
+
+   Sure, I will check that today. I'll check back soon.</li>
+<li>Kiley Williams 2016-02-22
+
+    @Fokke, it works fine on 5.1.2. Thank you!</li>
+<li>Kiley Williams 2016-02-22
+
+    @Fokke, belay that last message. We looked at the wrong version for that test. I'll let you know as soon as we ACTUALLY test on 5.1.2 whether it works on there or not. Sorry for jumping the gun on that.</li>
+<li>Kiley Williams 2016-02-23
+
+    Hi Fokke, we've verified this time that we are actually on 5.1.2.GA, and Ti.Contacts.getAllPeople() works well with ~3,000 contacts. (y)(y)</li>
+<li>Kiley Williams 2016-05-01
+
+    Hi Fokke,
+    
+    This issue has resurfaced as of 5.2.2.GA. This is a major issue for us, any idea if the previous fixes were undone?
+    
+    Thanks.</li>
+<li>Fokke Zandbergen 2016-05-02
+
+    Reopening as it appears to be a problem again in 5.2.2</li>
+<li>Kiley Williams 2016-05-02
+
+    Thanks.
+    
+    @Ashraf, I tested back to 5.2.0.GA, and it's still an issue. Maybe whatever fix was in the nightly build somehow was reverted prior to the GA? I don't remember what nightly build I had installed when it worked. But it seems that the only time it was truly working fine was with that nightly build.</li>
+<li>Ashraf Abu 2016-05-03
+
+    [~Yrkh8trnoy] Very odd. Will line this up to get this investigated.</li>
+<li>Kiley Williams 2016-05-04
+
+    Thanks Ashraf! Hugely important because so many people still use Android < 6, unfortunately!</li>
+<li>Nicholas Bannister 2016-05-04
+
+    +1 vote</li>
+<li>Kiley Williams 2016-05-09
+
+    Is there a workaround that is suggested for this? According to the documentation (<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Contacts-method-getAllPeople) a "limit" that can be set on the number of contacts that I want to be retrieved, but it doesn't seem that I can page through that limit.
+    
+    You see, what I was thinking could be the workaround would be to retrieve 500 contacts on each pull. Say the user has 2,000 contacts, it would take four calls to <code>Ti.Contacts.getAllPeople(500, <page_number>)</code> to get all 2,000 of those contacts. That's fine by me, as a workaround for now, but it seems that I cannot currently perform such an operation.</li>
+<li>Fokke Zandbergen 2016-05-11
+
+    [~Yrkh8trnoy] there seems to be no way to paginate indeed:
+    
+    <a href="https://github.com/appcelerator/titanium_mobile/blob/415bd6c66dcc55b1a59a59574f3babd3c3a84ede/android/modules/contacts/src/java/ti/modules/titanium/contacts/ContactsApiLevel5.java#L224-L235" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/415bd6c66dcc55b1a59a59574f3babd3c3a84ede/android/modules/contacts/src/java/ti/modules/titanium/contacts/ContactsApiLevel5.java#L224-L235</a>
+    
+    Could you create a JIRA ticket to request this to be added?</li>
+<li>Kiley Williams 2016-05-14
+
+    Sure, you can see it at AC-3628</li>
+<li>Kiley Williams 2016-05-22
+
+    Hi folks. Any updates on this? Thanks!</li>
+<li>Fokke Zandbergen 2016-06-13
+
+    [~cng] [~hpham] how is this issue a duplicate of TIMOB-15765? I don't see how.</li>
+<li>Kiley Williams 2016-06-29
+
+    Hi folks, it's been about two weeks since Fokke commented and we still do not know why this was marked as "Resolve" as a duplicate of TIMOB-15765. I'm not sure what to do here as this blocks our ability to reliably retrieve contacts in our application, which is a blocker for us releasing our application to the public.
+    
+    Furthermore, there has been absolutely no movement since June 8 on TIMOB-15765, so that one seems to be stagnant as well.
+    
+    Can you PLEASE provide an update as your investigation into this, and when you can have this fixed?</li>
+<li>Ashraf Abu 2016-06-30
+
+    You are right, not sure how this is a duplicate of this. Reopening this ticket.</li>
+<li>Kiley Williams 2016-07-06
+
+    Thanks Ashraf. What are your targeted plans on getting this resolved?
+    
+    Can you share some of the underlying issues that you have found that may be causing this?
+    
+    Are there any PRs that we could look at that may have tried to resolve this?</li>
+<li>Ashraf Abu 2016-07-07
+
+    [~Yrkh8trnoy]
+    I'm trying this out but not able to reproduce the crash.
+    
+    The test code that I've been using is:-
+    <code><pre>
+    Ti.UI.backgroundColor = 'white'; 
+    var win = Ti.UI.createWindow({ 
+        exitOnClose : true, 
+        layout : 'vertical' 
+    }); 
+    
+    var button = Titanium.UI.createButton({
+       title: 'Get Contacts Here',
+       top: 60
+    });
+    
+    win.add(button);
+    
+    win.open(); 
+    
+    var performAddressBookFunction = function(){
+    	var singleValue = [
+    	  'recordId', 'firstName', 'middleName', 'lastName', 'fullName', 'prefix', 'suffix', 
+    	  'nickname', 'firstPhonetic', 'middlePhonetic', 'lastPhonetic', 'organization', 
+    	  'jobTitle', 'department', 'note', 'birthday', 'created', 'modified', 'kind'
+    	];
+    	var multiValue = [
+    	  'email', 'address', 'phone', 'instantMessage', 'relatedNames', 'date', 'url'
+    	];
+    	var people = Ti.Contacts.getAllPeople();
+    	Ti.API.info('Total contacts: ' + people.length);
+    	
+    	
+    	for (var i=0, ilen=people.length; i<ilen; i++){
+    	  Ti.API.info('---------------------'+i);
+    	  
+    	  var person = people[i];
+    	  Ti.API.info(person.firstName+"-"+person.lastName);
+    	  /*
+    	  for (var j=0, jlen=singleValue.length; j<jlen; j++){
+    	    Ti.API.info(singleValue[j] + ': ' + person[singleValue[j]]);
+    	  }
+    	  for (var j=0, jlen=multiValue.length; j<jlen; j++){
+    	    Ti.API.info(multiValue[j] + ': ' + JSON.stringify(person[multiValue[j]]));
+    	  }
+    	  */
+    	}
+    	
+    
+    };
+    var addressBookDisallowed = function(){
+    alert("Not Allowed");
+    };
+    
+    button.addEventListener('click',function(e)
+    {
+       if (Ti.Contacts.hasContactsPermissions()) {
+        performAddressBookFunction();
+    } else {
+        Ti.Contacts.requestContactsPermissions(function(e) {
+            if (e.success) {
+                performAddressBookFunction();
+            } else {
+                addressBookDisallowed();
+            }
+        });
+    }
+    
+    });
+    </pre></code>
+    I've 1000+ contacts and it doesn't crash.
+    
+    I'm also looking at the possibility of using a paginate but that might not be the best idea.
+    
+    I'm looking into this. Could you add the logs that you get from such a crash?
+    
+    running "adb logcat -c" to clear the logs and running "adb logcat" to get the logs.</li>
+<li>Ashraf Abu 2016-07-07
+
+    Able to reproduce it.
+    Crash Logs as follows:-
+    <code><pre>
+    E/dalvikvm( 3079): JNI ERROR (app bug): local reference table overflow (max=512)
+    W/dalvikvm( 3079): JNI local reference table (0xb9437e40) dump:
+    W/dalvikvm( 3079):   Last 10 entries (of 512):
+    W/dalvikvm( 3079):       511: 0x9d512a10 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       510: 0x9d512b88 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       509: 0x9d512d00 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       508: 0x9d513cd8 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       507: 0x9d0258a8 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       506: 0x9d2b7048 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       505: 0x9d2c7120 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       504: 0x9d2db9c0 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       503: 0x9d305ac8 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):       502: 0x9d332760 ti.modules.titanium.contacts.PersonProxy
+    W/dalvikvm( 3079):   Summary:
+    W/dalvikvm( 3079):         1 of java.lang.String
+    W/dalvikvm( 3079):         1 of org.appcelerator.kroll.KrollDict
+    W/dalvikvm( 3079):         1 of org.appcelerator.kroll.runtime.v8.V8Object
+    W/dalvikvm( 3079):       508 of ti.modules.titanium.contacts.PersonProxy (508 unique instances)
+    W/dalvikvm( 3079):         1 of ti.modules.titanium.contacts.PersonProxy[] (629 elements)
+    E/dalvikvm( 3079): Failed adding to JNI local ref table (has 512 entries)
+    I/dalvikvm( 3079): "KrollRuntimeThread" prio=5 tid=12 RUNNABLE
+    I/dalvikvm( 3079):   | group="main" sCount=0 dsCount=0 obj=0x9cfd2960 self=0xb93aae90
+    I/dalvikvm( 3079):   | sysTid=3094 nice=0 sched=0/0 cgrp=apps handle=-1187405376
+    I/dalvikvm( 3079):   | state=R schedstat=( 0 0 0 ) utm=42 stm=99 core=0
+    I/dalvikvm( 3079):   at org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)
+    I/dalvikvm( 3079):   at org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)
+    I/dalvikvm( 3079):   at org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:918)
+    I/dalvikvm( 3079):   at org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1141)
+    I/dalvikvm( 3079):   at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:357)
+    I/dalvikvm( 3079):   at android.os.Handler.dispatchMessage(Handler.java:98)
+    I/dalvikvm( 3079):   at android.os.Looper.loop(Looper.java:136)
+    I/dalvikvm( 3079):   at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:118)
+    I/dalvikvm( 3079): 
+    E/dalvikvm( 3079): VM aborting
+    F/libc    ( 3079): Fatal signal 6 (SIGABRT) at 0x00000c07 (code=-6), thread 3094 (KrollRuntimeThr)
+    I/DEBUG   (  928): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+    I/DEBUG   (  928): Build fingerprint: 'generic_x86/google_sdk_x86/generic_x86:4.4.2/KK/2470823:eng/test-keys'
+    I/DEBUG   (  928): Revision: '0'
+    I/DEBUG   (  928): pid: 3079, tid: 3094, name: KrollRuntimeThr  >>> com.titanium.test <<<
+    I/DEBUG   (  928): signal 6 (SIGABRT), code -6 (SI_TKILL), fault addr --------
+    D/dalvikvm( 1559): GC_FOR_ALLOC freed 253K, 27% free 3897K/5308K, paused 14ms, total 14ms
+    E/NativeCrashListener( 1268): Exception dealing with report
+    E/NativeCrashListener( 1268): libcore.io.ErrnoException: read failed: EAGAIN (Try again)
+    E/NativeCrashListener( 1268): 	at libcore.io.Posix.readBytes(Native Method)
+    E/NativeCrashListener( 1268): 	at libcore.io.Posix.read(Posix.java:128)
+    E/NativeCrashListener( 1268): 	at libcore.io.BlockGuardOs.read(BlockGuardOs.java:149)
+    E/NativeCrashListener( 1268): 	at com.android.server.am.NativeCrashListener.consumeNativeCrashData(NativeCrashListener.java:240)
+    E/NativeCrashListener( 1268): 	at com.android.server.am.NativeCrashListener.run(NativeCrashListener.java:138)
+    I/DEBUG   (  928):     eax 00000000  ebx 00000c07  ecx 00000c16  edx 00000006
+    I/DEBUG   (  928): AM write failure (32 / Broken pipe)
+    I/DEBUG   (  928):     esi 00000c16  edi 00000002
+    I/DEBUG   (  928):     xcs 00000073  xds 0000007b  xes 0000007b  xfs 00000000  xss 0000007b
+    I/DEBUG   (  928):     eip b766ac96  ebp b76cfce0  esp 8b8eefc0  flags 00200207
+    I/DEBUG   (  928): 
+    I/DEBUG   (  928): backtrace:
+    I/DEBUG   (  928):     #00  pc 0003bc96  /system/lib/libc.so (tgkill+22)
+    I/DEBUG   (  928):     #01  pc 00000005  <unknown>
+    I/DEBUG   (  928): 
+    I/DEBUG   (  928): stack:
+    I/DEBUG   (  928):          8b8eef80  00000000  
+    I/DEBUG   (  928):          8b8eef84  b76cb268  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eef88  00000000  
+    I/DEBUG   (  928):          8b8eef8c  b763cef9  /system/lib/libc.so (pthread_mutex_unlock+25)
+    I/DEBUG   (  928):          8b8eef90  b76cb18c  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eef94  b92b0660  [heap]
+    I/DEBUG   (  928):          8b8eef98  00000015  
+    I/DEBUG   (  928):          8b8eef9c  b763cef9  /system/lib/libc.so (pthread_mutex_unlock+25)
+    I/DEBUG   (  928):          8b8eefa0  00000000  
+    I/DEBUG   (  928):          8b8eefa4  b7689656  /system/lib/libc.so (funlockfile+6)
+    I/DEBUG   (  928):          8b8eefa8  b76cafcc  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eefac  b7674c76  /system/lib/libc.so (__sflush_locked+150)
+    I/DEBUG   (  928):          8b8eefb0  00000000  
+    I/DEBUG   (  928):          8b8eefb4  00000000  
+    I/DEBUG   (  928):          8b8eefb8  b763cd29  /system/lib/libc.so (pthread_mutex_lock+9)
+    I/DEBUG   (  928):          8b8eefbc  b76cafcc  /system/lib/libc.so
+    I/DEBUG   (  928):     #00  8b8eefc0  00000006  
+    I/DEBUG   (  928):          8b8eefc4  00000c16  
+    I/DEBUG   (  928):          8b8eefc8  b76cafcc  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eefcc  b7647436  /system/lib/libc.so (pthread_kill+102)
+    I/DEBUG   (  928):          8b8eefd0  00000c07  
+    I/DEBUG   (  928):          8b8eefd4  00000c16  
+    I/DEBUG   (  928):          8b8eefd8  00000006  
+    I/DEBUG   (  928):          8b8eefdc  00000000  
+    I/DEBUG   (  928):          8b8eefe0  b76cb268  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eefe4  b4e16e41  /system/lib/libdvm.so
+    I/DEBUG   (  928):          8b8eefe8  b76473d9  /system/lib/libc.so (pthread_kill+9)
+    I/DEBUG   (  928):          8b8eefec  b76cafcc  /system/lib/libc.so
+    I/DEBUG   (  928):          8b8eeff0  8b8ef03c  [stack:3094]
+    I/DEBUG   (  928):          8b8eeff4  8b8ef27c  [stack:3094]
+    I/DEBUG   (  928):          8b8eeff8  b93aaf38  [heap]
+    I/DEBUG   (  928):          8b8eeffc  b76477fc  /system/lib/libc.so (raise+44)
+    D/Zygote  (  931): Process 3079 terminated by signal (6)
+    </pre></code></li>
+<li>Ashraf Abu 2016-07-07
+
+    Will probably carry out the solution/workaround for pagination.</li>
+<li>Kiley Williams 2016-07-07
+
+    Yep, that's the exact crash that we have experienced as well.</li>
+<li>Kiley Williams 2016-07-18
+
+    @ashraf, is there a hyperloop workaround for this, possibly?</li>
+<li>Ashraf Abu 2016-07-19
+
+    [~Yrkh8trnoy] There's no hyperloop workaround for this at the moment.</li>
+<li>Ashraf Abu 2016-07-21
+
+    This was fixed by TIMOB-15765</li>
+<li>Harry Bryant 2016-07-22
+
+    Hi [~Yrkh8trnoy] ,
+    
+    I've been investigating this issue in an attempt to verify that the fix is valid, however I am unable to reproduce the crash that you are experiencing using a 4.4.2 Android device, and SDK version 5.2.2.GA. Additionally, I created ~4,000 contacts on the device to see if that would cause the crash, but still could not reproduce.
+    
+    If it is not inconvenient for you, could you please try the latest 5.4.0 version and let me know if you are still experiencing the crashes? This can be obtained by using: <code>appc ti sdk install -b 5_4_X)</code>
+    
+    Thanks in advance,
+    
+    _Harry Bryant - Quality Engineering_</li>
+<li>Ashraf Abu 2016-07-25
+
+    Ran <code>appc ti sdk install -b 5_4_X</code> that installed <code>5.4.0.v20160724194540</code>
+    
+    No Errors. Everything works correctly as mentioned in TIMOB-15765 using Android 4.4.2
+    
+    Adding the test code that was used for testing here:
+    <code><pre>
+    
+    Ti.UI.backgroundColor = 'white';
+    var win = Ti.UI.createWindow({
+        exitOnClose : true,
+        layout : 'vertical'
+    });
+    
+    var button = Titanium.UI.createButton({
+        title : 'Get Contacts Here',
+        top : 60
+    });
+    
+    win.add(button);
+    
+    win.open();
+    
+    var performAddressBookFunction = function() {
+        var singleValue = ['recordId', 'firstName', 'middleName', 'lastName', 'fullName', 'prefix', 'suffix', 'nickname', 'firstPhonetic', 'middlePhonetic', 'lastPhonetic', 'organization', 'jobTitle', 'department', 'note', 'birthday', 'created', 'modified', 'kind'];
+        var multiValue = ['email', 'address', 'phone', 'instantMessage', 'relatedNames', 'date', 'url'];
+        var people = Ti.Contacts.getAllPeople();
+        Ti.API.info('Total contacts: ' + people.length);
+    
+        for (var i = 0,
+            ilen = people.length; i < ilen; i++) {
+            Ti.API.info('---------------------' + i);
+    
+            var person = people[i];
+            if (person != null) {
+                var firstname = person.firstName || "Null";
+                var lastname = person.lastName || "Null";
+                Ti.API.info(firstname + "-" + lastname);
+            } else {
+                Ti.API.info("Person is null at" + i);
+            }
+        }
+    
+    };
+    var addressBookDisallowed = function() {
+        alert("Not Allowed");
+    };
+    
+    button.addEventListener('click', function(e) {
+        if (Ti.Contacts.hasContactsPermissions()) {
+            performAddressBookFunction();
+        } else {
+            Ti.Contacts.requestContactsPermissions(function(e) {
+                if (e.success) {
+                    performAddressBookFunction();
+                } else {
+                    addressBookDisallowed();
+                }
+            });
+        }
+    });
+    </pre></code></li>
+<li>Kiley Williams 2016-07-26
+
+    Thanks Ashraf.
+    
+    Harry, it was fixed in the latest 5.4.X build that we tried thanks to the ticket (and embedded PR) that Ashraf mentioned.
+    
+    The underlying issue itself was fixed by Chris Williams, so I don't believe it will pop up again in the future (fingers crossed!!!!)</li>
+<li>Harry Bryant 2016-07-26
+
+    Thank you for your feedback [~Yrkh8trnoy], glad to know that your issue has been resolved.
+    
+    Tested On:
+    Android Samsung Galaxy S5 (4.4.2) Device
+    Mac OSX El Capitan 10.11.5 
+    Ti SDK: 5.4.0.v20160725003348
+    Appc Studio: 4.7.0.201607111053
+    Appc NPM: 4.2.7	
+    App CLI: 5.4.0-34
+    Xcode 7.3
+    Node v4.4.7
+    
+    *Closing ticket.*
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20279.json">JSON Source</a></p>

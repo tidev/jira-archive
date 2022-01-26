@@ -1,0 +1,180 @@
+{
+	"id": "81123",
+	"key": "TIMOB-5436",
+	"fields": {
+		"issuetype": {
+			"id": "2",
+			"description": "A new feature of the product, which has yet to be developed.",
+			"name": "New Feature",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "17608",
+				"name": "Release 6.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-05-26"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2016-10-31T16:16:15.000+0000",
+		"created": "2011-10-05T02:03:15.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"qe-6.1.0"
+		],
+		"versions": [
+			{
+				"id": "11331",
+				"description": "",
+				"name": "Release 1.8.0",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2011-10-31"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2016-11-17T17:58:56.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "h1. Feature\r\nNot all sounds that an app plays are media, so we should expose the SystemAlert through the Media module. This will let developers choose the most appropriate way to play a sound.\r\n\r\nh2. Example Usage\r\n{code:title=app.js}\r\nvar systemAlert = Ti.Media.createSystemAlert({\r\n    url: 'bad.wav'\r\n});\r\n\r\nfor (var i = 0; i < 10; i++) {\r\n    systemAlert.play();\r\n    var until = new Date().getTime() + 300;\r\n    while (until > new Date().getTime()) {}\r\n}\r\n{code}\r\n\r\nh2. Example Implementation\r\n{code:title=TiMediaSystemAlertProxy.h}\r\n#import \"TiProxy.h\"\r\n#import \"TiUtils.h\"\r\n#import <AudioToolbox/AudioServices.h>\r\n\r\n@interface TiMediaSystemAlertProxy : TiProxy {\r\n    NSURL* url;\r\n    TiFile *tempFile;\r\n    SystemSoundID sound;\r\n}\r\n    \r\n@property (nonatomic,readonly) NSURL *url;\r\n\r\n-(void)play:(id)args;\r\n\r\n@end\r\n{code}\r\n\r\n{code:title=TiMediaSystemAlertProxy.m}\r\n#import \"TiMediaSystemAlertProxy.h\"\r\n\r\n@implementation TiMediaSystemAlertProxy\r\n\r\n#pragma mark Proxy Lifecycle\r\n\r\n-(id)init\r\n{\r\n    return [super init];\r\n}\r\n\r\n-(void)_destroy\r\n{\r\n    if (sound) {\r\n        AudioServicesDisposeSystemSoundID(sound);\r\n    }\r\n    RELEASE_TO_NIL(url);\r\n    [super _destroy];\r\n}\r\n\r\n#pragma mark System Sound\r\n\r\n-(NSURL*)url\r\n{\r\n    return url;\r\n}\r\n-(void)setUrl:(id)url_\r\n{\r\n    RELEASE_TO_NIL(url);\r\n    \r\n    if ([url_ isKindOfClass:[NSString class]])\r\n    {\r\n        url = [[TiUtils toURL:url_ proxy:self] retain];\r\n        \r\n        if ([url isFileURL]==NO)\r\n        {\r\n            // we need to download it and save it off into temp file\r\n            NSData *data = [NSData dataWithContentsOfURL:url];\r\n            NSString *ext = [[[url path] lastPathComponent] pathExtension];\r\n            tempFile = [[TiFile createTempFile:ext] retain]; // file auto-deleted on release\r\n            [data writeToFile:[tempFile path] atomically:YES];\r\n            RELEASE_TO_NIL(url);\r\n            url = [[NSURL fileURLWithPath:[tempFile path]] retain];\r\n        }\r\n    }\r\n    else if ([url_ isKindOfClass:[TiBlob class]])\r\n    {\r\n        TiBlob *blob = (TiBlob*)url_;\r\n        //TODO: for now we're only supporting File-type blobs\r\n        if ([blob type]==TiBlobTypeFile)\r\n        {\r\n            url = [[NSURL fileURLWithPath:[blob path]] retain];\r\n        }\r\n    }\r\n    else if ([url_ isKindOfClass:[TiFile class]])\r\n    {\r\n        url = [[NSURL fileURLWithPath:[(TiFile*)url_ path]] retain];\r\n    }\r\n    \r\n    if (sound) {\r\n        AudioServicesDisposeSystemSoundID(sound);\r\n    }\r\n    AudioServicesCreateSystemSoundID((CFURLRef)url, &sound);\r\n}\r\n\r\n-(void)play:(id)args\r\n{\r\n    if (url == nil)\r\n        return;\r\n    AudioServicesPlayAlertSound(sound);\r\n}\r\n\r\n@end\r\n{code}\r\n\r\nh2. Android Implementation\r\nI'm not sure what the corresponding feature on Android would be.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Expose SystemAlert",
+		"creator": {
+			"name": "dtoth",
+			"key": "dtoth",
+			"displayName": "Dawson Toth",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "dtoth",
+			"key": "dtoth",
+			"displayName": "Dawson Toth",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 741,
+				"state": "closed",
+				"name": "2016 Sprint 22 SDK",
+				"startDate": "2016-10-22T00:02:29.945Z",
+				"endDate": "2016-11-05T00:02:00.000Z",
+				"completeDate": "2016-11-07T04:38:58.335Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "396482",
+					"author": {
+						"name": "kopiro",
+						"key": "kopiro",
+						"displayName": "Flavio De Stefano",
+						"active": true,
+						"timeZone": "Europe/Rome"
+					},
+					"body": "https://github.com/appcelerator/titanium_mobile/pull/8396",
+					"updateAuthor": {
+						"name": "kopiro",
+						"key": "kopiro",
+						"displayName": "Flavio De Stefano",
+						"active": true,
+						"timeZone": "Europe/Rome"
+					},
+					"created": "2016-09-19T08:40:20.000+0000",
+					"updated": "2016-09-19T08:40:20.000+0000"
+				},
+				{
+					"id": "400102",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Test-case for QE:\r\n{code:javascript}\r\nvar systemAlert = Ti.Media.createSystemAlert({\r\n    url: 'test.wav'\r\n});\r\n \r\nvar win = Ti.UI.createWindow({\r\n    backgroundColor: \"#fff\"\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n    title: \"Play 10 sounds\"\r\n});\r\n\r\nbtn.addEventListener(\"click\", function() {\r\n\tfor (var i = 0; i < 10; i++) {\r\n\t    systemAlert.play();\r\n\t    var until = new Date().getTime() + 300;\r\n\t    while (until > new Date().getTime()) {}\r\n\t}\r\n});\r\n\r\nwin.add(btn);\r\nwin.open();\r\n{code}",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-10-31T16:13:01.000+0000",
+					"updated": "2016-10-31T16:13:01.000+0000"
+				},
+				{
+					"id": "401368",
+					"author": {
+						"name": "htbryant",
+						"key": "htbryant",
+						"displayName": "Harry Bryant",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Verified as fixed, SystemAlert is now supported on iOS9 & iOS10.\r\n\r\nTested On:\r\niPhone 6 Plus 10.1.1 Device & Simulator\r\niPhone 5S 9.3.5 Device\r\nMac OS Sierra (10.12.1)\r\nTi SDK: 6.1.0.v20161116071014\r\nAppc Studio: 4.8.0.201611121409\r\nAppc NPM: 4.2.8\r\nApp CLI: 6.1.0-14\r\nXcode 8.1\r\nNode v4.4.7\r\n\r\n*Closing ticket.*",
+					"updateAuthor": {
+						"name": "htbryant",
+						"key": "htbryant",
+						"displayName": "Harry Bryant",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2016-11-17T17:56:41.000+0000",
+					"updated": "2016-11-17T17:56:41.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

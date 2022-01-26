@@ -1,0 +1,246 @@
+---
+title: "[TIMOB-4779] 'location' event listener on Ti.Geolocation on Android is unreliable"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-03-13T20:17:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-05, Release 2.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>dr-list, geolocation, module_geolocation, qe-port</td></tr>
+<tr><th>Reporter</th><td>Taazza GO</td></tr>
+<tr><th>Assignee</th><td>Opie Cyrus</td></tr>
+<tr><th>Created</th><td>2011-07-15T12:07:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-03-19T15:11:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Behaviour reproducible in the KitchenSink [geolocation.js](<a href="https://github.com/appcelerator/KitchenSink/blob/master/Resources/examples/geolocation.js)" rel="nofollow" target="_blank">https://github.com/appcelerator/KitchenSink/blob/master/Resources/examples/geolocation.js)</a> example on Titanium 1.5 to 1.6+.
+
+
+
+{quote}
+Sometimes the listener fails to return any location even after a few minutes. However, if I open a Ti.Map.MapView with the userLocation attribute set to true, my current location is pointed out on the map within 20 seconds. Other location-based apps installed on the Android phone also manage to successfully geolocate me.
+{quote}
+
+(From Q&A post at <a href="http://developer.appcelerator.com/question/118712/tigeolocation-on-android-seems-flaky)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/118712/tigeolocation-on-android-seems-flaky)</a>
+
+Key points from our conversation with Kevin Whinnery about this issue:
+
+* Accuracy level has been set to *Ti.Geolocation.ACCURACY_BEST*. Our code is more or less the same as the KS example code.
+* Reports of geolocation failure from a *wide range of devices*. We have seen nearly 60% of users dropping out because the app didn't geolocate them. Even our existing users keep asking us to improve geolocation - esp. because they see that the map within our app shows the current location, but our geolocation code fails to work.
+* The important thing is that this *doesn't happen all the time*. Single-shot GPS readings do come back at a reasonable rate when the geolocation is working. But when it isn't working, we have to wait for minutes together with no guarantee of success.
+* Opening & locating ourselves in Gowalla or *other location-based apps* ensures that the Kitchen Sink demo always works the next time we open it.
+
+We *don't* run the geolocation call within the app.js context. We open a heavyweight window using a URL from app.js. From this heavyweight window, we open another window using a URL. It is in this window's context that the geolocation call occurs.
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4779_22643/TaazzaGO.tar.bz2">TaazzaGO.tar.bz2</td></td><td>2011-08-23T13:16:26.000+0000</td><td>149037</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Keith Gable 2011-12-08
+
+   I have this EXACT same problem. It has something to do with [TiLocationHelper.java](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiLocationHelper.java)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiLocationHelper.java).</a> Essentially, the accuracy constants map to one of two different options (different behavior than iOS, where all 6 constants do something different), and your choices are either "don't turn on the GPS ever" or "require a great satellite lock and ignore that there's a network location device in this phone", even though Android technically supports a lot more choices than that.
+   
+   It's less than ideal, but I edited the TiLocationHelper.java file to subscribe to updates from both the GPS and network providers, so that my app at least gets a fix in a reasonable amount of time (instead of never), though it doesn't follow the Android model of "get crappy location and keep improving until app is satisfied".
+   
+   If you make this modification (I did it in registerListener and not updateProvider because I'd like to get something immediately and improve it), what fetchProvider does isn't really relevant. I'm working on distilling a patch to do what *I* want, but I'm sure it isn't going to do what you want. I'll post it here once my QA team beats it to death.</li>
+<li>Keith Gable 2011-12-08
+
+   Here is a patch that I wrote to halfway hack around this issue:
+   
+   <code><pre>
+   From 3d20822fcb9c4df2246b9189f463bf7e7324423b Mon Sep 17 00:00:00 2001
+   From: Keith Gable <keith.gable@macrosolve.com>
+   Date: Thu, 8 Dec 2011 17:35:16 -0600
+   Subject: [PATCH] Hack the location helper to work better in our application:
+   
+   * Don't require that the location provider support bearing, speed, etc.
+     when using ACCURACY_BEST.
+   * Initial event listener call will listen to both the GPS and network
+     providers for location.
+   * Additional debugging to figure out what step the geolocation process
+     is reaching before dying.
+   ---
+    .../titanium/util/TiLocationHelper.java            |   55 +++++++++++++------
+    1 files changed, 37 insertions(+), 18 deletions(-)
+   
+   diff --git a/android/titanium/src/org/appcelerator/titanium/util/TiLocationHelper.java b/android/titanium/src/org/appcelerator/titanium/util/TiLocationHelper.java
+   index 2d04b35..d1b930b 100644
+   --- a/android/titanium/src/org/appcelerator/titanium/util/TiLocationHelper.java
+   +++ b/android/titanium/src/org/appcelerator/titanium/util/TiLocationHelper.java
+   @@ -48,11 +48,12 @@ public class TiLocationHelper
+    
+    	private static int buildUpdateFrequency(Integer frequency)
+    	{
+   -		if (frequency != null) {
+   -			return frequency.intValue() * 1000;
+   -		} else {
+   -			return DEFAULT_UPDATE_FREQUENCY;
+   -		}
+   +	  // Updated 2011-12-05 by Keith Gable <keith.gable@macrosolve.com>:
+   +	  // * Always return 0 so we get instant updates.
+   +
+   +    Log.i(LCAT, "Update frequency: 0");
+   +
+   +	  return 0;
+    	}
+    
+    	private static float buildUpdateDistance(Integer accuracy)
+   @@ -61,7 +62,10 @@ public class TiLocationHelper
+    
+    		if (accuracy != null) {
+    			switch(accuracy.intValue()) {
+   -				case ACCURACY_BEST : updateDistance = 1.0f; break;
+   +			  // Updated 2011-12-05 by Keith Gable <keith.gable@macrosolve.com>:
+   +			  // * ACCURACY_BEST's updateDistance is 0.0 now.
+   +
+   +				case ACCURACY_BEST : updateDistance = 0.0f; break;
+    				case ACCURACY_NEAREST_TEN_METERS : updateDistance = 10.0f; break;
+    				case ACCURACY_HUNDRED_METERS : updateDistance = 100.0f; break;
+    				case ACCURACY_KILOMETER : updateDistance = 1000.0f; break;
+   @@ -71,6 +75,8 @@ public class TiLocationHelper
+    			}
+    		}
+    
+   +    Log.i(LCAT, "Update distance: " + updateDistance);
+   +
+    		return updateDistance;
+    	}
+    
+   @@ -83,9 +89,15 @@ public class TiLocationHelper
+    			int updateFrequency = buildUpdateFrequency(frequency);
+    			float updateDistance = buildUpdateDistance(accuracy);
+    
+   -			Log.i(LCAT, "registering listener with provider [" + provider + "], frequency [" + updateFrequency + "], distance [" + updateDistance + "]");
+   +			Log.i(LCAT, "Registering location listener on network and GPS providers, frequency [" + updateFrequency + "], distance [" + updateDistance + "]");
+   +
+   +      // Updated 2011-12-05 by Keith Gable <keith.gable@macrosolve.com>:
+   +      // * Instead of using the provider we detected, use both providers. When onLocationChanged fires in
+   +      //   TiLocation.java, updateProvider will be called and then we will use the best provider. This will
+   +      //   permit the app to at least get an instant location initially.
+   +			locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, updateFrequency, updateDistance, listener);
+   +			locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, updateFrequency, updateDistance, listener);
+    
+   -			locationManager.requestLocationUpdates(provider, updateFrequency, updateDistance, listener);
+    			listenerCount.incrementAndGet();
+    		} else {
+    			Log.e(LCAT, "unable to register, provider is null");
+   @@ -160,12 +172,16 @@ public class TiLocationHelper
+    	{
+    		String provider;
+    
+   -		if ((preferredProvider != null) && isValidProvider(preferredProvider)) {
+   -			provider = preferredProvider;
+   -		} else {
+   -			Criteria criteria = createCriteria(accuracy);
+   -			provider = getLocationManager().getBestProvider(criteria, true);
+   -		}		
+   +    // Updated 2011-12-05 by Keith Gable <keith.gable@macrosolve.com>:
+   +    // * Always create criteria and get the best provider. We don't care about
+   +    //   the preferred provider.
+   +
+   +    Log.i(LCAT, "Getting best provider...");
+   +
+   +		Criteria criteria = createCriteria(accuracy);
+   +		provider = getLocationManager().getBestProvider(criteria, true);
+   +
+   +    Log.i(LCAT, "...and it is " + provider);
+    
+    		return provider;
+    	}
+   @@ -179,13 +195,16 @@ public class TiLocationHelper
+    			int value = accuracy.intValue();
+    
+    			switch(value) {
+   +			  // Updated 2011-12-05 by Keith Gable <keith.gable@macrosolve.com>:
+   +			  // * ACCURACY_BEST/NEAREST_TEN_METERS/HUNDRED_METERS no longer require
+   +			  //   altitude/bearing/etc.
+    				case ACCURACY_BEST :
+    				case ACCURACY_NEAREST_TEN_METERS :
+    				case ACCURACY_HUNDRED_METERS :
+   -					criteria.setAccuracy(Criteria.ACCURACY_FINE);
+   -					criteria.setAltitudeRequired(true);
+   -					criteria.setBearingRequired(true);
+   -					criteria.setSpeedRequired(true);
+   +					criteria.setAccuracy(Criteria.ACCURACY_FINE); // ACCURACY_HIGH preferred, but requires Android 2.3+
+   +					criteria.setAltitudeRequired(false);
+   +					criteria.setBearingRequired(false);
+   +					criteria.setSpeedRequired(false);
+    					break;
+    				case ACCURACY_KILOMETER :
+    				case ACCURACY_THREE_KILOMETERS :
+   -- 
+   1.7.3.4
+   
+   </pre></code>
+   
+   This works for us because now we get a more-or-less instant response to a location event handler (as in iOS), and then the location will eventually refine to something better (GPS). Theoretically; my custom SDK hasn't been tested by our QA team yet.
+   
+   I don't think this patch is worthy of anything other than to be a usecase-specific hack that may also work for the OP. My personal preference, given that geolocation works differently on iOS and on Android, is either to:
+   
+   <h4>Implement the complete [W3C Geolocation](<a href="http://dev.w3.org/geo/api/spec-source.html)" rel="nofollow" target="_blank">http://dev.w3.org/geo/api/spec-source.html)</a> standard consistently on both platforms, or</h4>
+   <h4>Create an Android geolocation module and an iOS geolocation module, so that the handling specific to both mine and the OP's usecase can be implemented as if it were native.</h4>
+   
+   Also sorry I couldn't actually attach this patch as a .patch. I guess as I'm not the reporter that I can't.</li>
+<li>Kevin Whinnery 2011-12-08
+
+   Hi Keith,
+   
+   Thanks for the comment and the patch - we'll leave it up here in case anyone would like to attempt to apply it.  This is definitely a parity issue, where the behaviors for Geolocation tracking are not the same across platforms.  We're probably not going to accept the patch as-is because we need to revisit this API and make sure it's uniformly implemented across all platforms, with unit tests that match the desired behavior.
+   
+   Also, to accept any code at all for Titanium Mobile under any circumstances, we require a contributor agreement to be on file for the patch submitter.  To register a CLA, you can visit <a href="http://developer.appcelerator.com/cla." rel="nofollow" target="_blank">http://developer.appcelerator.com/cla.</a>
+   
+   Thanks, and we'll get this scheduled ASAP.</li>
+<li>Keith Gable 2011-12-08
+
+   As I mentioned via Twitter... my patch is nothing more than a hack to support more quickly giving my app an instant location. While I think that the behavior somewhat matches ACCURACY_BEST on iOS, it doesn't do it exactly. Definitely the more appropriate behavior would be to subscribe to updates from both GPS and network and once a reliable GPS signal is picked up, ignore updates from the network (until GPS is lost, then go back to network). Right now, it picks one or the other, but that's not consistent with iOS.
+   
+   Honestly, it'll probably be easier to implement iOS geolocation and Android geolocation, because the APIs are very different. (Or, like I said, the W3C Geolocation API, which matches neither API.) Because, for example, my desired behavior is good for something where we need to get the best fix possible as soon as possible (like navigation), but I would sure hate to make that behavior apply to everyone.
+   
+   I will go ahead and register a CLA, but please don't take my patch as-is :).</li>
+<li>Keith Gable 2011-12-08
+
+   I will have to get my employer to OK filling out a CLA due to the patent licensing thing, which is well above my pay grade :)</li>
+<li>Keith Gable 2011-12-12
+
+   Sorry, I can't sign the CLA... But my patch is a hack anyways.</li>
+<li>Shawn Lipscomb 2012-01-23
+
+   I agree with Keith's goals:
+   
+   1. Improve the current "require a great satellite lock and ignore that there's a network location device in this phone" method.  If I "prefer" the GPS provider, but can't get a GPS lock, then network location is ok.  preferredProvider should be just that...the preferred provider of locations.  It may be usefull to offer a new minimumProvider property so that apps that need GPS-only locations can lock out network-based locations.
+   
+   2. Ability to get an instant location response as soon as the listener is activated, with continued 'location' event firings as the GPS comes on line and the location becomes more and more precise.
+   
+   As far as parity goes, this process should behave the same way on Android and iOS, when all is said and done.</li>
+<li>Shawn Lipscomb 2012-01-23
+
+   </li>
+<li>Wilson Luu 2012-03-19
+
+   Closing bug. Verified fix using code from TIMOB-7565 on:
+   
+   SDK build: 2.0.0.v20120319003254
+   Runtime: v8, rhino
+   Titanium Studio, build: 2.0.0.201203182248
+   Device: LG Slate (3.1)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4779.json">JSON Source</a></p>

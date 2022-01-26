@@ -1,0 +1,76 @@
+---
+title: "[TIMOB-15357] iOS: App delegate uses deprecated method handleOpenURL, which disables new Facebook SDK"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-12T22:35:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 23, 2013 Sprint 23 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.2.0, triage</td></tr>
+<tr><th>Reporter</th><td>Mostafizur Rahman</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-26T18:33:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-13T01:07:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The app delegate in iPhone/Classes/TiApp.m uses the above deprecated method:
+
+[handleOpenURL](<a href="https://developer.apple.com/library/ios/documentation/uikit/reference/UIApplicationDelegate_Protocol/Reference/Reference.html#//apple_ref/occ/intfm/UIApplicationDelegate/application:handleOpenURL:)" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/documentation/uikit/reference/UIApplicationDelegate_Protocol/Reference/Reference.html#//apple_ref/occ/intfm/UIApplicationDelegate/application:handleOpenURL:)</a>
+
+The problem with this is that this method doesn't receive the sourceApplication identifier from the calling app. To use the new Facebook SDKs the app must use the newer openURL method, which can enable the Facebook module to know who is the calling app (e.g. - the native Facebook application which is calling our app for deep linking, share dialog, etc.). I assume there may be other apps besides Facebook which may be causing similar issues, thus this is critical.
+
+Please implement this for 3.2.0 as well as a backport for 3.1.x
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2013-09-26
+
+   Pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/4739" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4739</a>
+   For a concise example of the necessity of this, see <a href="https://developers.facebook.com/docs/ios/app-links/" rel="nofollow" target="_blank">https://developers.facebook.com/docs/ios/app-links/</a>
+   You can see that Facebook app link functionality needs to know the sourceApplication, and this is available only in openURL and not handleOpenURL, as in their example.</li>
+<li>Mark Mokryn 2013-09-27
+
+   This should not be low priority: in the current SDK, when an app is opened by URL (e.g. return from Facebook dialog, deep linking, etc) the app has *NO CLUE* which app called it. If you want to use new Facebook SDKs - you *MUST* fix this. Since I submitted the PR, and since it's only about 5 lines of code that can be easily tested, please rethink the priority on this.</li>
+<li>Ingo Muschenetz 2013-09-27
+
+   [~mokesmokes] I'm not sure why this was marked as low priority. I've changed it.</li>
+<li>Mark Mokryn 2013-09-27
+
+   A related note: the Titanium iOS module API only supports app events such as applicationWillResignActive, applicationDidBecomeActive, etc. There is no direct support for openURL (or its predecessor handleOpenURL) - rather the code in TiApp.m saves the URL info in the launchOptions object, and the module is supposed to "infer" this data during applicationDidBecomeActive/resumed event. This is really weird logic, for several reasons:
+   1) On occasion "resumed" can occur right after "suspend", without any other events in between - e.g. when the user rejects a phone call.
+   2) The current iOS specs are a bit ambiguous as to the order of these events, and if they decide to call openURL after the resumed event - this logic will break. With the current wording in the Apple docs, this is quite possible.
+   
+   All I did in my pull request was update to openURL and save the relevant info - this PR seems "safe" in my eyes. However, the additional fix, in my opinion, is for the module API to also support a "urlReceived" event, to directly support URL calls, and not "infer" them in ambiguous fashion from "resumed" events.
+   The iOS reference on this: <a href="https://developer.apple.com/library/ios/DOCUMENTATION/UIKit/Reference/UIApplicationDelegate_Protocol/Reference/Reference.html" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/DOCUMENTATION/UIKit/Reference/UIApplicationDelegate_Protocol/Reference/Reference.html</a></li>
+<li>Mark Mokryn 2013-10-01
+
+   I would like to note that I'm using this PR in production code on my branch of 3.1.3, and it works with the Facebook app calls in the new SDK (for which I will also submit a PR soon). I have not seen any negative side effects to this code.</li>
+<li>Mark Mokryn 2013-10-02
+
+   </li>
+<li>Vishal Duggal 2013-11-12
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/4739" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4739</a> merged</li>
+<li>Wilson Luu 2013-12-12
+
+   Closing ticket as fixed. Verified using KS test (Base UI > Views > Web Views > External URL) and logging into Facebaook (Mashups > Facebook > Login/Logout).
+   
+   Tested on:
+   
+   Appcelerator Studio, build: 3.2.0.201312101708
+   SDK build: 3.2.0.v20131212122847
+   CLI: 3.2.0-cr3
+   Alloy: 1.3.0-cr
+   Xcode: 5.0.2
+   Device: iphone 5s (7.0), iphone 5 (6.1.3)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15357.json">JSON Source</a></p>

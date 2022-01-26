@@ -1,0 +1,129 @@
+---
+title: "[AC-6216] Android: Issue after a long time of inactivity"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-19T22:33:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>TabGroup, android</td></tr>
+<tr><th>Reporter</th><td>Rainer Schleevoigt</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-04-19T09:06:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-19T22:33:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The new versions of Android kills apps after long time of sleeping. The requesting of BatterySafingPermission doesn't help for all devices. ;-(
+
+My observation:
+if I restart the app after waking up from sleeping mode then the app seems to frozen.
+Here the tracelog: <a href="https://gist.github.com/AppWerft/59ca215fb603f5a29394f7fb07b00227" rel="nofollow" target="_blank">https://gist.github.com/AppWerft/59ca215fb603f5a29394f7fb07b00227</a>
+Here my samplecode: 
+
+
+<code><pre>
+// root activity called by app.js:
+module.exports = function() {
+	const $ = Ti.UI.createTabGroup({
+		fullscreen : false,
+		exitOnClose : true,
+		orientationModes : [ Ti.UI.PORTRAIT, Ti.UI.UPSIDE_PORTRAIT ]
+	});
+	$.addEventListener('open', require('ui/common/main.menu'));
+	$.open();
+};
+</pre></code>
+And here the menu, calling after opening of tabgroup:
+<code><pre>
+//  main.menu.js:
+module.exports = function() {
+        const lifecyclecontainer = arguments[0].source;
+	console.log("_openevent");
+	if (!lifecyclecontainer)
+		return;
+	var activity = lifecyclecontainer.getActivity();
+	if (activity) {
+		console.log("_openevent activity"); // last seen message!!!
+		activity.onCreateOptionsMenu = function(_menu) {
+			console.log("_openevent onCreateOptionsMenu");
+			const menuItem = _menu.menu.add({
+				icon : Ti.App.Android.R.drawable.ic_action_audio,
+				showAsAction : Ti.Android.SHOW_AS_ACTION_IF_ROOM,
+			});
+		};
+		activity.invalidateOptionsMenu();
+	}
+};
+</pre></code>
+
+Summary: the activity of tabgroup is != null, but the next statement <code>activity.onCreateOptionsMenu</code> thows an exception. The code runs on first start of app, but crashes after resuming. This issue only appears with new SDK >=7 and >=Oreo.
+Timing issue?
+
+
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rainer Schleevoigt 2019-04-19
+
+   With the "Don't keep activities" on in developer options I can trigger the crash immediately:
+   
+   Steps:
+   1. Running app
+   2. Back button
+   3. Restart from Home screen => no issue
+   
+   1. Running app
+   2. Menu button or screen off
+   3. Restart
+   4. Crash with log above</li>
+<li>Joshua Quick 2019-04-19
+
+   [~titanium@webmasterei-hamburg.de], this is a known issue which is reported here: [TIMOB-26964]
+   
+   This issue is scheduled to be resolved in Titanium 8.0.1. I tested the below Classic app code with that ticket's PR and have confirmed that it'll fix your issue. It displays a menu item like how you're doing it and it's definitely recreating the menu item when the activity window is being "restored" by the Android OS (ie: after resuming the app).
+   <code><pre>
+   function createTab(title) {
+   	var window = Ti.UI.createWindow({ title: title });
+   	window.add(Ti.UI.createLabel({ text: title + " View" }));
+   	var tab = Ti.UI.createTab({
+   		title: title,
+   		window: window,
+   	});
+   	return tab;
+   }
+   
+   var tabGroup = Ti.UI.createTabGroup({
+   	tabs: [createTab("Tab 1"), createTab("Tab 2"), createTab("Tab 3")],
+   });
+   if (Ti.App.Android) {
+   	tabGroup.activity.onCreateOptionsMenu = function(e) {
+   		Ti.API.info("@@@ onCreateOptionsMenu() called.");
+   		var menuItem = e.menu.add({
+   			title: "Menu Item 1",
+   			showAsAction: Ti.Android.SHOW_AS_ACTION_IF_ROOM,
+   		});
+   		menuItem.addEventListener("click", function() {
+   			alert("Menu item was clicked on.");
+   		});
+   	};
+   }
+   tabGroup.open();
+   </pre></code>
+   
+   Please note that this is known to crash in Titanium 7.2.1 through 7.5.1.
+   In Titanium 8.0.0, the <code>TabGroup</code> appears empty instead and doesn't crash. Still not great, but at least the crash is gone. In 8.0.1, it'll work as expected.
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-6216.json">JSON Source</a></p>

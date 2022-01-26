@@ -1,0 +1,167 @@
+---
+title: "[TIMOB-20222] Windows: Error while createcollection on Windows Phone"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-31T02:31:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>appcelerator, windows8.1, windows_phone</td></tr>
+<tr><th>Reporter</th><td>Alberto Bonacina</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-01-11T12:18:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-16T22:26:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I create a simple alloy app project but in my alloy.js if i put this line
+
+<code><pre>
+Alloy.Collections.category = Alloy.createCollection('category');
+</pre></code>
+
+when the app starts I see in the console this error
+
+<code><pre>
+[ERROR] :  Application Error: {
+[ERROR] :    "line": 2,
+[ERROR] :    "column": 10,
+[ERROR] :    "message": "Error while require(/app) Error while require(alloy/models/Category) unknown exception",
+[ERROR] :    "native_stack": [
+[ERROR] :      "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+[ERROR] :    ]
+[ERROR] :  }
+</pre></code>
+
+everything works if a run the app on Android and iOS, but it crash if i run it in Windows Phone Simulator.
+This is my model category.js
+
+<code><pre>
+exports.definition = {
+	config: {
+		columns: {
+            "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+            "name": "TEXT",
+            "counter": "INTEGER",
+            "default_image": "TEXT"
+        },
+        defaults: {
+            "name": "TEXT",
+            "counter": "INTEGER",
+            "default_image": "TEXT"
+        },
+		adapter: {
+			"type": "sql",
+			 "tablename": "category",
+			"collection_name": "category",
+			"db_file": "/db.sqlite",
+			"db_name": "category",
+			"idAttribute": "id",
+			"remoteBackup": false
+		}
+	},
+	extendModel: function(Model) {
+        _.extend(Model.prototype, {
+            // extended functions and properties go here
+        });
+ 
+        return Model;
+    },
+    extendCollection: function(Collection) {
+        _.extend(Collection.prototype, {
+            // extended functions and properties go here
+        });
+ 
+        return Collection;
+    }
+};
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20222_57927/erroreDatabase.PNG">erroreDatabase.PNG</td></td><td>2016-01-11T12:11:58.000+0000</td><td>81946</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-01-21
+
+   When I tested this, I see:
+   <code><pre>
+   [DEBUG] Installing sql database "/db.sqlite" with name "category"
+   [ERROR] Application Error: {
+   [ERROR]   "line": 2,
+   [ERROR]   "column": 10,
+   [ERROR]   "message": "Error while require(/app) Error while require(alloy/models/Category) config.adapter.idAttribute \"id\" not found in list of columns for table \"category\"\ncolumns: []",
+   [ERROR]   "native_stack": [
+   [ERROR]     "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+   [ERROR]   ]
+   [ERROR] }
+   </pre></code>
+   
+   Which suggests to me that the database installation isn't working properly in this case here. I'll have to dig deeper and find out why...</li>
+<li>Christopher Williams 2016-01-21
+
+   Looks to me like this may be because we return a non-null/undefined return value for the Db.execute call here:
+   <code><pre>
+   Ti.API.debug('Installing sql database "' + dbFile + '" with name "' + dbName + '"');
+       var db = Ti.Database.install(dbFile, dbName);
+       if (false === config.adapter.remoteBackup && false) {
+           Ti.API.debug('iCloud "do not backup" flag set for database "' + dbFile + '"');
+           db.file.setRemoteBackup(false);
+       }
+       var rs = db.execute('pragma table_info("' + table + '");');
+   </pre></code>
+   If we return an empty result set rather than null/undefined for the <code>rs</code> variable, the Alloy code will basically end up gathering no columns and error in a way that I'm seeing.
+   
+   I also used the Windows Phone Power Tools and saw that the database file existed but was 0 bytes. So I think the database file is getting created (so the Db.install looks like it's working).
+   
+   </li>
+<li>Christopher Williams 2016-01-21
+
+   [~AlbWebbergate] Do you actually have a <code>db.sqlite</code> database file you use to pre-populate the category database with? It's mentioned in the db_file value, but wasn't sure if you had that file in your app, or were just relying on behavior to effectively ignore that it doesn't exist?</li>
+<li>Christopher Williams 2016-01-21
+
+   Looks like Android has special code to explicitly return null when a SELECT or PRAGMA is issued and has 0 columns in the result: <a href="https://github.com/appcelerator/titanium_mobile/blob/bc85170157d3bebc5de1d61a9fe6e34bce84a8c9/android/modules/database/src/java/ti/modules/titanium/database/TiDatabaseProxy.java#L125" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/bc85170157d3bebc5de1d61a9fe6e34bce84a8c9/android/modules/database/src/java/ti/modules/titanium/database/TiDatabaseProxy.java#L125</a></li>
+<li>Alberto Bonacina 2016-01-22
+
+   </li>
+<li>Christopher Williams 2016-01-22
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/536" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/536</a></li>
+<li>Ewan Harris 2016-05-25
+
+   Verified using: 
+   
+   Windows 10 Pro 
+   Visual Studio 2015 Community Update 2 
+   Appc Core: 5.3.0-46 
+   Appc NPM: 4.2.5-5 
+   Ti SDK: 5.3.0.v20160523083840
+   Lumia 520 8.1, Lumia 930 10.0
+   
+   When executing pragma table_info("table_name") on a table with no rows the value returned is now null rather than being an empty Ti.Database.ResultSet. Tested classic using the code below and Alloy using the code provided in description
+   
+   <code><pre>
+   var db = Ti.Database.install("made.up.sqlite", "category");
+   var rows = db.execute('pragma table_info("category");');
+   Ti.API.info(rows === null);
+   db.remove();
+   </pre></code>
+   
+   Closing ticket</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20222.json">JSON Source</a></p>

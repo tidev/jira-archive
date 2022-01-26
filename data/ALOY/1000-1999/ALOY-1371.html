@@ -1,0 +1,77 @@
+---
+title: "[ALOY-1371] Make Alloy less dependent on knowledge about Titanium APIs for parsing XML"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>XML</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Bruce Wayne</td></tr>
+<tr><th>Created</th><td>2016-03-18T12:51:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-18T14:07:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+ALOY-1363 got me thinking it would be good to make Alloy less dependent on knowledge about the Titanium APIs for parsing XML.
+
+<h4>Why</h4>
+
+* Less dependant on certain Titanium versions (e.g. should <code><SplitView></code> map to <code>Ti.UI.iPad</code> or <code>Ti.UI.iOS</code> namespace?)
+* More prepared for future Titanium versions (e.g. ALOY-1356)
+* Cut down on [custom parsers](<a href="https://github.com/appcelerator/alloy/tree/master/Alloy/commands/compile/parsers)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/Alloy/commands/compile/parsers)</a> - in particular for proxy elements (those which map to parent properties instead of <code>.add()</code>, enabling the above as well as less possible points of failure (e.g. ALOY-1282)
+* Less magic and higher predictability of XML parsing for developers
+* Would allow modules to use proxy elements as well, with need for Alloy to know how (like we now hard-coded <code>ti.map</code> support).
+
+<h4>How</h4>
+
+* Drop [implicit namespaces](<a href="https://github.com/appcelerator/alloy/blob/master/Alloy/common/constants.js#L151)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/Alloy/common/constants.js#L151)</a> and always require developers to be in charge and thus conscious of which namespace or module they use via <code>ns="Ti.UI.iOS"</code> an <code>module="ti.map"</code>.
+* Replace as much proxy elements as we can by adding support for generic <code><Array></code> and <code><Object></code> elements, accompanied by a new <code>parentProperty</code> to tell Alloy which parent property to assign it to:
+
+<code><pre>
+<Alloy>
+  <Collection src="marker" />
+  <Map module="ti.map"> 
+     <Array parentProperty="annotations" dataCollection="marker">
+        <Annotation module="ti.map" />
+     </Array>
+     <Object parentProperty="region" latitude="33.74511" longitude="-84.38993" latitudeDelta="0.01" longitudeDelta="0.01" />
+  </Map>
+</Alloy>
+</pre></code>
+
+* Add "parentMethod" attribute for the developer to override the default <code>add()</code>, which can also be used with the above:
+
+<code><pre>
+<Alloy>
+  <Map module="ti.map">
+    <Polygon module="ti.map" parentMethod="addPolygon" />
+     <Array parentMethod="addAnnotations" dataCollection="marker">
+        <Annotation module="ti.map" />
+     </Array>
+  </Map>
+</Alloy>
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2016-03-18
+
+   /cc [~fmiao] [~brentonhouse]</li>
+<li>Brenton House 2016-03-18
+
+   I like either way, but I guess <code><Array parentProperty="annotations" parentMethod="addMyAnnotations"></code> would give us more support for property names that might not be valid xml element names.  </li>
+<li>Fokke Zandbergen 2016-03-18
+
+   Good argument! I updated the description to use just that.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1371.json">JSON Source</a></p>

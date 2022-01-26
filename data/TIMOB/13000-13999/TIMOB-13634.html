@@ -1,0 +1,102 @@
+---
+title: "[TIMOB-13634] CLI: Reading Android add-on fails if missing manifest.ini file"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-06-05T21:06:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 12 JS, 2013 Sprint 12, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-04-19T22:31:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-20T01:42:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The CLI dies when an add-on doesn't have a manifest.ini:
+
+<code><pre>
+[ERROR] Application Installer abnormal process termination. Process exit value was 1
+c:\Users\Johnny\AppData\Roaming\npm\node_modules\titanium\node_modules\longjohn\dist\longjohn.js:181
+        throw e;
+              ^
+Error: ENOENT, no such file or directory 'C:\Android\add-ons\android-ndk-r7\manifest.ini'
+    at fs.openSync (fs.js:338:18)
+    at fs.readFileSync (fs.js:182:15)
+    at exports.detect.async.series.targets (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\android.js:168:25)
+    at exports.visitDirsSync (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\fs.js:99:3)
+    at Array.forEach (native)
+    at exports.visitDirsSync (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\fs.js:98:5)
+    at exports.detect.async.series.cached (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\android.js:167:10)
+    at exithandler (child_process.js:538:7)
+    at EventEmitter.emit (events.js:99:17)
+---------------------------------------------
+    at exports.execFile (child_process.js:594:9)
+    at exports.exec (child_process.js:481:18)
+    at exports.detect.async.series.cached (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\android.js:81:4)
+    at async.series.results (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:486:21)
+    at _asyncMap (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:185:13)
+    at async.forEachSeries.iterate (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:108:13)
+    at async.forEachSeries.iterate (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:119:25)
+    at _asyncMap (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:187:17)
+---------------------------------------------
+    at exports.execFile (child_process.js:594:9)
+    at exports.exec (child_process.js:481:18)
+    at exports.detect.async.series.exec.cwd (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\node-appc\lib\android.js:68:4)
+    at async.series.results (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:486:21)
+    at _asyncMap (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:185:13)
+    at async.forEachSeries.iterate (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:108:13)
+    at async.forEachSeries.iterate (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:119:25)
+    at _asyncMap (C:\Users\Johnny\AppData\Roaming\Titanium\mobilesdk\win32\3.1.0.v20130409124549\node_modules\async\lib\async.js:187:17)
+</pre></code>
+
+The fix is trivial, we just need to check that the manifest.ini exists:
+
+<code><pre>
+// Create the list of target directories and their properties
+afs.visitDirsSync(path.join(sdkPath, 'add-ons'), function(subDir, subDirPath) {
+	var manifestFile = path.join(subDirPath, 'manifest.ini');
+	if (afs.exists(manifestFile)) {
+		var manifest = fs.readFileSync(manifestFile).toString();
+		targetDirs.push({
+			dirPath: subDirPath,
+			name: manifest.match(manifestNameRegex)[1],
+			vendor: manifest.match(manifestVendorRegex)[1],
+			api: manifest.match(manifestApiRegex)[1],
+			revision: manifest.match(manifestRevisionRegex)[1]
+		});
+	}
+});
+</pre></code>
+
+Related Q&A question: <a href="http://developer.appcelerator.com/question/151052/cant-build-project-after-studio-update" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/151052/cant-build-project-after-studio-update</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2013-06-05
+
+   Node-appc master pull request: <a href="https://github.com/appcelerator/node-appc/pull/49" rel="nofollow" target="_blank">https://github.com/appcelerator/node-appc/pull/49</a></li>
+<li>Chris Barber 2013-06-05
+
+   To test, locate your android-sdk installation, then go into the "addons" directory. Next select any addon folder and rename the "manifest.ini" file in it to "manifest2.ini" (or whatever). Run "titanium info" and watch the crash.</li>
+<li>Olga Romero 2013-11-20
+
+   Followed test steps and got
+   <code><pre>
+   !  The Android emulator "4.1.2_Android_API16" has a problem: Unknown target 'Google Inc.:Google
+        APIs:16' in /Users/oromero/.android/avd/4.1.2_Android_API16.ini
+   </pre></code>
+   
+   Environment
+   CLI 3.2.0-alpha</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13634.json">JSON Source</a></p>

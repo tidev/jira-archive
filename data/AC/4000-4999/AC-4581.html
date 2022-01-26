@@ -1,0 +1,137 @@
+---
+title: "[AC-4581] Android: Ti.Geolocation.getCurrentPosition"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2016-11-11T15:29:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Studio</td></tr>
+<tr><th>Labels</th><td>SupportTeam, android, defect</td></tr>
+<tr><th>Reporter</th><td>Francisco Alejandro Cruz Castro</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2016-10-27T02:46:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-11-11T15:29:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*In my tiapp:*
+
+{{<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+            <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"/>
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>}}
+
+*in my alloy.js:*
+{{
+Alloy.Globals.geoLocation = function(e) {
+	var dialogs = require('alloy/dialogs');
+	var log = require('log');
+	if (OS_IOS) {
+		log.args('Ti.Geolocation.allowsBackgroundLocationUpdates', Ti.Geolocation.allowsBackgroundLocationUpdates);
+		log.args('Ti.Geolocation.locationServicesEnabled', Ti.Geolocation.locationServicesEnabled);
+	}
+
+	var hasLocationPermissions = Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS);
+	log.args('Ti.Geolocation.hasLocationPermissions', hasLocationPermissions);
+
+	if (hasLocationPermissions) {
+		//return alert('You already have permission.');
+	}
+
+	if (OS_IOS) {
+		var map = {};
+		map[Ti.Geolocation.AUTHORIZATION_ALWAYS] = 'AUTHORIZATION_ALWAYS';
+		map[Ti.Geolocation.AUTHORIZATION_AUTHORIZED] = 'AUTHORIZATION_AUTHORIZED';
+		map[Ti.Geolocation.AUTHORIZATION_DENIED] = 'AUTHORIZATION_DENIED';
+		map[Ti.Geolocation.AUTHORIZATION_RESTRICTED] = 'AUTHORIZATION_RESTRICTED';
+		map[Ti.Geolocation.AUTHORIZATION_UNKNOWN] = 'AUTHORIZATION_UNKNOWN';
+		map[Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE] = 'AUTHORIZATION_WHEN_IN_USE';
+
+		var locationServicesAuthorization = Ti.Geolocation.locationServicesAuthorization;
+		console.log('Ti.Geolocation.locationServicesAuthorization', 'Ti.Geolocation.' + map[locationServicesAuthorization]);
+
+		if (locationServicesAuthorization === Ti.Geolocation.AUTHORIZATION_RESTRICTED) {
+			return alert('Because permission are restricted by some policy which you as user cannot change, we don\'t request as that might also cause issues.');
+
+		} else if (locationServicesAuthorization === Ti.Calendar.AUTHORIZATION_DENIED) {
+			return dialogs.confirm({
+				title : 'You denied permission before',
+				message : 'We don\'t request again as that won\'t show the dialog anyway. Instead, press Yes to open the Settings App to grant permission there.',
+				callback : editPermissions
+			});
+		}
+	}
+
+	Ti.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS, function(e) {
+		console.log('Ti.Geolocation.requestLocationPermissions', e);
+
+		if (e.success) {
+			console.log('provider:'+Ti.Geolocation.PROVIDER_GPS)
+			Ti.Geolocation.purpose = 'Get Current Location';
+			Ti.Geolocation.accuracy = Ti.Geolocation.ACCURACY_BEST;
+			Ti.Geolocation.distanceFilter = 1;
+			Ti.Geolocation.preferredProvider = Ti.Geolocation.PROVIDER_GPS;//PROVIDER_NETWORK;
+			//alert('You granted permission.');
+
+		} else if (OS_ANDROID) {
+			console.log('provider:'+Ti.Geolocation.PROVIDER_GPS)
+			alert('You denied permission for now');
+
+		} else {
+			Ti.UI.createAlertDialog({
+				title : 'You denied permission.',
+				message : e.error
+			}).show();
+		}
+	});
+};
+}}
+
+
+*in my index:*
+
+{{Alloy.Globals.geoLocation();
+
+setInterval(function(){
+Ti.Geolocation.getCurrentPosition(function(e) {
+				console.log("longitude: " + e.coords.longitude + ", Latitude: " + e.coords.latitude);
+});
+},400);}}
+
+This code works fine in Android phones, but in Android tablets appears this message:
+
+{color:red}[ERROR] :  TiExceptionHandler: (main) [6,270577] ----- Titanium Javascript Runtime Error -----
+[ERROR] :  TiExceptionHandler: (main) [0,270577] - In alloy/controllers/index.js:1,69
+[ERROR] :  TiExceptionHandler: (main) [0,270577] - Message: Uncaught TypeError: Cannot read property 'longitude' of undefined
+[ERROR] :  TiExceptionHandler: (main) [0,270577] - Source: dateNow",new Date);console.log(e),console.log("longitude: "+e.coords.longitude
+[ERROR] :  V8Exception: Exception occurred at alloy/controllers/index.js:1: Uncaught TypeError: Cannot read property 'longitude' of undefined
+[ERROR] :  GeolocationModule: (KrollRuntimeThread) [90023,360600] Unable to get current position, location is null{color}
+[INFO] :   {"error":"location is currently unavailable.","code":6,"success":false}
+
+<h4>Any ideas????</h4>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-10-27
+
+   Hello, Whats the tablet Android version the issue is happening? </li>
+<li>Francisco Alejandro Cruz Castro 2016-10-27
+
+   Galaxy Tab 10.1 (Wi-Fi), Android 5.1</li>
+<li>Sharif AbuDarda 2016-10-31
+
+   Hello, Is the issue is only with is model? or any other tab?</li>
+</ol>
+
+
+<p><a href="/AC/AC-4581.json">JSON Source</a></p>

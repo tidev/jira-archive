@@ -1,0 +1,86 @@
+---
+title: "[TIMOB-15268] Android: ListView: Don't create template proxies on the JavaScript side"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-04-17T18:43:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, boostrap, listview, proxy, template</td></tr>
+<tr><th>Reporter</th><td>Martin Guillon</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2013-09-11T14:33:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-17T18:43:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On iOS the proxy for each created ListView cell is generated on the Objective-C part when initiating the cell. It means that each reusable cell has its own proxies.
+
+On Android it's different, the proxies are created on the JS side when creating the listview. This has 2 bad consequences:
+<h4>You can't modify the templates property after creating the view</h4>
+<h4>Each reusable cell share the same proxies.</h4>
+
+The second part is the one bugging me the most. It's not a problem with the current UI widgets because each widget has a view attached to it and this is why the magic works. But in the future (in my case right now) you can imagine having proxies without views. My example is a shape module.
+
+<h4>I have a ShapeViewProxy + ShapeView</h4>
+<h4>In this ShapeViewProxy i can add ShapeProxies which are stored and drawn (Circle, rect …)</h4>
+
+To have better performance I don't create a view per ShapeProxy, it's an abstract object.
+
+The view works great but I can't make it work with the ListView. This is because the ShapeProxies are shared by all cells.
+
+Let's say I want to change a shape color in ListView, I can have it record the change with bindId and DataItem but as a same proxy is the same for all cells, I can't update the reused cell correctly
+
+If the proxies where created in the getView method like the iOS counterpart i could do that. I dont think it would be that hard to implement, my only problem to implement it is that right now, on the Java side, i can't map "Ti.UI.View" to ti.modules.titanium.ui.proxies.ViewProxy and thus cant create the proxy on the Java side using the "type" property of the template.
+
+genBoostrap.py seems to have that map, but i dont really see how generate that map on the Java side.
+
+With some help I could implement that.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2013-09-13
+
+   Hi Martin Guillon,
+   
+   please shortly you can say the expected behavior and the actual behavior and can attached some image view or code
+   
+   Thanks,  </li>
+<li>Martin Guillon 2013-09-15
+
+   Hi Motiur,
+   
+   There is no really "expected" behavior. I am talking about what could be a wrong implementation of the listview items proxy management.
+   On ios, the proxy is created [upon cell creation](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L1086)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L1086)</a>
+   It means there is one proxy per reusable cell. Which is nice because it means that accessing the proxy itself (for animation or such) is foreseeable.
+   
+   On android though the proxies are create [upon template set](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/js/listview.js#L39)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/js/listview.js#L39)</a> It means that all cells share the same proxies which is bad for future interactions!
+   
+   No my main problem is not about implementing it another way, but it s how to translate the "type" property of a template into a Java class. For example "Ti.UI.View" into ti.modules.titanium.ui.proxies.ViewProxy. It s easy to do on JS side, harder on the Java side. 
+   
+   What i mention is that inside genBoostrap.py we have the knowing of those mappings. Would be nice to have a HashMap in Java that gives that mapping. Then i can implement and share a fix</li>
+<li>Hieu Pham 2013-10-17
+
+   Hi Martin,
+   
+        Thanks for the feedback. We'll discuss this in the near future.</li>
+<li>Joshua Quick 2018-04-17
+
+   This is working as intended.
+   
+   On iOS, it's definitely *+not+* creating a proxy for every row in the ListView. It creates just over 1 screen's worth of proxy rows and when you scroll up/down far enough, those proxies will be re-used/recycled by other rows. So, any settings applied to a proxy that are not in the ListView item template will inadvertently be applied to other rows in the ListView. This is why we don't provide direct access to the proxy objects.
+   
+   My point being is that this is not just an Android limitation. The same limitation exists on iOS as well.
+   Titanium's ListView is designed to work via templates only to achieve high performance.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15268.json">JSON Source</a></p>

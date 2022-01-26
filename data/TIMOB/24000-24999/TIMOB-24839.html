@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-24839] Android: Reopening a closed window crashes the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-19T20:38:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0, Release 6.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, api, parity, regression</td></tr>
+<tr><th>Reporter</th><td>Muhammad Ahmed Fahad</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-06-16T03:50:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-21T16:41:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Environment: 6.1.1.v20170615113917 Android 7.1.2 Device: OnePlus One (A0001) 
+
+Affected version 6.1.0
+
+<code>
+var egWindow = Ti.UI.createWindow({
+  width: Ti.UI.FILL,
+  height: Ti.UI.FILL,
+  backgroundColor: 'red'
+});
+
+$.addListener($.button, 'click', function(){
+  egWindow.open();
+});
+</code>
+
+once the window is open, click the back button to close the window, and click the window again to open the window and the app crashes. This didn't use to be the case in 6.0.4.
+
+Crash Log: <a href="https://s3-ap-southeast-1.amazonaws.com/uploads-ap.hipchat.com/56929/750866/TQ8ifcaui4kpuoU/Crash_Log.txt" rel="nofollow" target="_blank">https://s3-ap-southeast-1.amazonaws.com/uploads-ap.hipchat.com/56929/750866/TQ8ifcaui4kpuoU/Crash_Log.txt</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Muhammad Ahmed Fahad 2017-06-16
+
+   Please can anyone look at this ASAP? Without this fixed, our app would be pretty much unusable. Also we need this version of the SDK as we need support for modules with .aar libs.</li>
+<li>Ewan Harris 2017-06-16
+
+   [~fahad86] Thanks for this report! I'm moving this across to TIMOB
+   
+   Can reproduce this using:
+   
+   SDK: 6.1.0.GA, 6.1.1.v20170615113917
+   Appc CLI: 6.2.2
+   Appc NPM: 4.2.9
+   OnePlus 3 7.1.1
+   
+   <code><pre>
+   var win1 = Ti.UI.createWindow({
+   	backgroundColor: 'blue',
+   	title: 'Blue'
+   });
+   var win2 = Ti.UI.createWindow({
+   	backgroundColor: 'red',
+   	title: 'Red'
+   });
+   win1.addEventListener('click', function() {
+   	win2.open();
+   	win1.close();
+   });
+   win2.addEventListener('click', function() {
+   	win1.open();
+   	win2.close();
+   });
+   win1.open();
+   </pre></code>
+   
+   Crash log <a href="https://gist.github.com/ewanharris/f5e4105115ea85f4a5a0c4a4e93a7b0d" rel="nofollow" target="_blank">https://gist.github.com/ewanharris/f5e4105115ea85f4a5a0c4a4e93a7b0d</a> (too big for jira)</li>
+<li>Muhammad Ahmed Fahad 2017-06-16
+
+   Thanks Ewan!
+   
+   Curious. Can I expect the fix in 6.1.1.GA (i.e. Fix Version/s: 6.1.1)?</li>
+<li>Gary Mathews 2017-06-16
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9145" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9145</a>
+   6_1_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9146" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9146</a></li>
+<li>Lokesh Choudhary 2017-06-19
+
+   FR Passed for both master & backport PR.</li>
+<li>Lokesh Choudhary 2017-06-19
+
+   Verified the fix with SDK's 6.2.0.v20170619134258 & 6.1.1.v20170619143158.
+   Reopening a closed window does not crash the app.
+   
+   Closing.
+   
+   Studio Ver:     4.9.0.201705302345
+   OS Ver:         10.12.3
+   Xcode Ver:      Xcode 8.3.3
+   Appc NPM:       4.2.9
+   Appc CLI:       6.2.2
+   Ti CLI Ver:     5.0.14
+   Alloy Ver:      1.9.11
+   Node Ver:       6.10.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ google Pixel --- Android 7.1.1
+                   ⇨ google Nexus 5 --- Android 6.0.1
+   
+   </li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+   Trying 6.1.1.v20170619143158, and I still see some issues. Looks like the view proxy is getting reset and when I try to re-open the window, all I see is a blank (white) screen. When I invoke a function which modifies a list view inside the closed window, I get the error:
+   
+   "Uncaught  Attempt to invoke virtual method 'android.content.res.Resources android.content.Context.getResources()' on a null object reference"
+   
+   I'm using nl.fokkezb.infiniteScroll widget to load data on the List view inside the window.</li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+   So in essence the window could be re-opened without crash but everything added or attached to the window is already gone, which defeats the purpose.</li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+   I did a diff of the TiBaseActivity.java of 6_0_X and found that the bug may be occurring due to the logic change in the method <code>onBackPressed</code>
+   
+   Kindly verify the code change here
+   			// check Ti.UI.Window.exitOnClose and either
+   			// exit the application or send to background
+   			if (topWindow != null) {
+   				boolean exitOnClose = TiConvert.toBoolean(topWindow.getProperty(TiC.PROPERTY_EXIT_ON_CLOSE), false);
+   
+   				// root window should exitOnClose by default
+   				if (totalWindowStack <= 1 && !topWindow.hasProperty(TiC.PROPERTY_EXIT_ON_CLOSE)) {
+   					exitOnClose = true;
+   				}
+   				if (exitOnClose) {
+   					Log.d(TAG, "onBackPressed: exit");
+   					if (Build.VERSION.SDK_INT >= 16) {
+   						finishAffinity();
+   					} else {
+   						TiApplication.terminateActivityStack();
+   					}
+   					return;
+   
+   				// root window has exitOnClose set as false, send to background
+   				} else if (totalWindowStack <= 1) {
+   					Log.d(TAG, "onBackPressed: suspend to background");
+   					this.moveTaskToBack(true);
+   					return;
+   				}
+   				removeWindowFromStack(topWindow);
+   			}</li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+    				// root window should exitOnClose by default
+    				if (totalWindowStack <= 1 && {color:red}*!*{color}topWindow.hasProperty(TiC.PROPERTY_EXIT_ON_CLOSE)) {
+    					exitOnClose = true;
+    				}
+    
+    typo in highlighted in red?</li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+    Please re-open</li>
+<li>Muhammad Ahmed Fahad 2017-06-20
+
+    I would suggest to revert or re-evaluate the changes on the files TiBaseActivity.java and KrollProxy.java in comparison to the 6_0_X branch</li>
+<li>Muhammad Ahmed Fahad 2017-06-21
+
+    Anyone looking at these messages?? (-)</li>
+<li>Gary Mathews 2017-06-21
+
+    [~fahad86] We are looking into it, thanks for bringing this to attention.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24839.json">JSON Source</a></p>

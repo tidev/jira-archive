@@ -1,0 +1,171 @@
+---
+title: "[TIMOB-14953] iOS: Ti.Calendar getEventsBetweenDates is not working"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-02-22T19:48:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>defect, ios, qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Dan Tamas</td></tr>
+<tr><th>Assignee</th><td>Angel Petkov</td></tr>
+<tr><th>Created</th><td>2013-08-19T14:22:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-08T19:25:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+on iOS getEventsBetweenDates method is not working:
+- it is misspelled: **getEventsBeteenDates** (missing "w")
+- if I call the method this way, no matter what I'm trying to put as arguments (dates or strings) is not working
+
+if I put a strings (like "2014-02-19T16:17:46+01:00") I get
+
+<code><pre>
+"*** -[EKEventStore predicateForEventsWithStartDate:endDate:calendars:]: startDate is nil";
+</pre></code> 
+
+if I put dates I get
+<code><pre>
+message = "Invalid type passed to function";
+nativeLocation = "-[TiCalendarCalendar getEventsBeteenDates:] (TiCalendarCalendar.m:157)";
+nativeReason = "expected: String, was: __NSDate";
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sean Hunter 2013-08-24
+
+   Here is the fix for now...  After fixing the misspelling in TiCalendarCalendar.m, the getEventsBetweenDates is expecting two date strings in full UTC format like so: yyyy-MM-ddTHH:mm:ss.SSS+0000
+   
+   My javascript example:
+   <code><pre>
+   var date1 = new Date();
+   var date2 = new Date();
+   date2.setHours(date1.getHours() + 24);
+   
+   var date1ISO = date1.toISOString();
+   var date2ISO = date2.toISOString();
+   
+   date1ISO = date1ISO.replace("Z", "+0000");
+   date2ISO = date2ISO.replace("Z", "+0000");
+   
+   var events = Ti.Calendar.defaultCalendar.getEventsBetweenDates(date1ISO, date2ISO); 
+   </pre></code> 
+   
+   Works perfectly.</li>
+<li>Dan Tamas 2013-08-26
+
+   Hi Sean, thnx for the workaround. I use a module for now but this needs to be fixed.
+   </li>
+<li>Braden Powers 2015-01-28
+
+   This is still an issue. Could we get a fix in place for this?</li>
+<li>Melissa Chan 2016-02-17
+
+   Has there been any updates in regards to the spelling issue here? This bug is of low priority, but it forces developers to make the fix themselves when they update Titanium/add new developers to their project. Thanks!</li>
+<li>Kiley Williams 2016-02-18
+
+   +1 We encountered this last year, and it still is a very serious pain that we need to modify the file in the titanium library folder every time we want to use a new build of the platform.
+   
+   What is the time frame for this fix? It seems to be a simple mispelling as @Melissa said above.</li>
+<li>Angel Petkov 2016-02-20
+
+   Changes spelling and did a change so you can pass in Date objects  and strings , instead of just strings. 
+   
+   <code><pre>
+   var date1 = new Date(new Date().getTime() + 3000),
+       date2 = new Date(new Date().getTime() + 900000);
+       date3 = new Date(new Date().getTime() + 1000000);
+       Ti.API.info(date1);
+       defCalendar = null;
+       
+   if (Ti.Calendar.hasCalendarPermissions()) {
+       getEventsBetweenDates();
+       performCalendarReadFunctions();
+   } else {
+       Ti.Calendar.requestCalendarPermissions(function(e) {
+           if (e.success) {
+               getEventsBetweenDates();
+               performCalendarReadFunctions();
+           } else {
+               Ti.API.error(e.error);
+               alert('Access to calendar is not allowed');
+           }
+       });
+   }
+   
+   function getEventsBetweenDates() {
+     defCalendar = Ti.Calendar.defaultCalendar;
+   
+     var event1 = defCalendar.createEvent({
+             title: 'Sample Event',
+             notes: 'This is a test event which has some values assigned to it.',
+             location: 'Appcelerator Inc',
+             begin: date1,
+             end: date2,
+             availability: Ti.Calendar.AVAILABILITY_FREE,
+             allDay: false,
+       });
+   
+       var event2 = defCalendar.createEvent({
+             title: 'Sample Event',
+             notes: 'This is a test event which has some values assigned to it.',
+             location: 'Appcelerator Inc',
+             begin: date2,
+             end: date3,
+             availability: Ti.Calendar.AVAILABILITY_FREE,
+             allDay: false,
+       });
+   
+     event1.save(Ti.Calendar.SPAN_THISEVENT);
+     event2.save(Ti.Calendar.SPAN_THISEVENT);
+   }
+   
+   function performCalendarReadFunctions() {
+     // date2.setHours(date1.getHours() + 24);
+      
+     var date1ISO = date1.toISOString();
+     var date2ISO = date2.toISOString();
+      
+     date1ISO = date1ISO.replace("Z", "+0000");
+     date2ISO = date2ISO.replace("Z", "+0000");
+      
+     var events = defCalendar.getEventsBetweenDates(date1, date2); 
+     Ti.API.info(events);
+    
+     Ti.API.info(events.length);
+   }
+   </pre></code>
+   PR pending: <a href="https://github.com/appcelerator/titanium_mobile/pull/7756" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7756</a></li>
+<li>Hans Knöchel 2016-02-20
+
+   [~ndustri] [~rborn] Can you validate that the PR is working for your use cases as well? I need to setup some demo dates first to finish CR and FT on this ticket. Thanks guys!</li>
+<li>Kiley Williams 2016-02-20
+
+   (y)(y)</li>
+<li>Harry Bryant 2016-08-08
+
+   Verified as fixed.
+   
+   Tested On:
+   
+   iPhone 6S (9.3.3) Device 
+   Mac OSX El Capitan 10.11.6
+   Ti SDK: 5.4.0.v20160804185318
+   Appc Studio: 4.7.0.201607250649
+   Appc NPM: 4.2.7	
+   App CLI: 5.4.0-40
+   Xcode 7.3.1
+   Node v4.4.7
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14953.json">JSON Source</a></p>

@@ -1,0 +1,202 @@
+---
+title: "[TIMOB-20483] Android HTTPClient onsendstream progress is wrong"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-10-20T22:56:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Low Bird</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2016-02-24T12:40:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-02T23:22:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2016-05-17
+
+   Had the same issue when trying to upload a 3-5MB file with a self-build 5.4.0 git version. Progress was at 100% but the upload still took some time before onLoad was called. I thought it was my server who is not responding correctly. But it looks exactly like the issue you are describing. </li>
+<li>Michael Gangolf 2016-05-17
+
+   Did some testing and found a solution:
+   
+   <a href="https://developer.android.com/reference/java/net/HttpURLConnection.html" rel="nofollow" target="_blank">https://developer.android.com/reference/java/net/HttpURLConnection.html</a>
+   
+   
+   {noformat}
+   To upload data to a web server, configure the connection for output using setDoOutput(true).
+   
+   For best performance, you should call either setFixedLengthStreamingMode(int) when the body length is known in advance, or setChunkedStreamingMode(int) when it is not. Otherwise HttpURLConnection will be forced to buffer the complete request body in memory before it is transmitted, wasting (and possibly exhausting) heap and increasing latency. 
+   {noformat}
+   
+   So adding <code>client.setChunkedStreamingMode(0);</code>  below <code>client.setDoOutput(true);</code> and adding <code>setRequestHeader("Transfer-Encoding","chunked");</code> in TiHTTPClient.java fixed the problem. But I need to do some more testing before creating a PR</li>
+<li>Michael Gangolf 2016-05-17
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8003" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8003</a>
+   
+   I've tried to use setFixedLengthStreamingMode(totalLength) but it seems that it is not the total length of the whole request. Some bytes where missing and it led to an error. So I stick to setChunkedStreamingMode() with a default value of 1024 (1kb) as mentinoned in different postings e.g. <a href="http://stackoverflow.com/a/26730636/5193915" rel="nofollow" target="_blank">http://stackoverflow.com/a/26730636/5193915</a>
+   
+   Using the example code above worked fine with a 5MB file: progress and onload are in sync</li>
+<li>Ashraf Abu 2016-05-17
+
+   [~michael] Thank you so much for the investigation and PR. I've yet to check setChunkedStreamingMode more but is there any downside to using that?</li>
+<li>Michael Gangolf 2016-05-17
+
+   @msamah as far as I read it will disable the internal buffering (which is the problem in the current upload process) of the file in memory. And since Google recommends this as "best performance" in their docs it might be a good idea :) But I'm not 100% sure if there are side-effects with different servers. I've tested it with a apache/php host with a basic <code>move_uploaded_file()</code> function
+   </li>
+<li>Ashraf Abu 2016-05-18
+
+   (y)</li>
+<li>Low Bird 2016-05-18
+
+   I can confirm that adding client.setChunkedStreamingMode(1024); fixes the issue. Thank you Michael G!
+   
+   However, I believe the root cause for all this is that the calculation of totalLength is wrong. Maybe it's worth to figure out why this is happening aswell...</li>
+<li>Ashraf Abu 2016-05-19
+
+   </li>
+<li>Ashraf Abu 2016-06-27
+
+   Tested with :
+   <code><pre>
+    
+       var win = Ti.UI.createWindow();
+       var progress = Ti.UI.createProgressBar({
+           width:200,
+           min:0,
+           max:1,
+           value:0,    
+       });
+       win.add(progress);
+    
+       var timestamp = Date.now();
+       var file = Ti.Filesystem.getFile('1mb.mp4');
+    
+       win.addEventListener('open', function() {
+           var xhr = Ti.Network.createHTTPClient({
+               onload: function() {
+                   var time_passed =  Math.floor((Date.now()-timestamp)/1000);
+                   Ti.API.info(time_passed + ' SUCCESS');
+               },
+               onsendstream: function(e) {
+                   var time_passed =  Math.floor((Date.now()-timestamp)/1000);
+                   Ti.API.info(time_passed + ' PROGRESS ' + e.progress);
+                   progress.setValue(e.progress);
+               }
+           });
+           xhr.open('POST', '<a href="https://httpbin.org/post" rel="nofollow" target="_blank">https://httpbin.org/post</a>');
+           xhr.send({data: file})
+       });
+       win.open();
+   
+   
+   </pre></code> 
+   With url to httpbin to make sure it works.</li>
+<li>Ashraf Abu 2016-06-27
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8003" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8003</a> has been reviewed and merged into master</li>
+<li>Marian Kucharcik 2016-06-28
+
+    Hi guys,
+    is there any way for me to test it as ? Is it part of any continous build available yet?
+    Thank you</li>
+<li>Michael Gangolf 2016-06-28
+
+    sure: <a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html#master" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html#master</a></li>
+<li>Marian Kucharcik 2016-06-30
+
+    Hi Michael,
+    thanks for link, I installed latest sdk v.6.0.0.v20160629231945 from Wed Jun 29, 2016 11:19:45 PM but I'm still facing error with ondatastream progress. 
+    I use Ti.Media.showCamera() to take a picture and in success event I use a JSONRPC module(<a href="https://github.com/wiistriker/Titanium-JSONRPC-Client" rel="nofollow" target="_blank">https://github.com/wiistriker/Titanium-JSONRPC-Client</a>, it uses basic xhr requests) to upload that picture to server. I create callback for onsendstream to log progress, but it logs 1 for many times(not usual float number progress).
+    I updated node.js to v6.2.2, cleaned project and run fresh build.
+    Can you please help me?
+    Thank you</li>
+<li>Lokesh Choudhary 2016-08-19
+
+    Verified the fix.
+    
+    The <code>onLoad()</code> callback gets called within a 1-2 seconds after download gets completed.
+    Closing.
+    
+    Environment:
+    Appc Studio : 4.7.0.201607250649
+    Ti SDK :  6.0.0.v20160817065403
+    Ti CLI : 5.0.9
+    Alloy : 1.9.1
+    MAC El Capitan : 10.11.6
+    Appc NPM : 4.2.7
+    Appc CLI : 6.0.0-24
+    Node: 4.4.4
+    Nexus 6 - Android 6.0.1</li>
+<li>Ashraf Abu 2016-09-01
+
+    Had to reopen and undo this due to this fix causing TIMOB-23852.
+    
+    This needs to be revisited.</li>
+<li>Marian Kucharcik 2016-09-20
+
+    Hi guys,
+    any news on this?
+    Thanks</li>
+<li>Ashraf Abu 2016-09-21
+
+    [~max87] Sorry. This had to be reopened to be revisited. It's not lined up for any sprint yet.</li>
+<li>Gary Mathews 2016-10-18
+
+    master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8522" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8522</a></li>
+<li>Lokesh Choudhary 2016-12-03
+
+    [~gmathews], I am seeing some difference between the time the progress bar fills up & I see the success.
+    For a 5MB file the difference is 14 sec.
+    For a 20 MB file the difference is 50 sec :
+    <code><pre>
+    [INFO] :   12 PROGRESS 0.9999000627871563
+    [INFO] :   12 PROGRESS 0.999924370555791
+    [INFO] :   12 PROGRESS 0.9999486783244256
+    [INFO] :   12 PROGRESS 0.9999729860930603
+    [INFO] :   12 PROGRESS 0.999997293861695
+    [INFO] :   APSAnalyticsService: Analytics Service Started
+    [INFO] :   APSAnalyticsService: Stopping Analytics Service
+    [INFO] :   69 SUCCESS
+    </pre></code>
+    
+    I don't think this is acceptable. 
+    
+    Appc Studio : 4.8.1.201611291132
+    SDK Version : 6.1.0.v20161202104721
+    Mac OS Version : 10.12
+    Xcode Version : Xcode 8.1 Build version 8B62
+    Appc CLI AND Appc NPM : {"NPM":"4.2.9-1","CLI":"6.1.0-302"}
+    Ti CLI : 5.0.11
+    Alloy : 1.9.4
+    Node : v4.6.0
+    Device: running 7.1Pixel
+    </li>
+<li>Abir Mukherjee 2017-02-02
+
+    Tested with this environment:
+    NPM Version: 2.15.9
+    Node Version: 4.5.0
+    Mac OS: 10.12.1
+    Appc CLI: 6.1.0
+    Appc CLI NPM: 4.2.8
+    Titanium SDK version: 6.1.0.v20170202120400
+    Appcelerator Studio, build: 4.8.1.201612050850
+    Android Device: 6.0.1
+    
+    I tested this with SDK 6.0.0.GA, and found that a 16 Mb file took about 15 seconds to upload, while the progress bar hit "1" at about 8 seconds. With SDK 6.1.0, the upload was approximately 12 seconds, while the progress bar hit "1" at 10 seconds. The variability in upload time is likely due to variability due to the Wi-Fi connection. I tested this several times, and I consistently found that upload completion was with 2-3 seconds after the progress bar hit "1".</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20483.json">JSON Source</a></p>

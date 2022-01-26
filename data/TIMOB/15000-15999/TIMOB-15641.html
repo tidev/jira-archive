@@ -1,0 +1,184 @@
+---
+title: "[TIMOB-15641] iOS: TI.Contacts.createGroup craches on device / Ti.Contacts.removeGroup don't work "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, reprod</td></tr>
+<tr><th>Reporter</th><td>Andreas Graetz</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-10-23T14:45:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+TI.Contacts.createGroup craches on device if exchange sync or facebook-sync of contacts is activated, without syncing to others it crashes NOT on createGroup but on adding a person to a group. Works fine on simulator (with sync-contacts to facebook, too)
+Ti.Contacts.removeGroup don't work on Simulator and Device.
+
+<h4>Steps to reproduce</h4>
+1. Create a new mobile Project
+2. Paste this code into app.js
+<code><pre>
+var self = Ti.UI.createWindow({backgroundColor:'white'});
+
+	//label using localization-ready strings from <app dir>/i18n/en/strings.xml
+	var label = Ti.UI.createButton({
+		color : '#000000',
+		title : "hug me!",
+		height : 'auto',
+		width : 'auto'
+	});
+	self.add(label);
+
+	//Add behavior for UI
+	label.addEventListener('click', function(e) {
+		
+		var getgroup = function(groupname){
+			var mygroup = Ti.Contacts.getAllGroups();
+			for (var i in mygroup){
+				if (groupname == mygroup[i].name){
+					return mygroup[i];
+				}
+			}
+		};
+		
+		var performAddressBookFunction = function() {
+			
+			
+			
+			alert('creating group');
+			Ti.Contacts.createGroup({
+				name : "mygroup"
+			});
+			Ti.Contacts.save();
+			alert("Group saved - now adding person");
+			var people = Ti.Contacts.getAllPeople();
+			alert('Saving contact...');
+			var myperson = Ti.Contacts.createPerson({
+				firstName : 'Paul',
+				lastName : 'Dowsett',
+				address : {
+					work : [{
+						CountryCode : 'gb', // determines how the address is displayed
+						Street : '200 Brook Drive\nGreen Park',
+						City : 'Reading',
+						County : 'Berkshire',
+						Country : 'England',
+						ZIP : 'RG2 6UB'
+					}, {
+						CountryCode : 'gb', // determines how the address is displayed
+						Street : '1 St Pauls Road\nClerkenwell',
+						City : 'City of London',
+						State : 'London',
+						Country : 'England',
+						ZIP : 'EC1 1AA'
+					}],
+					home : [{
+						CountryCode : 'gb', // determines how the address is displayed
+						Street : '2 Boleyn Court',
+						City : 'London',
+						State : 'Greenwich',
+						Country : 'England',
+						ZIP : 'SE10'
+					}]
+				},
+				birthday : '2012-01-01T12:00:00.000+0000',
+				instantMessage : {
+					home : [{
+						service : 'AIM',
+						username : 'leisureAIM'
+					}, {
+						service : 'MSN',
+						username : 'no_paul_here@msn.com'
+					}],
+					work : [{
+						service : 'AIM',
+						username : 'seriousAIM'
+					}]
+				},
+				organization : 'Appcelerator',
+				phone : {
+					mobile : ['07900 000001', '07900 000002'],
+					work : ['+44 (0)118 925 6128', '+44 (0)118 000 0000']
+				}
+				
+			});
+			alert("Person saved - now adding person: "+myperson.fullName);
+			var group = getgroup("mygroup");
+			group.add(myperson);
+			Ti.Contacts.save();
+			//return;
+			alert("Person added - now deleting group");
+			var mygroup = Ti.Contacts.getAllGroups();
+			var group = getgroup("mygroup");
+			alert(mygroup.length + " Groups available - deleting 'mygroup'");
+			Ti.Contacts.removeGroup(group);
+			Ti.Contacts.save();
+			var mygroup = Ti.Contacts.getAllGroups();
+			alert(mygroup.length + " Groups available after deleting");
+		};
+		var addressBookDisallowed = function() {
+			alert("no access!");
+		};
+		if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_AUTHORIZED) {
+			performAddressBookFunction();
+		} else if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_UNKNOWN) {
+			Ti.Contacts.requestAuthorization(function(e) {
+				if (e.success) {
+					performAddressBookFunction();
+				} else {
+					addressBookDisallowed();
+				}
+			});
+		} else {
+			addressBookDisallowed();
+		}
+	});
+
+self.open();
+</pre></code>
+3. Run it into a device.
+4. The device will crash. 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15641_43404/ContactTest 2.zip">ContactTest 2.zip</td></td><td>2013-10-23T14:47:04.000+0000</td><td>2158209</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Andreas Graetz 2013-10-23
+
+   Sample project, just press the button.</li>
+<li>Lee Morris 2017-06-21
+
+   I am able to reproduce this issue with the following environment;
+   iPhone 7 (10.2)
+   Studio 4.9.0.201705302345
+   Ti SDK 6.1.1.v20170620103414
+   Appc NPM 4.2.9
+   Appc CLI 6.2.1
+   Ti CLI 5.0.13
+   Alloy 1.9.11
+   Arrow 2.0.0
+   Xcode 8.2 (8C38)
+   Node v4.8.2
+   Java 1.8.0_131</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15641.json">JSON Source</a></p>

@@ -1,0 +1,188 @@
+---
+title: "[TIMOB-19924] iOS: "onclick" event is not triggered in the WebView if you are listening to multiple "click" events"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-04-12T14:57:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0, Release 5.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.1.0, qe-6.1.0</td></tr>
+<tr><th>Reporter</th><td>Wilson Luu</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2015-11-12T02:07:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-02T15:42:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Details:* "onclick" event is not triggered in the WebView if you are listening to multiple "click" events.
+
+*Note:* This is *not a regression* as this occurs with the current GA stack.
+
+*Steps to reproduce:*
+<h4>Create a Titanium classic project</h4>
+<h4>Replace app.js with the following code:</h4>
+<code><pre>
+var window = Titanium.UI.createWindow({
+	backgroundColor: 'white'
+});
+window.addEventListener('click', function(e) {
+	alert('Window clicked');
+});
+
+var webView = Titanium.UI.createWebView();
+webView.addEventListener('click', function(e) {
+	alert('WebView Clicked');
+});
+    
+var html = '<html>' + 
+   '<body>' +
+        '<br />' + 
+        '<br />' + 
+        '<br />' + 
+        '<br />' + 
+        '<br />' + 
+        '<br />' + 
+        '<a onclick="javascript:alert(123456)">Click me!</a>' +
+   '</body>' + 
+   '</html>';
+webView.html = html;
+
+window.add(webView);
+
+window.open();
+</pre></code>
+<h4>Install app to device or simulator</h4>
+<h4>Once app is launched, press on "Click me!"</h4>
+
+*Actual:* Only "WebView Clicked" and "Window clicked" alert dialogs appear; see attachment.
+
+*Expected:* Another alert dialog with "123456" should appear as well.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19924_57378/no_onclick.mov">no_onclick.mov</td></td><td>2015-11-12T02:07:05.000+0000</td><td>388561</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19924_61789/TestWebView.zip">TestWebView.zip</td></td><td>2017-03-07T08:35:56.000+0000</td><td>66217</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2016-05-23
+
+   Ok so it appears the same happens when you monitor a swipe event of a scrollview in which the webview is embedded... Is there progress on this task?
+   </li>
+<li>Vijay Singh 2017-03-07
+
+   In iOS webview do not allow touch event. For allowing the same it is implemented using hitTest method. So I created a sample app(attached as TestWebView.zip) for same use case . Titanium app is behaving similar to native. 
+   In native app if we allow touch event on webview, java script click event is not fired. If we do not allow touch event on webview in that case javascript click event is fired.
+   In  app created using Titanium SDK, if we do not handle click event then javascript click event is called.</li>
+<li>Vijay Singh 2017-03-28
+
+   In doc <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.WebView, a note is mentioned for above behavior- 
+   "iOS Platform Implementation Notes
+   On the iOS platform, the native web view handles scrolling and other related touch events internally. If you add event listeners on the web view or its parent views for any of the standard touch events (touchstart, click, and so on), these events do not reach the native web view, and the user will not be able to scroll, zoom, click on links, and so on. To prevent this default behavior, set willHandleTouches to false.
+   
+   In other words, you can have either Titanium-style events against the web view instance, or internal JavaScript events in the DOM, but not both."
+   
+   So the behavior in this ticket is expected.</li>
+<li>Vijay Singh 2017-03-28
+
+   But for few titanium events - @"singletap",@"doubletap",@"twofingertap",@"swipe",@"pinch",@"longpress"
+    we can allow native webview events as well. As above mentioned events are implemented in Titanium using UIGestureRecognizer, we can allow for multiple recognizer on webview. 
+   
+   PR:<a href="https://github.com/appcelerator/titanium_mobile/pull/8913" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8913</a>
+   
+    Should we do the same ? [~emerriman] [~hansknoechel] thoughts ?
+   
+   
+   Test Case-
+   
+   
+   <code><pre>
+   var window = Titanium.UI.createWindow({
+       backgroundColor: 'white'
+   });
+   window.addEventListener('click', function(e) {
+       alert('Window clicked');
+   });
+   
+   var webView = Titanium.UI.createWebView({
+       top: 10,
+       left: 10,
+       width: 300,
+       height: 300,
+       backgroundColor : 'red'
+   });
+   webView.addEventListener('singletap', function(e) {
+       Ti.API.info('WebView: singletap event fired');
+   });
+   webView.addEventListener('doubletap', function(e) {
+       Ti.API.info('WebView: doubletap event fired');
+   });
+   webView.addEventListener('twofingertap', function(e) {
+       Ti.API.info('WebView: twofingertap event fired');
+   });
+   webView.addEventListener('swipe', function(e) {
+       Ti.API.info('WebView: swipe event fired');
+   });
+   webView.addEventListener('pinch', function(e) {
+       Ti.API.info('WebView: pinch event fired');
+   });
+   webView.addEventListener('longpress', function(e) {
+       Ti.API.info('WebView: longpress event fired');
+   });
+   webView.addEventListener('click', function(e) {
+       Ti.API.info('WebView: click event fired');
+   });
+   webView.willHandleTouches = false;
+   
+   var html = '<html>' + 
+      '<body>' +
+           '<br />' + 
+           '<br />' + 
+           '<br />' + 
+           '<br />' + 
+           '<br />' + 
+           '<br />' + 
+           '<a onclick="javascript:alert(123456)">Click me!</a>' +
+      '</body>' + 
+      '</html>';
+   webView.html = html;
+   
+   window.add(webView);
+   
+   window.open();
+   </pre></code></li>
+<li>Vijay Singh 2017-04-12
+
+   Backported PR (6_1_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8956" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8956</a></li>
+<li>Harry Bryant 2017-04-13
+
+   Verified as fixed, "onclick" event now triggers correctly with multiple click events present. Tested for the added event types implemented from UIGestureRecognizer.
+   
+   Tested On:
+   iPhone 7 10.2.1 Device
+   iPhone 5S 9.3.5 Device
+   Mac OS Sierra (10.12.2)
+   Ti SDK: 6.1.0.v20170412080612 /  6.2.0.v20170412105625
+   Appc Studio: 4.8.1.201701192045
+   Appc NPM: 4.2.9-1
+   App CLI: 6.1.0
+   Xcode 8.2.1
+   Node v4.6.0
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19924.json">JSON Source</a></p>

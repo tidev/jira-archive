@@ -1,0 +1,95 @@
+---
+title: "[TIMOB-20587] IOS9: Ti.UI.SIZE is not working well for WebView inside a ScrollView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-27T17:37:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>scrollableview, webview</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2016-03-17T04:38:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-27T17:37:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce Step</h4>
+1. Simply run the example following
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+ 
+var window = Titanium.UI.createWindow({
+	backgroundColor : "white"
+});
+ 
+//Create WebView
+var webview = Titanium.UI.createWebView({
+	height: Ti.UI.SIZE,
+	borderColor: "orange"
+});
+webview.setHtml("<html><head></head><body style=\'background-color:#FFFFFF\'><div style=\'margin: 0 3% 0 3%; padding: 2%; background-color: #FFFFFF\'><h3>What you get</h3><p>Two tickets to the National Home Show and Canada Blooms Garden Festival on March 11-20, 2016 at the Enercare Centre at Exhibition Place.<br><br></p><br/>Today\'s WagJag: $20 for two tickets to the <a href=\"<a href="http://www.nationalhomeshow.com" rel="nofollow" target="_blank">http://www.nationalhomeshow.com</a>\" target=\"_blank\">National Home Show</a> and Canada Blooms Garden Festival on March 11-20, 2016 at the Enercare Centre (a $40 value).<br><br>The National Home Show presented by RE/MAX &amp; co-located Canada Blooms bring you the largest North American display of innovative products, new ideas, &amp; great deals for all things home &amp; garden with over 700 retailers &amp; industry experts. Tour the FutureDreamHome built by Probuilt and presented by Toronto Star, and explore the Best Buy Smart Home for a taste of what tomorrow has in store for us. Plus, be inspired by our line-up of celebrity guests and experts on the Unilock Celebrity Stage including, Debbie Travis, Paul Lafrance, Carson Arthur, Damon Bennett, Annie Sloan and more! One ticket, two events. Admission to Canada Blooms in included when you attend the National Home Show. Whether you need inspiration for your next project, are looking some practical advice or need some face to face time with experts from a variety of trades, make sure don\'t miss the largest home and garden event in North America!<br/></div></body></html>");
+
+webview.addEventListener('load', function (e){
+	console.info('e.source.height: ' + e.source.evalJS("document.height;"));
+});
+
+//Create scrollView
+var scrollView = Ti.UI.createScrollView({
+	top : 50,
+});
+scrollView.add(webview);
+window.add(scrollView);
+ 
+window.open();
+</pre></code>
+
+<h4>Expect Result</h4>
+The webView should display well inside scrollView.
+
+<h4>Actual Result</h4>
+There will be a large while blank space on the bottom of the page
+
+<h4>N.B.</h4>
+1. If you comment out the "height: Ti.UI.SIZE" from webview properties, everthing will work well.
+2. If you ONLY display the webview in screen, NO any scrollView, it will work well too.
+
+Also customer mentioned that it was not happening on iOS 8.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2016-04-07
+
+   Any update on this? Customer asked for ETA to fix it</li>
+<li>Chee Kiat Ng 2016-04-07
+
+   No priorities are set for now because we moving into auto layout, and there's already a workaround as stated above.</li>
+<li>Shuo Liang 2016-04-07
+
+   yes.</li>
+<li>Angel Petkov 2016-04-11
+
+   [~sliang] Hi ,unfortunately we cannot size the webView based on remote data. The webView  requires the view container to be sized depending on the children within it, which we do not have in this case. I've been investigating this issue for some time and found some implementations that would size the webView depending on the remote content. However they would override a lot of our layout code and are not the best practice.  Also just like Kiat mentioned you should not have a webView inside a scrollView as it can cause native issues its actually mentioned inside apples [docs](<a href="https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIWebView_Class/)." rel="nofollow" target="_blank">https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIWebView_Class/).</a> A workaround solution would be to use a clean source for the remote data and set the webView to vertical. </li>
+<li>Hans Knöchel 2016-04-13
+
+   I will sum this up: A WebView displays HTML content. Using Ti.UI.FILL (default) for the width and height displays the WebView container and it's content. The thing is, that the WebView doesn't know about the inner-sizing of the HTML, so if you set a height/width to TiUI.SIZE, it won't be able (natively) to determine the size of the DOM that can change even after the page is loaded. That's why WebViews should not be used for sizable content because of it's layout restrictions. 
+   
+   Clean source thereby means, that developers should for example use a JSON-based API and display the data inside a ListView and/or vertical layout. So using a WebView within a ScrollView isn't good practice and not recommended by Apple as well. Although I'm wondering why it worked in iOS 8, I'm guess it doesn't because Apple simply didn't support it anymore.
+   
+   Because we want to solve this anyway, here are some attempts how the issue could be handled:
+   a) Deliver the data using a clean API and display it in native elements (of course it requires data changes, but should be discussed in long-term)
+   b) Parse the DOM and create native labels from it inside a vertical layout (fallback for a)) 
+   c) Move the content to an own page using a "read more" button and present it fullscreen there. Use another static-height webview to display the preview, so the scrollView won't be needed anymore. (workaround)</li>
+<li>Alan Hutton 2019-08-27
+
+   Closing per developer comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20587.json">JSON Source</a></p>

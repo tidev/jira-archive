@@ -1,0 +1,224 @@
+---
+title: "[TIMOB-9330] iOS: iPad: webView.width = Ti.UI.FILL not being honored"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-06-25T12:06:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-05-31T12:18:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-09T23:13:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue</h4>
+WebView with inline HTML in splitWindow does not align horizontally correctly in landscape orientation. Having set URL property exhibits this issue as well.
+
+Putting webView within another view as a wrapper or adding an 'orientationchange' event listener on Ti.Gesture to update the webView width to either 695 (landscape) or 768 (portrait) depending on the orientation but this did not work either.
+
+<h4>Tested on</h4>
+iPad simulator
+
+<h4>Reproduction steps</h4>
+1. Run sample below - The webView display correctly in portrait orientation mode.
+2. Tap any row to display contents. 
+3. Rotate to landscape mode, the webView displays with horizontal scrolling. If you tap another row from the masterView tableView, the detailView inline HTML resizes correctly without horizontal scrolling. 
+
+<h4>Expected behavior</h4>
+WebView it should not display with horizontal scrolling therefore FILL property being respected.
+
+<h4>Current behavior</h4>
+WebView initially displayed in landscape mode, it displays with horizontal scrolling.
+
+<h4>app.js</h4>
+<code><pre>
+var SplitViewApp = {};
+
+SplitViewApp.masterWindow = Ti.UI.createWindow({
+    title:'Master',
+    backgroundColor: '#fff',
+    url:'master.js'
+});
+
+SplitViewApp.detailWindow = Ti.UI.createWindow({
+    title:'Detail',
+    backgroundColor: '#fff',
+    url:'detail.js'
+});
+
+
+SplitViewApp.masterNav = Ti.UI.iPhone.createNavigationGroup({
+	window: SplitViewApp.masterWindow
+});
+
+SplitViewApp.detailNav = Ti.UI.iPhone.createNavigationGroup({
+	window: SplitViewApp.detailWindow
+});
+
+SplitViewApp.splitView = Ti.UI.iPad.createSplitWindow({
+	masterView: SplitViewApp.masterNav,
+	detailView: SplitViewApp.detailNav
+});
+
+SplitViewApp.splitView.addEventListener('visible', function(e) {
+	if (e.view == 'detail') {
+		e.button.title = "Master View List";
+		SplitViewApp.detailWindow.leftNavButton = e.button;
+	}
+	else if (e.view == 'master') {
+		SplitViewApp.detailWindow.leftNavButton = null;
+	}
+});
+
+SplitViewApp.splitView.open();
+</pre></code>
+
+
+<h4>master.js</h4>
+<code><pre>
+var MASTER_WINDOW = {};
+
+(function(){
+	var win = Ti.UI.currentWindow;
+	
+	var tableData = [];
+	
+	for(var i = 0; i < 100; i++) {
+		tableData.push(Ti.UI.createTableViewRow({title: 'Row ' + i}));
+	}
+	
+	function tableClick(e) {
+		var data = {
+			'row': e.index,
+			'title': e.row.title 
+		}
+		
+		Ti.App.fireEvent('app:rowClicked', data);
+	}
+	
+	MASTER_WINDOW.init = function(){
+		var tableView = Ti.UI.createTableView({
+			allowsSelection: true,
+			data: tableData
+		});
+				
+		win.add(tableView);		
+		
+		tableView.addEventListener('click', tableClick);						
+	}
+})();
+
+MASTER_WINDOW.init();
+</pre></code>
+
+<h4>Having set webView.width = Ti.UI.FILL doesn't have effect:</h4>
+
+<h4>detail.js</h4>
+<code><pre>
+var DETAIL_WINDOW = {};
+
+(function(){
+	var win = Ti.UI.currentWindow;
+	
+	var webView = Ti.UI.createWebView({
+		backgroundColor: '#fff',
+                width: Ti.UI.FILL
+	});
+	
+	win.add(webView);
+	
+	function rowClicked(data) {
+		win.title = data.title;
+		webView.html = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque augue magna, semper et pharetra vel, ullamcorper nec mauris. Phasellus non ante et arcu ornare congue. Maecenas ac tellus lectus. Nullam non ipsum magna. Proin facilisis lacinia iaculis. Proin nec nunc vitae urna faucibus cursus non sit amet eros. Quisque at semper nisl. Curabitur tellus purus, cursus et pretium quis, laoreet non mauris. Proin consequat, tortor eget faucibus cursus, velit metus tristique nulla, in gravida erat neque id arcu. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae</p><p>Duis tellus mi, ornare at elementum eu, lacinia et dolor. Nulla malesuada massa ut quam bibendum nec dictum libero molestie. Vestibulum volutpat leo ut neque varius in feugiat mi suscipit. Nunc leo lacus, cursus ut feugiat vitae, sodales a neque. Cras molestie, lorem sit amet fringilla tempor, justo massa tristique diam, non commodo diam lacus rutrum sem. Aliquam et risus in ante luctus mollis. Sed fermentum velit vitae lorem pharetra pulvinar. Proin vestibulum est et orci bibendum aliquet. Quisque risus nunc, rutrum a ullamcorper in, lobortis at quam. Donec eget metus ligula, vitae condimentum tortor. Nullam quis ipsum mi, eget varius felis.</p><p>In urna justo, elementum non congue ornare, laoreet eu lacus. Proin egestas neque id diam varius tristique. Praesent vehicula neque eget diam ultrices scelerisque. Sed iaculis ornare eros in suscipit. Donec ullamcorper vehicula tellus, nec facilisis ipsum ornare eu. Ut lobortis rhoncus lectus, id fermentum mauris sagittis in. Aenean urna metus, auctor nec lacinia a, pharetra a ligula. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Suspendisse urna leo, venenatis non lacinia nec, commodo pharetra ligula.</p><p>Fusce posuere lacus justo. Integer a mi sapien. Vestibulum lectus eros, euismod lobortis venenatis nec, lobortis a diam. Phasellus quis imperdiet odio. Integer sollicitudin, diam quis consequat molestie, nisl ipsum ultricies urna, sed convallis lectus turpis nec massa. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut placerat, nulla sed pellentesque laoreet, nulla tortor aliquam velit, vitae bibendum lorem nibh ut eros. Pellentesque nulla velit, ultricies eu tempor eu, cursus quis magna. Nullam at sollicitudin arcu.</p><p>Quisque faucibus magna a dolor dignissim iaculis. Nulla urna eros, cursus in ornare eget, placerat ac lacus. In molestie nulla ut turpis posuere cursus. Cras sem eros, dictum non euismod ac, hendrerit sed justo. Mauris luctus imperdiet nibh, sed mollis eros consectetur in. Maecenas lacus nulla, pharetra varius dictum et, scelerisque ac eros. Suspendisse eu lacus urna, ut consequat risus. Fusce ac tempus dui. Curabitur sodales mauris non lorem imperdiet sed hendrerit leo rutrum. Pellentesque nec elementum lacus. Maecenas placerat congue adipiscing. Nullam ultrices vulputate odio, et suscipit lacus accumsan et. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.</p><p>Donec eget nunc purus. Integer dignissim neque ac orci sagittis eleifend. Aliquam venenatis varius orci a gravida. Sed non fringilla metus. Mauris eu est eros. Praesent interdum interdum tempor. Donec vel est pulvinar enim luctus hendrerit.</p><p>Aenean et elit nibh. Mauris aliquet, nunc at porttitor condimentum, tellus arcu tempus nunc, at rhoncus justo libero ut nunc. Morbi nisl ante, convallis a suscipit a, viverra sed lorem. Suspendisse sapien urna, consectetur sed suscipit nec, tempus eget ante. Maecenas pellentesque varius urna non venenatis. Praesent ut vestibulum eros. Vestibulum pulvinar, arcu non lacinia sollicitudin, elit turpis sodales nunc, a aliquet tellus felis id sem. Phasellus luctus, nisl ullamcorper viverra accumsan, ligula dolor elementum metus, a malesuada lectus quam vel lorem. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Maecenas dolor enim, pretium a posuere eu, varius ut mi. Suspendisse metus ante, elementum non fringilla non, interdum quis dolor. Fusce ullamcorper, metus at egestas ultricies, leo massa aliquet erat, ut euismod sem lorem porta tortor.</p><p>Pellentesque suscipit, ligula nec iaculis consequat, massa mauris vestibulum sem, vitae interdum sem quam ac mi. Proin tempor quam hendrerit urna lobortis vitae gravida lectus gravida. Aliquam adipiscing tortor sed ante blandit euismod bibendum lacus sodales. Sed sodales orci eget justo venenatis viverra. Integer semper libero ut mi fermentum porta. Mauris at justo enim. Cras convallis, dui in molestie cursus, nisi nulla cursus ante, nec dictum neque ligula sit amet erat.</p><p>Vestibulum porttitor mauris eget neque euismod ut facilisis ipsum tristique. Sed ultricies tincidunt ultrices. Pellentesque justo ligula, ornare in interdum sed, feugiat vitae augue. Phasellus vulputate vulputate interdum. Pellentesque consectetur porttitor interdum. Aenean et imperdiet mi. Nunc porta vulputate elit, tincidunt ultrices mi placerat non. In hac habitasse platea dictumst. Phasellus eu lorem sit amet ipsum accumsan ullamcorper.</p><p>Cras a nulla odio. Maecenas vel leo mauris, vitae hendrerit felis. Nulla id mauris nec libero malesuada aliquet. Praesent ut dignissim massa. Pellentesque egestas, mauris ut placerat ultricies, augue massa aliquam arcu, in commodo ipsum neque quis est. Praesent aliquet libero sed nulla volutpat egestas. Ut porttitor justo ut arcu pharetra eget ultrices mauris ornare. Pellentesque faucibus urna sit amet augue viverra id molestie enim sodales. Integer consectetur molestie lorem, sit amet dapibus quam viverra eget.</p>';
+		webView.repaint();
+		
+		Ti.API.info(webView.html);
+	}
+	
+	DETAIL_WINDOW.init = function() {
+		Ti.App.addEventListener('app:rowClicked', rowClicked);
+	}
+})();
+
+DETAIL_WINDOW.init();
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Stepanov 2012-06-07
+
+   Fixed detail.js
+   <code><pre>
+   var DETAIL_WINDOW = {};
+    
+   (function(){
+       var win = Ti.UI.currentWindow;
+        
+       var webView = Ti.UI.createWebView({
+           backgroundColor: '#fff',
+                   width: Ti.UI.FILL
+       });
+        
+       win.add(webView);
+        
+       function rowClicked(data) {
+           win.title = data.title;
+           var html = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque augue magna, semper et pharetra vel, ullamcorper nec mauris. Phasellus non ante et arcu ornare congue. Maecenas ac tellus lectus. Nullam non ipsum magna. Proin facilisis lacinia iaculis. Proin nec nunc vitae urna faucibus cursus non sit amet eros. Quisque at semper nisl. Curabitur tellus purus, cursus et pretium quis, laoreet non mauris. Proin consequat, tortor eget faucibus cursus, velit metus tristique nulla, in gravida erat neque id arcu. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae</p><p>Duis tellus mi, ornare at elementum eu, lacinia et dolor. Nulla malesuada massa ut quam bibendum nec dictum libero molestie. Vestibulum volutpat leo ut neque varius in feugiat mi suscipit. Nunc leo lacus, cursus ut feugiat vitae, sodales a neque. Cras molestie, lorem sit amet fringilla tempor, justo massa tristique diam, non commodo diam lacus rutrum sem. Aliquam et risus in ante luctus mollis. Sed fermentum velit vitae lorem pharetra pulvinar. Proin vestibulum est et orci bibendum aliquet. Quisque risus nunc, rutrum a ullamcorper in, lobortis at quam. Donec eget metus ligula, vitae condimentum tortor. Nullam quis ipsum mi, eget varius felis.</p><p>In urna justo, elementum non congue ornare, laoreet eu lacus. Proin egestas neque id diam varius tristique. Praesent vehicula neque eget diam ultrices scelerisque. Sed iaculis ornare eros in suscipit. Donec ullamcorper vehicula tellus, nec facilisis ipsum ornare eu. Ut lobortis rhoncus lectus, id fermentum mauris sagittis in. Aenean urna metus, auctor nec lacinia a, pharetra a ligula. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Suspendisse urna leo, venenatis non lacinia nec, commodo pharetra ligula.</p><p>Fusce posuere lacus justo. Integer a mi sapien. Vestibulum lectus eros, euismod lobortis venenatis nec, lobortis a diam. Phasellus quis imperdiet odio. Integer sollicitudin, diam quis consequat molestie, nisl ipsum ultricies urna, sed convallis lectus turpis nec massa. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Ut placerat, nulla sed pellentesque laoreet, nulla tortor aliquam velit, vitae bibendum lorem nibh ut eros. Pellentesque nulla velit, ultricies eu tempor eu, cursus quis magna. Nullam at sollicitudin arcu.</p><p>Quisque faucibus magna a dolor dignissim iaculis. Nulla urna eros, cursus in ornare eget, placerat ac lacus. In molestie nulla ut turpis posuere cursus. Cras sem eros, dictum non euismod ac, hendrerit sed justo. Mauris luctus imperdiet nibh, sed mollis eros consectetur in. Maecenas lacus nulla, pharetra varius dictum et, scelerisque ac eros. Suspendisse eu lacus urna, ut consequat risus. Fusce ac tempus dui. Curabitur sodales mauris non lorem imperdiet sed hendrerit leo rutrum. Pellentesque nec elementum lacus. Maecenas placerat congue adipiscing. Nullam ultrices vulputate odio, et suscipit lacus accumsan et. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.</p><p>Donec eget nunc purus. Integer dignissim neque ac orci sagittis eleifend. Aliquam venenatis varius orci a gravida. Sed non fringilla metus. Mauris eu est eros. Praesent interdum interdum tempor. Donec vel est pulvinar enim luctus hendrerit.</p><p>Aenean et elit nibh. Mauris aliquet, nunc at porttitor condimentum, tellus arcu tempus nunc, at rhoncus justo libero ut nunc. Morbi nisl ante, convallis a suscipit a, viverra sed lorem. Suspendisse sapien urna, consectetur sed suscipit nec, tempus eget ante. Maecenas pellentesque varius urna non venenatis. Praesent ut vestibulum eros. Vestibulum pulvinar, arcu non lacinia sollicitudin, elit turpis sodales nunc, a aliquet tellus felis id sem. Phasellus luctus, nisl ullamcorper viverra accumsan, ligula dolor elementum metus, a malesuada lectus quam vel lorem. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Maecenas dolor enim, pretium a posuere eu, varius ut mi. Suspendisse metus ante, elementum non fringilla non, interdum quis dolor. Fusce ullamcorper, metus at egestas ultricies, leo massa aliquet erat, ut euismod sem lorem porta tortor.</p><p>Pellentesque suscipit, ligula nec iaculis consequat, massa mauris vestibulum sem, vitae interdum sem quam ac mi. Proin tempor quam hendrerit urna lobortis vitae gravida lectus gravida. Aliquam adipiscing tortor sed ante blandit euismod bibendum lacus sodales. Sed sodales orci eget justo venenatis viverra. Integer semper libero ut mi fermentum porta. Mauris at justo enim. Cras convallis, dui in molestie cursus, nisi nulla cursus ante, nec dictum neque ligula sit amet erat.</p><p>Vestibulum porttitor mauris eget neque euismod ut facilisis ipsum tristique. Sed ultricies tincidunt ultrices. Pellentesque justo ligula, ornare in interdum sed, feugiat vitae augue. Phasellus vulputate vulputate interdum. Pellentesque consectetur porttitor interdum. Aenean et imperdiet mi. Nunc porta vulputate elit, tincidunt ultrices mi placerat non. In hac habitasse platea dictumst. Phasellus eu lorem sit amet ipsum accumsan ullamcorper.</p><p>Cras a nulla odio. Maecenas vel leo mauris, vitae hendrerit felis. Nulla id mauris nec libero malesuada aliquet. Praesent ut dignissim massa. Pellentesque egestas, mauris ut placerat ultricies, augue massa aliquam arcu, in commodo ipsum neque quis est. Praesent aliquet libero sed nulla volutpat egestas. Ut porttitor justo ut arcu pharetra eget ultrices mauris ornare. Pellentesque faucibus urna sit amet augue viverra id molestie enim sodales. Integer consectetur molestie lorem, sit amet dapibus quam viverra eget.</p>';
+           html = "<html><meta name='viewport' content='width=device-width;'><body>" + html + '</body></html>';
+   		webView.html = html;
+   		webView.repaint();
+            
+           Ti.API.info(webView.html);
+       }
+        
+       DETAIL_WINDOW.init = function() {
+           Ti.App.addEventListener('app:rowClicked', rowClicked);
+       }
+   })();
+    
+   DETAIL_WINDOW.init();
+   </pre></code></li>
+<li>Max Stepanov 2012-06-07
+
+   PR pending <a href="https://github.com/appcelerator/titanium_mobile/pull/2350" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2350</a></li>
+<li>Michael Pettiford 2012-06-18
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206172244
+   Ti Mobile SDK2.1.0.v20120618134156 hash r00905cd0
+   OSX Lion 10.7.3
+   iPad 3 OS 5.1.1
+   
+   The expected behavior is shown</li>
+<li>Stephen Tramer 2012-06-25
+
+   Reopening to mark INVALID.</li>
+<li>Stephen Tramer 2012-06-25
+
+   This ticket has been marked *INVALID* for the following reason:
+   
+   The webpage developer is responsible for setting the <code>viewport</code> value correctly for mobile devices, as mentioned by Max in the ticket. This is true for even locally-hosted webpages as part of the app.
+   
+   Unfortunately, we cannot mangle this setting ourselves. Doing so interferes with dynamically loaded or computed content; in order to properly detect a viewport setting and not override it in any fashion (or cause other problems with a dynamic check outside Titanium) we would have to load and evaluate all external CSS, PHP, etc. and perform any necessary evaluations. This is an inappropriate task for the platform to perform when it is simply better practice to begin with for page designers to explicitly set <code>viewport</code>.</li>
+<li>Stephen Tramer 2012-06-25
+
+   There is also now a documentation bug, TIDOC-688, for making sure that the <code>UIWebView</code> docs include some content regarding mobile webpage design practices (including <code>viewport</code>).</li>
+<li>Lee Morris 2017-03-09
+
+   Closing ticket as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9330.json">JSON Source</a></p>

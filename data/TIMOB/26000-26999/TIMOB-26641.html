@@ -1,0 +1,191 @@
+---
+title: "[TIMOB-26641] iOS: On main thread openWindow and closeWindow in sequence from NavigationWindow is not working properly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-19T12:36:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>run-on-main-thread</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-12-10T14:44:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-19T17:17:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Step to reproduce issue: </h4>
+1. Create a classic mobile app project. 
+2. Replace app.js code with the provided sample code. 
+3. Make sure set “run-on-main-thread” property to “true” as default 
+4. Run on iOS device. 
+
+<h4>Actual behaviour: </h4>
+On click of “Open Yellow Window and Close Blue Window” button, “Yellow Window” is getting opened and closed immediately , if we set “run-on-main-thread” property to “true”. 
+
+<h4>Expected behaviour: </h4>
+On click of “Open Yellow Window and Close Blue Window” button, it should open “Yellow Window” and close the “Blue Window”. 
+
+<h4>NOTE: </h4>
+If we set “run-on-main-thread” property to “false”, then it is working as expected. 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26641_65960/app.js">app.js</td></td><td>2018-12-10T14:44:23.000+0000</td><td>852</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26641_65973/updated_app.js">updated_app.js</td></td><td>2018-12-13T06:40:50.000+0000</td><td>1859</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vijay Singh 2018-12-11
+
+   A quick workaround for this issue is first call closeWindow then call openWindow. 
+   
+   Updated app.js which will work- 
+   <code><pre>
+   function getNavWindow(){
+   var win2 = Ti.UI.createWindow({
+       backgroundColor: 'red',
+       title: 'Red Window'
+   });
+   
+   var win1 = Ti.UI.iOS.createNavigationWindow({
+      window: win2
+   });
+   
+   var win3 = Ti.UI.createWindow({
+       backgroundColor: 'blue',
+       title: 'Blue Window'
+   });
+   
+   var win4 = Ti.UI.createWindow({
+       backgroundColor: 'yellow',
+       title: 'Yellow Window'
+   });
+   
+   var button = Ti.UI.createButton({
+       title: 'Open Blue Window'
+   });
+   button.addEventListener('click', function(){
+       win1.openWindow(win3, {animated:true});
+   });
+   
+   win2.add(button);
+   var button2 = Ti.UI.createButton({
+       color : 'white',
+       title: 'Open Yellow Window and Close Blue Window'
+   });
+   button2.addEventListener('click', function(){
+       win1.closeWindow(win3, {animated:false});
+       win1.openWindow(win4, {animated:true});
+   });
+   
+   win3.add(button2);
+   return win1;
+   }
+   getNavWindow().open();
+   </pre></code></li>
+<li>Vijay Singh 2018-12-11
+
+   We will look in this to fix properly.</li>
+<li>Vijay Singh 2018-12-13
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/10535" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10535</a>
+   
+   Test Case -
+   
+   <code><pre>
+   function getNavWindow(){
+   var win2 = Ti.UI.createWindow({
+       backgroundColor: 'red',
+       title: 'Red Window'
+   });
+   
+   var win1 = Ti.UI.iOS.createNavigationWindow({
+      window: win2
+   });
+   
+   var win3 = Ti.UI.createWindow({
+       backgroundColor: 'blue',
+       title: 'Blue Window'
+   });
+   
+   var win4 = Ti.UI.createWindow({
+       backgroundColor: 'yellow',
+       title: 'Yellow Window'
+   });
+   
+   var button = Ti.UI.createButton({
+       title: 'Open Blue Window'
+   });
+   button.addEventListener('click', function(){
+       win1.openWindow(win3, {animated:true});
+   });
+   
+   win2.add(button);
+   var button2 = Ti.UI.createButton({
+       color : 'white',
+       title: 'Open Yellow Window and Close Blue Window'
+   });
+   button2.addEventListener('click', function(){
+       win1.openWindow(win4, {animated:true});
+       win1.closeWindow(win3, {animated:false});
+   });
+   
+   win3.add(button2);
+   return win1;
+   }
+   getNavWindow().open();
+   </pre></code></li>
+<li>Shuo Liang 2018-12-13
+
+   Customer's specific scenario is more complex then example code, where they need to close multiple previously opened windows on open of new window, So provide a new test code in updated_app.js. Hopefully the PR can cover this fix.  </li>
+<li>Lokesh Choudhary 2018-12-15
+
+   [~vijaysingh], With the <code>updated_app.js</code> I see that when I click <code>Open Yellow Window and Close Blue Window</code> I see the <code>middle window</code> open & then the <code>yellow window</code> IS this expected ?</li>
+<li>Vijay Singh 2018-12-17
+
+   [~lchoudhary] This PR doesn't completely fix the issue. I am still working on this. Thanks!</li>
+<li>Vijay Singh 2018-12-17
+
+   [~lchoudhary] PR updated.
+   With the updated_app.js when you click "Open Yellow Window and Close Blue Window", middle window will open & then the yellow window (Reason is first blue window is closed with default animation (true), then yellow window is open with animation true). After you go back, it will show Middle Window. Go back again, it will show Red Window.</li>
+<li>Lokesh Choudhary 2018-12-18
+
+   FR Passed.
+   Waiting for merge to be enabled.</li>
+<li>Keerthi Mahalingam 2018-12-19
+
+   Verified the fix on SDK  8.0.0.v20181219075358 .
+   <code><pre>
+   Test Environment:
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Architecture                = 64bit
+     Memory                      = 17179869184
+   Node.js
+     Node.js Version             = 8.12.0
+     npm Version                 = 6.4.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Titanium SDK
+     SDK Version                 = 8.0.0.v20181219075358
+   Device              =iPhone 6s iOS 12
+   Simulator        =iphone 7 iOS 11
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26641.json">JSON Source</a></p>

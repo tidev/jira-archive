@@ -1,0 +1,194 @@
+---
+title: "[TIMOB-25687] Android: Picker change listener doesn't work the first time"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-19T11:30:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Android, picker</td></tr>
+<tr><th>Reporter</th><td>Guillermo Figueras</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2018-01-17T13:15:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-02T00:38:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The first time a Picker changes, the change event is not fired. The subsequent times everything is fine.
+
+*Test code:*
+
++View:+
+<code><pre>
+<Alloy>
+	<Window class="container" onOpen="open" id="requestWindow" title="title">
+		<ScrollView id="scrollView" showVerticalScrollIndicator="true" >
+			<View id="infoView" >
+				<View width="Ti.UI.FILL" height="40dp" >
+					<Label class="labels" id="typeLabel" text="L('type')" />
+					<Picker id="pickerType" platform="android" onChange="pickerChange" />
+					<View bottom="0" width="Titanium.UI.FILL" height="0.5" backgroundColor="#c8c7cc"></View>
+				</View>
+				<View width="Ti.UI.FILL" height="40dp" id="halfDayView" >
+					<Label class="labels" id="halfDayLabel" text="L('halfDay')" />
+					<Picker id="pickerHalfDay" platform="android" onChange="pickerChange" />
+					<View bottom="0" width="Titanium.UI.FILL" height="0.5" backgroundColor="#c8c7cc"></View>
+				</View>
+			</View>
+		</ScrollView>
+	</Window>
+</Alloy>
+</pre></code>
++Controller:+
+<code><pre>
+function open(){
+	
+}
+
+var halfDay = [];
+halfDay[0]=Ti.UI.createPickerRow({title:L('halfDay')});
+halfDay[1]=Ti.UI.createPickerRow({title:L('fullDay')});
+
+var type = [];
+loadTypes();
+
+function loadTypes() {
+	var url = "<a href="https://www.google.es" rel="nofollow" target="_blank">https://www.google.es</a>";
+	var xhr = Ti.Network.createHTTPClient({
+		onload : function(e) {
+			// var json = JSON.parse(decodeURIComponent(this.responseText));
+			
+			// var datas = json.datas;
+			
+			var datas = {
+		        "vac_tipos": [
+		            {
+		                "tipo": "F",
+		                "nombre": "Festivos"
+		            },
+		            {
+		                "tipo": "V",
+		                "nombre": "Vacaciones"
+		            },
+		            {
+		                "tipo": "U",
+		                "nombre": "Puente"
+		            },
+		            {
+		                "tipo": "FF",
+		                "nombre": "Festivo Especial"
+		            },
+		            {
+		                "tipo": "NI",
+		                "nombre": "DIAS Navidad"
+		            }
+		        ]
+			    
+			};
+			
+			for (var i = 0; i < datas.vac_tipos.length; i++) 
+			{
+				type[i] = Ti.UI.createPickerRow({title: datas.vac_tipos[i].nombre});
+			}
+			
+			if (OS_ANDROID) 
+			{
+				$.pickerType.add(type);
+				$.pickerType.selectionIndicator = true;
+				
+				$.pickerHalfDay.add(halfDay);
+				$.pickerHalfDay.selectionIndicator = true;
+			}
+			
+		},
+		onerror : function(e) {
+			Ti.API.debug(e.error);
+		},
+		timeout : 5000		
+	});
+	xhr.open("GET", url);
+	xhr.send();
+}
+
+function pickerChange(){
+	Ti.API.info('Change listener triggered');
+}
+</pre></code>
++Style:+
+<code><pre>
+"Window[platform=android]" : {
+	windowSoftInputMode: Ti.UI.Android.SOFT_INPUT_STATE_HIDDEN
+}
+
+".container": { 
+	backgroundColor:"#DCDCDC",
+}
+
+"#scrollView": {
+	layout: 'vertical'
+}
+"#infoView" : {
+	layout: 'vertical',
+	height: Ti.UI.SIZE
+}
+
+".labels" : {
+	left: "10dp"
+}
+
+"Picker[platform=android]" : {
+	width: "35%",
+	borderColor: 'black',
+	borderWidth: '1',
+	right: "10dp"
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2018-01-18
+
+   Hello, I have tested the issue with the same Android version emulator, I wasn't able to reproduce the issue. The change event does fire every time I change the value of picker. Thanks.</li>
+<li>Guillermo Figueras 2018-01-18
+
+   @Sharif, I updated the test code. I think the problem has to do with httpclient requests.</li>
+<li>Sharif AbuDarda 2018-01-21
+
+   Hello [~gfigueras], The issue seems to be reproducible with the updated sample code, The picker change event does not fire on first picker change. On the subsequent change, it does. Moving to TIMOB.</li>
+<li>Yordan Banev 2018-01-23
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9763" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9763</a></li>
+<li>Lokesh Choudhary 2018-02-14
+
+   FR Passed.
+   
+   Waiting for merge to be enabled.</li>
+<li>Lokesh Choudhary 2018-03-02
+
+   Verified the fix in SDK 7.1.0.v20180301114750 & 7.2.0.v20180301081409.
+   
+   Closing.
+   
+   Studio Ver: 5.0.0.201712081732
+   OS Ver: 10.13.2
+   Xcode Ver: Xcode 9.2
+   Appc NPM: 4.2.12
+   Appc CLI: 7.0.2
+   Daemon Ver: 1.0.1
+   Ti CLI Ver: 5.0.14
+   Alloy Ver: 1.11.0
+   Node Ver: 8.9.1
+   NPM Ver: 5.5.1
+   Java Ver: 1.8.0_101
+   Devices: ⇨ google Nexus 6P — Android 8.0.0
+   ⇨ google Nexus 5 — Android 6.0.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25687.json">JSON Source</a></p>

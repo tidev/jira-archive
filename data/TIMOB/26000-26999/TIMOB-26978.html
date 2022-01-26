@@ -1,0 +1,196 @@
+---
+title: "[TIMOB-26978] Android: Showing/hiding dialog while window is being destroyed by "Don't keep activities" sometimes crashes"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-29T14:14:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>ProgressIndicator, android, dialog, engSchedule</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-04-11T01:49:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-29T14:14:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Showing or hiding a dialog (alert or progress indicator) from an activity window that is in the middle of being destroy, but not "finished", will sometimes cause the following crashes.
+
+Note that an Android activity can be flagged as "destroyed", but not "finished", if the Android OS destroys it due to low memory or if system developer option "Don't keep activities" is enabled. When this happens, the Android OS intends to restore the activity when the end-user navigates back to it.
+
+----
+*Steps to reproduce dialog "dismiss" crash:*
+_Unknown._
+
+Theoretically, this should be possible by calling a dialog's <code>hide()</code> method via the <code>Ti.UI.Window</code> object's <code>window.activity.onDestroy</code> callback, but it doesn't crash for me.
+
+Below is the stack trace reported by some app developers when this issue happens
+<code><pre>
+java.lang.IllegalArgumentException: View=DecorView@1a43283[TiActivity] not attached to window manager
+at android.view.WindowManagerGlobal.findViewLocked(WindowManagerGlobal.java:485)
+at android.view.WindowManagerGlobal.removeView(WindowManagerGlobal.java:394)
+at android.view.WindowManagerImpl.removeViewImmediate(WindowManagerImpl.java:124)
+at android.app.Dialog.dismissDialog(Dialog.java:375)
+at android.app.Dialog.dismiss(Dialog.java:358)
+at ti.modules.titanium.ui.widget.TiUIProgressIndicator.handleHide(TiUIProgressIndicator.java:252)
+at ti.modules.titanium.ui.widget.TiUIProgressIndicator.handleMessage(TiUIProgressIndicator.java:78)
+at android.os.Handler.dispatchMessage(Handler.java:102)
+at android.os.Looper.loop(Looper.java:193)
+at android.app.ActivityThread.main(ActivityThread.java:6718)
+at java.lang.reflect.Method.invoke(Native Method)
+at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
+</pre></code>
+
+----
+*Steps to reproduce dialog "show" crash:*
+<h4>Go to the Android device's main "Settings" screen.</h4>
+<h4>Tap on "System" under "Settings.</h4>
+<h4>Tap on "Developer options" under "System" settings.</h4>
+<h4>Enable "Don't keep activities", which should be near the bottom of the list.</h4>
+<h4>Build and run the below code on the above Android device.</h4>
+<h4>Press the Android "Home" button.</h4>
+<h4>Resume the app.</h4>
+<h4>Press the Android "Back" button.</h4>
+<h4>Observe the Android log. You'll see one of the below exception stack traces.</h4>
+
+app.js
+<code><pre>
+var progressIndicator = Ti.UI.Android.createProgressIndicator({
+	message: "Progressing...",
+	location: Ti.UI.Android.PROGRESS_INDICATOR_DIALOG,
+	type: Ti.UI.Android.PROGRESS_INDICATOR_INDETERMINANT,
+	cancelable: false,
+});
+var window = Ti.UI.createWindow();
+window.add(Ti.UI.createLabel({ text: "Press Back" }));
+window.activity.onDestroy = function() {
+	var isShowingAlert = true;
+	if (isShowingAlert) {
+		alert("Hello World!");
+	} else {
+		var progressIndicator = Ti.UI.Android.createProgressIndicator({
+			message: "Progressing...",
+			location: Ti.UI.Android.PROGRESS_INDICATOR_DIALOG,
+			type: Ti.UI.Android.PROGRESS_INDICATOR_INDETERMINANT,
+			cancelable: false,
+		});
+		progressIndicator.show();
+	}
+}
+window.open();
+</pre></code>
+
+Stack trace in 7.5.x...
+<code><pre>
+[ERROR] TiExceptionHandler: (main) [611,6711] Attempt to invoke virtual method 'java.lang.Object org.appcelerator.kroll.KrollObject.callProperty(java.lang.String, java.lang.Object[])' on a null object reference
+[ERROR] TiExceptionHandler:
+[ERROR] TiExceptionHandler:     org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1210)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.proxy.ActivityProxy.handleMessage(ActivityProxy.java:394)
+[ERROR] TiExceptionHandler:     android.os.Handler.dispatchMessage(Handler.java:102)
+[ERROR] TiExceptionHandler:     android.os.Looper.loop(Looper.java:193)
+[ERROR] TiExceptionHandler:     android.app.ActivityThread.main(ActivityThread.java:6669)
+[ERROR] TiExceptionHandler:     java.lang.reflect.Method.invoke(Native Method)
+[ERROR] TiExceptionHandler:     com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
+[ERROR] TiExceptionHandler:     com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
+[ERROR] TiExceptionHandler: (main) [34,6745] Unable to add window -- token android.os.BinderProxy@b66e705 is not valid; is your activity running?
+[ERROR] TiExceptionHandler:
+[ERROR] TiExceptionHandler:     android.view.ViewRootImpl.setView(ViewRootImpl.java:798)
+[ERROR] TiExceptionHandler:     android.view.WindowManagerGlobal.addView(WindowManagerGlobal.java:356)
+[ERROR] TiExceptionHandler:     android.view.WindowManagerImpl.addView(WindowManagerImpl.java:93)
+[ERROR] TiExceptionHandler:     android.app.Dialog.show(Dialog.java:329)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiExceptionHandler.createDialog(TiExceptionHandler.java:233)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiExceptionHandler$1.onCurrentActivityReady(TiExceptionHandler.java:171)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.util.TiUIHelper.waitForCurrentActivity(TiUIHelper.java:193)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiApplication.waitForCurrentActivity(TiApplication.java:817)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiExceptionHandler.handleOpenErrorDialog(TiExceptionHandler.java:167)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiExceptionHandler.openErrorDialog(TiExceptionHandler.java:139)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiExceptionHandler.handleException(TiExceptionHandler.java:264)
+[ERROR] TiExceptionHandler:     org.appcelerator.kroll.KrollRuntime.dispatchException(KrollRuntime.java:540)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiApplication$1.uncaughtException(TiApplication.java:362)
+[ERROR] TiExceptionHandler:     org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1225)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.proxy.ActivityProxy.handleMessage(ActivityProxy.java:394)
+[ERROR] TiExceptionHandler:     android.os.Handler.dispatchMessage(Handler.java:102)
+[ERROR] TiExceptionHandler:     android.os.Looper.loop(Looper.java:193)
+[ERROR] TiExceptionHandler:     android.app.ActivityThread.main(ActivityThread.java:6669)
+[ERROR] TiExceptionHandler:     java.lang.reflect.Method.invoke(Native Method)
+[ERROR] TiExceptionHandler:     com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
+[ERROR] TiExceptionHandler:     com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
+</pre></code>
+
+Stack trace in 8.0.0...
+<code><pre>
+[ERROR] WindowManager: android.view.WindowLeaked: Activity org.appcelerator.titanium.TiActivity has leaked window DecorView@89a3790[TiActivity] that was originally added here
+[ERROR] WindowManager: 	at android.view.ViewRootImpl.<init>(ViewRootImpl.java:511)
+[ERROR] WindowManager: 	at android.view.WindowManagerGlobal.addView(WindowManagerGlobal.java:346)
+[ERROR] WindowManager: 	at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:93)
+[ERROR] WindowManager: 	at android.app.Dialog.show(Dialog.java:329)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.widget.TiUIProgressIndicator.handleShow(TiUIProgressIndicator.java:231)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.widget.TiUIProgressIndicator.show(TiUIProgressIndicator.java:146)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.android.ProgressIndicatorProxy.handleShow(ProgressIndicatorProxy.java:59)
+[ERROR] WindowManager: 	at org.appcelerator.titanium.proxy.TiViewProxy.show(TiViewProxy.java:763)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.TiDialogProxy.access$001(TiDialogProxy.java:29)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.TiDialogProxy$1.onCurrentActivityReady(TiDialogProxy.java:47)
+[ERROR] WindowManager: 	at org.appcelerator.titanium.util.TiUIHelper.waitForCurrentActivity(TiUIHelper.java:194)
+[ERROR] WindowManager: 	at ti.modules.titanium.ui.TiDialogProxy.show(TiDialogProxy.java:42)
+[ERROR] WindowManager: 	at org.appcelerator.kroll.runtime.v8.V8Object.nativeCallProperty(Native Method)
+[ERROR] WindowManager: 	at org.appcelerator.kroll.runtime.v8.V8Object.callProperty(V8Object.java:75)
+[ERROR] WindowManager: 	at org.appcelerator.kroll.KrollProxy.callPropertySync(KrollProxy.java:753)
+[ERROR] WindowManager: 	at org.appcelerator.titanium.TiBaseActivity.dispatchCallback(TiBaseActivity.java:1304)
+[ERROR] WindowManager: 	at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1589)
+[ERROR] WindowManager: 	at org.appcelerator.titanium.TiActivity.onDestroy(TiActivity.java:58)
+[ERROR] WindowManager: 	at android.app.Activity.performDestroy(Activity.java:7395)
+[ERROR] WindowManager: 	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1306)
+[ERROR] WindowManager: 	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4443)
+[ERROR] WindowManager: 	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:4476)
+[ERROR] WindowManager: 	at android.app.servertransaction.DestroyActivityItem.execute(DestroyActivityItem.java:39)
+[ERROR] WindowManager: 	at android.app.servertransaction.TransactionExecutor.executeLifecycleState(TransactionExecutor.java:145)
+[ERROR] WindowManager: 	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:70)
+[ERROR] WindowManager: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1808)
+[ERROR] WindowManager: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+[ERROR] WindowManager: 	at android.os.Looper.loop(Looper.java:193)
+[ERROR] WindowManager: 	at android.app.ActivityThread.main(ActivityThread.java:6669)
+[ERROR] WindowManager: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] WindowManager: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:493)
+[ERROR] WindowManager: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:858)
+</pre></code>
+
+----
+*Solution:*
+The dialog handling code will attempt to show a dialog use the top-most activity that is being shown. This activity is fetched via <code>TiApplication.getCurrentActivity()</code>. This method will checks the top-most activity's <code>isFinishing()</code> method and ignores skips them knowing that they are in the middle of being destroyed... but this code is also missing an <code>isDestroyed()</code> check since an activity can be destroyed but not finished for the "Don't keep activities" edge-case.
+[TiApplication.getCurrentActivity()](<a href="https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/titanium/src/java/org/appcelerator/titanium/TiApplication.java#L252)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/titanium/src/java/org/appcelerator/titanium/TiApplication.java#L252)</a>
+
+Our dialog dismissing code needs to check if the hosting activity has been destroyed as well, not just finished. We should also wrap a <code>dismiss()</code> call with a try/catch block just in case since we don't know how to reproduce this issue (might be a bug on Google's end that we need to work-around?).
+[TiUIDialog.java](<a href="https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIDialog.java)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIDialog.java)</a>
+[TiUIProgressIndicator.java](<a href="https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIProgressIndicator.java)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/864d8f10b30b5d4fabb4d235a44e715973750c5a/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIProgressIndicator.java)</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-04-12
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10829" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10829</a></li>
+<li>Joshua Quick 2019-04-26
+
+   PR (8.0.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10868" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10868</a></li>
+<li>Lokesh Choudhary 2019-04-26
+
+   FR passed PR merged.</li>
+<li>Samir Mohammed 2019-04-29
+
+   Closing ticket, fix verified in SDK version <code>8.0.1.v20190426162041</code> and SDK version <code>8.1.0.v20190426222341</code>
+   
+   Test and other information can be found at: 
+   Master : <a href="https://github.com/appcelerator/titanium_mobile/pull/10829" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10829</a>
+   8_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/10868" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10868</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26978.json">JSON Source</a></p>

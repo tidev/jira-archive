@@ -1,0 +1,102 @@
+---
+title: "[TIMOB-26581] Android: Child view with "touchEnabled" false wrongly receives touch events if parent is touch enabled"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, click, engSchedule, parity, touch, touchEnabled</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-11-17T02:05:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-02-22T18:39:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If a parent view's "touchEnabled" property is set <code>true</code>, its child view "touchEnabled" is set <code>false</code>, and then you tap on the child view... that child view will wrongly fire a touch/click event. The problem with this is that event will "bubble" to the parent view and its coordinates will be relative to the child, not the parent.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>Touch and drag the blue square. (The square's "touchEnabled" property is set <code>false</code>.)</h4>
+<h4>If the square turns red, then it has wrongly fired a touch event.</h4>
+
+<code><pre>
+function onTouch(event) {
+	if (event.source != parentView) {
+		Ti.API.error("@@@ Oh-no! Child view wrongly fired a touch event.");
+		childView.backgroundColor = "red";
+	}
+	if ((event.type === "pinch") || (event.type === "swipe")) {
+		return;
+	}
+	childView.center = { x: event.x, y: event.y };
+}
+
+var window = Ti.UI.createWindow();
+var parentView = Ti.UI.createView({
+	touchEnabled: true,
+	backgroundColor: "gray",
+	width: Ti.UI.FILL,
+	height: Ti.UI.FILL,
+});
+var childView = Ti.UI.createView({
+	touchEnabled: false,
+	backgroundColor: "blue",
+	width: "100dp",
+	height: "100dp",
+});
+parentView.add(childView);
+parentView.addEventListener("touchstart", onTouch);
+parentView.addEventListener("touchmove", onTouch);
+parentView.addEventListener("touchend", onTouch);
+parentView.addEventListener("touchcancel", onTouch);
+parentView.addEventListener("click", onTouch);
+parentView.addEventListener("dblclick", onTouch);
+parentView.addEventListener("doubletap", onTouch);
+parentView.addEventListener("longpress", onTouch);
+parentView.addEventListener("pinch", onTouch);
+parentView.addEventListener("swipe", onTouch);
+window.add(parentView);
+window.open();
+</pre></code>
+
+*Cause:*
+The Java touch/gesture event listeners in our <code>TiUIView.java</code> class are always listening. They fire an event if a JavaScript listener is set up on the view or any of its parent views by calling <code>KrollProxy.hierarchyHasListener()</code>. This is partly the issue.
+<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java</a>
+
+*Recommended Solution:*
+Replace the <code>KrollProxy.hierarchyHasListener()</code> calls with <code>KrollProxy.hasListener()</code>. Also check if touch events are enabled by calling [View.isClickable()](<a href="https://developer.android.com/reference/android/view/View.html#isClickable())" rel="nofollow" target="_blank">https://developer.android.com/reference/android/view/View.html#isClickable())</a> which I +think+ will return <code>false</code> (we need to double check) when we set the "touchEnabled" property to false because changing that property ends up calling <code>TiUIView.doSetClickable()</code>.
+
+*Work-around:*
+Check the event's "source" property to see which view has fired this event. The above test code does this and you can simply return out of the listener if it doesn't reference the expected view.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2019-01-27
+
+   </li>
+<li>Joshua Quick 2019-01-28
+
+   Thanks [~michael]. That PR might have introduced the issue, but the "cause" I've written up above is still true. I think the real issue here is that the code is walking up the parent hierarchy and is regarding the child as touch enabled if at least 1 of its parents is touch enabled. iOS does not work this way. This is the root cause.</li>
+<li>David Bankier 2019-08-29
+
+   The same scenario will  trigger a longpress on the parent, even for a short click/tap.
+   The above work around can be used to determine a true long press.
+   
+   </li>
+<li>Andrea Vitale 2019-11-22
+
+   Same issue here with latest SDK available (8.2.0.GA). touchEnabled: false seems to be ignored.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26581.json">JSON Source</a></p>

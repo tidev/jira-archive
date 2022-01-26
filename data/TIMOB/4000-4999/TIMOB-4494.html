@@ -1,0 +1,191 @@
+---
+title: "[TIMOB-4494] Ti.XML.XMLDomDocument causing device and simulator crashes in API 1.7 with accessing attributes"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2011-08-01T12:14:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-31</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>XMLDomDocument, xml</td></tr>
+<tr><th>Reporter</th><td>Tim Alosi</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-06-15T08:21:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T20:37:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have had some stable code since API 1.5. 
+
++Usecase has been developed and attached to the ticket, including an app.js that is from a simple project and an xml file+
++In the usecase, it seems to crash consistently around node 403. Deleting node 403, or nodes before doesn't "move" the crash, still crashes at 403  (implying not an xml file issue)+
+
+
+Two code snippets are listed below that access an XML document with several hundred nodes.  The code worked very consistently in previous API versions.  With API 1.7 I am getting frequent crashes in simulator and the device always crashes when executing either of these two sections of code
+
+I have switched back to API 1.6.2 and confirmed that this does NOT Crash.
+
+The crash does NOT always happen at the same nodes, (I don't think this is an xml format issue)
+
+Code Snippet 1:
+<code><pre>
+var docTags = Ti.XML.parseString(oContents.text);
+Ti.API.debug('B:');
+var eleTags = docTags.getElementsByTagName("tag");
+Ti.API.debug('C:');
+
+//Populate the Table View
+for (var i = 0, iLen = eleTags.length; i < iLen; i++) {
+	Ti.API.debug('D:'+i +' '+iLen);
+	var row = Ti.UI.createTableViewRow({
+		title: eleTags.item(i).getAttribute('tag'),
+		className: 'tag'
+	});
+	Ti.API.debug('E:'+i);
+	var countLabel = Ti.UI.createLabel({
+		width: 35,
+		height: '65%',
+		right: 10,
+		backgroundColor: '#778',
+		borderColor: '#778',
+		borderRadius: 15,
+		color: 'white',
+		text: eleTags.item(i).getAttribute('count'),
+		font: {	fontWeight: 'bold',fontSize: 16	},
+		textAlign: 'center'
+	});
+
+	row.add(countLabel);
+	Ti.API.debug('F:'+i);
+	row.addEventListener('click', winTagMenu.rowClickEvent);
+	tagData.push(row);
+}
+</pre></code>
+
+Simulator Console Output Crash
+<code><pre>
+[DEBUG] E:99
+
+[DEBUG] F:99
+
+[DEBUG] D:100 293
+
+[DEBUG] E:100
+
+[DEBUG] App Spec: <DTiPhoneSimulatorApplicationSpecifier 0x200350> specified by path /Users/home/Documents/Appcelerator/miMarks/build/iphone/build/Debug-iphonesimulator/miMarks.app
+[DEBUG] SDK Root: <DTiPhoneSimulatorSystemRoot 0x110220> path=/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator4.3.sdk version=4.3 name=Simulator - iOS 4.3
+[DEBUG] using device family ipad
+[DEBUG] Session started
+[DEBUG] Session did end with error Error Domain=DTiPhoneSimulatorErrorDomain Code=1 UserInfo=0x113610 "The simulated application quit."
+[INFO] Application has exited from Simulator
+</pre></code>
+
+Code Snippet 2
+<code><pre>
+if (filePosts.exists()) {
+	var oContents = filePosts.read();
+	var docPosts = Ti.XML.parseString(oContents.text);
+	var elePosts = docPosts.getElementsByTagName("post");
+			
+	//For Loop to check Tag and push to post array.
+	//Populate the data Array
+	Util.log({
+		type: 'debug',
+		msg: 'Service.getPostData: Before For'
+	});
+	for (var i = 0, iLen = elePosts.length; i < iLen; i++) {
+		//Populate Object
+		Ti.API.debug('1:'+i+ " "+iLen);
+		var sDescription = elePosts.item(i).getAttribute('description');
+		Ti.API.debug('2:'+i+" "+sDescription);
+		var sHref = elePosts.item(i).getAttribute('href');
+		Ti.API.debug('3:'+i);
+		var oPost = {
+			href: sHref,
+			title: sDescription,
+			hash: elePosts.item(i).getAttribute('hash'),
+			description: sDescription,
+			tag: elePosts.item(i).getAttribute('tag'),
+			image: parseUri(sHref).host + '.jpg'
+		};
+				
+		oReturn.data.push(oPost);
+	};
+}
+</pre></code>
+
+Simulator Console Crash 2
+<code><pre>
+[DEBUG] 1:482 527
+
+[DEBUG] 2:482 Openomy - The Online File System - Organizing your web based world
+
+[DEBUG] 3:482
+
+[DEBUG] App Spec: <DTiPhoneSimulatorApplicationSpecifier 0x10f8c0> specified by path /Users/home/Documents/Appcelerator/miMarks/build/iphone/build/Debug-iphonesimulator/miMarks.app
+[DEBUG] SDK Root: <DTiPhoneSimulatorSystemRoot 0x110280> path=/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator4.3.sdk version=4.3 name=Simulator - iOS 4.3
+[DEBUG] using device family ipad
+[DEBUG] Session started
+[DEBUG] Session did end with error Error Domain=DTiPhoneSimulatorErrorDomain Code=1 UserInfo=0x104d80 "The simulated application quit."
+[INFO] Application has exited from Simulator
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4494_21453/app.js">app.js</td></td><td>2011-06-24T14:47:09.000+0000</td><td>1198</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4494_21454/posts.xml">posts.xml</td></td><td>2011-06-24T14:47:30.000+0000</td><td>150627</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2011-06-20
+
+   In order for us to progress this issue, please would you edit your ticket and replace your code with a [Use-case](<a href="http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-CreatingGoodUsecases)." rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-CreatingGoodUsecases).</a> To summarize, this is the simplest code that will demonstrate the issue, and will run without any modification.
+   
+   Also, please include some test data, so that we may reproduce it.
+   
+   Lastly, please use the wiki markup provided, to reformat your code block (surround it with the \{code\} macro)
+   
+   Thanks</li>
+<li>Tim Alosi 2011-06-24
+
+   Been out of town ... I will work up a use case with sample data</li>
+<li>Tim Alosi 2011-06-24
+
+   Developed and attached a use case.  Looking forward to your assessment</li>
+<li>Stephen Tramer 2011-07-05
+
+   This issue is caused by our lack of attribute support.</li>
+<li>Blain Hamon 2011-08-01
+
+   Could not get app.js to crash. The code snippets refused to run, even after massaging (eleTags would be null) the code.
+   
+   It's likely that between the new TiJSCore and TIMOB-4610, this has already been fixed.</li>
+<li>Tim Alosi 2011-08-01
+
+   Blain,
+   
+   two questions.
+   
+   1. Did you try to reproduce on the current code base (with changes from TIMOB-4610)?
+   2. When you said "code snippets refused to run" ... did you mean not crash or not run ... just want to make sure.
+   
+   Thanks
+   Tim</li>
+<li>Lee Morris 2017-03-31
+
+   Closing ticket as this was last updated in 2011, please open a new ticket if this problem persists.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4494.json">JSON Source</a></p>

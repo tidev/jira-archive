@@ -1,0 +1,55 @@
+---
+title: "[TIMOB-26145] Windows: Improve File.getDirectoryListing() performance in Resources directory"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-28T06:41:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>performance</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2018-06-21T04:15:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-29T05:36:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+On Windows, accessing files/directories under "Resources" is slower than it should be. These files are stored within the APPX where a list of file paths from "assets" can be easily extracted... which should make it faster than storage access.
+
+*Test:*
+Run the below code to fetch a listing of all files under the "Resources" directory. Observe the log for the duration of this function.
+<code><pre>
+var startTime = new Date();
+var file = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory());
+var listing = file.getDirectoryListing();
+Ti.API.info("@@@ getDirectoryListing() duration: " + (new Date() - startTime));
+</pre></code>
+
+*Recommended Solution:*
+An Windows APPX is really a zip file. We should open the APPX as a zip file and fetch/store all zip entries referencing files under the "assets" directory. This way we can have fast hash table lookups when doing existence checks and fetching directory listings.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2018-06-28
+
+   Closing as invalid, I observed the symptom completely wrong. There should be no difference between reading resource directory and other directory because all contents in appx end up extracted into normal directory so technically there's no need to "unzip" it.</li>
+<li>Joshua Quick 2018-06-28
+
+   That's sounds about right. A Windows Phone Silverlight XAP app is unzipped as well. So, I wouldn't be surprised if APPX worked the same way.
+   
+   But this should mean <code>getDirectoryListing()</code> performance should be roughly the same between the "Resources" directory and any other directory on storage, right? The only major difference is that we should be listing the encrypted JS files under "Resources" as well and merging that list with what we've grabbed from storage.</li>
+<li>Kota Iguchi 2018-06-29
+
+   Yes, getDirectoryListing performance should be roughly same. One interesting thing is that applications are stored in restricted folder called <code>WindowsApps</code> to isolate the app onto sandbox (I guess) so it may be slightly affecting to the performance but it should be very small.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26145.json">JSON Source</a></p>

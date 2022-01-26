@@ -1,0 +1,65 @@
+---
+title: "[TIMOB-26146] Enable ES6 transpile/polyfill by default"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-01-07T22:43:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>es6</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2018-06-22T02:45:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-08T11:53:53.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+We want to guarantee support for all ES6 syntax, functions, and types on all platforms (Android, iOS, Windows) and all supported OS versions by Titanium 8.0.0. This way, all CommonJS modules built for Titanium 8.0.0 can be written in ES6. This also means we need to drop support of our "tiapp.xml" <code><transpile/></code> setting so that it cannot be turned off.
+
+Currently, CommonJS modules have to be written for ES5 since transpile/polyfill can be disabled by an app. This also means that they can't provide APIs that use promises, especially since iOS 9 doesn't natively support them. (A module could document that it only supports ES6 enabled apps, but this is inconvenient.)
+
+*Issues to be resolved:*
+* Babel is currently injecting <code>'use strict'</code> into all JS files, which is a breaking change for app developers that don't adhere to this setting. _(This is why transpile/polyfill is off by default.)_
+* We need a mapping file so that a runtime error's stack trace would lineup with the app developer's code. We currently log the trace and display the trace via an alert. We need to consider online crash reporting as well. _(Do we add the mapping file to the app bundle for non-production builds?)_
+* Anything else?
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2018-06-22
+
+   [~cbarber] beat me to the punch on <a href="https://github.com/appcelerator/titanium_mobile/pull/10112" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10112</a>, we should decouple transpilation and polyfill. It's not as big of a problem on Android/Windows as the JS engines are a known target, iOS has a different engine per OS version and one day someone will get bitten. That said I'm not sure how easy it is to split apart the transpile and polyfill steps (without handling polyfill ourselves) as both are done through preset-env</li>
+<li>Chris Barber 2018-06-22
+
+   Babel doesn't polyfill unless you explicitly require babel-polyfill which just pulls in core-js. I am advocating we use core-js and the transpilation will be moot.</li>
+<li>Christopher Williams 2019-01-03
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10566" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10566</a></li>
+<li>Christopher Williams 2019-01-03
+
+   So the current thinking here is:
+   - We'll enable transpile by default now, but still with the option to opt-out explicitly in your trap.xml
+   - We are transpiling our own common/bootstrap JS code down as part of our SDK build process, using babel-preset-env to target the underlying JS engines for each platform (min iOS version, packaged v8 version, equivalent safari version for windows jscore port)
+   - We're using babel 7 to parse/transpile/minify.
+   - We're doing usage based polyfilling on user js code when we transpile (so it'll inject the polyfills based on what the user is accessing and the target js engine).
+   - We're parsing user JS code as 'unambiguous' rather than 'module' now. So it should avoid injecting use strict into 'script' style code (i.e. files without import/export).
+   
+   I think longer-term there's room for more tweaks:
+   - Move to "entry" polyfilling and add the entry to ti.main.js so the polyfills get loaded once at startup. We'll have to include core-js/polyfill/regenerator in the common JS code packaged in the SDK. So the bundled JS code in the SDK becomes bigger, but then we don't need to worry about polyfills in user code at all; we don't need to copy polyfills into the user's app specially (we'll already be bundling it); we can use the ES6/7/8/9 features in our common/bootstrap code.
+   - Enforce transpilation (no opt-out)?
+   - Look into combining all of this with rollup to trim out the dead code paths (specifically the polyfill code that's never needed) - [~gmathews] had looked into this some, but it's tricky due to the order of operations - and I think it more or less requires import/export usage throughout the entire app to work.
+   - Start making more use of babel plugins to help shrink app codebase like Alloy does (inlining values for known constants, which allows minification to trim dead code)</li>
+<li>Samir Mohammed 2019-01-08
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26146.json">JSON Source</a></p>

@@ -1,0 +1,100 @@
+{
+	"id": "176321",
+	"key": "TIMOB-28567",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2021-10-25T13:37:16.000+0000",
+		"priority": {
+			"name": "None",
+			"id": "6"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2021-11-02T03:57:44.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "We see the following crash:\r\n{code}\r\n*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\r\npid: 0, tid: 0 >>> com.example.app <<<\r\n\r\nbacktrace:\r\n  #00  pc 000000000002237c  /system/lib64/libc.so (abort+116)\r\n  #00  pc 00000000004667a0  /system/lib64/libart.so (art::Runtime::Abort(char const*)+1196)\r\n  #00  pc 0000000000008ce0  /system/lib64/libbase.so (android::base::LogMessage::~LogMessage()+724)\r\n  #00  pc 00000000002e68c4  /system/lib64/libart.so (art::JavaVMExt::JniAbort(char const*, char const*)+1640)\r\n  #00  pc 0000000000350584  /system/lib64/libart.so (art::JNI::GetObjectField(_JNIEnv*, _jobject*, _jfieldID*)+1068)\r\n  #00  pc 00000000005f8280  /data/app/com.example.app-gPjx4OxvV-WUyi4KR0LrvQ==/split_config.arm64_v8a.apk!lib/arm64-v8a/libkroll-v8.so (offset 0x177000) (titanium::Proxy::hasListenersForEventType(v8::FunctionCallbackInfo<v8::Value> const&)+352)\r\n  #00  pc 0000000000d3c4d8  /data/app/com.example.app-gPjx4OxvV-WUyi4KR0LrvQ==/split_config.arm64_v8a.apk!lib/arm64-v8a/libkroll-v8.so (offset 0x177000) (v8::internal::FunctionCallbackArguments::Call(v8::internal::CallHandlerInfo)+540)\r\n  #00  pc 0000000000d3bbd0  /data/app/com.example.app-gPjx4OxvV-WUyi4KR0LrvQ==/split_config.arm64_v8a.apk!lib/arm64-v8a/libkroll-v8.so (offset 0x177000)\r\n  #00  pc 0000000000d3b3b8  /data/app/com.example.app-gPjx4OxvV-WUyi4KR0LrvQ==/split_config.arm64_v8a.apk!lib/arm64-v8a/libkroll-v8.so (offset 0x177000)\r\n  #00  pc 0000000000c4bf28  /data/app/com.example.app-gPjx4OxvV-WUyi4KR0LrvQ==/split_config.arm64_v8a.apk!lib/arm64-v8a/libkroll-v8.so (offset 0x177000)\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: V8 crash related to logs",
+		"creator": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "459149",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~hknoechel], this isn't enough info to isolate the issue. Is there no exception message? Or a deeper stack trace?\r\n\r\nIf I were to \"guess\", a module may be attempting to fire an event or add/remove a listener while the app is in the background... and while a JS runtime does NOT exist. Such as your \"titanium-firebase-cloud-messaging\" module? Titanium's C++ code has never done NULL checks on the V8 Isolate pointer (the JS runtime instance) because we let our modules dispose themselves when the JS runtime terminates.\r\nhttps://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/v8/src/native/Proxy.cpp#L296\r\n\r\nThat said, we do JS runtime existence checks on the Java side before calling the C++ side. So, this theoretically shouldn't happen unless your module is older than 2 years (which is when I added this check as can be seen in blame).\r\nhttps://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/v8/src/java/org/appcelerator/kroll/runtime/v8/V8Object.java#L54\r\n\r\nMaybe the thing to test out is to set your app's \"exitOnClose\" to {{true}} (the default), back out of your app, and then trigger one of your modules?\r\n_(I'm not really sure what else to suggest.)_\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2021-11-02T03:57:44.000+0000",
+					"updated": "2021-11-02T03:57:44.000+0000"
+				}
+			],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,142 @@
+{
+	"id": "149015",
+	"key": "TIMOB-20094",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2015-06-22T22:29:09.000+0000",
+		"priority": null,
+		"labels": [
+			"sockets",
+			"tcp",
+			"titanium",
+			"xmpp"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2018-02-28T19:55:24.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10224",
+				"name": "TiAPI",
+				"description": "This component is used for cross-platform API work. Specifications are most likely to use this component."
+			}
+		],
+		"description": "I have duplicated an XMPP communication system using the TCP Sockets Module on Titanium Studio and for the most part it is working like a dream. The part where it does not work correctly is if I receive a message that is too big and the heap needs to grow in order to accommodate it in memory. It is then that many parts of the message are lost, thus making the message unreadable from the XML parser. I am placing the code that receives the buffer data below:\r\n\r\n\r\n{code:javascript}\r\nJXMPPConnection.prototype._pumpCallback = function(e) {\r\n\t//that.oDbg.log(\"pumpCallback ...\", 1);\r\n\r\n\t if (e.bytesProcessed ==-1) {// EOF \r\n\t\tTi.API.error(\"<EOF> - Can't perform any more operations on connected socket\");\r\n\t} else if (e.errorDescription == null || e.errorDescription == \"\") {\r\n\t\tTi.API.debug(\"DATA>>>: \" + e.buffer.toString());\r\n\t\tvar data = e.buffer.toString();\r\n\t\trepeatInterval=false;\r\n\t\t//var i=0;\r\n\t\te.buffer.clear();\r\n\t\t//while(i<data.length){\r\n\t\t\tif(data.indexOf('<')<0 || data.length<10)\r\n\t\t\treturn;\r\n\t\t\tdata=data.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').replace(/&g/g,'>').replace(/&gt;/g,'>');\r\n\t\t\t// if(data.charAt(0)!='<'){\r\n\t\t\t\t// data=data.substr(1);\r\n\t\t\t\t// }else{break;}\r\n\t\t\t// i++;\r\n\t\t// }\r\n\t\tif(data.indexOf(\"ping\")>=0){\r\n\t\t\tthat._doAutoPing(Ti.XML.parseString(data));\r\n\t\t\tthat.registerHandler('autoPing',that._doAutoPingResult);\r\n\t\t\treturn;\r\n\t\t}\r\n\t\t//fix xml finish and prefix\r\n\t\tvar response = data.replace(/\\<\\?xml.+\\?\\>/, \"\");\r\n\t\tif(response.indexOf(\"</stream:stream>\")==0) {\r\n\t\t\tTi.API.error(\"end connection XML: \" + response);\r\n\t\t\tthat._req.close();\r\n\t\t\treturn;\r\n\t\t}\r\n\t\tif (that.autenticated()) {\r\n\t\t\tvar xmls = that._getSplitXml(response);\r\n\t\t\tfor ( i = 0; i < xmls.length; i++) {\r\n\t\t\t\tvar xml = xmls[i];\r\n\t\t\t\txml=that._fixXmlToParse(xml);\r\n\t\t\t\tTi.API.info('length: '+xmls.length+xml);\r\n\t\t\t\tif(xml.indexOf('<message')>=0 && xml.indexOf('</message>')<0){buffer.push(xml);break;}\r\n\t\t\t\tif(buffer.length>=1 && (xml.indexOf('<message')<0 && xml.indexOf('</message>')<0)){buffer.push(xml);break;}\r\n\t\t\t\t if(xml.indexOf('<message')<0 && xml.indexOf('</message>')>0){xml=buffer.toString()+xml;buffer=new Array();}\r\n\t\t\t\tif(buffer.length>0 && xmls.length>1){\r\n\t\t\t\t\tfor(i;i<xmls.length;i++){\r\n\t\t\t\t\t\txml+=xmls[i];\r\n\t\t\t\t\t\tif(xml.indexOf('</message')>0){buffer=new Array();break;}\r\n\t\t\t\t\t}\r\n\t\t\t\t}\r\n\t\t\t\tTi.API.info(\"_handleResponse: \" +xml);\r\n\t\t\t\tthat._handleResponse(xml);\r\n\t\t\t}\r\n\t\t} else {\r\n\t\t\tresponse=that._fixXmlToParse(response);\r\n\t\t\tthat._getStreamID(response);\r\n\t\t}\r\n\r\n\t} else {\r\n\t\tTi.API.error(\"READ ERROR: \" + e.errorDescription);\r\n\t\tthat.disconnect();\r\n\t}\r\n};\r\n{code}\r\n\r\nthis code works like magic for most of my messages but when I request the history of a user of my xmpp service, which is quite a big message, the message gets corrupt.\r\n\r\nexample of the reply of the server with the corrupt part included\r\n\r\n\r\n{code:xml}\r\n<message id=“xxxxxx|1435011247\" to=“xxxxxx@domain.com\" from=\"triphistory@domain.com/res“><body><TripHistory>\r\n<Trips>\r\n<total>10</total>\r\n<Trip>\r\n<id>xxxxxxxx</id>\r\n<hailtime>1434576550000</hailtime>\r\n<pickuptime>1434576725000</pickuptime>\r\n<from><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></from>\r\n<to><![CDATA[]]></to>\r\n<special><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></special>\r\n<agent>s</agent>\r\n<status>com</status>\r\n<rating>0</rating>\r\n<plateno>xxxxxxxx</plateno>\r\n<carmodel>xxxxxxxx</carmodel>\r\n<drivername>xx</drivername>\r\n<driversurname>xx</driversurname>\r\n<drivercode>xxxxxx</drivercode>\r\n<driverid>xxxx</driverid>\r\n<isfaved>false</isfaved>\r\n<isblocked>false</isblocked>\r\n<tripfare>0.000000</tripfare>\r\n<tripcurr></tripcurr>\r\n<tripchannel></tripchannel>\r\n<companyemail>aggelos@domain.gr</companyemail>\r\n<companyfacebook>domain</companyfacebook>\r\n<companytwitter>domain</companytwitter>\r\n</Trip><Trip>\r\n<id>xxxxxxx</id>\r\n{code}\r\n{color:red}<hailtime>xxxxxSome String]]></special>{color}\r\n{code:xml}\r\n<agent>s</agent>\r\n<status>com</status>\r\n<rating>0</rating>\r\n<plateno>xxxxxx</plateno>\r\n<carmodel>xxxxxxxxx</carmodel>\r\n<drivername>xxxx</drivername>\r\n<driversurname>xxxxx</driversurname>\r\n<drivercode>xxxxxx</drivercode>\r\n<driverid>xxxx</driverid>\r\n<isfaved>false</isfaved>\r\n<isblocked>false</isblocked>\r\n<tripfare>0.000000</tripfare>\r\n<tripcurr></tripcurr>\r\n<tripchannel></tripchannel>\r\n<companyemail>aggelos@domain.gr</companyemail>\r\n<companyfacebook>domain</companyfacebook>\r\n<companytwitter>domain</companytwitter>\r\n</Trip><Trip>\r\n<id>xxxxxxxx</id>\r\n<hailtime>1434576550000</hailtime>\r\n<pickuptime>1434576725000</pickuptime>\r\n<from><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></from>\r\n<to><![CDATA[]]></to>\r\n<special><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></special>\r\n<agent>s</agent>\r\n<status>com</status>\r\n<rating>0</rating>\r\n<plateno>xxxxxxxx</plateno>\r\n<carmodel>xxxxxxxx</carmodel>\r\n<drivername>xx</drivername>\r\n<driversurname>xx</driversurname>\r\n<drivercode>xxxxxx</drivercode>\r\n<driverid>xxxx</driverid>\r\n<isfaved>false</isfaved>\r\n<isblocked>false</isblocked>\r\n<tripfare>0.000000</tripfare>\r\n<tripcurr></tripcurr>\r\n<tripchannel></tripchannel>\r\n<companyemail>aggelos@domain.gr</companyemail>\r\n<companyfacebook>domain</companyfacebook>\r\n<companytwitter>domain</companytwitter>\r\n</Trip></Trips>\r\n</TripHistory></body></message>\r\n{code}\r\n\r\nI have highlighted the corrupt part of the message in red. Is this behavior to be expected? If it is how can I alleviate it? I need to have my messages correctly reported back to me from the socket no matter what the computational cost that may bring. \r\n\r\n\r\nI am attaching below the code used to setup the tcp socket:\r\n\r\n\r\n{code:javascript}\r\ntry {\r\n\t\t\tthis._req = Ti.Network.Socket.createTCP({\r\n\t\t\t\thost : this.host,\r\n\t\t\t\tport : this.port,\r\n\t\t\t\tconnected : function(e) {\r\n\t\t\t\t\t//send initial request\r\n\r\n\t\t\t\t\tvar reqstr = that._getInitialRequestString();\r\n\t\t\t\t\tTi.API.debug(reqstr);\r\n\r\n\t\t\t\t\te.socket.write(Ti.createBuffer({\r\n\t\t\t\t\t\ttype:Titanium.Codec.CHARSET_UTF8,\r\n\t\t\t\t\t\tvalue : reqstr\r\n\t\t\t\t\t}));\r\n\t\t\t\t\tTi.Stream.pump(e.socket, that._pumpCallback, 1000000, true);\r\n\r\n\t\t\t\t},\r\n\t\t\t\terror : function(e) {\r\n\t\t\t\t\tTi.API.error('Socket error');\r\n\t\t\t\t\tthat._connected=false;\r\n\t\t\t\t\tthat.disconnect();\r\n\t\t\t\t},\r\n\t\t\t\tclosed : function(e) {\r\n\t\t\t\t\tTi.API.error('Socket close');\r\n\t\t\t\t\tthat._connected=false;\r\n\t\t\t\t},\r\n\t\t\t});\r\n\t\t\tthis._req.connect();\r\n\t\t} catch (e) {\r\n\t\t\tTi.API.error('Error creating socket');\r\n\t\t\tthat._connected=false;\r\n\t\t\tthat.disconnect();\r\n\t\t}\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "TCP Socket buffer corrupts data if too large",
+		"creator": {
+			"name": "aggelos81",
+			"key": "aggelos81",
+			"displayName": "Aggelos Papageorgiou",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "aggelos81",
+			"key": "aggelos81",
+			"displayName": "Aggelos Papageorgiou",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "SDK 4.2.0.v20150622133147, SDK 4.0.0.GA, SDK 4.0.1, SDK 4.1, SDK 3.5.1.GA, SDK 4.1.0.GA",
+		"comment": {
+			"comments": [
+				{
+					"id": "356523",
+					"author": {
+						"name": "aggelos81",
+						"key": "aggelos81",
+						"displayName": "Aggelos Papageorgiou",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Please look into this issue I am on a really tight schedule and this bug is a really BIG showstopper. Please ask for any further information required to resolve this bug. thank you",
+					"updateAuthor": {
+						"name": "aggelos81",
+						"key": "aggelos81",
+						"displayName": "Aggelos Papageorgiou",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-07-01T08:45:51.000+0000",
+					"updated": "2015-07-01T08:45:51.000+0000"
+				},
+				{
+					"id": "372126",
+					"author": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Have you tried with the latest environment we have? And is this specific to android or ios?",
+					"updateAuthor": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-12-04T03:08:25.000+0000",
+					"updated": "2015-12-04T03:08:25.000+0000"
+				},
+				{
+					"id": "372163",
+					"author": {
+						"name": "aggelos81",
+						"key": "aggelos81",
+						"displayName": "Aggelos Papageorgiou",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I have tried up to the 5.1.0.GA SDK and it has not remedied it self neither on iOS nor on Android!",
+					"updateAuthor": {
+						"name": "aggelos81",
+						"key": "aggelos81",
+						"displayName": "Aggelos Papageorgiou",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-12-04T12:47:59.000+0000",
+					"updated": "2015-12-04T12:47:59.000+0000"
+				}
+			],
+			"maxResults": 3,
+			"total": 3,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-26639] iOS: hasText() does not work"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-19T12:08:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>7.5.0.GA, ios, textfield</td></tr>
+<tr><th>Reporter</th><td>Andreas Pingas</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-12-07T12:45:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-19T16:07:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Please check the following example.
+
+<code><pre>
+<use-jscore-framework>true</use-jscore-framework>
+<property name="run-on-main-thread" type="bool">true</property>
+</pre></code>
+
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var textFieldA = Titanium.UI.createTextField({
+	height:'35dip',
+	width:'100dip',
+	top:'60dip',
+   	hintText:L('To'),
+   	value:0,
+	font:{fontSize:'18sp', fontWeight:'normal', fontFamily:'Tahoma'},
+	color:'#808080'
+});
+
+win.add(textFieldA);
+
+var textFieldB = Titanium.UI.createTextField({
+	height:'35dip',
+	width:'100dip',
+	top:'120dip',
+   	hintText:L('To'),
+   	value:0,
+	font:{fontSize:'18sp', fontWeight:'normal', fontFamily:'Tahoma'},
+	color:'#808080'
+});
+
+win.add(textFieldB);
+
+textFieldA.addEventListener('change', function() {
+	Ti.API.info(textFieldA.hasText());
+	Ti.API.info(textFieldB.hasText());
+});
+
+win.open();
+</pre></code>
+
+
+<code><pre>
+[ERROR] :  Script Error {
+[ERROR] :      column = 32;
+[ERROR] :      line = 31;
+[ERROR] :      message = "-[__NSCFNumber length]: unrecognized selector sent to instance 0xf1166b2877fc7f68";
+[ERROR] :      nativeStack = "3   CoreFoundation  0x0000000114a37ed6 ___forwarding___ + 1446\n4   CoreFoundation  0x0000000114a39da8 _CF_forwarding_prep_0 + 120\n5   Random0x000000010c6122df -[TiUITextWidgetProxy hasText:] + 367\n6   CoreFoundation  0x0000000114a3a03c __invoking___ + 140\n7   CoreFoundation  0x0000000114a374d5 -[NSInvocation invoke] + 325\n8   Random0x000000010c62c642 -[KrollMethod call:] + 2114\n9   Random0x000000010c62aeb2 __KrollCallAsFunction_block_invoke + 50\n10  Random0x000000010c73ff8e TiThreadPerformOnMainThread + 78\n11  Random0x000000010c62ab60 KrollCallAsFunction + 704\n12  JavaScriptCore  0x000000010d30d5b3 _ZN3JSC16JSCallbackObjectINS_20JSDestructibleObjectEE4callEPNS_9ExecStateE + 515\n13  JavaScriptCore  0x000000010d89b571 _ZN3JSC5LLInt9setUpCallEPNS_9ExecStateEPNS_11InstructionENS_22CodeSpecializationKindENS_7JSValueEPNS_17LLIntCallLinkInfoE + 385\n14  JavaScriptCore  0x000000010d2da32f llint_entry + 26803\n15  JavaScriptCore  0x000000010d2d38fe vmEntryToJavaScript + 244\n16  JavaScriptCore  0x000000010d7cf846 _ZN3JSC11Interpreter11executeCallEPNS_9ExecStateEPNS_8JSObjectENS_8CallTypeERKNS_8CallDataENS_7JSValueERKNS_7ArgListE + 470\n17  JavaScriptCore  0x000000010d9d09b4 _ZN3JSC12profiledCallEPNS_9ExecStateENS_15ProfilingReasonENS_7JSValueENS_8CallTypeERKNS_8CallDataES3_RKNS_7ArgListE + 196\n18  JavaScriptCore  0x000000010d3132d4 JSObjectCallAsFunction + 468\n19  Random0x000000010c894946 __TiBindingEventProcess_block_invoke + 86";
+[ERROR] :      sourceURL = "file:///Users//Library/Developer/CoreSimulator/Devices/7F806F4D-BC9D-468C-B3C3-1D218543724D/data/Containers/Bundle/Application/9AB9A6C9-927A-45DA-829D-475EF3474B44/Random.app/app.js";
+[ERROR] :      stack = "    at [native code]\n    at (/app.js:31:32)\n    at [native code]\n    at (/app.js:34:9)\n    at global code(/app.js:36:70)\n    at require@[native code]\n    at (/ti.main.js:27:10)\n    at loadAsync(/ti.internal/bootstrap.loader.js:106:11)\n    at global code(/ti.main.js:24:52)";
+[ERROR] :      toJSON = "<KrollCallback: 0x6000001a1080>";
+[ERROR] :  }
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2018-12-10
+
+   Hello,
+   
+   Thanks for reporting this. Are you experiencing this on simulator or device?</li>
+<li>Hans Knöchel 2018-12-10
+
+   You are using a non-string value in your text-field, leading to a crash in [this line](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUITextWidgetProxy.m#L67)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUITextWidgetProxy.m#L67)</a> where it checks against nil (which it isn't) and then tries to get it's length, which is only possible for string-based values. Workarounds: Either pass a valid string (force either via ES6 templates or <code>new String(value)</code>) or change the core to handle numbers as well. I'd propose the 1st option.</li>
+<li>Vijay Singh 2018-12-10
+
+   [~andreas.pingas] 
+    You can use workaround as suggested by [~hknoechel].
+    [~hknoechel] We are converting argument passed to 'value' property to string [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/81a27b0af4c38f10dc6e55d5960b38435b395a63/iphone/Classes/TiUITextWidget.m#L51)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/81a27b0af4c38f10dc6e55d5960b38435b395a63/iphone/Classes/TiUITextWidget.m#L51).</a> So I would like to make similar changes  [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUITextWidgetProxy.m#L67)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUITextWidgetProxy.m#L67)</a> as well to convert value to string .</li>
+<li>Vijay Singh 2018-12-10
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/10521" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10521</a></li>
+<li>Lokesh Choudhary 2018-12-15
+
+   FR Passed.
+   Waiting for merge to be enabled.</li>
+<li>Samir Mohammed 2018-12-19
+
+   Closing ticket, fix verified in SDK Version 8.0.0.v20181219044040
+   
+   Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10521" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10521</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26639.json">JSON Source</a></p>

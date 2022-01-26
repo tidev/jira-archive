@@ -1,0 +1,225 @@
+---
+title: "[TIMOB-27691] iOS: App is crashing after recording the video on device"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-14T00:04:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ACF</td></tr>
+<tr><th>Reporter</th><td>Motiur Rahman</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-12-17T13:41:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-22T13:43:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+Customer have an issue very strange. This app is for ios, He is working with TiSDK 8.3.0. Please have a look at the video. The error has not logs files on Studio console but it is crashing on physical device. The first error is related to crash app after recording video. The other error is related to go to background navigate between apps and return to my app. The same situation the app is crashing. 
+
+Example code: Available on [Here| <a href="https://github.com/jorgehip/hipCameraCrash/tree/02-MoveCameraToAlloy" rel="nofollow" target="_blank">https://github.com/jorgehip/hipCameraCrash/tree/02-MoveCameraToAlloy</a>]
+
+I have tested on following environment and able to reproduce the issue:
+SDK: 8.3.0.GA, 8.1.0.GA
+Appcelerator Command-Line Interface, version 7.1.2
+Device: iPhone 6 plus (12.4.3)
+Customer is getting this issue on iPhone X (iOS 13.x)
+
+1. I cannot reproduce the second issue (background crash issue).
+2. I can reproduce the first issue but not every time. It occurs after capturing video 3/4 times.
+
+Please let us know if you need any more information. Thanks
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27691_67178/Background Crash.mp4">Background Crash.mp4</td></td><td>2019-12-17T13:40:22.000+0000</td><td>3325534</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27691_67180/RPReplay_Final1576362358.MP4">RPReplay_Final1576362358.MP4</td></td><td>2019-12-17T13:33:14.000+0000</td><td>10175372</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27691_67179/testCameraCrash  15-12-19 7-52 PM.crash">testCameraCrash  15-12-19 7-52 PM.crash</td></td><td>2019-12-17T13:39:12.000+0000</td><td>77451</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dominic Maricic 2019-12-18
+
+   The background crash seems to happen only (or just a lot more often) on iPhone vs iPad. These issues are causing our users crashes every few minutes so these are critical. Did not occur in previous SDK versions.</li>
+<li>Srinivasan Pulipakkam 2019-12-18
+
+   [~homeinspectorpro] We are investigating it, will schedule it in the next sprint in the new year once we confirm a fix is required.</li>
+<li>Vijay Singh 2019-12-20
+
+   Create video player once and update media, every time after capturing video. See following updated alloy.js -
+   
+   alloy.js
+   <code><pre>
+   // The contents of this file will be executed before any of
+   // your view controllers are ever executed, including the index.
+   // You have access to all functionality on the <code>Alloy</code> namespace.
+   //
+   // This is a great place to do any initialization for your app
+   // or create any global variables/functions that you'd like to
+   // make available throughout your app. You can easily make things
+   // accessible globally by attaching them to the <code>Alloy.Globals</code>
+   // object. For example:
+   //
+   // Alloy.Globals.someGlobalFunction = function(){};
+   
+   // added during app creation. this will automatically login to
+   // ACS for your application and then fire an event (see below)
+   // when connected or errored. if you do not use ACS in your
+   // application as a client, you should remove this block
+   
+   var fdir = "",
+       inspectionDir = "";
+   if (Ti.Filesystem.isExternalStoragePresent()) {
+       Alloy.Globals.fdir = Ti.Filesystem.externalStorageDirectory;
+       Alloy.Globals.inspectionDir = Ti.Filesystem.externalStorageDirectory;
+   } else {
+       if (OS_ANDROID) {
+           Alloy.Globals.fdir = Ti.Filesystem.applicationDataDirectory;
+           Alloy.Globals.inspectionDir = Ti.Filesystem.applicationDataDirectory;
+       } else {
+           Alloy.Globals.fdir = Ti.Filesystem.applicationDataDirectory + "../Library/Caches/";
+           Alloy.Globals.fdir.setRemoteBackup = false;
+           Alloy.Globals.inspectionDir = Ti.Filesystem.applicationDataDirectory;
+       }
+   }
+   
+   var root = {};
+   root.template = [];
+   root.pictures = [];
+   root.videos = [];
+   Alloy.Globals.root = root;
+   
+   
+   (function() {
+   
+   })();
+   Alloy.Globals.counterVideos = 1;
+   var videoPlayer = Ti.Media.createVideoPlayer({
+       scalingMode : Titanium.Media.VIDEO_SCALING_ASPECT_FIT,
+       autoplay : true
+   });
+   Alloy.Globals.saveVideo = function(callback) {
+       require("/permissions").checkCameraPermission(function() {
+           //var nextVideoId = Math.floor(Math.random() * 100);
+           var nextVideoId = Alloy.Globals.counterVideos;
+   
+           Ti.Media.showCamera({
+               success : function(e) {
+                   Alloy.Globals.counterVideos = Alloy.Globals.counterVideos+1;
+                   //callback(null, e);
+                   Ti.API.info("e.media.length:" + e.media.length);
+                   var tempFile = Ti.Filesystem.getFile(Alloy.Globals.inspectionDir, nextVideoId + '.mp4');
+                   tempFile.write(e.media);
+                   videoPlayer.setMedia(e.media);
+   
+                   function setBackgroundImage(thumbResponse, error) {
+                       console.log('--> setBackgroundImage() - thumbResponse: ', thumbResponse, ', error: ', error);
+                       if (error) {
+                           alert('could not capture video');
+                           return;
+                       }
+   
+                       var thumbanilImage = thumbResponse.image;
+                       var thumbFile = Ti.Filesystem.getFile(Alloy.Globals.inspectionDir, nextVideoId + '.jpg');
+                       thumbFile.write(thumbanilImage);
+   
+                       var imageView = Ti.UI.createView({
+                           width : "352",
+                           height : "288",
+                           backgroundImage : thumbFile.nativePath
+                       });
+   
+                       var lbl = Titanium.UI.createLabel({
+                           text : " Video ",
+                           backgroundColor : "#fff",
+                           font : {
+                               fontSize : 20
+                           },
+                           color : "black",
+                           left : 5,
+                           top : 5
+                       });
+                       imageView.add(lbl);
+                       var eventCalled = 0;
+                       imageView.addEventListener('postlayout', function(e) {
+                           if (eventCalled == 0) {
+                               eventCalled++;
+                               Ti.API.info('Inside postlayout event');
+                               Ti.API.info('size : ' + imageView.size.width + ' x ' + imageView.size.height);
+                               var blob = imageView.toImage();
+   
+                               Ti.API.info("JSON.stringify(blob):" + JSON.stringify(blob));
+                               Ti.API.info('blob.length : ' + blob.length);
+                               Ti.API.info('blob.apiName : ' + blob.apiName);
+                               var thumbFileNew = Ti.Filesystem.getFile(Alloy.Globals.inspectionDir, nextVideoId + '.jpg');
+                               thumbFileNew.write(blob);
+                               var videoFile = {
+                                   imageFileName : thumbFileNew.getName(),
+                                   thumb : thumbFileNew.getName(),
+                                   video : tempFile.getName(),
+                                   isVideo : true
+                               };
+                               
+                               Alloy.Globals.root.pictures.push(videoFile); 
+   
+                               callback(videoFile);
+                               window.close();
+                               window.remove(imageView);
+                               imageView = null;
+                               window = null;
+                               blob = null;
+                               thumbanilImage = null;
+                               thumbFile = null;
+                               thumbFileNew = null;
+                               blob = null;
+                               videoFile = null;
+                           }
+                       });
+                       var window = Titanium.UI.createWindow();
+                       window.add(imageView);
+                       window.open();
+   
+                   }
+   
+   
+                   videoPlayer.requestThumbnailImagesAtTimes([0], Titanium.Media.VIDEO_TIME_OPTION_NEAREST_KEYFRAME, setBackgroundImage);
+   
+               },
+               cancel : function(e) {
+                   callback(e, null);
+               },
+               error : function(e) {
+                   callback(e, null);
+               },
+               mediaTypes : [Titanium.Media.MEDIA_TYPE_VIDEO],
+               videoMaximumDuration : 30000,
+               videoQuality : Titanium.Media.QUALITY_LOW
+   
+           });
+       });
+   };
+   </pre></code>
+   </li>
+<li>Srinivasan Pulipakkam 2020-01-14
+
+   If the response from [~vijaysingh] doesn't resolve the issue , please re-open with additional information</li>
+<li>Samir Mohammed 2020-01-22
+
+   Closing ticket, Please reopen if needed. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27691.json">JSON Source</a></p>

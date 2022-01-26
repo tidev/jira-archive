@@ -1,0 +1,561 @@
+---
+title: "[TIMOB-19899] Android 6: Remote images not loading"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-02-09T12:42:53.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0, Release 5.1.2, Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Jan Ruehling</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-11-05T16:05:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-02-18T09:13:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Android 6 doesn't load images from a remote url, while Android 5 works fine. All of the following 4 are not shown on Android 6.
+
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var view = Ti.UI.createScrollView({
+	scrollType: 'vertical',
+	layout: 'vertical'
+});
+
+view.add(Ti.UI.createLabel({
+	text: 'Remote HTTPS from AppC'
+}));
+view.add(Ti.UI.createImageView({
+	image: '<a href="https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png" rel="nofollow" target="_blank">https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png</a>'
+}));
+
+view.add(Ti.UI.createLabel({
+	text: 'Remote HTTP from AppC'
+}));
+view.add(Ti.UI.createImageView({
+	image: '<a href="http://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png" rel="nofollow" target="_blank">http://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png</a>'
+}));
+
+view.add(Ti.UI.createLabel({
+	text: 'Remote HTTPS from CloudFront'
+}));
+view.add(Ti.UI.createImageView({
+	image: '<a href="https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg" rel="nofollow" target="_blank">https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg</a>'
+}));
+
+view.add(Ti.UI.createLabel({
+	text: 'Remote HTTP from CloudFront'
+}));
+view.add(Ti.UI.createImageView({
+	image: '<a href="http://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg" rel="nofollow" target="_blank">http://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg</a>'
+}));
+
+win.add(view);
+win.open();
+</pre></code>
+
+adb logcat shows a failing TiDownloader request:
+
+{noformat}
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: (pool-2-thread-1) [100607,100607] Exception downloading <a href="https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg" rel="nofollow" target="_blank">https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg</a>
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.zipwire.test/cache/_tmp/remote-cache/5b7624468b64d5e3153101a30a50891c94dace39.hdr: open failed: ENOENT (No such file or directory)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+11-05 16:26:13.015 23434 23480 E TiDownloadManager: 	... 17 more
+{noformat}
+
+I searched and found this Java issue:
+
+<a href="http://bugs.java.com/bugdatabase/view_bug.do?bug_id=4620571" rel="nofollow" target="_blank">http://bugs.java.com/bugdatabase/view_bug.do?bug_id=4620571</a>
+
+It seems like Java can't handle a protocol redirect. I am just checking if we do this for images.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19899_57344/android_20151110-115315.png">android_20151110-115315.png</td></td><td>2015-11-10T10:57:31.000+0000</td><td>106853</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19899_57275/android 5 .png">android 5 .png</td></td><td>2015-11-06T11:02:17.000+0000</td><td>31608</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19899_57274/android 6.png">android 6.png</td></td><td>2015-11-06T11:02:17.000+0000</td><td>18180</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19899_57345/Screenshot_20151110-114826.png">Screenshot_20151110-114826.png</td></td><td>2015-11-10T11:13:32.000+0000</td><td>45377</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Aminul Islam 2015-11-06
+
+   Hi , 
+   I tested this issue and experienced the same behaviour as the reporter. This a valid issue.Remote images from secure url not loaded on android 6 , but it's load fine on android 5. Find the attached screenshot .
+   *Environment*
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.10.5
+     Architecture                = 64bit
+     # CPUs                      = 4
+     Memory                      = 8589934592
+   Node.js
+     Node.js Version             = 0.10.37
+     npm Version                 = 1.4.28
+   Titanium CLI
+     CLI Version                 = 5.0.5
+   Titanium SDK
+     SDK Version                 = 5.1.0.v20151104190037
+     SDK Path                    = /Users/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151104190037
+     Target Platform             = android
+   </pre></code>
+   
+   !android 5 .png|thumbnail! !android 6.png|thumbnail!</li>
+<li>Fokke Zandbergen 2015-11-06
+
+   [~shossain] I wonder if this is related to TIMOB-11863 and not the secure URL but the redirect is the problem?</li>
+<li>Jan Ruehling 2015-11-06
+
+   I checked back with our backend guy and he said that there is no redirect. I tried both https and http and it fails for both. The code snippet was after my second try ... sorry about that.
+   
+   The images are served via CloudFront ... 
+   
+   This is tested on actual devices: Nexus 4 with latest Android 5, Nexus 7 with latest Android 6.</li>
+<li>Jan Ruehling 2015-11-09
+
+   I just tested again:
+   
+   Local images load on Android 6 (a single jpg loaded from Resources/images/ ) both on sdk 5.0.2.GA and 5.1.0.v20151104073721.
+   
+   ANY remote image fails to load on Android 6 on both sdk'. I tried random images from Google image search ... to be sure that it is not our server setup.</li>
+<li>Fokke Zandbergen 2015-11-10
+
+   OK, weird... I just updated the sample and tested with:
+   
+   * Titanium 5.0.2.GA and Android 5.1.0 via Genymotion: All OK
+   * Titanium 5.1.0.RC and Android 5.1.0 via Genymotion: All OK
+   * Titanium 5.0.2.GA and Android 6.0 on Nexus 5: All OK
+   * Titanium 5.1.0.RC and Android 6.0 on Nexus 5: All OK
+   
+   In other words... cannot reproduce with:
+   
+   * android 6.0 (3.4.0-g2aa165e)
+   * jdk1.8.0_60
+   * build-tools 23.0.1.
+   * node v0.12.7, 4.2.2
+   * mac os x 10.11.1
+   
+   !android_20151110-115315.png|thumbnail!</li>
+<li>Fokke Zandbergen 2015-11-10
+
+   [~aislam] could you try again with the updated sample to see if it still doesn't work for you (since it does work for me) and if so drop the specs of your device, os, jdk here to compare with mine and [~janruehling] (where the updated sample fails still)</li>
+<li>Jan Ruehling 2015-11-10
+
+   A few more infos to help troubleshooting:
+   
+   - device: Nexus 7 2013
+   - os version (Kernel): 3.4.0-ga5a4133 (android-build@wpix7.hot.corp.google.com #1 -- Mon Aug 17 21:50:19 UTC 2015) 
+   - mac os version: 10.11.1
+   - java version: 1.8.0_60
+   - android build tools version: 23.0.1
+   - titanium SDK: 5.1.0.v20151104073721
+   - titanium CLI: 5.0.5
+   - nodejs version: 0.12.7, 4.1.0, 4.2.0
+   - npm version: 2.14.3
+   
+   !Screenshot_20151110-114826.png|thumbnail!
+   
+   Update: I just tried the emulator with Android 6 -- the images showed up</li>
+<li>Jan Ruehling 2015-11-10
+
+   Another dump ... maybe it helps. It always fails in the TiDownloadManager I think:
+   
+   <code><pre>
+   [jan@mbp ~/Development/Titanium/com.zipwire.test]$ adb logcat | grep 1044
+   11-10 13:30:22.047   623  3752 I ActivityManager: Start proc 1044:com.zipwire.test/u0a100 for activity com.zipwire.test/.ComZipwireTestActivity
+   11-10 13:30:22.108  1044  1044 I TiApplication: (main) [0,0] checkpoint, app created.
+   11-10 13:30:22.207  1044  1044 I TiApplication: (main) [100,100] Titanium 5.1.0 (2015/11/04 07:37 8da9864)
+   11-10 13:30:22.268  1044  1066 E linker  : readlink('/proc/self/fd/19') failed: Permission denied [fd=19]
+   11-10 13:30:22.269  1044  1066 E linker  : warning: unable to get realpath for the library "/data/app/com.zipwire.test-1/lib/arm/libstlport_shared.so". Will use given name.
+   11-10 13:30:22.275  1044  1066 E linker  : readlink('/proc/self/fd/19') failed: Permission denied [fd=19]
+   11-10 13:30:22.275  1044  1066 E linker  : warning: unable to get realpath for the library "/data/app/com.zipwire.test-1/lib/arm/libkroll-v8.so". Will use given name.
+   11-10 13:30:22.357  1044  1044 I TiApplication: (main) [150,250] Titanium Javascript runtime: v8
+   11-10 13:30:22.394  1044  1044 I TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   11-10 13:30:22.430  1044  1044 W TiTempFileHelper: (main) [36,36] The external temp directory doesn't exist, skipping cleanup
+   11-10 13:30:22.502  1044  1066 W V8Object: (KrollRuntimeThread) [72,108] Runtime disposed, cannot set property 'userAgent'
+   11-10 13:30:22.706  1044  1044 I TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.zipwire.test.ComZipwireTestActivity@731930c
+   11-10 13:30:22.760  1044  1096 D OpenGLRenderer: Use EGL_SWAP_BEHAVIOR_PRESERVED: true
+   11-10 13:30:22.918  1044  1096 I Adreno-EGL: <qeglDrvAPI_eglInitialize:379>: QUALCOMM Build: 09/02/15, 76f806e, Ibddc658e36
+   11-10 13:30:22.919  1044  1096 E linker  : readlink('/proc/self/fd/30') failed: Permission denied [fd=30]
+   11-10 13:30:22.919  1044  1096 E linker  : warning: unable to get realpath for the library "/vendor/lib/egl/eglsubAndroid.so". Will use given name.
+   11-10 13:30:22.937  1044  1096 I OpenGLRenderer: Initialized EGL, version 1.4
+   11-10 13:30:23.572  1044  1066 D Window  : Checkpoint: postWindowCreated()
+   11-10 13:30:55.417  1044  1423 I APSAnalyticsService: Analytics Service Started
+   11-10 13:31:00.534  1044  1423 I APSAnalyticsService: Stopping Analytics Service
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: (pool-2-thread-1) [38511,38511] Exception downloading <a href="https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png" rel="nofollow" target="_blank">https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png</a>
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.zipwire.test/cache/_tmp/remote-cache/4f14bf197f5cf2336bffd929ce1247b51ee0b036.hdr: open failed: ENOENT (No such file or directory)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+   11-10 13:31:01.240  1044  1139 E TiDownloadManager: 	... 17 more
+   </pre></code></li>
+<li>Velan Vijatovic 2015-12-02
+
+   Same error here. Tried in my current project and created a brand new project just to make sure.
+   
+   Android 6.0
+   !<a href="http://i.imgur.com/Up0E6Tl.png" rel="nofollow" target="_blank">http://i.imgur.com/Up0E6Tl.png</a>|width=300,height=400!
+   
+   Android 5.0
+   !<a href="http://i.imgur.com/ENgvE5A.png" rel="nofollow" target="_blank">http://i.imgur.com/ENgvE5A.png</a>|width=300,height=400!
+   
+   * device: Genymotion Android 6.0 simulator, Android Stock 6.0 simulator
+   * mac os version: 10.11.1
+   * java version: 1.8.0_45
+   * android build tools version: 23.0.2
+   * titanium SDK: 5.1.0.GA
+   * CLI Version: 5.0.4
+   * Node.js Version: 5.1.0
+   * npm Version: 3.3.12
+   
+   
+   <code><pre>
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: (pool-2-thread-2) [1246,1246] Exception downloading <a href="http://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png" rel="nofollow" target="_blank">http://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png</a>
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.kabotip.imageTest/cache/_tmp/remote-cache/72d5d77f45c43a5fb8c6e55251aae86c40ed9827.hdr: open failed: ENOENT (No such file or directory)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+   12-02 01:26:22.612  6152  6173 E TiDownloadManager: 	... 15 more
+   12-02 01:26:26.999  3363  4194 D NetlinkSocketObserver: NeighborEvent{elapsedMs=22909437, 10.0.3.2, [525400123502], RTM_NEWNEIGH, NUD_REACHABLE}
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: (pool-2-thread-1) [16776,18022] Exception downloading <a href="https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png" rel="nofollow" target="_blank">https://www.appcelerator.com/wp-content/themes/appc-rwd/assets/media/images/logo.png</a>
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.kabotip.imageTest/cache/_tmp/remote-cache/4f14bf197f5cf2336bffd929ce1247b51ee0b036.hdr: open failed: ENOENT (No such file or directory)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+   12-02 01:26:39.388  6152  6172 E TiDownloadManager: 	... 17 more
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: (pool-2-thread-2) [5772,23794] Exception downloading <a href="https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg" rel="nofollow" target="_blank">https://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg</a>
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.kabotip.imageTest/cache/_tmp/remote-cache/5b7624468b64d5e3153101a30a50891c94dace39.hdr: open failed: ENOENT (No such file or directory)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+   12-02 01:26:45.160  6152  6173 E TiDownloadManager: 	... 17 more
+   12-02 01:26:53.836  6152  6181 I APSAnalyticsService: Analytics Service Started
+   12-02 01:26:54.889  6152  6181 I APSAnalyticsService: Stopping Analytics Service
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: (pool-2-thread-1) [15483,39277] Exception downloading <a href="http://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg" rel="nofollow" target="_blank">http://cfimagesstaging.zipwire.com/56325c2e7dec0.jpg</a>
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.kabotip.imageTest/cache/_tmp/remote-cache/36c843f98b533925b44a2405131158e27ad218fd.hdr: open failed: ENOENT (No such file or directory)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:439)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:384)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+   12-02 01:27:00.643  6152  6172 E TiDownloadManager: 	... 15 more
+   12-02 01:27:15.671  3044  3354 E NetlinkEvent: NetlinkEvent::FindParam(): Parameter 'UID' not found
+   12-02 01:27:23.351  3363  4194 D NetlinkSocketObserver: NeighborEvent{elapsedMs=22965788, 10.0.3.2, [525400123502], RTM_NEWNEIGH, NUD_STALE}
+   </pre></code></li>
+<li>Ashraf Abu 2015-12-02
+
+    Error occurs because of this 
+    <code>11-05 16:26:13.015 23434 23480 E TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.zipwire.test/cache/_tmp/remote-cache/5b7624468b64d5e3153101a30a50891c94dace39.hdr: open failed: ENOENT (No such file or directory)</code> 
+    It's trying to write into storage for cache. It fails in Android 6.0 cause of the new permission system.
+    
+    Quick fix is to go to the Settings>Apps>YourApp>Permissions and enable Storage.</li>
+<li>Velan Vijatovic 2015-12-02
+
+    Thanks for your help Ashraf!
+    
+    I'm not using Titanium Studio so not sure what I need to modify. I already have
+    <code><pre>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    </pre></code>
+    in my tiapp.xmp</li>
+<li>Ashraf Abu 2015-12-02
+
+    [~velan] Besides setting the permission in the manifest, you would need to ask for permission again from the user in Android 6.0
+    <a href="http://developer.android.com/training/permissions/requesting.html" rel="nofollow" target="_blank">http://developer.android.com/training/permissions/requesting.html</a>
+    
+    As mentioned earlier one band-aid is to do: Go to the Settings>Apps>YourApp>Permissions and enable Storage.
+    But that's something the enduser needs to do.
+    
+    This is an issue that needs to be addressed. Current image loading logic does not support for this permission requesting in Android 6.0.</li>
+<li>Ashraf Abu 2015-12-02
+
+    </li>
+<li>Velan Vijatovic 2015-12-02
+
+    Oh misunderstood it was on the device. It does indeed work when I manually change the permissions in the settings.
+    
+    So to be clear there's nothing I can do to make my app work on an Android 6 device right now? Would it work if I downgrade to SDK 5.0.0 and build tools v22?
+    Do you know if this issue is being worked on somewhere?
+    
+    Thanks a lot for your help!
+    
+    P.S: Just saw your message, will try!</li>
+<li>Ashraf Abu 2015-12-02
+
+    Yup. I just edited the code as well.</li>
+<li>Velan Vijatovic 2015-12-02
+
+    You're a lifesaver! Awesome!</li>
+<li>Ashraf Abu 2015-12-02
+
+    [~velan] No problem. 
+    
+    But this issue probably needs some working and love so that you don't need to use that workaround.</li>
+<li>Ashraf Abu 2015-12-08
+
+    Added an alternative workaround in TIMOB-20103 if anyone is interested to look into that.</li>
+<li>Dongwoo Gim 2015-12-29
+
+    I've created a module temporarily.
+    
+    <a href="https://github.com/gimdongwoo/Ti-Android-RequestStoragePermission" rel="nofollow" target="_blank">https://github.com/gimdongwoo/Ti-Android-RequestStoragePermission</a></li>
+<li>Christian Brousseau 2015-12-31
+
+    Titanium 5.0.2.RC is out and this fix isn't in fixed yet. Can we assume it will be done by the time GA comes out?</li>
+<li>Ashraf Abu 2016-01-04
+
+    [~engross] That's cool. You could use that but I think just writing it in Javascript is doable as well.
+    
+    [~thebrousse] Are you using the workaround?</li>
+<li>Bert Grantges 2016-01-14
+
+    The fix for this is to actually specify the write permission for external storage within the tiapp.xml.
+    
+    <code><pre>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    </pre></code>
+    
+    Also, per the Android documentation, reading from external storage will also require a permission tag as well. 
+    
+    <code><pre>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    </pre></code>
+    
+    This is documented here:
+    <a href="http://developer.android.com/training/basics/data-storage/files.html" rel="nofollow" target="_blank">http://developer.android.com/training/basics/data-storage/files.html</a>
+    
+    Adding the Camera privilege can work since it requires storage access, but isn't necessary. Using the above works just fine.
+    </li>
+<li>Ashraf Abu 2016-01-14
+
+    [~bgrantges@appcelerator.com] What you mention is true. Though it needs to ask for permissions at runtime as well.
+    
+    From Android 6.0 and above, permissions have to be requested at run time as well as adding it to the manifest.
+    
+    Refer to: <a href="http://developer.android.com/training/permissions/requesting.html" rel="nofollow" target="_blank">http://developer.android.com/training/permissions/requesting.html</a>
+    
+    This is why we need the <code>requestCameraPermissions</code> at runtime.</li>
+<li>Ashraf Abu 2016-01-14
+
+    Created a jira ticket to provide for method to request for storage permission. TIMOB-20235</li>
+<li>Fokke Zandbergen 2016-01-15
+
+    I don't think TIMOB-20235 is the way to resolve this ticket because you don't want an app that just uses some remote images to prompt (in Android 6.0+) the user for run-time permission to external storage.</li>
+<li>Ashraf Abu 2016-01-15
+
+    [~fokkezb] It's not the best way.
+    
+    Remote images (logic) will need to be addressed in a way that storage isn't used. </li>
+<li>Marcus Biel 2016-02-02
+
+    I Think this is a really severe Bug.
+    Our app is using a lot of remote images and besides the fact that it's not a solution to prompt the users for permission to show content, it seems like the app tries to download the images all the time. This is causing a major dataleak / excessive datausage (3x-4x compared to Android 5).
+    
+    console output:
+    
+    {noformat}
+    [ERROR] :  TiDownloadManager: (pool-5-thread-2) [37045,42502] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734717/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734717/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: java.net.ConnectException: failed to connect to images.cgames.de/2.17.123.58 (port 80): connect failed: ENETUNREACH (Network is unreachable)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.IoBridge.connect(IoBridge.java:124)
+    [ERROR] :  TiDownloadManager: 	at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:183)
+    [ERROR] :  TiDownloadManager: 	at java.net.PlainSocketImpl.connect(PlainSocketImpl.java:452)
+    [ERROR] :  TiDownloadManager: 	at java.net.Socket.connect(Socket.java:884)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.Platform.connectSocket(Platform.java:117)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.SocketConnector.connectRawSocket(SocketConnector.java:160)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.SocketConnector.connectCleartext(SocketConnector.java:67)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.Connection.connect(Connection.java:152)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.Connection.connectAndSetOwner(Connection.java:185)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.OkHttpClient$1.connectAndSetOwner(OkHttpClient.java:128)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.nextConnection(HttpEngine.java:341)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.connect(HttpEngine.java:330)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:248)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:437)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:388)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+    [ERROR] :  TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+    [ERROR] :  TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+    [ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+    [ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+    [ERROR] :  TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+    [ERROR] :  TiDownloadManager: Caused by: android.system.ErrnoException: connect failed: ENETUNREACH (Network is unreachable)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.Posix.connect(Native Method)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.BlockGuardOs.connect(BlockGuardOs.java:111)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.IoBridge.connectErrno(IoBridge.java:137)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.IoBridge.connect(IoBridge.java:122)
+    [ERROR] :  TiDownloadManager: 	... 20 more
+    [ERROR] :  TiDownloadManager: (pool-5-thread-2) [5,42512] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734334/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734334/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: (pool-5-thread-1) [1,42513] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734506/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734506/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: (pool-5-thread-2) [1,42514] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734679/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734679/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: (pool-5-thread-1) [3,42517] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734570/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734570/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: (pool-5-thread-1) [1688,155903] Exception downloading <a href="http://images.cgames.de/images/idgwpgsgp/bdb/2734575/368x207.jpg" rel="nofollow" target="_blank">http://images.cgames.de/images/idgwpgsgp/bdb/2734575/368x207.jpg</a>
+    [ERROR] :  TiDownloadManager: java.io.FileNotFoundException: /storage/emulated/0/Android/data/de.gamestar.news/cache/_tmp/remote-cache/a62cc5d065aa30ab829e5923be29b3879e63c4ce.hdr: open failed: ENOENT (No such file or directory)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:452)
+    [ERROR] :  TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:87)
+    [ERROR] :  TiDownloadManager: 	at java.io.FileOutputStream.<init>(FileOutputStream.java:72)
+    [ERROR] :  TiDownloadManager: 	at java.io.FileWriter.<init>(FileWriter.java:42)
+    [ERROR] :  TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.put(TiResponseCache.java:472)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.CacheAdapter.put(CacheAdapter.java:57)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.maybeCache(HttpEngine.java:554)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:826)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:443)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:388)
+    [ERROR] :  TiDownloadManager: 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:231)
+    [ERROR] :  TiDownloadManager: 	at java.net.URL.openStream(URL.java:470)
+    [ERROR] :  TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+    [ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)
+    [ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)
+    [ERROR] :  TiDownloadManager: 	at java.lang.Thread.run(Thread.java:818)
+    [ERROR] :  TiDownloadManager: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.Posix.open(Native Method)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:186)
+    [ERROR] :  TiDownloadManager: 	at libcore.io.IoBridge.open(IoBridge.java:438)
+    [ERROR] :  TiDownloadManager: 	... 15 more
+    {noformat}
+    
+    
+    
+    If you need more specific Information on this, just tell me!</li>
+<li>Ashraf Abu 2016-02-02
+
+    [~mbiel]
+    Thank you for letting us know. This ticket is currently being looked into in resolving the issue without needing storage permissions.</li>
+<li>Ashraf Abu 2016-02-09
+
+    With TIMOB-20251, remote images can load without Storage Permissions.</li>
+<li>Ashraf Abu 2016-02-09
+
+    Resolved this as Duplicate.</li>
+<li>Lokesh Choudhary 2016-02-10
+
+    Closing as duplicate.
+    
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19899.json">JSON Source</a></p>

@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-17047] iOS: HTTPClient callbacks are not triggered for synchronous  request"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2014-05-30T22:09:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-3.3.0, regression</td></tr>
+<tr><th>Reporter</th><td>Kajenthiran Velummaylum</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2014-05-30T05:52:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T20:32:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+HTTPClient callbacks are not triggered when HTTPClient synchronous requests. Following callbacks are tested and not triggered in SDK 3.3.0.v20140528144113. 
+Callbacks
+1. onload
+2. onerror
+3. onreadystatechange
+4. onsendstream
+
+It's a *regression* since it doesn't happen in 3.2.3 GA. 
+
+*Steps to reproduce:*
+ 1. Run the application with the code below.
+ 2. Check the alert dialogs from the callbacks.
+
+*Actual Result:* Alert box are not showing for any callbacks for the synchronous requests. It works for asynchronous requests.
+
+*Expected Result:* callbacks should work for both synchronous and asynchronous requests.
+
+<code><pre>
+var win = Titanium.UI.createWindow({title:'Charset Test window', backgroundColor : 'white'});
+
+var button = Titanium.UI.createButton({title:'OnError Check'});
+
+button.addEventListener('click', function() 
+{
+	var valid_url = '<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>';
+	var invalid_url = '<a href="http://www.somethingxx.com" rel="nofollow" target="_blank">http://www.somethingxx.com</a>';
+	
+	var xhr = Ti.Network.createHTTPClient();
+	
+	xhr.onload = function() {
+		alert('onload');
+	};
+	
+	xhr.onerror = function() {
+		alert('onerror');
+	};
+	xhr.onreadystatechange = function() {
+		alert('statechanged');
+	};
+	xhr.onsendstream = function() {
+		alert('sendstream');
+	};
+	
+	xhr.open('GET',valid_url,false);
+        // Uncomment this to check the onerror callback
+        //xhr.open('GET',invalid_url,false);
+	xhr.send();
+});
+
+win.add(button);
+win.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-05-30
+
+   cc [~mlangston]</li>
+<li>Pedro Enrique 2014-05-30
+
+   This is a synchronous requests and works as intended. You can get the response properties after making the call. The limitation to this, an Apple NSURLRequest limitation, is that we can't get the progress of the request (onsendstream and ondatastream)
+   <code><pre>
+   var win = Titanium.UI.createWindow({title:'Charset Test window', backgroundColor : 'white'});
+   var button = Titanium.UI.createButton({title:'OnError Check'});
+   button.addEventListener('click', function() {
+   	var valid_url = '<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>';
+   	var invalid_url = '<a href="http://www.somethingxx.com" rel="nofollow" target="_blank">http://www.somethingxx.com</a>';	
+   	var xhr = Ti.Network.createHTTPClient();
+   	xhr.open('GET',valid_url,false);
+   	xhr.send();
+   
+       // get error if any:
+       Ti.API.info( xhr.error );
+   
+       // get response text or data
+       Ti.API.info( xhr.responseText  );
+       Ti.API.info( xhr.responseData );
+   
+   });
+   
+   win.add(button);
+   win.open();
+   </pre></code></li>
+<li>Kajenthiran Velummaylum 2014-05-30
+
+   <code><pre> Ti.API.info(xhr.error ) </pre></code> prints *undefined* for both synchronous and asynchronous type of requests. 
+   But if you place some statements inside the callback like this
+   <code><pre>
+   xhr.onerror = function()
+   {
+   	alert('onerror is triggered');
+   };
+   </pre></code>
+   It's not executed for synchronous type requests with the test environment mentioned in description section.</li>
+<li>Ingo Muschenetz 2014-05-30
+
+   I'm comfortable with marking this as "Won't Fix". [~bhatfield], can we please make sure this is WELL documented?</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as the issue will not fix and with reference to the above comments. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17047.json">JSON Source</a></p>

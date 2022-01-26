@@ -1,0 +1,160 @@
+---
+title: "[AC-6017] Crash on Nightly Version when Using WebView [iOS only]"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-13T11:16:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Appcelerator Studio 4.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>AppDev</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2018-11-08T13:37:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-13T11:16:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Code that works on Android and with released SDK versions (7.4.1) and unreleased 7.4.2.RC, but not with 7.5.0.RC (specifically 7.5.0.v20181107165817, but also any other nightly I tested was affected):
+
+[ERROR] :  The application has crashed with an uncaught exception 'org.xx_xxxxx.TiUIWebViewProxy'.
+[ERROR] :  Reason:
+[ERROR] :  Invalid type passed to function
+[ERROR] :  Stack trace:
+[ERROR] :  0   CoreFoundation                      0x000000010b2451e6 __exceptionPreprocess + 294
+[ERROR] :  1   libobjc.A.dylib                     0x000000010a1cc031 objc_exception_throw + 48
+[ERROR] :  2   XX XXXXX                            0x00000001026e75b7 TiExceptionThrowWithNameAndReason + 167
+[ERROR] :  3   XX XXXXX                            0x00000001026a60b9 -[TiProxy throwException:subreason:location:] + 105
+[ERROR] :  4   XX XXXXX                            0x0000000102619bc0 -[TiUIWebViewProxy evalJS:] + 560
+[ERROR] :  5   Foundation                          0x0000000104b74d5e __NSThreadPerformPerform + 330
+[ERROR] :  6   CoreFoundation                      0x000000010b1e7bb1 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 17
+[ERROR] :  7   CoreFoundation                      0x000000010b1cc4af __CFRunLoopDoSources0 + 271
+[ERROR] :  8   CoreFoundation                      0x000000010b1cba6f __CFRunLoopRun + 1263
+[ERROR] :  9   CoreFoundation                      0x000000010b1cb30b CFRunLoopRunSpecific + 635
+[ERROR] :  10  GraphicsServices                    0x000000010e74da73 GSEventRunModal + 62
+[ERROR] :  11  UIKit                               0x0000000105159057 UIApplicationMain + 159
+[ERROR] :  12  XX XXXXX                            0x00000001025b80b1 main + 113
+[ERROR] :  13  libdyld.dylib                       0x000000010d624955 start + 1
+-- End simulator log ---------------------------------------------------------
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2018-11-08
+
+   Hello, Can you please provide a full reproducible sample code for us to test the issue? Thanks.</li>
+<li>Rakhi Mitro 2018-11-12
+
+   Hello,
+   We haven't heard back from you since our last response. Did you manage to share  a reproducible sample code to test the issue on our end?
+   
+   Thanks</li>
+<li>AppDev 2018-11-13
+
+   I had hoped that the stacktrace would help you to see where the regression comes from. Do you have any idea what could be wrong there?
+   
+   Building a minimal example is not that easy, I am having the issue with a real app.</li>
+<li>Rakhi Mitro 2018-11-14
+
+   Hello,
+   
+   Thanks for your feedback. Using 7.5.0.RC can you please create a simple test project using webview ,run this on iOS and let us know how it goes.
+   
+   </li>
+<li>Sathaphorn Kerdmalai 2018-11-22
+
+   I have the same issue too. </li>
+<li>Sathaphorn Kerdmalai 2018-11-22
+
+   Here is code evalJS on sdk 7.4.1
+   
+   <code><pre>
+   - (NSString *)evalJS:(id)code
+   {
+     ENSURE_SINGLE_ARG(code, NSString);
+     /*
+        Using GCD either through dispatch_async/dispatch_sync or TiThreadPerformOnMainThread
+        does not work reliably for evalJS on 5.0 and above. See sample in TIMOB-7616 for fail case.
+        */
+     if (![NSThread isMainThread]) {
+       inKJSThread = YES;
+       [self performSelectorOnMainThread:@selector(evalJS:) withObject:code waitUntilDone:YES];
+       inKJSThread = NO;
+     } else {
+       evalResult = [[(TiUIWebView *)[self view] stringByEvaluatingJavaScriptFromString:code] retain];
+     }
+     return (inKJSThread ? evalResult : [evalResult autorelease]);
+   }
+   </pre></code>
+   
+   and this for sdk 7.5.0
+   
+   <code><pre>
+   - (NSString *)evalJS:(id)args
+   {
+     KrollCallback *callback = nil;
+     NSString *code = nil;
+     ENSURE_ARG_AT_INDEX(code, args, 0, NSString); // Conform to class because that's good practice
+     if ([args count] > 1) {
+       ENSURE_ARG_AT_INDEX(callback, args, 1, KrollCallback);
+     }
+   
+     // Handle async
+     if (callback != nil) {
+   
+       // Spin off a thread that will invoke on main thread and fire callback, then return nil immediately
+       dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+         dispatch_async(dispatch_get_main_queue(), ^{
+           NSString *result = [(TiUIWebView *)[self view] stringByEvaluatingJavaScriptFromString:code];
+           [callback call:@[ result ] thisObject:nil];
+         });
+       });
+       return nil;
+     }
+   
+     /*
+        Using GCD either through dispatch_async/dispatch_sync or TiThreadPerformOnMainThread
+        does not work reliably for evalJS on 5.0 and above. See sample in TIMOB-7616 for fail case.
+        */
+     if (![NSThread isMainThread]) {
+       inKJSThread = YES;
+       [self performSelectorOnMainThread:@selector(evalJS:) withObject:code waitUntilDone:YES];
+       inKJSThread = NO;
+     } else {
+       evalResult = [[(TiUIWebView *)[self view] stringByEvaluatingJavaScriptFromString:code] retain];
+     }
+     return (inKJSThread ? evalResult : [evalResult autorelease]);
+   }
+   </pre></code>
+   
+   I copy ENSURE_SINGLE_ARG(code, NSString); to sdk 7.5.0 there is no error</li>
+<li>Rene Pot 2018-11-22
+
+   Do you have the issue as well with 7.4.2? Some issues were resolved in both 7.4.2 and 7.5.0 and were there in 7.4.1</li>
+<li>Sathaphorn Kerdmalai 2018-11-22
+
+   7.4.1.GA there is no error. I got this error on 7.5.0.GA</li>
+<li>Marian Kucharcik 2018-11-28
+
+   I got this error too - I built my app with 7.5.0GA without any code change and suddenly app crashes after few seconds. There is no problem with 7.4.1GA... I use Ti.UI.WebView to display youtube videos...
+   Thanks</li>
+<li>Sharif AbuDarda 2018-11-30
+
+    Hello [~iblack.dum] [~max87], Please create a standalone sample code that reproduces the issue for iOS in SDK 7.5.0.GA. Thanks.</li>
+<li>Rakhi Mitro 2018-12-10
+
+    Hello,
+    I just wanted to follow up with you about this issue? Are you still experiencing this problem on 7.5.0.GA ? Did you manage to create a sample test project to reproduce the issue on our end
+    Please let us know if you need more help with this issue.</li>
+<li>Nikos Poulios 2018-12-13
+
+    I think I also had this issue. Switching to run-on-main-thread: true and use-js-framework: true fixed the issue</li>
+</ol>
+
+
+<p><a href="/AC/AC-6017.json">JSON Source</a></p>

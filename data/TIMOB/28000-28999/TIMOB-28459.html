@@ -1,0 +1,269 @@
+---
+title: "[TIMOB-28459] Android: ScrollableView with databinding in Footer/HeaderView not showing up"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-06-28T22:16:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2021-05-20T11:43:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-07-07T01:57:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you add a ScrollableView inside a HeaderView with databinding the child views aren't visible. I've rebuild the generated classic code from my Alloy app to make it easier to test but here is the original Alloy part first:
+
+For my initial test I've used mocx (<a href="https://github.com/jasonkneen/mocx/blob/master/mocx.js)" rel="nofollow" target="_blank">https://github.com/jasonkneen/mocx/blob/master/mocx.js)</a> inside the lib folder and this code inside alloy.js:
+<code><pre>
+var mocx = require("/mocx");
+mocx.createCollection("contacts", [{name : "John Smith"}, {name : "Jane Doe"}]);
+</pre></code>
+
+my xml:
+<code><pre>
+<Alloy>
+    <Window fullscreen="true">
+        <ListView>
+            <ListSection dataCollection="contacts" bottom="200">
+
+                <HeaderView>
+                    <View backgroundColor="#DDD" height="200">
+                        <ScrollableView height="200" dataCollection="contacts" >
+                            <!-- doesn't work -->
+                            <View backgroundColor="red" height="200"/>
+                        </ScrollableView>
+                    </View>
+                </HeaderView>
+
+                <ListItem color="#000" title="{name}" searchableText="{name}"/>
+
+                <FooterView>
+                    <View backgroundColor="#DDD" height="Ti.UI.SIZE">
+                        <ScrollableView height="200" dataCollection="contacts">
+                            <!-- doesn't work -->
+                            <View backgroundColor="red" height="200"/>
+                        </ScrollableView>
+                    </View>
+                </FooterView>
+            </ListSection>
+        </ListView>
+
+        <ScrollableView height="200" dataCollection="contacts" bottom="0">
+            <ImageView image="/appicon.png"/>
+        </ScrollableView>
+    </Window>
+</Alloy>
+</pre></code>
+
+my controller 
+<code><pre>
+Alloy.Collections.contacts.fetch();
+$.index.open();
+</pre></code>
+
+the generated classic code looks like this:
+<code><pre>
+for (var __alloyId7, opts = __alloyId11.opts || {}, models = __alloyId10.models, len = models.length,  views = [], i = 0; i < len; i++) {
+    __alloyId7 = models[i], __alloyId7.__transform = transform(__alloyId7);
+    var __alloyId9 = Ti.UI.createView({
+        views: __alloyId6,
+        apiName: "Ti.UI.ScrollableView",
+        height: 200,
+        classes: [],
+        backgroundColor: "red"
+    });
+    views.push(__alloyId9);
+}
+$.__views.__alloyId5.views = views
+</pre></code>
+
+It is adding the views to an array and set it to <code>scrollableview.views</code>. So I've created a classic example that works in the same way (without databinding) which makes it easier to test:
+<code><pre>
+const win = Ti.UI.createWindow({
+	backgroundColor: '#fff',
+});
+
+const sections = [];
+
+var hv = Ti.UI.createView({
+	height: 100,
+	backgroundColor: "blue"
+});
+
+var sv = Ti.UI.createScrollableView({
+	height: 100,
+	backgroundColor: "yellow"
+})
+var views = [];
+for (var i = 0; i < 10; ++i) {
+	var insideView = Ti.UI.createView({
+		height: 100,
+		backgroundColor: "rgba(" + (i * 20) + "," + i + "," + i + ")"
+	});
+    var lbl = Ti.UI.createLabel({
+        text:"should be visible",
+        color: "#fff"
+    })
+    insideView.add(lbl);
+	sv.addView(insideView)
+}
+hv.add(sv);
+for (let i = 0; i < 3; i++) {
+	const items = [];
+
+	for (let x = 0; x < 5; x++) {
+		items.push({
+			label: {
+				text: <code>Item #${x}</code>
+			}
+		});
+	}
+
+	sections.push(Ti.UI.createListSection({
+		headerView: hv,
+		items
+	}));
+}
+const listView = Ti.UI.createListView({
+	templates: {
+		template: {
+			properties: {
+				backgroundColor: 'transparent'
+			},
+			childTemplates: [{
+				type: 'Ti.UI.Label',
+				bindId: 'label',
+				properties: {
+					left: 10,
+					color: 'black'
+				}
+			}]
+		}
+	},
+	backgroundColor: "#b3b3b3",
+	defaultItemTemplate: 'template',
+	sections: sections
+});
+win.add(listView);
+win.open();
+</pre></code>
+
+The result is the same: the scrollable child views won't appear.
+
+If I'm not using the array and use <code>sv.addView(insideView)</code> inside the loop it works fine! If I compare both UIs in Android Studio I can see that the childviews are not added:
+
+using views = array
+ !no_childviews.png|thumbnail! 
+
+using addView
+ !childviews.png|thumbnail! 
+
+*Setup:*
+* Android 11/Pixel 4
+* Titanium SDK 10.1.0/10.0.0.GA
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28459_67926/childviews.png">childviews.png</td></td><td>2021-05-20T11:41:41.000+0000</td><td>134489</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28459_67925/no_childviews.png">no_childviews.png</td></td><td>2021-05-20T11:41:41.000+0000</td><td>94525</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28459_67929/ScrollableViewAddRemoveTest.js">ScrollableViewAddRemoveTest.js</td></td><td>2021-05-26T00:09:01.000+0000</td><td>3040</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2021-05-20
+
+   I'm currently debugging TiUIScrollableView.java to see if there is something wrong in the setViews code</li>
+<li>Michael Gangolf 2021-05-20
+
+   Turns out that calling addView after the loop:
+   <code><pre>
+   sv.addView(Ti.UI.createView({
+        height: 100,
+        backgroundColor: "green"
+   }))
+   </pre></code>
+   will make it work. And running <code>Alloy.Collections.contacts.fetch();</code> in the Alloy example after the ListView is visible works, too. Might be some timing issue somewhere
+   
+   
+   This is some debug output when using Alloy.Collection.fetch():
+   
+   {noformat}
+   Proxy: views property  <--- setViews() from ScrollableViewProxy
+   process properties; views len: 0
+   clear views
+   set views; len: 0
+   Proxy: handle message
+   clear views
+   set views; len: 2
+   Proxy: views property   <--- setViews() from ScrollableViewProxy
+   Proxy: handle message
+   clear views
+   set views; len: 2
+   release list   <---- release() from TiUIScrollableView
+   process properties; views len: 0
+   clear views
+   set views; len: 0
+   {noformat}
+   
+   I have two elements in my collection so len:2 is correct. I'm not sure why the whole <code>setViews</code> from ScrollableViewProxy is called twice! Then there is the <code>release</code> part from TiUIScrollableView at the bottom that is clearing the content at the end. </li>
+<li>Joshua Quick 2021-05-20
+
+   I haven't dived into this yet, but I'm wondering if it has something to do with us "updating" the HeaderView's activity object if it doesn't match the ListView's assigned activity object. We do this as of Titanium 10.0.0 so that dark/light theme switching will be applied to all child views which involves swapping out the old destroyed activity context with the new one.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/listview/ListViewHolder.java#L302-L307" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/listview/ListViewHolder.java#L302-L307</a>
+   
+   I'm "guessing" that the ScrollableView or its children were initially assigned a different activity context. Like the previous activity window such as the splash and it's being swapped out immediately once the actual activity window that's hosting the ListView has been created/opened.</li>
+<li>Michael Gangolf 2021-05-20
+
+   Your guess looks like the right direction:
+   
+   I've added
+   <code><pre>
+   Log.i("----", "Context: " + context + " headerproxy act:" + headerProxy.getActivity());
+   
+   if ((context instanceof Activity) && (headerProxy.getActivity() != context)) {
+   	Log.i("---", "release views");
+   	headerProxy.releaseViews();
+   	headerProxy.setActivity((Activity) context);
+   }
+   </pre></code>
+   
+   and got:
+   
+   {noformat}
+   Context: org.appcelerator.titanium.TiActivity@92c8bbb headerproxy act:com.miga.random.TestAppActivity@af14391
+   release views
+   release list
+   process properties; views len: 0
+   clear views
+   set views; len: 0
+   {noformat}
+   
+   This is AFTER the first the setViews part.</li>
+<li>Gary Mathews 2021-05-25
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/12839" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12839</a></li>
+<li>Christopher Williams 2021-06-28
+
+   merged to master</li>
+<li>Ewan Harris 2021-06-28
+
+   10_0_X backport merged</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28459.json">JSON Source</a></p>

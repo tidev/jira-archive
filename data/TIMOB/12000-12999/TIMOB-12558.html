@@ -1,0 +1,132 @@
+---
+title: "[TIMOB-12558] iOS: Allow external modules to use ARC"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-05T21:23:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2013 Sprint 03 API, 2013 Sprint 03, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ARC, qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Sindre Sorhus</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2013-02-01T23:28:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-11T00:27:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The original feature request was for ARC in all of TiMob codebase. This is less ambitious, and just to allow modules that use ARC to interact with Titanium.
+
+{quote}
+Automatic Reference Counting (ARC) for Objective-C makes memory management the job of the compiler. By enabling ARC with the new Apple LLVM compiler, you will never need to type retain or release again, dramatically simplifying the development process, while reducing crashes and memory leaks. The compiler has a complete understanding of your objects, and releases each object the instant it is no longer used, so apps run as fast as ever, with predictable, smooth performance.
+{quote}
+
+More info [here](<a href="http://developer.apple.com/library/ios/#releasenotes/ObjectiveC/RN-TransitioningToARC/_index.html)." rel="nofollow" target="_blank">http://developer.apple.com/library/ios/#releasenotes/ObjectiveC/RN-TransitioningToARC/_index.html).</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2013-02-02
+
+   Originally a community pull request. Max added a line. I added snarky comments. It's all good and merged. Unfortunately, the test case is not much more than 'compiles, make sure there's no side effects for Titanium itself' (Spoilers: no change for non-ARC code)</li>
+<li>Vishal Duggal 2013-02-02
+
+   Pull requests
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/3838" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3838</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/3839" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3839</a></li>
+<li>Peter Steinberger 2013-02-10
+
+   Hi, I'm the original author of this pull request. Thanks for merging this in 3.0.2. I've tried it and compiling works now - thanks!
+   
+   Yet there are lots of warning now about the __bridge. There's an easy workaround for this: (KrollContext.h, Line 156)
+   
+   #if __has_feature(objc_arc)
+   KrollContext *ctx = (__bridge KrollContext*)TiObjectGetPrivate(TiValueToObject(globalContext, value, NULL));
+   #else
+   KrollContext *ctx = (KrollContext*)TiObjectGetPrivate(TiValueToObject(globalContext, value, NULL));
+   #endif
+   
+   Alternatively you can also make something like an __arc_bridge and define that to either "" or "__bridge" if you need this more than once.</li>
+<li>Max Stepanov 2013-02-11
+
+   The following block would be better:
+   <code><pre>
+   #if !__has_feature(objc_arc)
+   #define __bridge
+   #endif
+   </pre></code></li>
+<li>Ingo Muschenetz 2013-02-19
+
+   Will close issue after discussion with QE. Please reopen if this becomes a problem again.</li>
+<li>Daniel Sefton 2013-03-14
+
+   Community user in TC-1965 suggests that the __bridge warnings still exist, and that one of the workarounds suggested in the last couple of comments should be implemented. Or alternatively an explanation as to why this was closed. Cheers.</li>
+<li>Blain Hamon 2013-03-18
+
+   Actually, the better answer would be to move this into a non-inlined function so that it can be better optimized and avoid any conflicts if an old module runs on a newer SDK.</li>
+<li>Blain Hamon 2013-03-19
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/3985" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3985</a></li>
+<li>Matt Langston 2013-03-22
+
+   Functional Test passed. This is how I tested:
+   
+   <h4>Created Titanium Module Project based on SDK 3.0.2GA. This SDK is not aware of ARC.</h4>
+   <h4>Created Titanium Project based on SDK 3.1.0 master branch, which removed the inline function mentioning __bridge (i.e. an ARC construct).</h4>
+   <h4>Noted there were no regressions, proving that functional test passed.</h4>
+   <h4>Also noted there were 29 compiler warnings.</h4>
+   <h4>Rebuild the Titanium project based on SDK 3.2.0GA.</h4>
+   <h4>Noted there were 58 compiler warnings. The decrease in the number of compiler warnings is also an improvement.</h4>
+   </li>
+<li>Pedro Enrique 2013-04-04
+
+    Tested with 3.1.0.v20130402092426 and it is not working. I get two errors in the following files:
+    
+    TiBuffer.h
+    <a href="http://f.cl.ly/items/1D2d1l3p1s3i0p2e2m3A/Screen%20Shot%202013-04-04%20at%2010.07.04%20AM.png" rel="nofollow" target="_blank">http://f.cl.ly/items/1D2d1l3p1s3i0p2e2m3A/Screen%20Shot%202013-04-04%20at%2010.07.04%20AM.png</a>
+    
+    KrollCallback.h
+    <a href="http://f.cl.ly/items/2O092U2Q0M1Z001E3j1l/Screen%20Shot%202013-04-04%20at%2010.07.42%20AM.png" rel="nofollow" target="_blank">http://f.cl.ly/items/2O092U2Q0M1Z001E3j1l/Screen%20Shot%202013-04-04%20at%2010.07.42%20AM.png</a></li>
+<li>Blain Hamon 2013-04-04
+
+    TiBuffer.h is due to our -(NSNumber*)copy:(id)args (As in copy data in and return how much) with -(void)copy:(id)sender (as in cut, copy, paste). To support arc, we'll have to have a renamed version.
+    
+    KrollCallback.h is due to having code in the header not in the implementation. Guh.</li>
+<li>Sabil Rahim 2013-04-05
+
+    3_1_X PR merged.
+    
+    pending master PR </li>
+<li>Sabil Rahim 2013-04-05
+
+    Testing the PR </li>
+<li>Sabil Rahim 2013-04-05
+
+    Testing Instruction
+    
+    ** Create a new Titanium Module Project for iOS from Studio.
+    ** Open the module project in Xcode.
+    ** click on the projectname on left pane in xcode and in build settings turn on Obj-C Automatic Reference Counting.
+    ** Compile the project. You should see only on failure(That is because of the template. If you remove the dealloc method the project would compile successfully)
+    
+    </li>
+<li>Wilson Luu 2013-12-11
+
+    Closing ticket as fixed. Verified using Sabil's steps.
+    
+    Tested on:
+    
+    Appcelerator Studio, build: 3.2.0.201312091648
+    SDK build: 3.2.0.v20131210112451
+    CLI: 3.2.0-cr
+    Alloy: 1.3.0-cr
+    Xcode: 5.0.2</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12558.json">JSON Source</a></p>

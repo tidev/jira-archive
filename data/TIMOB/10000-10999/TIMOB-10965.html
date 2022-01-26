@@ -1,0 +1,362 @@
+---
+title: "[TIMOB-10965] iOS: Feature: Add property to determine if the app is being launched by the OS or by the user"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-10-30T22:22:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Release 3.1.0, 2012 Sprint 22 API, 2012 Sprint 22</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, api, developer-preview, module_geolocation, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-09-18T15:59:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-10-23T23:15:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2012-10-08
+
+   Eduardo Gomez,
+   
+   This could be done inside the app itself by tracking the appstate through the following events [<code>resume</code>](<a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Titanium.Media.Sound-event-resume), [<code>resumed</code>](<a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Titanium.App-event-resumed),  [<code>pause</code>](<a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Titanium.App-event-pause) and [<code>paused</code>](<a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Titanium.App-event-paused).
+   
+   By listening to these events you could find out if the event is being fired while the user is in foreground or is starting the app or if the app is in background state and the event is being fired. 
+   
+   
+   Marking ticket as invalid.
+   </li>
+<li>Allen Hartwig 2012-10-08
+
+   This is not true. I've tried this approach. If the app is force quit by the user, and then the app is launched by the OS (not the user), there is NO WAY to use the aforementioned events to determine if the app was opened by the user or the OS.</li>
+<li>Eduardo Gomez 2012-10-08
+
+   Added the expected result in order to expose the source property into resume/resumed events (as is something currently unavailable).
+   </li>
+<li>Sabil Rahim 2012-10-08
+
+   Allen Hartwig,
+   
+            If the app is forced quit by the user, then by definition the app is inactive and will not receive any more events. The only case where app is still active, is when the app is backgrounded and system still keeps the app in memory. If the app is forced quit by the user i believe iOS would not restart your app to give you updates, as the user choose not to keep the app alive anymore.</li>
+<li>Allen Hartwig 2012-10-08
+
+   When using TrackSignificantLocationChange the OS does in fact launch the app if it's not running in the background in order to report the location change to the app. When this occurs, there is no way to programmatically determine how the app was launched, whether normally by the user or by the OS process.</li>
+<li>Sabil Rahim 2012-10-08
+
+   Allen Hartwig
+      Sorry i misread the Apple doc's there, but you are correct it turns out even if the app is not running in the background it wakes up the app to give the update. </li>
+<li>Sabil Rahim 2012-10-26
+
+   Implemented a new Bool value 'location' in launchOption  which could be retrieved using Ti.App.getArguments().
+   
+   Testing Code 
+   
+   <code><pre>
+   var locationUpdated = false;
+   var args = Ti.App.getArguments();
+   if(args.launchOptionsLocationKey == true)
+   {
+       var notification = Ti.App.iOS.scheduleLocalNotification({
+           alertBody:"Location Update from background received \n",
+           alertAction:"Re-Launch!",
+           date:new Date(new Date().getTime() ) 
+       });
+       locationUpdated = true; 
+   }
+   Ti.API.info('Ti.App.getArguments() ::'+args);
+    
+   Ti.App.addEventListener('resumed',function(){
+        
+       Ti.API.info("app has resumed from the background");
+       if(args.launchOptionsLocationKey == true)
+       {
+           var notification = Ti.App.iOS.scheduleLocalNotification({
+               alertBody:"Location Update from background received \n",
+               alertAction:"Re-Launch!",
+               date:new Date(new Date().getTime() ) 
+           });
+           locationUpdated = true; 
+       }
+       Ti.API.info('Ti.App.getArguments() ::'+Ti.App.getArguments());
+   });
+     
+   Titanium.App.addEventListener('pause',function(e)
+   {
+       alert(JSON.stringify(e));
+       Ti.API.info("PAUSED");      
+   });
+      
+   //setting up the GPS necessary stuff
+    
+   Ti.Geolocation.preferredProvider = "gps";
+          
+   Ti.Geolocation.purpose = "GPS demo for <code>startmonitoringlocationupdates</code>";
+          
+   function translateErrorCode(code) {
+       if (code == null) {
+           return null;
+       }
+       switch (code) {
+           case Ti.Geolocation.ERROR_LOCATION_UNKNOWN:
+               return "Location unknown";
+           case Ti.Geolocation.ERROR_DENIED:
+               return "Access denied";
+           case Ti.Geolocation.ERROR_NETWORK:
+               return "Network error";
+           case Ti.Geolocation.ERROR_HEADING_FAILURE:
+               return "Failure to detect heading";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_DENIED:
+               return "Region monitoring access denied";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_FAILURE:
+               return "Region monitoring access failure";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_DELAYED:
+               return "Region monitoring setup delayed";
+       }
+   }   
+    
+   //  SHOW CUSTOM ALERT IF DEVICE HAS GEO TURNED OFF
+   //
+   if (Titanium.Geolocation.locationServicesEnabled === false)
+   {
+       Titanium.UI.createAlertDialog({title:'Kitchen Sink', message:'Your device has geo turned off - turn it on.'}).show();
+   }
+   else
+   {
+       var authorization = Titanium.Geolocation.locationServicesAuthorization;
+       Ti.API.info('Authorization: '+authorization);
+       if (authorization == Titanium.Geolocation.AUTHORIZATION_DENIED) {
+           Ti.UI.createAlertDialog({
+               title:Titanium.App.getName(),
+               message:'You have disallowed Titanium from running geolocation services.'
+           }).show();
+       }
+       else if (authorization == Titanium.Geolocation.AUTHORIZATION_RESTRICTED) {
+           Ti.UI.createAlertDialog({
+               title:Titanium.App.getName(),
+               message:'Your system has disallowed Titanium from running geolocation services.'
+           }).show();
+       }
+      
+      
+            
+        
+      
+       //
+       //  SET ACCURACY - THE FOLLOWING VALUES ARE SUPPORTED
+       //
+       // Titanium.Geolocation.ACCURACY_BEST
+       // Titanium.Geolocation.ACCURACY_NEAREST_TEN_METERS
+       // Titanium.Geolocation.ACCURACY_HUNDRED_METERS
+       // Titanium.Geolocation.ACCURACY_KILOMETER
+       // Titanium.Geolocation.ACCURACY_THREE_KILOMETERS
+       //
+       Titanium.Geolocation.accuracy = Titanium.Geolocation.ACCURACY_BEST;
+      
+       //
+       //  SET DISTANCE FILTER.  THIS DICTATES HOW OFTEN AN EVENT FIRES BASED ON THE DISTANCE THE DEVICE MOVES
+       //  THIS VALUE IS IN METERS
+       //
+       Titanium.Geolocation.distanceFilter = 10;
+      
+       //The app was turned on while in background.Should only set up the LocationManager to track Significant changes only.
+       if(locationUpdated == true){
+       	Titanium.Geolocation.trackSignificantLocationChange = true;
+       }
+        
+       //
+       // EVENT LISTENER FOR GEO EVENTS - THIS WILL FIRE REPEATEDLY (BASED ON DISTANCE FILTER)
+       //
+       var locationCallback = function(e)
+       {
+           if (!e.success || e.error)
+           {
+               updatedLocation.text = 'error:' + JSON.stringify(e.error);
+               updatedLatitude.text = '';
+               updatedLocationAccuracy.text = '';
+               updatedLocationTime.text = '';
+               Ti.API.info("Code translation: "+translateErrorCode(e.code));
+               return;
+           }
+      
+           var longitude = e.coords.longitude;
+           var latitude = e.coords.latitude;
+           var altitude = e.coords.altitude;
+           var heading = e.coords.heading;
+           var accuracy = e.coords.accuracy;
+           var speed = e.coords.speed;
+           var timestamp = e.coords.timestamp;
+           var altitudeAccuracy = e.coords.altitudeAccuracy;
+      
+           //Titanium.Geolocation.distanceFilter = 100; //changed after first location event
+             if(locationUpdated == false){
+        
+               updatedLocation.text = 'long:' + longitude;
+               updatedLatitude.text = 'lat: '+ latitude;
+               updatedLocationAccuracy.text = 'accuracy:' + accuracy;
+               updatedLocationTime.text = 'timestamp:' +new Date(timestamp);
+          
+               updatedLatitude.color = 'red';
+               updatedLocation.color = 'red';
+               updatedLocationAccuracy.color = 'red';
+               updatedLocationTime.color = 'red';
+               setTimeout(function()
+               {
+                   updatedLatitude.color = '#444';
+                   updatedLocation.color = '#444';
+                   updatedLocationAccuracy.color = '#444';
+                   updatedLocationTime.color = '#444';
+          
+               },100);
+          
+           }
+           else
+           {
+                   var notification = Ti.App.iOS.scheduleLocalNotification({
+                       alertBody:"Location Update Received.",
+                       alertAction:"Re-Launch!",
+                       userInfo:{"hello":"world"},
+                       sound:"pop.caf",
+                       date:new Date(new Date().getTime() + 3000) // 3 seconds after backgrounding
+                   });
+           }        
+      
+           Titanium.API.info('geo - location updated: ' + new Date(timestamp) + ' long ' + longitude + ' lat ' + latitude + ' accuracy ' + accuracy);
+       };
+       Titanium.Geolocation.addEventListener('location', locationCallback);
+       locationAdded = true;
+   }
+    
+    
+    
+   //Create the UI only if the app opened as a consequence of User interaction with the app.
+    
+   if(locationUpdated == false)
+   {
+       var win = Titanium.UI.createWindow({
+           backgroundColor:'white'
+       });
+    
+       var updatedLocationLabel = Titanium.UI.createLabel({
+           text:'Updated Location',
+           font:{fontSize:12, fontWeight:'bold'},
+           color:'#111',
+           top:150,
+           left:10,
+           height:15,
+           width:300
+       });
+       win.add(updatedLocationLabel);
+          
+       var updatedLocation = Titanium.UI.createLabel({
+           text:'Updated Location not fired',
+           font:{fontSize:11},
+           color:'#444',
+           top:170,
+           left:10,
+           height:15,
+           width:300
+       });
+       win.add(updatedLocation);
+          
+       var updatedLatitude = Titanium.UI.createLabel({
+           text:'',
+           font:{fontSize:11},
+           color:'#444',
+           top:190,
+           left:10,
+           height:15,
+           width:300
+       });
+       win.add(updatedLatitude);
+          
+       var updatedLocationAccuracy = Titanium.UI.createLabel({
+           text:'',
+           font:{fontSize:11},
+           color:'#444',
+           top:210,
+           left:10,
+           height:15,
+           width:300
+       });
+       win.add(updatedLocationAccuracy);
+          
+       var updatedLocationTime = Titanium.UI.createLabel({
+           text:'',
+           font:{fontSize:11},
+           color:'#444',
+           top:230,
+           left:10,
+           height:15,
+           width:300
+       });
+       win.add(updatedLocationTime);
+          
+        
+          
+       var button = Ti.UI.createButton({
+           title:'Track Significant Location Change(TSLC)',
+           width:Ti.UI.SIZE,
+           height:Ti.UI.SIZE,
+           backgroundColor: '',
+           bottom:70
+       });
+       button.addEventListener('click',function(){
+           var val = Ti.Geolocation.trackSignificantLocationChange;
+           Ti.Geolocation.trackSignificantLocationChange = !val;
+       });
+       win.add(button);
+       //Check track significant value
+       var button2 = Ti.UI.createButton({
+           title:'Check value of TSLC',
+           width:Ti.UI.SIZE,
+           height:Ti.UI.SIZE,
+           backgroundColor: 'grey',
+           bottom:5
+       });
+       button2.addEventListener('click',function(){
+           var value = Ti.Geolocation.trackSignificantLocationChange;
+           Ti.API.info('---> Ti.Geolocation.trackingSignificantLocationChange ?'+ value);
+           Titanium.UI.createAlertDialog({title:'GPS',message:'trackingSignificantLocationChange:'+value}).show();
+          
+       });
+       win.add(button2);
+          
+       // state vars used by resume/pause
+       //var headingAdded = false;
+       var locationAdded = false;
+          
+        
+       var addr = "2065 Hamilton Avenue San Jose California 95125";
+       win.open();
+   }
+   else{
+        Titanium.Geolocation.addEventListener('location', locationCallback);
+        locationAdded = true;
+   }
+   </pre></code></li>
+<li>Sabil Rahim 2012-10-26
+
+   Testing Instruction.
+   
+   **Make an App with the above test code. 
+   **Turn trackSignificant Locations on.
+   **Put the app into background.Wait for a bit.(to make sure the app was inactive)
+   **Drive around and see if you receive a location notification from the app about change in location.
+   
+   </li>
+<li>Sabil Rahim 2012-10-26
+
+   PR for master <a href="https://github.com/appcelerator/titanium_mobile/pull/3334" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3334</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10965.json">JSON Source</a></p>

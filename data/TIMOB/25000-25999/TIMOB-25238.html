@@ -1,0 +1,154 @@
+---
+title: "[TIMOB-25238] Android: View with a border can cause a significant performance deficit"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-04T18:06:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>consider-6.2.3</td></tr>
+<tr><th>Reporter</th><td>Gary Mathews</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-09-06T19:37:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-23T21:37:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+- A view with a border containing another view with a border will re-draw on every frame, causing significant UI performance hit.
+
+*TEST CASE*
+<code><pre>
+var win = Ti.UI.createWindow({backgroundColor: 'gray'}),
+    list = Ti.UI.createListView({
+        templates: {
+            template: {
+                childTemplates: [
+                    {
+                        type: 'Ti.UI.View',
+                        properties: {
+                            left: 5,
+                            right: 5,
+                            top: 5,
+                            backgroundColor: 'blue',
+                            height: 90,
+                            bottom: 5,
+                            borderColor: 'orange',
+                            borderRadius: 10,
+                            borderWidth: 5
+                        },
+                        childTemplates: [
+                            {
+                                type: 'Ti.UI.View',
+                                bindId: 'item',
+                                properties: {
+                                    left: 10,
+                                    right: 10,
+                                    height: 30,
+                                    backgroundColor: 'red',
+                                    borderColor: 'purple',
+                                    borderRadius: 5,
+                                    borderWidth: 3
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        defaultItemTemplate: 'template'
+    }),
+    section = Ti.UI.createListSection(),
+    items = [];
+
+for (var i = 0; i < 48; i++) {
+    items.push({
+        item: {
+            width: '50%'
+        }
+    });
+}
+
+section.setItems(items);
+list.setSections([section]);
+
+win.add(list);
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2017-09-07
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9410" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9410</a></li>
+<li>grazianogrespan 2017-09-24
+
+   I've done some tests about this bug and reported my findings on Slack channel : 
+   <a href="https://ti-slack.slack.com/archives/C03CVQX2A/p1506087232000476" rel="nofollow" target="_blank">https://ti-slack.slack.com/archives/C03CVQX2A/p1506087232000476</a>
+   
+   Essentially on Android my TableView with 6.2.2GA is very laggy and with 6.1.2GA it was smooth. So from 6_3_X branch I've rebuilt the sdk with the above PR ( refactored TiBorderWrapperView ) and nothing changed. TableView was still slow when scrolling. The issue was somewhere else so I reverted "TiUIView.java" from 6_1_X and rebuilt the sdk with some logs as @Michael Gangolf suggested me.  These are the results with <code>Log.i("test", "on draw");</code> in <code>protected void onDraw(Canvas canvas)</code> of TiBorderWrapperView.java:
+   
+   1) 6_3_X with refactored TiBorderWrapperView  :  Logs “on draw” everytime I scroll the tableView.
+   2) 6_3_X with refactored TiBorderWrapperView and TiUIView from 6_1_X : Logs “on draw” only one time (at the creation).
+   
+   In my case this commit caused the issue: <a href="https://github.com/garymathews/titanium_mobile/commit/5bbf07e1d5b63a56fbda810d0cbd1d2262e9f42e#diff-84cbe74b6ace83d16bcb3ecf277594f3" rel="nofollow" target="_blank">https://github.com/garymathews/titanium_mobile/commit/5bbf07e1d5b63a56fbda810d0cbd1d2262e9f42e#diff-84cbe74b6ace83d16bcb3ecf277594f3</a>
+   
+   There is also another problem with the refactored TiBorderWrapperView :
+   
+   <code><pre>
+   var view = Ti.UI.createView({
+           width:34,
+   	height:34,
+   	borderWidth:1,
+   	borderRadius:17,
+   	borderColor: 'red'
+   });
+   </pre></code>
+   
+   This View is filled with red color and should be red only the border.
+   
+   </li>
+<li>Gary Mathews 2017-09-27
+
+   [~grazianogrespan] I have updated [#9410](<a href="https://github.com/appcelerator/titanium_mobile/pull/9410)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9410).</a> I cannot allow HW-acceleration when an alpha channel is used on the background. Android does not render the view correctly.
+   
+   Do you have a test case I can use to see the performance deficit you are seeing?</li>
+<li>grazianogrespan 2017-09-30
+
+   @Gary Mathews Unfortunately I don't have a test case but instead I have a great news : I've just built the sdk with your latest commit [ #9410](<a href="https://github.com/appcelerator/titanium_mobile/pull/9410/files)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9410/files)</a> (TiUIView+TiBorderWrapperView) and the app returned to be smooth and fast. I suppose this [line](<a href="https://github.com/garymathews/titanium_mobile/blob/6e41e94646c89db6ca1f29348a1692a13a2d15a6/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java#L1442)" rel="nofollow" target="_blank">https://github.com/garymathews/titanium_mobile/blob/6e41e94646c89db6ca1f29348a1692a13a2d15a6/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java#L1442)</a> was the problem.. Now everything is perfect (y) Thanks!</li>
+<li>Lokesh Choudhary 2017-10-02
+
+   FR Passed & PR merged for master.</li>
+<li>Gary Mathews 2017-10-02
+
+   [~lchoudhary]
+   6_3_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9501" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9501</a></li>
+<li>Lokesh Choudhary 2017-10-02
+
+   FR Passed & PR merged for 6.3.0 PR.</li>
+<li>Lokesh Choudhary 2017-10-23
+
+   Verified the fix in SDK 7.0.0.v20171023120246 & 6.3.0.v20171018084007.
+   
+   Closing.
+   
+   Studio Ver: 4.10.0.201709271713
+   OS Ver: 10.12.3
+   Xcode Ver: Xcode 8.3.3
+   Appc NPM: 4.2.10-2
+   Appc CLI: 6.3.0-master.15
+   Ti CLI Ver: 5.0.14
+   Alloy Ver: 1.10.6
+   Node Ver: 7.10.1
+   Java Ver: 1.8.0_101
+   Devices: ⇨ google Nexus 5 — Android 6.0.1
+   ⇨ google Pixel — Android 7.1.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25238.json">JSON Source</a></p>

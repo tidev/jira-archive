@@ -1,0 +1,290 @@
+---
+title: "[TIMOB-25555] Values are not persistently stored in the Database when saving"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Markus Schneider</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-11-12T20:49:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When setting a model like in the* changeLevel function* the tableview is updated. The value 111 shows up in the tableview row and in the console.log (model after saving). However, the value 111 is not stored persistently because the old value (4) shows up when the app initiates and the checkDBContent() function is called (see console.log output).
+
+*databases.js*
+
+/*
+ * Adding content to DB (and populating the ListView)
+ */
+function addToDB(){
+	/*Alloy.Collections.translations = Alloy.createCollection('translations'); */
+	var itemsToSave = [
+	{questionid: 1624, difficulty: 4, author:'fddDr. Seuss', title:'vxfdssfGreen Evxcvcxvxggs and Ham'}, {questionid: 525, difficulty: 2, author:'mkhgjghDr. fsfsSeuss', title:'Evxcvcxvxggs and Ham'}
+	];
+	var f;
+	_.each(itemsToSave, function(item){
+ 		f = Alloy.createModel('translations', item, {silent:true}); //deleting not working the second time
+       	$.trans.add(f);
+        f.save();
+	});
+	var library1 = $.trans;
+	library1.fetch(); // Grab data from persistent storage
+	console.log("library " + JSON.stringify(library1));
+}
+checkDB();
+function checkDB(){
+	var library = $.trans;
+	library.fetch();
+	console.log("DB content: " + JSON.stringify(library)); //loads the old value 4 on startup (should be 111 after clicking changeLevel)
+}
+function changeLevel(){
+	var model = $.trans.get("1624");
+	model.set({difficulty: "111"});
+	model.save();
+	console.log("model after saving: " + JSON.stringify(model)); //correct with 111 as value
+}
+/*
+ * Deleting content in DB and deleting the ListView automatically (leaves DB unchanged)
+ */
+function clearDB(){
+	console.log("clearing library");
+	$.trans.deleteAll();
+	checkDB();
+}
+
+*databases.xml*
+<Alloy>
+	<Collection src="translations" instance="true" id="trans"/>
+	<Window class="container" layout="vertical">
+	<View height="Ti.UI.SIZE" backgroundColor="red">
+		<Label id="addItems" left="1%" width="Ti.UI.SIZE"top="0" onClick="addToDB">add to DB</Label>
+		<Label  id="questionText" height="Ti.UI.SIZE" backgroundColor="blue" text="changeLevel" top="0" onClick="changeLevel"/>
+		<Label id="clearDatabase" top="30dp"onClick="clearDB" left="1%" width="Ti.UI.SIZE">clear DB</Label>
+		<Label id="deleteDatabase" top="30dp" onClick="deleteDatabase" left="60%" width="Ti.UI.SIZE">delete DB</Label>
+		<Label id="checkDatabase" top="60dp" onClick="checkDB" left="1%" width="Ti.UI.SIZE">DB content</Label>
+	</View>	
+	<TableView id="table" height="Ti.UI.SIZE" backgroundColor="blue" dataCollection="$.trans">
+		<TableViewRow height="Ti.UI.SIZE">
+			<Label id="id" text="{questionid}" backgroundColor="green" left="2%"/>
+			<Label id="title" text="{title}" backgroundColor="blue" left="15%" width="70%"/>
+			<Label id="difficulty" text="{difficulty}" backgroundColor="blue" left="85%"/>
+		</TableViewRow>
+	</TableView>
+	</Window>
+</Alloy>
+
+translations.js (in models)
+exports.definition = {
+	config: {
+		columns: {
+		    "questionid": "real",
+		    "difficulty": "real",
+		    "author": "text",
+		    "title": "text"
+		},
+		adapter: {
+			type: "sql",
+			collection_name: "translations",
+			idAttribute : "questionid"
+		}
+	},
+	extendModel: function(Model) {
+		_.extend(Model.prototype, {
+			idAttribute : "questionid",
+			// extended functions and properties go here		
+		});
+		return Model;
+	},
+	extendCollection: function(Collection) {
+		_.extend(Collection.prototype, {
+			// extended functions and properties go here
+
+			// For Backbone v1.1.2, uncomment the following to override the
+			// fetch method to account for a breaking change in Backbone.
+			/*
+			fetch: function(options) {
+				options = options ? _.clone(options) : {};
+				options.reset = true;
+				return Backbone.Collection.prototype.fetch.call(this, options);
+			}
+			*/
+
+*console.log output:*
+
+[INFO] :  model after saving : {"questionid":1624,"difficulty"*:111*,"author":"Dr. Seuss"}
+[INFO] :   DB content: [{"questionid":1624,"difficulty":*4*,"author":"fddDr. Seuss"},{"questionid":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss"}]
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25555_63585/app.zip">app.zip</td></td><td>2017-11-13T20:17:45.000+0000</td><td>7121625</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25555_63579/Appc change Level.png">Appc change Level.png</td></td><td>2017-11-13T08:46:02.000+0000</td><td>500913</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25555_63581/appc info.rtf">appc info.rtf</td></td><td>2017-11-13T08:55:03.000+0000</td><td>22257</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mostafizur Rahman 2017-11-13
+
+   Hello [~mgs@vodes.net],
+   
+   Thanks for sharing with us. Are you using latest TI SDK builds ? Please share your *appc info* here. It looks like  you added *checkDBContent()* just after the *database.xml* file. Is it belongs to another file? It would be better if you can share the complete project  and test case so that we can reproduce the issue on our end.
+   
+   Best</li>
+<li>Markus Schneider 2017-11-13
+
+   Hi Mostafizur,
+   
+   I am using SDK 6.3. I have added the content of the controller and views files and the translations.js (collection) and a screenshot and the appc info in a text file
+   </li>
+<li>Sharif AbuDarda 2017-11-13
+
+   Hello, Please send the full reproducible code. Thanks.</li>
+<li>Markus Schneider 2017-11-13
+
+   Hi!
+   i uploaded the zipped app folder. It really is very basic and contains not much more than the files I have mentioned in the ticket.
+   
+   I have now added an alternative SQL function in database.js and translations.hs This works now for me and persistently stores the values that I didnt manage to get working with backone.
+   function changeSQL(){
+   	$.trans.updateRecord("difficulty","49800","1624"); //works
+   	checkDB();
+   }</li>
+<li>Mostafizur Rahman 2017-11-20
+
+   Hello [~mgs@vodes.net],
+   We are unable to run your sample project. By running the project the following error is shown:
+   
+   <code><pre>
+   [ERROR] :  Script Error Couldn't find module: drupal for architecture: x86_64
+   [ERROR] :  Error: getaddrinfo ENOTFOUND platform.appcelerator.com platform.appcelerator.com:443
+       at errnoException (dns.js:27:10)
+       at GetAddrInfoReqWrap.onlookup [as oncomplete] (dns.js:78:26)
+   ---------------------------------------------
+       at TLSSocket.Readable.on (_stream_readable.js:680:33)
+       at tickOnSocket (_http_client.js:519:10)
+       at onSocketNT (_http_client.js:535:5)
+       at nextTickCallbackWith2Args (node.js:458:9)
+       at process._tickDomainCallback (node.js:413:17)
+   ---------------------------------------------
+       at ClientRequest.onSocket (_http_client.js:527:11)
+       at Agent.addRequest (_http_agent.js:157:9)
+       at new ClientRequest (_http_client.js:142:16)
+       at Object.exports.request (http.js:31:10)
+       at Object.socket.once.exports.request (https.js:182:15)
+       at Object.<anonymous> (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/pac-proxy-agent/node_modules/agent-base/patch-core.js:52:20)
+       at Object.request (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/pac-proxy-agent/node_modules/socks-proxy-agent/node_modules/agent-base/patch-core.js:24:20)
+       at Request.start (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:748:32)
+       at Request.end (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:1512:10)
+       at end (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:561:14)
+       at Immediate._onImmediate (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:575:7)
+       at processImmediate [as _immediateCallback] (timers.js:383:17)
+   [ERROR] :  Error: getaddrinfo ENOTFOUND platform.appcelerator.com platform.appcelerator.com:443
+       at errnoException (dns.js:27:10)
+       at GetAddrInfoReqWrap.onlookup [as oncomplete] (dns.js:78:26)
+   ---------------------------------------------
+       at TLSSocket.Readable.on (_stream_readable.js:680:33)
+       at tickOnSocket (_http_client.js:519:10)
+       at onSocketNT (_http_client.js:535:5)
+       at nextTickCallbackWith2Args (node.js:458:9)
+       at process._tickDomainCallback (node.js:413:17)
+   ---------------------------------------------
+       at ClientRequest.onSocket (_http_client.js:527:11)
+       at Agent.addRequest (_http_agent.js:157:9)
+       at new ClientRequest (_http_client.js:142:16)
+       at Object.exports.request (http.js:31:10)
+       at Object.socket.once.exports.request (https.js:182:15)
+       at Object.<anonymous> (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/pac-proxy-agent/node_modules/agent-base/patch-core.js:52:20)
+       at Object.request (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/pac-proxy-agent/node_modules/socks-proxy-agent/node_modules/agent-base/patch-core.js:24:20)
+       at Request.start (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:748:32)
+       at Request.end (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:1512:10)
+       at end (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:561:14)
+       at Immediate._onImmediate (/Users/sharifabudarda/.appcelerator/install/6.3.0/package/node_modules/request/request.js:575:7)
+       at processImmediate [as _immediateCallback] (timers.js:383:17)
+   
+   
+   </pre></code>
+   
+   Are you using any *drupal* module? Can you please check and attach the workable test code.
+   
+   Best</li>
+<li>Markus Schneider 2017-11-20
+
+   @Mostafizur Rahman, 
+   
+   I thought I uncommented the reference to the Drupal module in alloy.js before I uploaded the zip. It is just the lines in alloy.js that call the drupal library that need to be deleted. Let me know if i should reupload the whole app again.</li>
+<li>Sharif AbuDarda 2017-11-21
+
+   Hello, Please provide a sample app which only has the issue related components and can be used to reproduce the issue. Thanks.</li>
+<li>Markus Schneider 2017-11-22
+
+   did you actually look at the files ive uploaded? what components are you talking about? in alloy.js you need to uncomment 3 lines.  really i dont care anymore what you do wiht this ticket. there is even a workaround included and i have other things to worry about</li>
+<li>Sharif AbuDarda 2017-11-22
+
+   Hello, I am testing your sample app and I got the below error when I click on change level
+   <code><pre>
+   [ERROR] :  Script Error {
+   [ERROR] :      column = 8;
+   [ERROR] :      line = 104;
+   [ERROR] :      message = "undefined is not an object (evaluating 'model.set')";
+   [ERROR] :      sourceURL = "file:///Users/sharifabudarda/Library/Developer/CoreSimulator/Devices/8CA64F4F-E600-423A-86D7-E964D50A1150/data/Containers/Bundle/Application/38A81522-1122-49FD-892B-5DC7D267B19B/myalloytest.app/alloy/controllers/databases.js";
+   [ERROR] :      stack = "changeLevel@file:///Users/sharifabudarda/Library/Developer/CoreSimulator/Devices/8CA64F4F-E600-423A-86D7-E964D50A1150/data/Containers/Bundle/Application/38A81522-1122-49FD-892B-5DC7D267B19B/myalloytest.app/alloy/controllers/databases.js:104:8";
+   [ERROR] :  }
+   </pre></code>
+   </li>
+<li>Markus Schneider 2017-11-23
+
+    hello,
+    
+    did you add content to the database before?
+    1) click "add to DB" and the listivew and DB gets populated
+    2) then click the "changeLevel" (blue). the counter in the listview decreases correctly by one (in the screenshot i tried it with setting the value 111 directly, see uncommented line 35)
+    now the problem is that this new value (old value minus 1) is not persistently saved. When you click "DB content" the old value appears. Same when you restart the app.</li>
+<li>Sharif AbuDarda 2017-11-23
+
+    Hello, I add to BD by five times clicking on there and then five times in changelevel. See my log
+    <code><pre>
+    [INFO]  library [{"questionid":1624,"difficulty":4,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"},{"questionid
+    ":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss","title":"Evxcvcxvxggs and Ham"}]
+    [INFO]  library [{"questionid":1624,"difficulty":4,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"},{"questionid
+    ":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss","title":"Evxcvcxvxggs and Ham"}]
+    [INFO]  library [{"questionid":1624,"difficulty":4,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"},{"questionid
+    ":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss","title":"Evxcvcxvxggs and Ham"}]
+    [INFO]  library [{"questionid":1624,"difficulty":4,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"},{"questionid
+    ":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss","title":"Evxcvcxvxggs and Ham"}]
+    [INFO]  library [{"questionid":1624,"difficulty":4,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"},{"questionid
+    ":525,"difficulty":2,"author":"mkhgjghDr. fsfsSeuss","title":"Evxcvcxvxggs and Ham"}]
+    [INFO]  model after saving: {"questionid":1624,"difficulty":3,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"}
+    [INFO]  model after saving: {"questionid":1624,"difficulty":2,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"}
+    [INFO]  model after saving: {"questionid":1624,"difficulty":1,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"}
+    [INFO]  model after saving: {"questionid":1624,"difficulty":0,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"}
+    [INFO]  model after saving: {"questionid":1624,"difficulty":-1,"author":"fddDr. Seuss","title":"vxfdssfGreen Evxcvcxvxggs and Ham"}
+    </pre></code>
+    
+    Seems working fine. I am testing on 6.3.0.GA. Thanks.</li>
+<li>Markus Schneider 2017-11-24
+
+    Yes the saving temporarily is working, but not persistently. when you restart the app the difficulty value should be -1 (based on the log you posted). but it is the original first value. that is the problem</li>
+<li>Sharif AbuDarda 2017-11-24
+
+    Hello, I was able to reproduce the issue with the user guide. I see the dificulty values are not stored permanently. App restart will have the old difficulty value 4. Not the last value -1 as in my last comment. Thanks.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25555.json">JSON Source</a></p>

@@ -1,0 +1,102 @@
+---
+title: "[TIMOB-24471] iOS: Building an iOS module will fail if the module doesn't contain a Classes directory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-03-14T21:23:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.3</td></tr>
+<tr><th>Components</th><td>CLI, iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Christopher Williams</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2017-03-09T21:18:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-14T21:53:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If you attempt to build an iOS module with <code>appc ti build</code>, it will fail unless there's a Classes directory that already exists. We should simply create the directory before trying to write a file to it if we need to.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24471_61841/ti.testmodule.zip">ti.testmodule.zip</td></td><td>2017-03-13T16:01:58.000+0000</td><td>29112</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2017-03-09
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8877" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8877</a>
+   6_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/8878" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8878</a></li>
+<li>Hans Knöchel 2017-03-13
+
+   For QE: I attached the sample module "ti.testmodule" that has it's classes in the "src" directory and does not have the "Classes" one. Without the change, it will fail during build, with the fix, it will generate the "Classes" directory and put the generated assets class in it.
+   
+   Testing steps:
+   <h4>Unpack the zip and navigate to <code>ti.testmodule/iphone</code></h4>
+   <h4>Build the module with <code>appc run -p ios --build-only</code></h4>
+   
+   Expected behavior:
+   - Before: The build failed, the compiler could not locate the "Classes" directory
+   - Fix with fix: The "Classes" directory is generated, the build succeeds</li>
+<li>Abir Mukherjee 2017-03-13
+
+   [~hansknoechel] With the fix, I do see a new folder created with the name Classes, however, I get this error as well:
+   <code><pre>
+   [INFO]  Project directory: /Users/amukherjee/Downloads/ti.testmodule/iphone
+   [INFO]  Module ID: ti.testmodule
+   [WARN]  Please update the LICENSE file with your license text before distributing.
+   [ERROR] [xcode-dist] ** BUILD FAILED **
+   [ERROR] [xcode-dist] The following build commands failed:
+   [ERROR] [xcode-dist] 	CompileC build/ti.testmodule.build/Release-iphoneos/ti.testmodule.build/Objects-normal/armv7/TiTestmoduleModule.o src/TiTestmoduleModule.m normal armv7 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   [ERROR] [xcode-dist] 	CompileC build/ti.testmodule.build/Release-iphoneos/ti.testmodule.build/Objects-normal/arm64/TiTestmoduleModule.o src/TiTestmoduleModule.m normal arm64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   [ERROR] [xcode-dist] (2 failures)
+    
+   amukherjee:iphone amukherjee$ 
+   </pre></code></li>
+<li>Christopher Williams 2017-03-14
+
+   So, to re-iterate what I stated on our standup call - I do not think the error [~amukherjee] is seeing is related to the ticket/PR/fix. My fix was solely to handle when an iOS module had no existing Classes sub-folder, it now will generate the folder if necessary before trying to generate a file underneath it. I don't really know what exactly is failing in the output above.
+   
+   [~amukherjee] You should be able to just generate a native iOS module using the CLI itself and then deleting the Classes folder and trying to build:
+   <code><pre>
+   appc new -t timodule -n example-mod
+   cd example-mod
+   cd iphone
+   rm -rf Classes
+   appc ti build --build-only
+   </pre></code></li>
+<li>Abir Mukherjee 2017-03-14
+
+   [~cwilliams] Even when I follow your steps above, I get the same error. I also discovered that if I keep the Classes directory (i.e. don't delete it), but I delete the files in the Classes folder, I get the same error. So it appears that the files in the Classes directory are needed to build the module.</li>
+<li>Hans Knöchel 2017-03-14
+
+   You cannot just delete the Classes directory, the build needs the "xxxModule" files. The error is probably because you have assigned the classes to that location and you did not re-reference them inside the Xcode project. That's why I've sent the example module that should not cause any problems. Let's do a Hangout if you have questions.</li>
+<li>Abir Mukherjee 2017-03-14
+
+   FR PASSED with this environment:
+   NPM Version: 2.15.9
+   Node Version: 4.5.0
+   Mac OS: 10.12.3
+   Appc CLI: 6.1.0
+   Appc CLI NPM: 4.2.8
+   Appcelerator Studio, build: 4.8.1.201612050850
+   Xcode 8.2.1
+   
+   I verified that the Classes folder is created and the required files are copied into the directory. This was using 6.0.3. To verify that this fixed a problem from 6.0.2. I tried to build with the Classes folder deleted using 6.0.2, and the build failed. Therefore the fix for 6.0.3 is validated. Additionally, FR also passed with 6.1.0.
+   
+   EDIT: Closing this ticket as changes are confirmed in  SDK 6.0.3.v20170314141715</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24471.json">JSON Source</a></p>

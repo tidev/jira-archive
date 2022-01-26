@@ -1,0 +1,228 @@
+---
+title: "[TIMOB-20094] TCP Socket buffer corrupts data if too large"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>TiAPI</td></tr>
+<tr><th>Labels</th><td>sockets, tcp, titanium, xmpp</td></tr>
+<tr><th>Reporter</th><td>Aggelos Papageorgiou</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2015-06-22T22:29:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have duplicated an XMPP communication system using the TCP Sockets Module on Titanium Studio and for the most part it is working like a dream. The part where it does not work correctly is if I receive a message that is too big and the heap needs to grow in order to accommodate it in memory. It is then that many parts of the message are lost, thus making the message unreadable from the XML parser. I am placing the code that receives the buffer data below:
+
+
+<code><pre>
+JXMPPConnection.prototype._pumpCallback = function(e) {
+	//that.oDbg.log("pumpCallback ...", 1);
+
+	 if (e.bytesProcessed ==-1) {// EOF 
+		Ti.API.error("<EOF> - Can't perform any more operations on connected socket");
+	} else if (e.errorDescription == null || e.errorDescription == "") {
+		Ti.API.debug("DATA>>>: " + e.buffer.toString());
+		var data = e.buffer.toString();
+		repeatInterval=false;
+		//var i=0;
+		e.buffer.clear();
+		//while(i<data.length){
+			if(data.indexOf('<')<0 || data.length<10)
+			return;
+			data=data.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').replace(/&g/g,'>').replace(/&gt;/g,'>');
+			// if(data.charAt(0)!='<'){
+				// data=data.substr(1);
+				// }else{break;}
+			// i++;
+		// }
+		if(data.indexOf("ping")>=0){
+			that._doAutoPing(Ti.XML.parseString(data));
+			that.registerHandler('autoPing',that._doAutoPingResult);
+			return;
+		}
+		//fix xml finish and prefix
+		var response = data.replace(/\<\?xml.+\?\>/, "");
+		if(response.indexOf("</stream:stream>")==0) {
+			Ti.API.error("end connection XML: " + response);
+			that._req.close();
+			return;
+		}
+		if (that.autenticated()) {
+			var xmls = that._getSplitXml(response);
+			for ( i = 0; i < xmls.length; i++) {
+				var xml = xmls[i];
+				xml=that._fixXmlToParse(xml);
+				Ti.API.info('length: '+xmls.length+xml);
+				if(xml.indexOf('<message')>=0 && xml.indexOf('</message>')<0){buffer.push(xml);break;}
+				if(buffer.length>=1 && (xml.indexOf('<message')<0 && xml.indexOf('</message>')<0)){buffer.push(xml);break;}
+				 if(xml.indexOf('<message')<0 && xml.indexOf('</message>')>0){xml=buffer.toString()+xml;buffer=new Array();}
+				if(buffer.length>0 && xmls.length>1){
+					for(i;i<xmls.length;i++){
+						xml+=xmls[i];
+						if(xml.indexOf('</message')>0){buffer=new Array();break;}
+					}
+				}
+				Ti.API.info("_handleResponse: " +xml);
+				that._handleResponse(xml);
+			}
+		} else {
+			response=that._fixXmlToParse(response);
+			that._getStreamID(response);
+		}
+
+	} else {
+		Ti.API.error("READ ERROR: " + e.errorDescription);
+		that.disconnect();
+	}
+};
+</pre></code>
+
+this code works like magic for most of my messages but when I request the history of a user of my xmpp service, which is quite a big message, the message gets corrupt.
+
+example of the reply of the server with the corrupt part included
+
+
+<code><pre>
+<message id=“xxxxxx|1435011247" to=“xxxxxx@domain.com" from="triphistory@domain.com/res“><body><TripHistory>
+<Trips>
+<total>10</total>
+<Trip>
+<id>xxxxxxxx</id>
+<hailtime>1434576550000</hailtime>
+<pickuptime>1434576725000</pickuptime>
+<from><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></from>
+<to><![CDATA[]]></to>
+<special><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></special>
+<agent>s</agent>
+<status>com</status>
+<rating>0</rating>
+<plateno>xxxxxxxx</plateno>
+<carmodel>xxxxxxxx</carmodel>
+<drivername>xx</drivername>
+<driversurname>xx</driversurname>
+<drivercode>xxxxxx</drivercode>
+<driverid>xxxx</driverid>
+<isfaved>false</isfaved>
+<isblocked>false</isblocked>
+<tripfare>0.000000</tripfare>
+<tripcurr></tripcurr>
+<tripchannel></tripchannel>
+<companyemail>aggelos@domain.gr</companyemail>
+<companyfacebook>domain</companyfacebook>
+<companytwitter>domain</companytwitter>
+</Trip><Trip>
+<id>xxxxxxx</id>
+</pre></code>
+{color:red}<hailtime>xxxxxSome String]]></special>{color}
+<code><pre>
+<agent>s</agent>
+<status>com</status>
+<rating>0</rating>
+<plateno>xxxxxx</plateno>
+<carmodel>xxxxxxxxx</carmodel>
+<drivername>xxxx</drivername>
+<driversurname>xxxxx</driversurname>
+<drivercode>xxxxxx</drivercode>
+<driverid>xxxx</driverid>
+<isfaved>false</isfaved>
+<isblocked>false</isblocked>
+<tripfare>0.000000</tripfare>
+<tripcurr></tripcurr>
+<tripchannel></tripchannel>
+<companyemail>aggelos@domain.gr</companyemail>
+<companyfacebook>domain</companyfacebook>
+<companytwitter>domain</companytwitter>
+</Trip><Trip>
+<id>xxxxxxxx</id>
+<hailtime>1434576550000</hailtime>
+<pickuptime>1434576725000</pickuptime>
+<from><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></from>
+<to><![CDATA[]]></to>
+<special><![CDATA[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]]></special>
+<agent>s</agent>
+<status>com</status>
+<rating>0</rating>
+<plateno>xxxxxxxx</plateno>
+<carmodel>xxxxxxxx</carmodel>
+<drivername>xx</drivername>
+<driversurname>xx</driversurname>
+<drivercode>xxxxxx</drivercode>
+<driverid>xxxx</driverid>
+<isfaved>false</isfaved>
+<isblocked>false</isblocked>
+<tripfare>0.000000</tripfare>
+<tripcurr></tripcurr>
+<tripchannel></tripchannel>
+<companyemail>aggelos@domain.gr</companyemail>
+<companyfacebook>domain</companyfacebook>
+<companytwitter>domain</companytwitter>
+</Trip></Trips>
+</TripHistory></body></message>
+</pre></code>
+
+I have highlighted the corrupt part of the message in red. Is this behavior to be expected? If it is how can I alleviate it? I need to have my messages correctly reported back to me from the socket no matter what the computational cost that may bring. 
+
+
+I am attaching below the code used to setup the tcp socket:
+
+
+<code><pre>
+try {
+			this._req = Ti.Network.Socket.createTCP({
+				host : this.host,
+				port : this.port,
+				connected : function(e) {
+					//send initial request
+
+					var reqstr = that._getInitialRequestString();
+					Ti.API.debug(reqstr);
+
+					e.socket.write(Ti.createBuffer({
+						type:Titanium.Codec.CHARSET_UTF8,
+						value : reqstr
+					}));
+					Ti.Stream.pump(e.socket, that._pumpCallback, 1000000, true);
+
+				},
+				error : function(e) {
+					Ti.API.error('Socket error');
+					that._connected=false;
+					that.disconnect();
+				},
+				closed : function(e) {
+					Ti.API.error('Socket close');
+					that._connected=false;
+				},
+			});
+			this._req.connect();
+		} catch (e) {
+			Ti.API.error('Error creating socket');
+			that._connected=false;
+			that.disconnect();
+		}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Aggelos Papageorgiou 2015-07-01
+
+   Please look into this issue I am on a really tight schedule and this bug is a really BIG showstopper. Please ask for any further information required to resolve this bug. thank you</li>
+<li>Chee Kiat Ng 2015-12-04
+
+   Have you tried with the latest environment we have? And is this specific to android or ios?</li>
+<li>Aggelos Papageorgiou 2015-12-04
+
+   I have tried up to the 5.1.0.GA SDK and it has not remedied it self neither on iOS nor on Android!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20094.json">JSON Source</a></p>

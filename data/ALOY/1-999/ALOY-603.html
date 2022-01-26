@@ -1,0 +1,308 @@
+---
+title: "[ALOY-603] Allow Alloy widgets to be wrapped around child elements in XML views"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-08-29T09:09:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.3.0, 2013 Sprint 22</td></tr>
+<tr><th>Components</th><td>XML</td></tr>
+<tr><th>Labels</th><td>alloy, notable, qe-automatedtest, qe-manualtest, views, widgets, xml</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-03-16T12:24:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-09-02T23:14:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>update (10/25/2013)</h4>
+
+This has been resolved in a way different than the original description. It is implemented in the example found here: <a href="https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/require_children" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/require_children</a>
+
+In brief, any child elements of <Require> or <Widget> elements will be passed to that widget's controller as an array, and it will be contained in <code>args.children</code>. Here's a trivial example using <Require>, but it works exactly the same for <Widget> as well:
+
+<h4>index.xml</h4>
+<code><pre>
+<Alloy>
+  <Window>
+    <Require src="someRequire">
+      <Label>child label</Label>
+    </Require>
+  </Window>
+</Alloy>
+</pre></code>
+
+<h4>someRequire.xml</h4>
+<code><pre>
+<Alloy>
+  <View id="content"/>
+</Alloy>
+</pre></code>
+
+<h4>someRequire.js</h4>
+<code><pre>
+var args = arguments[0] || {},
+
+    // args.children contains the elements under the <Require> elements, if any
+    children = args.children || [];
+
+// add child views to content
+_.each(children, function(child) {
+  $.content.add(child);
+});
+</pre></code>
+
+<h4>original</h4>
+
+Following the discussion at <a href="https://groups.google.com/d/msg/appc-ti-alloy/8PVVSE1UzXE/x6frOeTZGd4J" rel="nofollow" target="_blank">https://groups.google.com/d/msg/appc-ti-alloy/8PVVSE1UzXE/x6frOeTZGd4J</a> I propose to add support for child elements in <code><Widget></Widget></code> elements in Alloy XML views.
+
+The purpose of this would be to get a reference of these elements from within a widget that doesn't return a view of it's own, but is designed to act upon others. It would function in a way not that different from the existing support for getting a reference of the Widget parent element using <code>this.parent</code>.
+
+*Example XML View*
+
+<code><pre>
+<Alloy>
+  <Window id="myWindow">
+    <Widget id="myWidget" scr="my.alloy.widget">
+      <TableView id="myTable">
+        <TableViewRow title="my row" />
+      </TableView>
+    </Widget>
+  </Window>
+</Alloy>
+</pre></code>
+
+*Would be compiled to*
+
+<code><pre>
+...
+$.myWidget = Alloy.createWidget("my.alloy.widget", "widget", {
+  id: "myWidget"
+});
+$.myWidget.setParent($.__views.myWindow);
+$.myWidget.setChildren([$.__views.myTable]);
+...
+</pre></code>
+
+*Notes*
+Since the widget does not provide a view it's stored in <code>$.ID</code> instead of <code>$.__views.ID</code>. Because the widget could contain multiple child elements the methods is <code>setChildren</code> and it accepts an array.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-603_43463/Screen Shot 2013-10-25 at 4.19.39 PM.png">Screen Shot 2013-10-25 at 4.19.39 PM.png</td></td><td>2013-10-25T20:35:20.000+0000</td><td>36179</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-603_43464/Screen Shot 2013-10-25 at 4.19.47 PM.png">Screen Shot 2013-10-25 at 4.19.47 PM.png</td></td><td>2013-10-25T20:35:20.000+0000</td><td>75036</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Davide Cassenti 2013-04-17
+
+   Is there any progress about this?</li>
+<li>Tony Lukasavage 2013-04-17
+
+   No, not at this time. There's a number of high priority tickets I need to get to before I'll be able to get back to this one. I don't have a reliable ETA for it yet.</li>
+<li>Fokke Zandbergen 2013-07-21
+
+   Huh? How come Pedro is now the reporter? I thought I was..
+   
+   Anyway, another use case I would like to use this for is:
+   
+   <code><pre>
+   <Alloy>
+     <Window id="container">
+       <Widget src="NavigationGroup">
+         <Window id="primary">
+           <Label>Hello World</Label>
+         </Window>
+       </Widget>
+     </Window>
+   </Alloy>
+   </pre></code>
+   
+   The widget would return a <code>Ti.UI.iPhone.NavigationGroup</code> on iOS, while just open <code>Window#primary</code> on other platforms, so you have a cross platform solution. Additionally, both the iOS and other implementation could add additional methods for closing the last window or close all but the first.</li>
+<li>Fokke Zandbergen 2013-07-21
+
+   Same is true for <code><Require /></code>. A sample use case would be to have a view/controller that is used in multiple other views to wrap their content in a custom popup, without having to repeat the same view elements in every of these views:
+   
+   View using the wrapper:
+   <code><pre>
+   <Alloy>
+     <Require="snippets/popup">
+       <Label>Hello world</Label>
+     </Require>
+   </Alloy>
+   </pre></code>
+   
+   View of the wrapper:
+   
+   <code><pre>
+   <Alloy>
+     <Window>
+       <ImageView image="x.png" onClick="closeDialog" />
+       <View id="content" borderSize="10" borderColor="black" height="Ti.UI.SIZE" left="10" right="10">
+         
+       </View>
+     </Window>
+   </Alloy>
+   </pre></code>
+   
+   Controller of the wrapper:
+   
+   <code><pre>
+   function closeDialog() {
+     $.getView().close();
+   }
+   
+   exports.add = $.content.add;
+   </pre></code>
+   
+   The above controller code also shows that the controller should expose an <code>add</code> method that receives the first level of wrapped view(s) so it can consume them in whatever way it needs to.</li>
+<li>Tony Lukasavage 2013-07-22
+
+   [~fokke] pedro probably moved it from TC to ALOY, and sometimes that inadvertantly reassigns the reporter. I fixed it.</li>
+<li>Ronald Treur 2013-07-23
+
+   Thanks again Fokke for bringing this up! I'm very happy to see it will be included in the near future.
+   
+   I originally wanted to wrap the Ti.UI.Window in a widget, but had to reside to windows registering themselves with a custom manager upon creation. This fix/feature will make sure use-cases like this one will utilize the full potential of Alloy's XML Views.
+   
+   Kudos to all involved!</li>
+<li>Fokke Zandbergen 2013-07-27
+
+   It seems to work for me by changing just a few lines:
+   
+   <code>Alloy.Require.js#26</code>
+   <code><pre>
+       //U.die('<Require> elements may not have child elements.');
+   </pre></code>
+   
+   <code>Alloy.Require.js#122</code>
+   <code><pre>
+        symbolic: args.symbol,
+        symbol: args.symbol + '.getViewEx({recurse:true})'
+   </pre></code>
+   
+   <code>default.js#98</code>
+   <code><pre>
+        code += (args.parent.symbolic || args.parent.symbol) + ".add(" + args.symbol + ");\n";
+   </pre></code>
+   
+   I'm sure there are things to take care off, but this will expect an <code>add</code> method to be exposed by the Widget/Controller, which could then do whatever it wants with the added child view(s).</li>
+<li>Tony Lukasavage 2013-08-07
+
+   I'm starting to think about this one, and I think I want to put all the effort onto the widget developer to determine what is done with the children. I don't think a new add() API needs to be introduced for the requires/widgets, it should be the responsibility of the widget designer to handle them. 
+   
+   here's a very basic gist of how I would imagine you would implement this behavior, assuming that Alloy provided a "children" argument to widgets/requires:
+   
+   <a href="https://gist.github.com/tonylukasavage/6178871" rel="nofollow" target="_blank">https://gist.github.com/tonylukasavage/6178871</a>
+   
+   I'd like to keep the implementation simple to see what particular use cases rise up around it. In the future we could designate an XML attribute on or in the widget that identifies the "container" component so that you don't need to assemble the view hierarchy programmatically, but I think this is a good first step and that type of functionality can easily be added later if this proves useful.
+   
+   Thoughts? </li>
+<li>Fokke Zandbergen 2013-08-08
+
+   Looks pretty solid, you could even support doing stuff like this:
+   
+   <code><pre>
+   <Alloy>
+     <Window>
+       <Widget src="myWidget">
+         <SomeProxy>
+           <Button>Hi</Button>
+         </SomeProxy>
+         <AnotherProxy>
+           <Button>One</Button>
+           <Button>Two</Button>
+         </AnotherProxy>
+         <Button>Root</Button>
+       </Widget>
+     </Window>
+   </Alloy>
+   </pre></code>
+   
+   To be passed as:
+   
+   <code><pre>
+   children: {
+     SomeProxy: {
+       children: [
+         [object Ti.UI.Button]
+       ]
+     },
+     AnotherProxy: {
+       children: [
+         [object Ti.UI.Button],
+         [object Ti.UI.Button],
+       ]
+     },
+     children: [
+       [object Ti.UI.Button]
+     ]
+   }
+   </pre></code>
+   
+   This might seem like a bit too much, but imagine having a widget taking a table, a view for the Pull to Refresh, another for the Infinite Scroll.</li>
+<li>Ronald Treur 2013-08-08
+
+    Looks like a very flexible solution to me, I like it!</li>
+<li>Tony Lukasavage 2013-10-25
+
+    PR: <a href="https://github.com/appcelerator/alloy/pull/258" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/258</a>
+    test app: <a href="https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/require_children" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/require_children</a>
+    
+    Functional test should include the following for all supported platforms:
+    
+    <h4>Run the app</h4>
+    <h4>Ensure that no compile time or runtime errors occur</h4>
+    <h4>Ensure that the resulting UI is composed of the child elements contained in the <Require> and <Widget> elements in the app</h4>
+    <h4>For reference, the iOS 7 screens should look like the attached screenshots (ignore the missing tab titles, its a result of TIMOB-15581)</h4>
+    
+    All <code>jake test:all</code> tests should pass as well.
+    </li>
+<li>Fokke Zandbergen 2013-11-21
+
+    </li>
+<li>Tony Lukasavage 2013-11-21
+
+    [~fokke] I think a new ticket that better details the format and expected behavior would be appropriate. I'm a little foggy on what you are trying to do there, if only because I think you are using the word "proxy" differently than we typically use it. If you do create a ticket, mention this one and I'll make sure they get linked.</li>
+<li>Fokke Zandbergen 2013-11-22
+
+    [~tlukasavage] here it is: TC-3318</li>
+<li>Federico Casali 2013-12-03
+
+    Verified fixed.
+    
+    TiSDK 3.2.0.v20131127194046
+    CLI 3.2.0-beta
+    Alloy 1.3.0-beta
+    Titanium Studio 3.2.0.201311262027
+    
+    iPad OS 7 and simulator
+    Android Google Nexus Galaxy 4.3
+    MobileWeb (for sample #2)
+    
+    Closing.</li>
+<li>Ingo Muschenetz 2014-08-28
+
+    [~fcasali] should this be closed?</li>
+<li>Fokke Zandbergen 2014-08-29
+
+    Yes</li>
+<li>Federico Casali 2014-09-02
+
+    Yes, it should. Closing.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-603.json">JSON Source</a></p>

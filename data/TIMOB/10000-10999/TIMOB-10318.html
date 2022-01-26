@@ -1,0 +1,222 @@
+---
+title: "[TIMOB-10318] iOS: animation redraw problem"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-18T20:36:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0, Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-17 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, module_animation, qe-review, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Martin Guillon</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-07-31T02:13:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-20T16:26:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+when running the same animation twice, the second call doesnt work well.
+I should mention that i reset the position before starting the animation
+<code><pre>
+var win = Ti.UI.createWindow({ fullscreen: true, backgroundColor: 'white'});
+ 
+ 
+//label using localization-ready strings from <app dir>/i18n/en/strings.xml
+var view = Ti.UI.createView({
+    backgroundColor:'red',
+    height:100,
+    width:100,
+    top:0,
+    left:0
+});
+win.add(view);
+
+var button = Titanium.UI.createButton({
+    title:'Animate',
+    width:200,
+    height:40,
+    bottom:20,
+    left: 10
+});
+
+button.addEventListener('click', function()
+{
+    view.left = 0;
+    //view.updateLayout({left:0}); //tried that too, still doesnt work
+    view.animate({left:(win.rect.width - view.rect.width), duration:1000});
+});
+win.add(button);
+
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Betty Tran 2012-08-06
+
+   Hi Martin,
+   
+   If we reset the position of the view after the animation has finished, the animation is working every time the button is clicked. For example:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({ fullscreen: true, backgroundColor: 'white'});
+     
+     
+   //label using localization-ready strings from <app dir>/i18n/en/strings.xml
+   var view = Ti.UI.createView({
+       backgroundColor:'red',
+       height:100,
+       width:100,
+       top:0,
+       left:0
+   });
+   win.add(view);
+    
+   var button = Titanium.UI.createButton({
+       title:'Animate',
+       width:200,
+       height:40,
+       bottom:20,
+       left: 10
+   });
+    
+   button.addEventListener('click', function()
+   {
+       view.left = 0;
+       //view.updateLayout({left:0}); //tried that too, still doesnt work
+       view.animate({left:(win.rect.width - view.rect.width), duration:1000});
+       setTimeout(function(){
+       	view.left = 0;
+   }, 1001);
+   });
+   win.add(button);
+    
+   win.open();
+   </pre></code>
+   
+   The sample code that was provided is not working because the view is already in the finishing position of the animation. We need to reset the view position first.</li>
+<li>Martin Guillon 2012-08-06
+
+   You went a little fast in saying invalid ;)
+   Your code doesnt fix the bug.
+   My bug is run the sample code, start the animation, wait to it to finish(square on the right).
+   Run it again, nothing happens(it is happening but not redrawing).
+   
+   Moreover i dont get your comment about the view already being in the finishing position. Start is left of the screen, finish is right of the screen.</li>
+<li>Betty Tran 2012-08-06
+
+   Hi Martin,
+   
+   When we start the animation, the view is in position 0 (we can check this using view.rect.x). The view finishes the animation in position 220. If we click the button again, the view animates until it has reached position 220. No animation is visible because the view is already at position 220.
+   
+   The code provided resets the view so it is back on the left. The animation works after resetting the view position back to the left.</li>
+<li>Martin Guillon 2012-08-06
+
+   I get what you say but <code>view.left = 0;</code> should reset the position right away
+   That's why i am doing it before starting my animation
+   This is a trick that i have been using to get around that bug
+   <code><pre>
+   
+   var win = Ti.UI.createWindow({ fullscreen: true, backgroundColor: 'white'});
+      
+      
+   //label using localization-ready strings from <app dir>/i18n/en/strings.xml
+   var view = Ti.UI.createView({
+       backgroundColor:'red',
+       height:100,
+       width:100,
+       top:0,
+       left:0
+   });
+   win.add(view);
+     
+   var button = Titanium.UI.createButton({
+       title:'Animate',
+       width:200,
+       height:40,
+       bottom:20,
+       left: 10
+   });
+     
+   button.addEventListener('click', function()
+   {
+       view.animate({left:0, duration:1}, function(){
+           view.animate({left:(win.rect.width - view.rect.width), duration:1000});
+       });
+   
+   });
+   win.add(button);
+     
+   win.open();
+   </pre></code>
+   So my point is that view.left = 0; should change the value right away (even if the redraw event comes later in the event queue) so that a following animation works as expected.</li>
+<li>Betty Tran 2012-08-06
+
+   The view.left=0 does not reposition the view to the left. However, it works if we allow some time before calling the animation: 
+   
+   <code><pre>
+   button.addEventListener('click', function(e)
+   {
+       view.left = 0;
+   
+       setTimeout(function(){
+       	 view.animate({left:(win.rect.width - view.rect.width), duration:1000});
+       	
+   }, 100);
+   });
+   </pre></code>
+   
+   The bug does not occur in 2.1.1GA.</li>
+<li>Martin Guillon 2012-08-07
+
+   When you say the "The view.left=0 does not reposition the view to the left." do you mean it as it is a bug, or as it is so?
+   To me we shouldnt need to wait a little. We set the property, it is available right away if we "get" it so we can assume that a following animation would use that value.</li>
+<li>Betty Tran 2012-08-07
+
+   Martin, yes it appears to be a bug.</li>
+<li>Martin Guillon 2012-08-07
+
+   thanks Betty</li>
+<li>Max Stepanov 2012-08-17
+
+   PR merged <a href="https://github.com/appcelerator/titanium_mobile/pull/2763" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2763</a></li>
+<li>Olga Romero 2012-08-27
+
+    Verified fix with:
+    Titanium Studio, build: 2.1.2.201208201549
+    Titanium SDK:2.2.0.v20120824175712
+    Titanium SDK:2.1.2.v20120824144611
+    
+    Devices:
+    Simulator 5.1
+    iPhone 4.3.5</li>
+<li>Anshu Mittal 2012-09-04
+
+    reopening to update labels</li>
+<li>Vishal Duggal 2012-12-13
+
+    The fix for this issue has been reverted in the master branch and will be removed in the 3.0.1 release as well.</li>
+<li>Vishal Duggal 2012-12-13
+
+    Reverted by PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3568" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3568</a></li>
+<li>jithinpv 2013-05-07
+
+    issue reproduces
+    
+    Tested with
+    Titanium Studio, build: 3.0.1.201212181159
+    Titanium SDK version: 3.1.0
+    iOS iPhone Simulator: iOS SDK version: 6.0
+    </li>
+<li>Lee Morris 2017-03-20
+
+    Closing ticket as duplicate.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10318.json">JSON Source</a></p>

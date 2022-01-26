@@ -1,0 +1,73 @@
+---
+title: "[TIMOB-25051] Android. persistentObjects leak"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-14T00:30:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Sergey Volkov</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-07-19T12:44:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-11-15T06:26:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<a href="https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/network/src/js/network.js#L16" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/network/src/js/network.js#L16</a>
+<a href="https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/network/src/js/network.js#L27" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/network/src/js/network.js#L27</a>
+
+<a href="https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/ui/src/js/ui.js#L18" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/ui/src/js/ui.js#L18</a>
+<a href="https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/ui/src/js/ui.js#L29" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/modules/ui/src/js/ui.js#L29</a>
+
+Objects references should not be deleted by "splice", because they might be disposed not in the same order what they were stored.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sergey Volkov 2017-07-19
+
+   I suggest to replace current realisation with something like this:
+   <code><pre>
+   // Keeps an object alive until dispose() is called.
+   // This is currently used to keep "top level" objects
+   // (ex: windows, tab groups) alive until their lifecycle ends.
+   function PersistentHandle(object) {
+   	this.cell = PersistentHandle.lastId++;
+   	PersistentHandle.objects[this.cell] = object;
+   }
+   
+   // Objects retained by persistent handles.
+   // Each element in this array acts as a storage "cell"
+   // keeping the object reachable and alive until it is removed.
+   PersistentHandle.objects = {};
+   
+   PersistentHandle.lastId = 0;
+   
+   PersistentHandle.prototype.dispose = function() {
+   	if (this.cell == -1) {
+   		// This handle has already been disposed.
+   		return;
+   	}
+   
+   	delete PersistentHandle.objects[this.cell];
+   	this.cell = -1;
+   }
+   </pre></code>
+   </li>
+<li>Sergey Volkov 2017-08-04
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9276" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9276</a></li>
+<li>Abir Mukherjee 2017-11-14
+
+   FR passed; PR's merged.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25051.json">JSON Source</a></p>

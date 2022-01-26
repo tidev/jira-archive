@@ -1,0 +1,151 @@
+---
+title: "[AC-6572] iOS: when running a on a device, Javascript compilation results in a particular block of code not being executed, without errors"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2020-08-18T14:10:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Roman Avsec</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2020-07-08T22:35:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-08-18T14:10:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When running an Alloy project on a device or releasing an Adhoc or an App store version, thus running the project through a pipeline where Javascript files are additionally processed, odd behavior is observed where a block of code may not executed, without any compilation or runtime errors.
+
+*Steps to reproduce:*
+* Create a new default Alloy Project 
+* add example code below to in index.js controller
+* run project on an iOS device (run directly, just without LiveView; or create and install an Adhoc build; or create and install AppStore build through Testflight)
+
+*Expected result:*
+* setTiProps function should've run in entirety and styling should be applied to the Label (correct_screenshot.png)
+* OR if any part of the example Javascript is invalid, a compilation error or a runtime error should've been triggered
+
+*Actual result:*
+* setTiProps function is somehow not executed in its entirety and styling is thus not applied to the Label (incorrect_screenshot.png)
+
+<h4>Additional observations - please note that this is *not* a styling issue</h4>
+
+The correct and expected result is shown in the following cases:
+* by running on an actual device _with_ LiveView enabled
+* by running on an iOS simulator _with_ or _without_ LiveView
+* most unexpectedly, by modifying the example code through inserting *any dummy line* into the setTiProps function just before the _for_ loop, such as: console.log("Here");
+* (also, by compiling and running the code with SDK 7.4 and lower)
+
+The above observations lead me to postulate that one of the steps active in additional Javascript processing for device builds (minimization, obfuscation, encryption, ...?) encounters a situation in the example code that causes it to silently modify the function in a way that it makes it not run all the way through, all without triggering any compilation or runtime errors - this makes it particularly challenging to track down the real issue as most attempts to debug the code will cause it run correctly again (either by modifying the code with log statements or creating a debug build that then skips the troublesome Javascript processing pipeline).
+
+----
+
+_index.js:_
+<code><pre>
+var ALLOWED_PROPS = [
+	"backgroundColor",
+	"borderColor",
+	"borderRadius",
+	"borderWidth",
+	"height",
+	"width",
+];
+
+function setTiProps(args, component) {
+
+	if (!component) return;
+
+	var args = args || {}, prop = '';
+
+	for(var i = 0, j = ALLOWED_PROPS.length; i < j; i++){
+		prop = ALLOWED_PROPS[i];
+		if(typeof args[prop] !== "undefined") {
+			component[prop] = args[prop];
+		}
+	}
+};
+
+setTiProps({
+    "backgroundColor": "red",
+    "borderColor": "green",
+    "width": "100%",
+    "height": "50dp"
+}, $.label);
+
+function doClick(e) {
+	alert($.label.text);
+}
+
+$.index.open();
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6572_67466/correct_screenshot.png">correct_screenshot.png</td></td><td>2020-07-08T22:36:42.000+0000</td><td>83250</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6572_67465/incorrect_screenshot.png">incorrect_screenshot.png</td></td><td>2020-07-08T22:36:42.000+0000</td><td>82195</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6572_67468/index.working-correctly.js">index.working-correctly.js</td></td><td>2020-07-08T22:37:07.000+0000</td><td>602</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6572_67467/index.working-incorrectly.js">index.working-incorrectly.js</td></td><td>2020-07-08T22:37:07.000+0000</td><td>576</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2020-07-13
+
+   [~ravsec] firstly, thank you for such a complete bug report!
+   
+   I've took a look into this and it does look to be a problem with the package we use for minification (babel-minify), it appears that when minifying the <code>setTiProps</code> function it inlines the declaration of <code>args</code> and <code>prop</code> into the for loop definition (code below) I believe this is the root cause of the issue you're seeing.
+   
+   <code><pre>
+   function setTiProps(args,component){
+   
+   	if(component)
+   
+   	for(var args=args||{},prop="",i=0,j=ALLOWED_PROPS.length;void 0>i;i++) {
+   		prop=ALLOWED_PROPS[i],
+   		"undefined"!=typeof args[prop]&&(
+   		component[prop]=args[prop]);
+   	}
+   };
+   </pre></code>
+   
+   I was able to fix this without requiring disabling js minification by changing <code>setTiProp</code> to the following:
+   
+   <code><pre>
+   function setTiProps(args, component) {
+    
+   	if (!component) return;
+    
+   	args = args || {};
+   	for(const prop of ALLOWED_PROPS){
+   		if(typeof args[prop] !== "undefined") {
+   			component[prop] = args[prop];
+   		}
+   	}
+   };
+   </pre></code>
+   
+   Do you want to give that a try and let me know how it goes?</li>
+<li>Roman Avsec 2020-07-15
+
+   Thank you for your response Ewan.
+   
+   In the meantime I've refactored that particular piece of code to more modern standards as well - it was a very old piece of code as evidenced by the coding standards used :) That seemed to have avoided triggering the minimization bug. Your approach works well too!</li>
+<li>Ewan Harris 2020-08-18
+
+   I'm going to close this one out as the underlying issue was fixed</li>
+</ol>
+
+
+<p><a href="/AC/AC-6572.json">JSON Source</a></p>

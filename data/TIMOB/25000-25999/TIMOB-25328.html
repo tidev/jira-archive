@@ -1,0 +1,305 @@
+---
+title: "[TIMOB-25328] CLI: Option "Enable Javascript Minification" break code from SDK >= 6.1.1.G.A"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-16T18:30:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>cb-tooling, regression</td></tr>
+<tr><th>Reporter</th><td>nicolomonili</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2017-09-21T11:03:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When the app is installed on the device (also on Appstore) and the option *Enable Javascript Minification* is *active*, in some portions of the code there are some problems due to how the variables are minimized. So it depends on the structure of the code, in my case it's very complex, and i can't provide a sample code (for now).
+
+But one case that i solved is this : 
+<code><pre>
+function myModule(..,...) {
+    .....
+    function test(){
+            ......
+            test2();
+            function test2(){ ...  }
+    }
+     
+}
+module.exports = myModule;
+</pre></code>
+In this case it was enough to do this for solve the problem
+<code><pre>
+function myModule(..,...) {
+    .....
+    function test(){
+            ......
+            test2();
+            
+    }
+    function test2(){ ...  }
+     
+}
+module.exports = myModule;
+</pre></code>
+
+I have this problems with this SDK: 
+- *6.2.1.G.A*
+- *6.2.0.G.A*
+- *6.1.2.G.A*
+- *6.1.1.G.A*
+
+I dont' have this problems with this SDK:
+- *6.1.0.G.A*
+- *6.0.4.G.A*
+- I didn't test the previous ones
+
+If the option "Enable Javascript Minification" is not active there aren't problems.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-09-21
+
+   Very likely caused by TIMOB-24884, assigning to [~cbarber].</li>
+<li>Chris Barber 2017-09-21
+
+   We use Babili to minify the code and it sometimes aggressively modifies the code as a result.
+   
+   I'm trying to reproduce this with master (7.0.0) and I can't seem to come up with a complex enough example that causes any issues.
+   
+   I wrote a small test, but it works as expected:
+   
+   <code><pre>
+   function test() {
+   	var s = '';
+   	for (var i = 0; i < 10; i++) {
+   		s += String(i);
+   	}
+   
+   	test2();
+   
+   	for (var i = 9; i >= 0; i--) {
+   		s += String(i);
+   	}
+   
+   	function test2() {
+   		var x = 0;
+   		x++;
+   
+   		test3();
+   
+   		function test3() {
+   			console.log('hi from test3!');
+   			console.log(s);
+   		}
+   	}
+   
+   	test2();
+   }
+   
+   module.exports = test;
+   </pre></code>
+   
+   If you could provide a test case that can reproduce the issue, then I can take another look at this issue. Thanks!</li>
+<li>nicolomonili 2017-09-22
+
+   Can i try with [this](<a href="http://babeljs.io/repl/#?babili=true)" rel="nofollow" target="_blank">http://babeljs.io/repl/#?babili=true)</a> ? 
+   PS: Something has changed from version *6.1.1.G.A* with the code minification? My code is always the same and the problems started with SDK 6.1.1.G.A.</li>
+<li>Chris Barber 2017-09-26
+
+   [~nicolomonili] Yes, we replaced UglifyJS with Babili so that we can support ES2015 and newer in the tooling. ES2015 support in the JavaScript engines is a different matter.
+   
+   Now that we use Babili, it seems at times it's minification and dead code removal is super aggressive and we've had to scale it down, but there may be some edge cases that are problematic. If you have sample code that breaks, please let us know so that we can try to fix it. Perhaps our Babili version is out of date or something?</li>
+<li>nicolomonili 2017-09-26
+
+   In these days i try to reproduce the problem with a simplified example that i can post here.
+   Sorry, but i haven't yet understand if you have started to use Babili from the SDK 6.1.1.G.A (it is very important to know). Thank you</li>
+<li>Hans Knöchel 2017-09-26
+
+   Yes, it was 6.1.1, see [this PR](<a href="https://github.com/appcelerator/titanium_mobile/pull/9177)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9177)</a> related to TIMOB-24884.</li>
+<li>Chris Barber 2017-09-26
+
+   Babili was introduced via node-titanium-sdk in Titanium SDK 6.1.0.GA.</li>
+<li>nicolomonili 2017-09-29
+
+   {quote}Appcelerator Studio, build: 4.9.1.201707200100
+   Appcelerator SDK 6.2.2.GA
+   Node.js Version             = 4.6.0
+   npm Version                 = 2.15.9
+   CLI Version                 = 5.0.4
+   node-appc Version           = 0.2.31{quote}
+   
+   I was able to recreate the problem with this simple test. This code works only if it is not minified.
+   
+   File *app.js*
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   var test = require("test");
+   win.add(
+   	new test()
+   );
+   win.open();
+   </pre></code>
+   
+   File *test.js*
+   <code><pre>
+   function testModule() {
+   
+       var viewMain = Ti.UI.createView();
+   
+       var num = 0;
+       var ins = 0;
+   
+       function function1(fff) {
+   
+           var vsp = fff.ppp.ddd[0].split(";");
+   
+           var vsp0 = vsp[0];
+   
+   		ins = 0;
+           num = 0;
+   
+           if (ins == 0) {
+   
+               switch(num) {
+                   case 1 :
+                       if (fff.bbb(vsp0, 0) == 1) {
+                           
+                       } else {
+                          
+                       }
+                  break;
+               }
+   
+               function2('1', null, null);
+   
+               for (var i = 0; i < 8; i++) {
+   				function2(null, "val" + i, i + 1);
+               }
+               
+               function function2(_v1, _v2, _v3) {
+   
+               }
+   
+           } else {
+   
+           }
+   
+       };
+   
+     	viewMain.animate({
+           opacity : 1.0,
+           duration : 500
+       });
+      
+   	function1(
+       	{
+       		ppp : {
+       			ddd : ["1;2;3;4"]
+       		},
+       		bbb : function(c1,c2){
+       			return 0;
+       		}
+       	}
+       );
+       
+       return viewMain;
+   }
+   
+   module.exports = testModule;
+   
+   
+   </pre></code>
+   </li>
+<li>nicolomonili 2017-10-10
+
+   Are there updates on it? Thank you</li>
+<li>Feon Sua Xin Miao 2017-11-06
+
+    I get \{\{\[ERROR]     message = "0 is not a function (evaluating 'c(\"1\",null,null)')";}} with SDK 6.2.2. 
+    No error with master (7.0.0.v20171104095810).</li>
+<li>Hugo Ramos Freire Neto 2017-11-13
+
+    My app is breaking on Iphone device when I require a specific minified file.
+    
+    To reproduce:
+    1. Create a new project
+    2. add he.js on lib folder. (Link: <a href="https://github.com/mathiasbynens/he/blob/master/src/he.js)" rel="nofollow" target="_blank">https://github.com/mathiasbynens/he/blob/master/src/he.js)</a>
+    3. var he = require('he'); //on index.js
+    4. Run on iphone device. (Not Simulator)
+    5. The app should break with message: "Invalid Character \u8472 at hs.js (line 1)"
+    
+    PS: Before SDK 6.1.x the he.js library works.
+    PS2: If I run with --skip-js-minify flag everything works fine.
+    </li>
+<li>Eric Merriman  2017-11-15
+
+    [~hknoechel] The workaround is use <code>--skip-js-minify</code> from the CLI or uncheck the minify box from Studio. We will work on this now
+    </li>
+<li>Christopher Williams 2017-11-15
+
+    So [~nicolomonili]'s example works fine on the latest master build for me. Looking between 6_2_X and master, we actually use babili 0.1.4 in both cases, but it looks like it picked up different plugins in each case, here are the changes:
+    <code><pre>
+            "babel-plugin-transform-member-expression-literals": "6.8.4" -> "6.8.5"
+            "babel-plugin-transform-merge-sibling-variables": "6.8.5" -> "6.8.6"
+            "babel-plugin-transform-minify-booleans": "6.8.2" -> "6.8.3"
+            "babel-plugin-transform-property-literals": "6.8.4" -> "6.8.5"
+            "babel-plugin-transform-remove-console": "6.8.4" -> "6.8.5"
+            "babel-plugin-transform-remove-debugger": "6.8.4" -> "6.8.5"
+            "babel-plugin-transform-simplify-comparison-operators": "6.8.4" -> "6.8.5"
+            "babel-plugin-transform-undefined-to-void": "6.8.2" -> "6.8.3"
+    </pre></code>
+    
+    So the bug fix is apparently in there for his issue. Don't know if we want to back port to the 6.X branches or not, but master seems fine.
+    
+    For [~hrfn]'s issue, I can reproduce on master using the v1.1.1 tarball release's he.js file from the linked repo. That file makes use of a lot of unicode characters and the minification tries to "inline" the unicode points from the escape sequence to the actual character and the JS engine chokes on u2118 (I assume it may choke on others). Technically any unicode character should be a valid source character in the ES6 spec, but in practice the JSCore engine may not like that. I really don't know the best way forward for this specific edge case. Technically the minifier (which is 3rd party) is doing the right thing - it's a bug in JSCore (Apple's JS engine in iOS/Safari). In this case, this specific file should not be minified, or the specific babel plugin which inlines the string values should be skipped (babel-plugin-minify-constant-folding) for it. I don't know how to offer that up to app developers easily.</li>
+<li>Feon Sua Xin Miao 2017-11-15
+
+    [~cwilliams], there's a fix for the [~hrfn]'s issue <a href="https://github.com/appcelerator/node-titanium-sdk/pull/17." rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/17.</a> 
+    </li>
+<li>Hans Knöchel 2017-11-16
+
+    *Update*: Using the latest PR, it now works for all my test-cases! [~imarkovi] will confirm in the morning, but he already approved that the fix works for him as well. [~nicolomonili] You can also try the fix by replacing the "jsanalyse.js" from the PR above in your local SDK installation, e.g.:
+    <code><pre>
+    ~/Library/Application Support/Titanium/mobilesdk/osx/6.3.0.GA/node_modules/node-titanium-sdk/lib/
+    </pre></code></li>
+<li>Christopher Williams 2017-11-16
+
+    Merged that PR, now here's the PR to include the updated module in the SDK: <a href="https://github.com/appcelerator/titanium_mobile/pull/9610" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9610</a></li>
+<li>Ivan Markovic 2017-11-16
+
+    Hans, yes it works! So, so pleased. Much appreciated. Thank you. </li>
+<li>David van de Meer 2017-11-30
+
+    </li>
+<li>Richard Lustemberg 2018-01-16
+
+    In a big app I'm working on, we still have the problems even using 7.0.1 . Minification causes the following iOS issues:
+    * if JSCore is enabled the app quits after a few seconds
+    * if JSCore is not enabled, there is one controller which exhibits strange behaviour such as a line invoking Ti.Gesture.removeEventListener('orientationchange', someFunction) inside a function is executed when the controller is ran. Like if minification has detached the line from the function to which it belongs and placed it alongside the rest of the controller's code. If I comment out the line, the event listener stays.
+    
+    The app is very complex, this controller is being created from within a complex chain of events. I'll try to isolate the issue and provide a test case.
+    
+    Compiling our app using a CLI > 6.2.4 causes the issue, with the controller. and I think CLI >6.1.x crashes if using JSCore 
+    
+    EDIT:
+    Using CLI 6.3.0 to 7.0.1 and SDK  6.3.x , Ti.Gesture.addEventListener and Ti.Gesture.removeEventListener were not working after minification. SDK 7.0.1 solved that.
+    The issue of the app crashing a few seconds after boot if minification and JSCore were used was triggered by inline 'require' statements being executed during the first run loop. After assigning the exports object to variables  the problem was averted.</li>
+<li>Hans Knöchel 2018-01-17
+
+    Thanks for the feedback [~rlustemberg]! [~fmiao] should we allow inline require statements or is this an intended babel behavior?</li>
+<li>Eric Merriman  2018-08-06
+
+    Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25328.json">JSON Source</a></p>

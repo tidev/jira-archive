@@ -1,0 +1,432 @@
+{
+	"id": "170274",
+	"key": "TIMOB-25585",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "19957",
+				"description": "",
+				"name": "Release 7.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2018-03-14"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-02-23T18:04:35.000+0000",
+		"created": "2017-11-10T17:40:17.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "ybanev",
+			"key": "ybanev",
+			"displayName": "Yordan Banev",
+			"active": true,
+			"timeZone": "Europe/Athens"
+		},
+		"updated": "2018-03-02T17:01:55.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "*The results:*\r\nCalling Ti.Media.showCamera without overlay and saveToPhotoGallery set to false, fills the appdata directory with orphan pseudo-temporary files.\r\n\r\n*The explanation:*\r\nWhen you use Ti.Media.showCamera without overlay, it calls\r\nlaunchNativeCamera(cameraOptions);\r\nThen, in launchNativeCamera method, it creates imageFile variable (MediaModule.java line 231)\r\n{code:java}\r\n//Create an output file irrespective of whether saveToGallery\r\n\t\t//is true or false. If false, we'll delete it later\r\n\t\tFile imageFile = null;\r\n\r\n\t\tif (saveToPhotoGallery) {\r\n\t\t\timageFile = MediaModule.createGalleryImageFile(extension);\r\n\t\t} else {\r\n\t\t\timageFile = MediaModule.createExternalStorageFile(extension, Environment.DIRECTORY_PICTURES, false);\r\n\t\t}\r\n{code}\r\n\r\nWell, in both cases the code ends calling\r\n{code:java}\r\nprivate static File createExternalStorageFile(String extension, String type, boolean isPublic)\r\n{code}\r\n\r\nThis method creates a temporary file using the following code (MediaModule.java line 630)\r\n{code:java}\r\nfile = TiFileHelper.getInstance().getTempFile(appDir, ext, false);\r\n{code}\r\n\r\nWell, the last argument in getTempFile method is destroyOnExit. TiFileHelper uses this flag to decide wether to include or not the resulting file in an ArrayList<File>. All files included in this list will be deleted after execution (see line 860 in TiApplication.java, method dispose).\r\n\r\nOk, this is not very important as later, in MediaModule, in line 805, when processing the onResult event, the temporary file is deleted:\r\n{code:java}\r\nif (!saveToPhotoGallery) {\r\n\t//Create a file in the internal data directory and delete the original file\r\n\ttry {\r\n\t\tFile dataFile = TiFileFactory.createDataFile(\"tia\", extension);\r\n\t\tcopyFile(imageFile, dataFile);\r\n\t\timageFile.delete();\r\n\t\timageFile = dataFile;\r\n\r\n\t} catch(Throwable t) {\r\n\t\tif (errorCallback != null) {\r\n\t\t\tKrollDict response = new KrollDict();\r\n\t\t\tresponse.putCodeAndMessage(UNKNOWN_ERROR, t.getMessage());\r\n\t\t\terrorCallback.callAsync(getKrollObject(), response);\r\n\t\t}\r\n\t\treturn;\r\n\t}\r\n}\r\n{code}\r\nSo, the first temporary file created is deleted after have being copied, but then it's never deleted.\r\n\r\nYou can check your appdata directory from the app and each time a photo is taken, a new \"tiaxxxxxxx.jpg\" file is created and never deleted. The app data size is always growing up.\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: MediaModule creates temporary files that don't delete on app exit",
+		"creator": {
+			"name": "rfarfan",
+			"key": "rfarfan",
+			"displayName": "Rodrigo Farfán",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "rfarfan",
+			"key": "rfarfan",
+			"displayName": "Rodrigo Farfán",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"environment": "Branch 6_3_X\r\nTested on Galaxy S6",
+		"closedSprints": [
+			{
+				"id": 1000,
+				"state": "closed",
+				"name": "2018 Sprint 04 SDK",
+				"startDate": "2018-02-12T04:23:01.913Z",
+				"endDate": "2018-02-26T04:23:00.000Z",
+				"completeDate": "2018-02-26T19:36:01.769Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "430418",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Sorry, I accidentally created this issue in AC Project instead of TIMOB. Can any admin move to the correcto project??",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-11-10T19:38:43.000+0000",
+					"updated": "2017-11-10T19:38:43.000+0000"
+				},
+				{
+					"id": "430443",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, Please provide a full sample testcode that regenerates the issue. Better to provide a sample app as an attachment here. We will test the issue in our environment. Also, provide the SDK and CLI version you are testing on. If we can reproduce the issue we will move the ticket to TIMOB for fixing. Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-11-11T15:56:39.000+0000",
+					"updated": "2017-11-11T15:56:39.000+0000"
+				},
+				{
+					"id": "431200",
+					"author": {
+						"name": "mrahman",
+						"key": "mrahman",
+						"displayName": "Mostafizur Rahman",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~rfarfan], \r\nJust passing a followup here.Are you able to get that sorted out?  Let us know if you still experience any issue. We would be happy to assist you.\r\nBest Regards!\r\n\r\nRegards \r\nAxway Appcelerator Support\r\n",
+					"updateAuthor": {
+						"name": "mrahman",
+						"key": "mrahman",
+						"displayName": "Mostafizur Rahman",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-11-23T05:36:13.000+0000",
+					"updated": "2017-11-23T05:36:13.000+0000"
+				},
+				{
+					"id": "431234",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Sorry, didn't have time to post an example. I'm working on it and will post ASAP. I'm experiencing this issue in a real project and had to perform an explicit clean-up process periodically by deleting \"tia*.*\" files.\r\n\r\nRegards",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-11-24T08:57:24.000+0000",
+					"updated": "2017-11-24T08:57:24.000+0000"
+				},
+				{
+					"id": "431748",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Hi everyone, attached is the sample app in which you can see the way tiaXXXX.xxx files last forever.\r\n\r\nRegards.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-12-05T20:53:07.000+0000",
+					"updated": "2017-12-05T20:53:07.000+0000"
+				},
+				{
+					"id": "431749",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Cannot attach .zip file",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-12-05T20:54:22.000+0000",
+					"updated": "2017-12-05T20:54:22.000+0000"
+				},
+				{
+					"id": "431781",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Sorry, but I cannot (or don't know) how to attach the zip file with Titanium Alloy project that reproduces the issue. I'm adding a dropbox link to the zip file\r\n\r\nhttps://www.dropbox.com/s/7wk6cjllq41glgz/AndroidTempPhoto.zip?dl=0\r\n\r\nThe test project is a simple app that displays 3 buttons:\r\n- \"Take photo\": opens the camera and takes a photo. It, additionally, makes a copy with a name that follows a pattern.\r\n- \"List Temp Folder\": logs (using Ti.API.info) the Ti.Filesystem.applicationDataDirectory files\r\n- \"Clear Temp Folder\": deletes all files in Ti.Filesystem.applicationDataDirectory that starts with \"tia\"\r\n\r\nUsing this sample app you can see how tiaxxx.xxx remains in Ti.Filesystem.applicationDataDirectory folder. So, each time you take a photo, the data size of the app grows. In an actual app we've had to periodically delete tiaxxx.xxx files to avoid the app to use up to 19 GB (and growing).\r\n\r\nGiven that Titanium.Media.showCamera success function receives a CameraMediaItemType parameter and that this type doesn't include the file path but the photo data itself via a Blob in CameraMediaItemType.media property, this temp files (tiaxxx.xxx) shouldn't remain orphans in Ti.Filesystem.applicationDataDirectory.\r\n\r\nFrom my point of view, this should be fixed as the fact of taking a photo and processing it via CameraMediaItemType.media property shouldn't make the app data keep growing up to device's storage limit. Once the blob is created from temporary file, this file should be deleted.\r\n\r\nRegards",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-12-06T11:51:58.000+0000",
+					"updated": "2017-12-06T11:51:58.000+0000"
+				},
+				{
+					"id": "431787",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "I think that org.appcelerator.titanium.TiApplication should use org.appcelerator.kroll.util.TiTempFileHelper to perform a clean in dispose method.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2017-12-06T12:18:49.000+0000",
+					"updated": "2017-12-06T21:00:22.000+0000"
+				},
+				{
+					"id": "431790",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Reopening to be investigated by Engineering. [~ybanev] [~jquick] Did you maybe see this before?",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-12-06T13:40:42.000+0000",
+					"updated": "2017-12-06T13:41:31.000+0000"
+				},
+				{
+					"id": "431849",
+					"author": {
+						"name": "ybanev",
+						"key": "ybanev",
+						"displayName": "Yordan Banev",
+						"active": true,
+						"timeZone": "Europe/Athens"
+					},
+					"body": "PR: https://github.com/appcelerator/titanium_mobile/pull/9666",
+					"updateAuthor": {
+						"name": "ybanev",
+						"key": "ybanev",
+						"displayName": "Yordan Banev",
+						"active": true,
+						"timeZone": "Europe/Athens"
+					},
+					"created": "2017-12-07T16:21:52.000+0000",
+					"updated": "2017-12-07T16:21:52.000+0000"
+				},
+				{
+					"id": "432963",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Hi @ypbnv, any progress on this? We're still manually clearing orphan temporary files as al workaround for this issue.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-01-10T09:39:59.000+0000",
+					"updated": "2018-01-10T09:39:59.000+0000"
+				},
+				{
+					"id": "434767",
+					"author": {
+						"name": "ybanev",
+						"key": "ybanev",
+						"displayName": "Yordan Banev",
+						"active": true,
+						"timeZone": "Europe/Athens"
+					},
+					"body": "7_1_X: https://github.com/appcelerator/titanium_mobile/pull/9873",
+					"updateAuthor": {
+						"name": "ybanev",
+						"key": "ybanev",
+						"displayName": "Yordan Banev",
+						"active": true,
+						"timeZone": "Europe/Athens"
+					},
+					"created": "2018-02-22T14:52:15.000+0000",
+					"updated": "2018-02-22T14:52:15.000+0000"
+				},
+				{
+					"id": "434829",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Master merged; waiting for 7_1_X.",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-02-23T17:37:17.000+0000",
+					"updated": "2018-02-23T17:39:35.000+0000"
+				},
+				{
+					"id": "434831",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Test and other information can be found at:\r\n\r\nMaster: https://github.com/appcelerator/titanium_mobile/pull/9666\r\n7_1_X: https://github.com/appcelerator/titanium_mobile/pull/9873",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-02-23T18:04:27.000+0000",
+					"updated": "2018-02-23T18:04:27.000+0000"
+				},
+				{
+					"id": "435116",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket; Verified fix in SDK Version: 7.1.0.v20180228160738 and SDK Version: 7.2.0.v20180301101144.",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-03-02T16:44:13.000+0000",
+					"updated": "2018-03-02T16:44:13.000+0000"
+				},
+				{
+					"id": "435117",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Thanks for fixing this issue. I just want to add a comment that, at least for us, may be important: existing apps with this issue won't experience this any more, but the existing tiaxxxx.xxx files will persist for ever. Shouldn't be interesting to add this little snippet to the issue so that watchers and future searchers can totally clean their storage?\r\n\r\n{code:javascript}\r\nfunction clearTiaFiles() {\r\n  if (OS_ANDROID)\r\n  {\r\n    var f = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory);\r\n    var str = f.getDirectoryListing();\r\n    _.each(str, function(file) {\r\n      if (file.startsWith(\"tia\")) {\r\n        var imageFile = Titanium.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, file);\r\n        imageFile.deleteFile();\r\n      }\r\n    });\r\n    f = str = null;\r\n  }\r\n}\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-03-02T17:01:55.000+0000",
+					"updated": "2018-03-02T17:01:55.000+0000"
+				}
+			],
+			"maxResults": 16,
+			"total": 16,
+			"startAt": 0
+		}
+	}
+}

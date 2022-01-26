@@ -1,0 +1,308 @@
+---
+title: "[TIMOB-13065] Android: API 16 breaks remote web services from local files"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-28T18:38:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 22, 2013 Sprint 22 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, jellybean, module_android, qe-testadded, triage, webView</td></tr>
+<tr><th>Reporter</th><td>Mark Mokryn</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2013-03-14T00:07:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-07-28T14:06:34.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+
+Starting in API level 16 (Jellybean and above), Android is by default more restrictive in the web settings. See this link:
+
+ [<a href="http://developer.android.com/reference/android/webkit/WebSettings.html#setAllowUniversalAccessFromFileURLs(boolean)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/webkit/WebSettings.html#setAllowUniversalAccessFromFileURLs(boolean)</a>]
+
+It prevents XHR requests from being made from local files. Titanium must allow setting this flag in Web View settings, or lots of WebView functionality will be wiped out.
+
+Please enable setting this flag for Android web views ASAP, thanks. Obviously, this is an issue only when setting targetSdkVersion="16" or higher.
+
+<h4>Additional information</h4>
+<a href="http://stackoverflow.com/questions/11318703/access-control-allow-origin-error-at-android-4-1" rel="nofollow" target="_blank">http://stackoverflow.com/questions/11318703/access-control-allow-origin-error-at-android-4-1</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2013-03-14
+
+   Edited original - I previously referenced the wrong Android flag. The link above is now correct, the flag is setAllowUniversalAccessFromFileURLs. Thanks</li>
+<li>Davide Cassenti 2013-03-14
+
+   This seems to be a problem only on device; Emulator looks to work even if 4.1.x</li>
+<li>Mark Mokryn 2013-03-14
+
+   @Davide - I did not try on emulator, but I did spend a few hours debugging why all of a sudden I'm getting null origin errors from my AJAX calls.... For now, my workaround is to set targetSdkVersion="14", but clearly this flag must be a new option in WebView configuration.</li>
+<li>Mark Mokryn 2013-07-08
+
+   submitted PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4438" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4438</a></li>
+<li>Mark Mokryn 2013-09-19
+
+   The pull request (just 3 lines of code!) has been working for me in production for quite some time now, battle tested on Android versions from 10 through 18, please commit it to enable web APIs from local webview files on Jellybean.</li>
+<li>Ping Wang 2013-10-24
+
+   [~mokesmokes], I left some comments on your PR in github. Can you update your PR and provide a test case? Thanks.</li>
+<li>Mark Mokryn 2013-10-24
+
+   OK, I'll do it over the weekend.</li>
+<li>Mark Mokryn 2013-10-25
+
+   Here is a test case that demonstrates the problem and fix. Note I tested this on 3.1.x, not 3.2.0 since I couldn't get the 3.2.0 CLI to work, and I can't mess too much with my production environment - so please check. Without the fix, this test case will work on iOS and Android devices < API 16, and will fail API >= 16. With the fix it works on all. I will submit a new PR for 3.2.0.
+   
+   1. Make sure to build for Jelly Bean, e.g. in tiapp.xml:
+   <code><pre>
+       <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <tool-api-level>18</tool-api-level>
+           <manifest android:installLocation="preferExternal">
+               <uses-sdk android:minSdkVersion="10" android:targetSdkVersion="18"/>
+           </manifest>
+       </android>
+   </pre></code>
+   2. Here is an example in Alloy:
+   index.xml:
+   <code><pre>
+   <Alloy>
+   	<Window class="container" fullscreen=true>
+   		<WebView id="webview" url="/test.html" />
+   	</Window>
+   </Alloy>
+   </pre></code>
+   index.js:
+   <code><pre>
+   $.index.open();
+   </pre></code>
+   app/lib/test.html:
+   <code><pre>
+   <!DOCTYPE html>
+   <html>
+   <head>
+   	<script>
+   
+   function populateData() {
+   	var xmlhttp = new XMLHttpRequest();
+   
+   	xmlhttp.onreadystatechange = function() {
+   		if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+   			document.getElementById("myDiv").innerHTML = xmlhttp.responseText;
+   		} else if (xmlhttp.readyState==4) {
+   			alert ('request finished with error');
+   		}
+   	};	
+   	xmlhttp.open('GET', '<a href="http://appcelerator.com" rel="nofollow" target="_blank">http://appcelerator.com</a>');
+   	xmlhttp.send();
+   }
+   	</script>
+   </head>
+   <body>
+   
+   	<h2>You should see a webpage after clicking</h2>
+   	<button type="button" onclick="populateData()">Request data</button>
+   	<div id="myDiv"></div>
+   
+   </body>
+   </html>
+   </pre></code>
+   
+   </li>
+<li>Mark Mokryn 2013-10-25
+
+   New PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4850" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4850</a></li>
+<li>Joe Falcone 2014-07-12
+
+    This needs to be reopened.
+    
+    On SDK 3.2.3 this problem is causing apps to crash running on Android 2.3.3 (API Level 10) when setAllowUniversalAccessFromFileURLs is invoked by webView
+    Apps run fine on 3.2.0 and 3.2.2.  Workaround is to build with 3.2.2.
+    
+    [INFO] :   dalvikvm: Could not find method android.webkit.WebSettings.setAllowUniversalAccessFromFileURLs, referenced from method ti.modules.titanium.ui.widget.webview.TiUIWebView.<init>
+    [WARN] :   dalvikvm: VFY: unable to resolve virtual method 6190: Landroid/webkit/WebSettings;.setAllowUniversalAccessFromFileURLs (Z)V
+    [WARN] :   dalvikvm: threadid=1: thread exiting with uncaught exception (group=0x4001d5a0)
+    [WARN] :   W/System.err: java.lang.NullPointerException
+    [WARN] :   W/System.err:        at android.webkit.WebView$QuickSelect.resumeSelection(WebView.java:14232)
+    [WARN] :   W/System.err:        at android.webkit.WebView$QuickSelect$EventHub.handleMessage(WebView.java:14690)
+    [WARN] :   W/System.err:        at android.os.Handler.dispatchMessage(Handler.java:99)
+    [WARN] :   W/System.err:        at android.os.Looper.loop(Looper.java:150)
+    [WARN] :   W/System.err:        at android.app.ActivityThread.main(ActivityThread.java:4385)
+    [WARN] :   W/System.err:        at java.lang.reflect.Method.invokeNative(Native Method)
+    [WARN] :   W/System.err:        at java.lang.reflect.Method.invoke(Method.java:507)
+    [WARN] :   W/System.err:        at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:849)
+    [WARN] :   W/System.err:        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:607)
+    [WARN] :   W/System.err:        at dalvik.system.NativeStart.main(Native Method)
+    [ERROR] :  TiApplication: (main) [703,36735] Sending event: exception on thread: main msg:java.lang.NullPointerException; Titanium 3.2.3,2014/04/22 10:17,b958a70
+    [ERROR] :  TiApplication: java.lang.NullPointerException
+    [ERROR] :  TiApplication:       at android.webkit.WebView$QuickSelect.resumeSelection(WebView.java:14232)
+    [ERROR] :  TiApplication:       at android.webkit.WebView$QuickSelect$EventHub.handleMessage(WebView.java:14690)
+    [ERROR] :  TiApplication:       at android.os.Handler.dispatchMessage(Handler.java:99)
+    [ERROR] :  TiApplication:       at android.os.Looper.loop(Looper.java:150)
+    [ERROR] :  TiApplication:       at android.app.ActivityThread.main(ActivityThread.java:4385)
+    [ERROR] :  TiApplication:       at java.lang.reflect.Method.invokeNative(Native Method)
+    [ERROR] :  TiApplication:       at java.lang.reflect.Method.invoke(Method.java:507)
+    [ERROR] :  TiApplication:       at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:849)
+    [ERROR] :  TiApplication:       at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:607)
+    [ERROR] :  TiApplication:       at dalvik.system.NativeStart.main(Native Method)
+    [INFO] :   KENLOG: updateAmountOfAddrAndPhone: 2</li>
+<li>Mark Mokryn 2014-07-12
+
+    Can you please post an example app? This code in the SDK has not changed since 3.2.0</li>
+<li>Joe Falcone 2014-07-13
+
+    Just ran the latest Kitchen Sink downloaded from the Dashboard and it crashes with the following stack trace using an Android 2.3.3 emulator (Google API Level 10) and SDK 3.2.3 when you go into Base UI => Views => Web Views => Local URL.
+    
+    Then I tried it using SDK 3.2.2 and it still crashed with the same stack trace.
+    
+    Then I changed Target SDK to 16 with SDK 3.2.2 and it still crashed with the same stack trace.
+    
+    Then I changed to SDK 3.2.0 and it still crashed...
+    
+    Using Ti Studio build: 3.3.0.201407100905, Android SDK Tools 22.6.3, SDK Platform-tools 19.02, and SDK Build-tools 17 to 19.1.
+    
+    Our previous tests were done with an HTC Desire running Android 2.3.5 on a different Mac development system.
+    
+    Yes, we've also noted that the code hasn't changed although this testing indicates that the fix doesn't work for any of the 3.2.x SDKs on API Level 10.  
+    Please note that Google Maps are also currently broken on API Level 10 platforms.
+    So given that 15-25% of users are still on API Level 10 platforms, this is bad news for our customers and our reputation as quality app developers...
+    
+    [INFO] :   dalvikvm: Could not find method android.webkit.WebSettings.setAllowUniversalAccessFromFileURLs, referenced from method ti.modules.titanium.ui.widget.webview.TiUIWebView.<init>
+    [WARN] :   dalvikvm: VFY: unable to resolve virtual method 5853: Landroid/webkit/WebSettings;.setAllowUniversalAccessFromFileURLs (Z)V
+    [WARN] :   dalvikvm: JNI WARNING: jarray 0x4089a7c8 points to non-array object (Ljava/lang/String;)
+    [INFO] :   dalvikvm: "WebViewCoreThread" prio=5 tid=12 NATIVE
+    [INFO] :   dalvikvm:   | group="main" sCount=0 dsCount=0 obj=0x40802d70 self=0x392850
+    [INFO] :   dalvikvm:   | sysTid=663 nice=0 sched=0/0 cgrp=default handle=3744360
+    [INFO] :   dalvikvm:   | schedstat=( 946960104 1847170173 144 )
+    [INFO] :   dalvikvm:   at android.webkit.LoadListener.nativeFinished(Native Method)
+    [INFO] :   dalvikvm:   at android.webkit.LoadListener.nativeFinished(Native Method)
+    [INFO] :   dalvikvm:   at android.webkit.LoadListener.tearDown(LoadListener.java:1200)
+    [INFO] :   dalvikvm:   at android.webkit.LoadListener.handleEndData(LoadListener.java:721)
+    [INFO] :   dalvikvm:   at android.webkit.LoadListener.handleMessage(LoadListener.java:219)
+    [INFO] :   dalvikvm:   at android.os.Handler.dispatchMessage(Handler.java:99)
+    [INFO] :   dalvikvm:   at android.os.Looper.loop(Looper.java:130)
+    [INFO] :   dalvikvm:   at android.webkit.WebViewCore$WebCoreThread.run(WebViewCore.java:629)
+    [INFO] :   dalvikvm:   at java.lang.Thread.run(Thread.java:1019)
+    [INFO] :   dalvikvm:
+    [ERROR] :  dalvikvm: VM aborting</li>
+<li>Joe Falcone 2014-07-13
+
+    OK, the app.js for the simplest test case is the following.  This crashes on the Google API Level 10 emulator.
+    
+    win = Ti.UI.createWindow();
+    web = Ti.UI.createWebView({
+    	url: 'local_webview.html'
+    });
+    win.add(web);
+    win.open();
+    
+    local_webview.html is the same used in Kitchen Sink.</li>
+<li>Mark Mokryn 2014-07-13
+
+    Are you using an unmodified version of the SDK? Here is the only call to that method in the codebase (TiUIWebView.java), and it's been this way since 3.2.0:
+    <code><pre>
+    if (Build.VERSION.SDK_INT >= TiC.API_LEVEL_JELLY_BEAN) {
+        settings.setAllowUniversalAccessFromFileURLs(true); // default is "false" for JellyBean, TIMOB-13065
+    }
+    </pre></code></li>
+<li>Joe Falcone 2014-07-14
+
+    Yes, we are running stock 3.2.xGA versions of the SDKs.
+    
+    Try running Kitchen Sink with the Google Android API Level 10 emulator or a real 2.3.3+ phone. 
+    I am told that Genymotion cuts corners and doesn't provide an accurate API Level 10 emulator.
+    
+    We also looked at the SDK source code and we agree that it looks impossible, but we have published apps in the Android Play Store that are crashing because of the call to setAllowUniversalAccessFromFilesURLs when a webView is opened built with 3.2.3GA on an Android 2.3.5 phone.</li>
+<li>Kon Lovett 2014-07-14
+
+    htc Desire HD, Android 2.3.5
+    
+    KitchenSink 3.3.0 built w/ Ti SDK 3.2.3.GA on MacOS 10.9.4, Android build-tools 20, Platform-tools 20
+    
+    Base UI => Views => Web Views => Local URL
+    ...
+    [INFO] :   dalvikvm: Could not find method android.webkit.WebSettings.setAllowUniversalAccessFromFileURLs, referenced from method ti.modules.titanium.ui.widget.webview.TiUIWebView.<init>
+    [WARN] :   dalvikvm: VFY: unable to resolve virtual method 5853: Landroid/webkit/WebSettings;.setAllowUniversalAccessFromFileURLs (Z)V
+    [DEBUG] :  dalvikvm: VFY: replacing opcode 0x6e at 0x0079
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/webview.db, flag = 6, cannot stat file, errno: 2,message: No such file or directory
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/webview.db, mode: delete, disk free size: 139 M, handle: 0x463fc8
+    [DEBUG] :  dalvikvm: GC_CONCURRENT freed 435K, 34% free 7756K/11591K, external 108K/620K, paused 3ms+4ms
+    [TRACE] :  webviewdatabase: TCP pre connection: creating table in database
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/webviewCache.db, flag = 6, cannot stat file, errno: 2,message: No such file or directory
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/webviewCache.db, mode: delete, disk free size: 139 M, handle: 0x451358
+    [DEBUG] :  skia: htcFlashPlugin::htcFlashPlugin
+    [DEBUG] :  qct: [WebView.WebView] >> Enable Shutdown = true
+    [DEBUG] :  qct: [RequestQueue.ActivePool.ActivePool] >> Enable Shutdown = true
+    [DEBUG] :  qct: [IdleCache.IdleCache] >> IDLE_CACHE_MAX = 40
+    [DEBUG] :  Window: Checkpoint: postWindowCreated()
+    [DEBUG] :  ATRecorder: com.htc.autotest.dlib.RecordEngine in loader dalvik.system.DexClassLoader@407b5268
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, flag = 6, file size = 8192
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, mode: wal, disk free size: 139 M, handle: 0x4a9d28
+    [DEBUG] :  Database: dbclose(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, handle = 0x4a9d28
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, flag = 6, file size = 8192
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, mode: wal, disk free size: 139 M, handle: 0x4b1ac0
+    [DEBUG] :  Database: dbclose(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, handle = 0x4b1ac0
+    [DEBUG] :  WindowManagerImpl: addView, new view, mViews[4]: com.android.internal.policy.impl.PhoneWindow$DecorView@406dba30
+    [DEBUG] :  D/webkit-timers: [JWebCoreJavaBridge::resume] >> do resume
+    [INFO] :   before image
+    [INFO] :   JSON injection: ["foo","bar"]
+    [INFO] :   image [object HTMLImageElement]
+    [DEBUG] :  log statement here
+    [DEBUG] :  AndroidRuntime: Shutting down VM
+    [WARN] :   dalvikvm: threadid=1: thread exiting with uncaught exception (group=0x4001d5a0)
+    [ERROR] :  TiApplication: (main) [16398,31239] Sending event: exception on thread: main msg:java.lang.NullPointerException; Titanium 3.2.3,2014/04/22 10:17,b958a70
+    [ERROR] :  TiApplication: java.lang.NullPointerException
+    [ERROR] :  TiApplication: 	at android.webkit.WebView$QuickSelect.resumeSelection(WebView.java:14232)
+    [ERROR] :  TiApplication: 	at android.webkit.WebView$QuickSelect$EventHub.handleMessage(WebView.java:14690)
+    [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+    [ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:150)
+    [ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:4385)
+    [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invokeNative(Native Method)
+    [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:507)
+    [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:849)
+    [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:607)
+    [ERROR] :  TiApplication: 	at dalvik.system.NativeStart.main(Native Method)
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, flag = 6, file size = 6144
+    [DEBUG] :  Database: dbopen(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, mode: wal, disk free size: 139 M, handle: 0x53acb0
+    [DEBUG] :  Database: dbclose(): path = /data/data/com.appcelerator.kitchensink/databases/tianalytics.db, handle = 0x53acb0
+    [INFO] :   KENLOG: updateAmountOfAddrAndPhone: 1
+    
+    </li>
+<li>Jelmer Jellema 2014-09-23
+
+    Same here on all emulators < api level 16, on sdk 3.2.3  and 3.3.0. Even when explicitly build for api level 10. 
+    
+    Can this issue be reopened?
+     </li>
+<li>Mark Mokryn 2014-09-23
+
+    Does the issue occur on devices for you?</li>
+<li>Jelmer Jellema 2014-09-24
+
+    I did not find this issue on my test devices but these were all Android 4+. I wanted to test on a 2.3 tablet but forgot to borrow it from my daughter :-). I'll look around for one.
+    
+    I can confirm this issue disappears when using sdk 3.2.2.</li>
+<li>Joe Falcone 2014-09-24
+
+    We can confirm that this problem goes away on 3.40RC2.
+    We re-tested today with 3.2.3 on an HTC Inspire/Desire running 2.3.5 and it does fail when accessing locally stored HTML files.</li>
+<li>Jelmer Jellema 2014-09-24
+
+    Great! Is there an ETA for 3.40?</li>
+<li>DJAMEL ZAHAL 2015-07-28
+
+    Please could you tell me in which version of titanium sdk this update is available ? thanks</li>
+<li>DJAMEL ZAHAL 2015-07-28
+
+    Im using 3.5.1.GA and the problem seems to be not resolved. thanks</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13065.json">JSON Source</a></p>

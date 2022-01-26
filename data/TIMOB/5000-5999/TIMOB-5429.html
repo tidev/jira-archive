@@ -1,0 +1,268 @@
+---
+title: "[TIMOB-5429] iOS: TableViewRows are not being reused even though className is set"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-18T19:35:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 Core, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_tableviewrow, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Anthony Decena</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2011-10-04T14:56:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-10-07T09:57:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+While profiling our app I noticed that scrolling through the stream continues to generate new views rather than reusing existing ones. These rows do in fact have classNames set, and when the table is cleared, all the views are indeed garbage collected, so I do not believe it is an issue of external references being kept. Also of interest, the # of transitory instances also continues to rise, suggesting that the rows are being continuously garbage collected and recreated (potentially as a result of continuous setData calls).
+
+Video of the issue: <a href="http://cl.ly/1M3L2T2y2k3k1q1y3g2Y" rel="nofollow" target="_blank">http://cl.ly/1M3L2T2y2k3k1q1y3g2Y</a>
+Factory method used to generate these rows: <a href="https://gist.github.com/7bd7d37b056562eb9962" rel="nofollow" target="_blank">https://gist.github.com/7bd7d37b056562eb9962</a>
+
+Not that to page in new rows, they are added to the main tableViewSection, and then setData is called on the table with the entire array of sections again
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Anthony Decena 2011-10-04
+
+   To create similar results:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   function createRow(c) {
+   		var row = Ti.UI.createTableViewRow();
+   	row.selectedBackgroundColor = '#fff';
+   	row.height = 100;
+   	row.className = 'datarow';
+   	row.clickName = 'row';
+   
+   	var photo = Ti.UI.createView({
+   		backgroundImage:'user.png',
+   		top:5,
+   		left:10,
+   		width:50,
+   		height:50,
+   		clickName:'photo'
+   	});
+   	row.add(photo);
+   
+   
+   	var user = Ti.UI.createLabel({
+   		color:'#576996',
+   		font:{fontSize:16,fontWeight:'bold', fontFamily:'Arial'},
+   		left:70,
+   		top:2,
+   		height:30,
+   		width:200,
+   		clickName:'user',
+   		text:'Fred Smith '+c
+   	});
+   
+   	row.filter = user.text;
+   	row.add(user);
+   
+   	var fontSize = 16;
+   	if (Titanium.Platform.name == 'android') {
+   		fontSize = 14;
+   	}
+   	var comment = Ti.UI.createLabel({
+   		color:'#222',
+   		font:{fontSize:fontSize,fontWeight:'normal', fontFamily:'Arial'},
+   		left:70,
+   		top:21,
+   		height:50,
+   		width:200,
+   		clickName:'comment',
+   		text:'Got some fresh fruit, conducted some business, took a nap'
+   	});
+   	row.add(comment);
+   
+   	var calendar = Ti.UI.createView({
+   		backgroundImage:'/KS_nav_ui.png',
+   		bottom:2,
+   		left:70,
+   		width:32,
+   		clickName:'calendar',
+   		height:32
+   	});
+   	row.add(calendar);
+   
+   	var button = Ti.UI.createView({
+   		backgroundImage:'KS_nav_views.png',
+   		top:35,
+   		right:5,
+   		width:36,
+   		clickName:'button',
+   		height:34
+   	});
+   	row.add(button);
+   
+   	var date = Ti.UI.createLabel({
+   		color:'#999',
+   		font:{fontSize:13,fontWeight:'normal', fontFamily:'Arial'},
+   		left:105,
+   		bottom:5,
+   		height:20,
+   		width:100,
+   		clickName:'date',
+   		text:'posted on 3/11'
+   	});
+   	row.add(date);
+   	return row;
+   }
+   
+   var data = [];
+   var lastRow = 10;
+   for (var c=0;c<lastRow;c++)
+   {
+   	var row = createRow(c);
+   	data.push(row);
+   }
+   
+   var tableView = Ti.UI.createTableView({
+   	data: data
+   });
+   
+   win.add(tableView);
+   
+   var navActInd = Titanium.UI.createActivityIndicator();
+   win.setRightNavButton(navActInd);
+   
+   var updating = false;
+   var loadingRow = Ti.UI.createTableViewRow({title:"Loading..."});
+   
+   function beginUpdate()
+   {
+   	updating = true;
+   	navActInd.show();
+   
+   	tableView.appendRow(loadingRow);
+   
+   	// just mock out the reload
+   	setTimeout(endUpdate,2000);
+   }
+   
+   function endUpdate()
+   {
+   	updating = false;
+   
+   	tableView.deleteRow(lastRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.NONE});
+   
+   	// simulate loading
+   	for (var c=lastRow;c<lastRow+10;c++)
+   	{
+   		tableView.appendRow(createRow(c),{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.NONE});
+   	}
+   	lastRow += 10;
+   
+   	// just scroll down a bit to the new rows to bring them into view
+   	tableView.scrollToIndex(lastRow-9,{animated:true,position:Ti.UI.iPhone.TableViewScrollPosition.BOTTOM});
+   
+   	navActInd.hide();
+   }
+   
+   var lastDistance = 0; // calculate location to determine direction
+   
+   tableView.addEventListener('scroll',function(e)
+   {
+   	var offset = e.contentOffset.y;
+   	var height = e.size.height;
+   	var total = offset + height;
+   	var theEnd = e.contentSize.height;
+   	var distance = theEnd - total;
+   
+   	// going down is the only time we dynamically load,
+   	// going up we can safely ignore -- note here that
+   	// the values will be negative so we do the opposite
+   	if (distance < lastDistance)
+   	{
+   		// adjust the % of rows scrolled before we decide to start fetching
+   		var nearEnd = theEnd * .75;
+   
+   		if (!updating && (total >= nearEnd))
+   		{
+   			beginUpdate();
+   		}
+   	}
+   	lastDistance = distance;
+   });
+   
+   
+   win.open();
+   </pre></code></li>
+<li>Anthony Decena 2011-10-04
+
+   </li>
+<li>GetGlue 2011-10-04
+
+   Note that in the app in the original video, paging is being done through setData instead of appendRow</li>
+<li>Don Thorp 2011-10-04
+
+   setData must start with a fresh set of classNames and views. Also why wasn't the TC-269 just moved to this ticket? Most of the required fields don't have appropriate information in them.</li>
+<li>GetGlue 2011-10-04
+
+   re: "setData must start with a fresh set of classNames and views". Are you saying that setData can not reliably be used for paging? Appending rows one at a time is extremely slow.</li>
+<li>GetGlue 2011-10-11
+
+   Has any progress been made on this? Anything else I can provide that would help?</li>
+<li>Stephen Tramer 2012-02-28
+
+   The biggest issue is going to be that even with reusing className, there will be major performance degradation when setting any properties which affect layout (the exact thing that className is supposed to prevent) and so we will need to filter those properties which affect layout extensively and impose strict rules on what constitutes two rows with the same className.</li>
+<li>Stephen Tramer 2012-02-28
+
+   The following tickets must all be checked for possible regressions when resolving this issue (both for tables using className and those without, where appropriate):
+   
+   TIMOB-5380
+   TIMOB-5441
+   TIMOB-6134
+   TIMOB-3600
+   TIMOB-4687
+   TIMOB-3007
+   TIMOB-2225
+   TIMOB-1037
+   TIMOB-2346
+   TIMOB-2304
+   TIMOB-5279
+   TIMOB-6082
+   TIMOB-1664</li>
+<li>Stephen Tramer 2012-03-02
+
+   This bug may need to be marked INVAID. From Apple's documentation:
+   
+   bq. The table view's delegate in tableView:cellForRowAtIndexPath: should always reset all content when reusing a cell. If the cell object does not have an associated reuse identifier, this method is not called. If you override this method, you must be sure to invoke the superclass implementation.
+   
+   This indicates that any subviews need to be re-added because they may be cleaned up by the system (they are no longer drawn, and therefore are fair game for removal). In this case there is absolutely no performance improvement from className.</li>
+<li>GetGlue 2012-03-05
+
+    The point of the reuse identifiers is precisely so that the expensive operation of creating views does not need to occur for each row. I believe the word "reset" here just means that all subviews must be returned to a blank state, for example UILabels must have their text cleared. If you take a look at how any open source iOS app is built, you will see this is the case.</li>
+<li>Stephen Tramer 2012-03-05
+
+    There is an apparent bug in iOS 5 preventing this fix. Apparently subviews of a cell now track the row index in some manner, since hit detection on them sends the wrong row index to the table after a row has been reproxied. As a result this fix may be delayed.</li>
+<li>Blain Hamon 2012-07-18
+
+    Pull merged.</li>
+<li>Shannon Hicks 2012-07-18
+
+    GetGlue : I'd love to hear results of you re-testing with a fresh CI build!</li>
+<li>Olga Romero 2012-08-17
+
+    Verified fix with:
+    Titanium Studio, build: 2.1.1.201207271312
+    Titanium SDK: 2.2.0.v20120816212512
+    Devices:
+    iPhone 4s 5.0.1
+    iPad1 ios5 5.1.1
+    Simulator 5.1
+    Mac osx 10.8 Mountain Lion</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5429.json">JSON Source</a></p>

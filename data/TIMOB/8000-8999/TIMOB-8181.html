@@ -1,0 +1,230 @@
+---
+title: "[TIMOB-8181] Android: View.toImage() is not proper size when View.width is Ti.UI.SIZE"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-03-22T21:59:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2012-03-22T10:21:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-07T21:32:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description </h4>
+There is a bug in the new Composite Layout engine. When a view of a certain size is placed inside a second view, and the second view's width is set to Ti.UI.SIZE, the second view's toimage() size is exactly 100 instead of being the same size as the first view.
+
+<h4>Actual Results</h4>
+Run the testcase below. The console will show
+
+--> TheOrange width:160dp
+--> GreenView.swidth:0
+--> GreenView.iwidth:100
+--> GreenView.swidth2:0
+But the GreenView.iwidth should be 160 (on a medium-resolution emulator). Also, you can see that GreenView.size.width (GreenView.swidth2) returns 0, but it should be 160.
+
+<h4>Expected results</h4>
+The SIZE component working as the docs says.
+
+
+<h4>Test case</h4>
+1. Create a new mobile project
+2. Add this code to app.js
+<code><pre>
+var win1 = Ti.UI.createWindow({  
+    title:'Win 1',
+    layout:'vertical',
+    backgroundColor:'#fff'
+});
+
+var vw1 = Ti.UI.createView({
+    layout:'vertical',
+    backgroundColor:'red',
+    width:'100%',
+    height:75
+});
+win1.add(vw1);
+
+//
+var TheOrange=Ti.UI.createView({height:'160dp',
+                                width:'160dp',
+                                backgroundColor:'orange',
+                                top:0
+                               });
+
+var GreenView=Ti.UI.createView({
+          height:Ti.UI.SIZE,
+          width:Ti.UI.SIZE,
+          focusable:false,
+          touchEnabled:false,
+          backgroundColor:'green'
+});
+
+Ti.API.info('--> TheOrange width:'+TheOrange.width);
+GreenView.add(TheOrange);
+Ti.API.info('--> GreenView.swidth:'+GreenView.size.width);
+Ti.API.info('--> GreenView.iwidth:'+GreenView.toImage().width);
+//
+
+vw1.add(GreenView);
+
+
+vw1.layout='horizontal';
+
+var BlueView=Ti.UI.createView({
+    backgroundColor:'blue',
+    width:50,
+    height:50
+});
+vw1.add(BlueView);
+
+win1.open();
+Ti.API.info('--> GreenView.swidth2:'+GreenView.size.width);
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shawn Lipscomb 2012-03-22
+
+   The other (main) expected result is that GreenView.toImage().width should return 160 instead of 100.  I have no idea where the 100 came from.  It even returns 100 if TheOrange.width is set to '120dp' instead of '160dp'.
+   </li>
+<li>Shawn Lipscomb 2012-03-22
+
+   </li>
+<li>Allen Yeung 2012-03-22
+
+   There are a couple of issues with the test case.
+   
+   1.  view.size.width will return the system units which is in pixels.  So 160dp will be converted to pixels, which won't match 160.
+   
+   2. The test case calls toImage() before the layout pass, so the view is essentially 0. In the logs, you'll see "width property is 0 for view, display view before calling toImage()" when running that test.  
+   
+   I have modified the test so it will return the correct values:
+   
+   <code><pre>
+   var win1 = Ti.UI.createWindow({
+   	title : 'Win 1',
+   	layout : 'vertical',
+   	backgroundColor : '#fff'
+   });
+   
+   var vw1 = Ti.UI.createView({
+   	layout : 'vertical',
+   	backgroundColor : 'red',
+   	width : '100%',
+   	height : 75
+   });
+   win1.add(vw1);
+   
+   var TheOrange = Ti.UI.createView({
+   	height : 160,
+   	width : 160,
+   	backgroundColor : 'orange',
+   	top : 0
+   });
+   
+   var GreenView = Ti.UI.createView({
+   	height : Ti.UI.SIZE,
+   	width : Ti.UI.SIZE,
+   	focusable : false,
+   	touchEnabled : false,
+   	backgroundColor : 'green'
+   });
+   
+   GreenView.add(TheOrange);
+   
+   vw1.add(GreenView);
+   
+   vw1.layout = 'horizontal';
+   
+   var BlueView = Ti.UI.createView({
+   	backgroundColor : 'blue',
+   	width : 50,
+   	height : 50
+   });
+   vw1.add(BlueView);
+   
+   win1.addEventListener('click', function() {
+   	Ti.API.info('--> TheOrange width:' + TheOrange.width);
+   	Ti.API.info('--> GreenView.swidth:' + GreenView.size.width);
+   	Ti.API.info('--> GreenView.iwidth:' + GreenView.toImage().width);
+   	Ti.API.info('--> GreenView.swidth2:' + GreenView.size.width);
+   });
+   
+   win1.open();
+   
+   </pre></code>
+   
+   Going to mark this as invalid for now, please feel free to reopen if you find other issues.</li>
+<li>Shawn Lipscomb 2012-03-23
+
+   Allen, regarding your #1 point, GreenView.size.width should indeed return 160, because, as this bug "environment" states, we are running this on the "Android SDK 2.2 (emulator, medium size)".  Since it's in medium resolution, '160dp' is equal to 160 pixels.  You changed TheOrange.height from '160dp' to 160, which just hides the problem.
+   
+   In #2, you state that toImage() is being called "before the layout pass".  Are you talking about the vw1.add(GreenView) line?  Is that the earliest time that toImage() can be used?  We need to be able to contstruct complex views and determine resulting size *before* displaying them on the screen, to determine if they will fit on the screen and make adjustments if necessary.</li>
+<li>Shawn Lipscomb 2012-03-23
+
+   In regards to #2, I just tested calling GreenView.toImage().width right after vw1.add(GreenView) and it still returns the bogus 100 number.
+   
+   Also notice that the last GreenView.size.width call is after the win1.open() call, but it still returns 0.
+   </li>
+<li>Shawn Lipscomb 2012-03-23
+
+   More fuel:  on iOS, using the 2.0.0.v20120322231759 SDK, the output of my original testcase is this:
+   
+   --> TheOrange width:160dp
+   --> GreenView.swidth:0
+   --> GreenView.iwidth:160
+   --> GreenView.swidth2:160
+   
+   This is what I would expect, so there is a parity issue here.
+   </li>
+<li>Marshall Culpepper 2012-03-23
+
+   @Shawn Layout occurs after the window and views have been realized, which happens asynchronously after <code><pre>win1.open()</pre></code> is called. Allen added a click listener to illustrate that the values are correct once the UI has been realized, laid out, and finally you've clicked the button (because everything is now visible)</li>
+<li>Shawn Lipscomb 2012-03-23
+
+   Marshall, please see the comment I added right before yours.  In iOS, it works correctly without having to wait for the window to appear visually.  Maybe the toImage() call forces it to "render"?  There's definitely a parity issue here.
+   
+   We need to be able to contstruct complex views and determine resulting size *before* displaying them on the screen, to determine if they will fit on the screen and make adjustments if necessary.
+   </li>
+<li>Allen Yeung 2012-03-23
+
+   #1: I just tried on a medium density emulator, and it does return 160, if you specify '160dp'.
+   
+   #2: 100 is actually the default value we set for the image if it has not been rendered yet.  That's why you see 100.  As Marshall mentioned, toImage() needs to be called AFTER the views have been realized and laid out.  Since open is an asynchronous call, printing the value right after open may not return the correct values.  I would try to listen for the 'postlayout' event on the window if you want to check for the measurements after the layout pass.</li>
+<li>Shawn Lipscomb 2012-03-23
+
+    Allen, thanks for following up.
+    
+    I understand what you're saying about #2, but in iOS, it works correctly without having to wait for the window to appear visually. Maybe the toImage() call forces it to "render"? There's definitely a parity issue here.
+    
+    So the question is, what's the difference between the iOS implementation and the Android implementation?  The iOS code can resolve the toImage().width without waiting for 'postlayout', which is what we need in Android also.
+    
+    I know that one of the goals of Composite Layouts was to bring parity to the two platforms.  This issue demonstrates a differnce between the two, where the Android version prevents functionality that exists in the iOS version.</li>
+<li>Shawn Lipscomb 2012-09-05
+
+    This continues to be a problem (2.1.2).  Please reopen.</li>
+<li>Neeraj Gupta 2012-09-09
+
+    @Shawn - We have taken another look at this issue. iOS platform performs size calculations when the view has not been laid out by default. We don't have an efficient way to do so on Android platform and the size calculations are performed as part of the layout pass. It is a significant effort to refactor TiCompositeLayout class to accomplish this. You can work around this issue using "postlayout" event.</li>
+<li>Shawn Lipscomb 2012-09-10
+
+    Neeraj, thanks for looking at this.  I understand what you're saying.
+    
+    Is there more to the "postlayout" workaround that will allow me to keep a good user experience by not visually showing the messed-up screen, then fix the positioning, then show the good screen?</li>
+<li>Lee Morris 2017-06-07
+
+    Closing ticket, please open a new ticket if any more problems persist.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8181.json">JSON Source</a></p>

@@ -1,0 +1,582 @@
+---
+title: "[TIMOB-15010] iOS7: Table pull to refresh does not behave as iOS6 when using a search bar in the table"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-16T07:58:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 18, 2013 Sprint 18 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios7, triage</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-08-30T16:12:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T18:12:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description of the problem</h4>
+Having a table with search bar and headerPullView, if the search bar is clicked before the header view is disappearing, the search bar overlaps it. The header only disappears after the search bar is blurred.
+
+<h4>Steps to reproduce</h4>
+1) Use the code below on iPad
+2) Pull the table, so that the header will stay (it will disappear in 5s)
+3) Click the search bar before the header disappears
+
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+
+var tabGroup = Titanium.UI.createTabGroup();
+
+var win1 = Titanium.UI.createWindow({
+	title : 'Table with Search',
+	backgroundColor : '#fff'
+});
+var tab1 = Titanium.UI.createTab({
+	icon : 'KS_nav_views.png',
+	title : 'Table w/ Search',
+	window : win1
+});
+
+var allNoteTypes = [{
+	title : 'Plan 1'
+}, {
+	title : 'Plan 2'
+}, {
+	title : 'Plan 3'
+}];
+
+var refreshView = Ti.UI.createView({
+	width : "100%",
+	top : 0,
+	height : 22,
+	backgroundColor : "#000"
+});
+
+var lblRefreshTime = Ti.UI.createLabel({
+	left : 5,
+	width : '55%',
+	text : "refreshed 1 min ago"
+});
+
+var searchBar = Ti.UI.createSearchBar({
+	barColor : "#283D5A",
+	autocorrect : false,
+	autocapitalization : Titanium.UI.TEXT_AUTOCAPITALIZATION_NONE,
+	hintText : "SR Number",
+	keyboardType : Ti.UI.KEYBOARD_NUMBERS_PUNCTUATION
+});
+
+var table = Ti.UI.createTableView({
+	top : 22,
+	width : "100%",
+	backgroundColor : 'transparent',
+	hideSearchOnSelection : false,
+	data : allNoteTypes,
+	search : searchBar
+});
+
+refreshView.add(lblRefreshTime);
+win1.add(refreshView);
+win1.add(table);
+
+var border = Ti.UI.createView({
+	backgroundColor : "#576c89",
+	height : 2,
+	bottom : 0
+});
+
+var tableHeader = Ti.UI.createView({
+	backgroundColor : "#bcbdc1",
+	width : Ti.Platform.displayCaps.platformWidth,
+	height : 60
+});
+
+tableHeader.add(border);
+
+var statusLabel = Ti.UI.createLabel({
+	text : "Pull to Reload",
+	left : 55,
+	bottom : 30,
+	height : "auto",
+	color : "#FFF",
+	textAlign : "center"
+});
+
+tableHeader.add(statusLabel);
+table.headerPullView = tableHeader;
+
+var pulling = false;
+var reloading = false;
+
+function beginReloading() {
+	setTimeout(endReloading, 5000);
+}
+
+function endReloading() {
+	table.setContentInsets({
+		top : 0
+	}, {
+		animated : true
+	});
+	reloading = false;
+	statusLabel.text = "Pull down to refresh...";
+	
+	table.separatorColor = 'transparent';
+}
+
+var offset = 0;
+table.addEventListener('scroll', function(e) {
+	offset = e.contentOffset.y;
+	if (offset <= -65.0 && !pulling) {
+		pulling = true;
+		statusLabel.text = "Release to refresh...";
+	} else if (pulling && offset > -65.0 && offset < 0) {
+		pulling = false;
+		statusLabel.text = "Pull down to refresh...";
+	}
+});
+
+table.addEventListener('dragEnd', function(e) {
+	if (pulling && !reloading && offset <= -65.0) {
+		reloading = true;
+		pulling = false;
+		statusLabel.text = "Reloading...";
+		table.setContentInsets({
+			top : 60
+		}, {
+			animated : true
+		});
+		beginReloading();
+	}
+});
+
+function handleSearchBarFocus(_event) {
+	endReloading();
+}
+searchBar.addEventListener("click", handleSearchBarFocus);
+
+tabGroup.addTab(tab1);
+tabGroup.open();
+</pre></code>
+
+<h4>Results</h4>
+Both on iOS6 and iOS7 the header does not disappear (although endReloading is called); however, on iOS7 the search bar goes up and overlaps the header. See screenshots.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15010_42023/iOS6PullRefresh.png">iOS6PullRefresh.png</td></td><td>2013-08-30T16:17:46.000+0000</td><td>223895</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15010_42024/iOS7PullRefresh.png">iOS7PullRefresh.png</td></td><td>2013-08-30T16:17:46.000+0000</td><td>246243</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2013-08-30
+
+   [~dcassenti] Can you please test this with the latest 3.1.X CI to confirm the issue still exists?</li>
+<li>Davide Cassenti 2013-08-30
+
+   [~ingo] Same behavior with 3.1.3 just downloaded.</li>
+<li>Sid Ghosh 2013-09-04
+
+   Any update on this issue ?
+   
+   Sid</li>
+<li>Ingo Muschenetz 2013-09-04
+
+   SearchView is being added on top of the TableView. One suggestion is to hide the search bar when the pull to refresh is happening. We may not be able to fix this for 3.1.3.</li>
+<li>Vishal Duggal 2013-09-04
+
+   Won't Fix. 
+   Use the workaround provided below.
+   <code><pre>
+   Titanium.UI.setBackgroundColor('#000');
+    
+   var tabGroup = Titanium.UI.createTabGroup();
+    
+   var win1 = Titanium.UI.createWindow({
+       title : 'Table with Search',
+       backgroundColor : '#fff'
+   });
+   var tab1 = Titanium.UI.createTab({
+       icon : 'KS_nav_views.png',
+       title : 'Table w/ Search',
+       window : win1
+   });
+    
+   var allNoteTypes = [{
+       title : 'Plan 1'
+   }, {
+       title : 'Plan 2'
+   }, {
+       title : 'Plan 3'
+   }];
+    
+   var refreshView = Ti.UI.createView({
+       width : "100%",
+       top : 0,
+       height : 22,
+       backgroundColor : "#000"
+   });
+    
+   var lblRefreshTime = Ti.UI.createLabel({
+       left : 5,
+       width : '55%',
+       text : "refreshed 1 min ago"
+   });
+    
+   var searchBar = Ti.UI.createSearchBar({
+       barColor : "#283D5A",
+       autocorrect : false,
+       autocapitalization : Titanium.UI.TEXT_AUTOCAPITALIZATION_NONE,
+       hintText : "SR Number",
+       keyboardType : Ti.UI.KEYBOARD_NUMBERS_PUNCTUATION
+   });
+    
+   var table = Ti.UI.createTableView({
+       top : 22,
+       width : "100%",
+       backgroundColor : 'transparent',
+       hideSearchOnSelection : false,
+       data : allNoteTypes,
+       search : searchBar
+   });
+    
+   refreshView.add(lblRefreshTime);
+   win1.add(refreshView);
+   win1.add(table);
+    
+   var border = Ti.UI.createView({
+       backgroundColor : "#576c89",
+       height : 2,
+       bottom : 0
+   });
+    
+   var tableHeader = Ti.UI.createView({
+       backgroundColor : "#bcbdc1",
+       width : Ti.Platform.displayCaps.platformWidth,
+       height : 60
+   });
+    
+   tableHeader.add(border);
+    
+   var statusLabel = Ti.UI.createLabel({
+       text : "Pull to Reload",
+       left : 55,
+       bottom : 30,
+       height : "auto",
+       color : "#FFF",
+       textAlign : "center"
+   });
+    
+   tableHeader.add(statusLabel);
+   table.headerPullView = tableHeader;
+    
+   var pulling = false;
+   var reloading = false;
+   
+   var overlay = Ti.UI.createView({
+       opacity:.2,
+       backgroundColor:'black'
+   })
+   
+   function beginReloading() {
+       searchBar.add(overlay);
+       setTimeout(endReloading, 5000);
+   }
+    
+   function endReloading() {
+       searchBar.remove(overlay);
+       table.setContentInsets({
+           top : 0
+       }, {
+           animated : true
+       });
+       reloading = false;
+       statusLabel.text = "Pull down to refresh...";
+        
+       table.separatorColor = 'transparent';
+   }
+    
+   var offset = 0;
+   table.addEventListener('scroll', function(e) {
+       offset = e.contentOffset.y;
+       if (offset <= -65.0 && !pulling) {
+           pulling = true;
+           statusLabel.text = "Release to refresh...";
+       } else if (pulling && offset > -65.0 && offset < 0) {
+           pulling = false;
+           statusLabel.text = "Pull down to refresh...";
+       }
+   });
+    
+   table.addEventListener('dragEnd', function(e) {
+       if (pulling && !reloading && offset <= -65.0) {
+           reloading = true;
+           pulling = false;
+           statusLabel.text = "Reloading...";
+           table.setContentInsets({
+               top : 60
+           }, {
+               animated : true
+           });
+           beginReloading();
+       }
+   });
+   
+   function handleSearchBarFocus(_event){
+       endReloading();
+       setTimeout(function(){
+           searchBar.focus();
+       },300)
+   }
+    
+   
+   overlay.addEventListener("click", handleSearchBarFocus);
+    
+   tabGroup.addTab(tab1);
+   tabGroup.open();
+   </pre></code></li>
+<li>Davide Cassenti 2013-09-05
+
+   The solution proposed by [~vduggal] is not working if you reload more than once; steps:
+   
+   1) pull down to refresh
+   2) click on the overlay (it works)
+   3) click to hide the search
+   4) repeat step 1: overlay is not added anymore
+   
+   I tried also to re-create the overlay each time: same result. I also tried the suggestion by [~ingo], and if I show/hide the search bar directly, it is not working as well.
+   
+   These are the solutions tested:
+   
+   <h4>Solution 1</h4>
+   Hide the bar using searchBar. The search bar is only hidden the first time.
+   
+   <code><pre>
+   function beginReloading() {
+       searchBar.hide(); // ONLY WORKS FIRST TIME
+       reloadingTimeout = setTimeout(endReloading, 5000);
+   }
+   </pre></code>
+   
+   <h4>Solution 2</h4>
+   I tried changing searchBar.hide() with table.search.hide() and it works:
+   
+   <code><pre>
+   function beginReloading() {
+       table.search.hide(); // WORKS FINE
+       reloadingTimeout = setTimeout(endReloading, 5000);
+   }
+   </pre></code>
+   
+   <h4>Solution 3</h4>
+   I tried to use table.search in combination with the add/remove overlay, but again no luck.
+   
+   <code><pre>
+   function beginReloading() {
+       table.search.add(overlay); // ONLY WORKS FIRST TIME
+       reloadingTimeout = setTimeout(endReloading, 5000);
+   }
+   </pre></code>
+   
+   <h4>Notes</h4>
+   I proposed solution 2 to the customer, waiting feedback.</li>
+<li>Sid Ghosh 2013-09-13
+
+   Vishal 
+   
+   Any update on this issue?
+   
+   Sid</li>
+<li>Vishal Duggal 2013-09-16
+
+   [~sghosh],[~dcassenti]
+   This seems to be a limitation of our current implementation of the search property of tableView (The search field is associated with the tableView and the searchController). While this design has worked on previous versions of iOS, iOS 7 seems to have broken it. Fixing it would require a significant rewrite of our tableView (and by the looks of if ListView, though ListView has the new searchText API which is a much better alternative)
+   
+   Currently the only solution for the current problem would be to disable scrolling in beginReloading (table.scrollable = false) and re-enable it in endReloading(table.scrollable = true). Sample code attached.
+   <code><pre>
+   Titanium.UI.setBackgroundColor('#000');
+     
+   var tabGroup = Titanium.UI.createTabGroup();
+     
+   var win1 = Titanium.UI.createWindow({
+       title : 'Table with Search',
+       backgroundColor : '#fff'
+   });
+   var tab1 = Titanium.UI.createTab({
+       icon : 'KS_nav_views.png',
+       title : 'Table w/ Search',
+       window : win1
+   });
+     
+   var allNoteTypes = [{
+       title : 'Plan 1'
+   }, {
+       title : 'Plan 2'
+   }, {
+       title : 'Plan 3'
+   }];
+     
+   var refreshView = Ti.UI.createView({
+       width : "100%",
+       top : 0,
+       height : 22,
+       backgroundColor : "#000"
+   });
+     
+   var lblRefreshTime = Ti.UI.createLabel({
+       left : 5,
+       width : '55%',
+       text : "refreshed 1 min ago"
+   });
+     
+   var searchBar = Ti.UI.createSearchBar({
+       barColor : "#283D5A",
+       autocorrect : false,
+       autocapitalization : Titanium.UI.TEXT_AUTOCAPITALIZATION_NONE,
+       hintText : "SR Number",
+       keyboardType : Ti.UI.KEYBOARD_NUMBERS_PUNCTUATION
+   });
+     
+   var table = Ti.UI.createTableView({
+       top : 22,
+       width : "100%",
+       backgroundColor : 'transparent',
+       hideSearchOnSelection : false,
+       data : allNoteTypes,
+       search : searchBar
+   });
+     
+   refreshView.add(lblRefreshTime);
+   win1.add(refreshView);
+   win1.add(table);
+     
+   var border = Ti.UI.createView({
+       backgroundColor : "#576c89",
+       height : 2,
+       bottom : 0
+   });
+     
+   var tableHeader = Ti.UI.createView({
+       backgroundColor : "#bcbdc1",
+       width : Ti.Platform.displayCaps.platformWidth,
+       height : 60
+   });
+     
+   tableHeader.add(border);
+     
+   var statusLabel = Ti.UI.createLabel({
+       text : "Pull to Reload",
+       left : 55,
+       bottom : 30,
+       height : "auto",
+       color : "#FFF",
+       textAlign : "center"
+   });
+     
+   tableHeader.add(statusLabel);
+   table.headerPullView = tableHeader;
+     
+   var pulling = false;
+   var reloading = false;
+    
+   var overlay = Ti.UI.createView({
+       opacity:.2,
+       backgroundColor:'black'
+   })
+    
+   var timeOutCounter;
+    
+   function beginReloading() {
+       searchBar.add(overlay);
+       table.scrollable = false;
+       timeOutCounter = setTimeout(function(){
+           Ti.API.info('TIMEOUT');
+           endReloading();
+       },5000);
+       Ti.API.info('setTimeout returned '+timeOutCounter);
+   }
+     
+   function endReloading() {
+       Ti.API.info('END Reloading called. Current Counter '+timeOutCounter);
+       clearTimeout(timeOutCounter);
+       searchBar.remove(overlay);
+       table.scrollable = true;
+       table.setContentInsets({
+           top : 0
+       }, {
+           animated : true
+       });
+       reloading = false;
+       statusLabel.text = "Pull down to refresh...";
+   }
+     
+   var offset = 0;
+   table.addEventListener('scroll', function(e) {
+       if (reloading) {
+           return;
+       }
+       offset = e.contentOffset.y;
+       if (offset <= -65.0 && !pulling) {
+           pulling = true;
+           statusLabel.text = "Release to refresh...";
+       } else if (pulling && offset > -65.0 && offset < 0) {
+           pulling = false;
+           statusLabel.text = "Pull down to refresh...";
+       }
+   });
+     
+   table.addEventListener('dragEnd', function(e) {
+       if (reloading) {
+           return;
+       }
+       if (pulling && !reloading && offset <= -65.0) {
+           reloading = true;
+           pulling = false;
+           statusLabel.text = "Reloading...";
+           table.setContentInsets({
+               top : 60
+           }, {
+               animated : true
+           });
+           beginReloading();
+       }
+   });
+    
+   function handleSearchBarFocus(_event){
+       Ti.API.info('FOCUS');
+       endReloading();
+       setTimeout(function(){
+           searchBar.focus();
+       },300)
+   }
+     
+    
+   overlay.addEventListener("click", handleSearchBarFocus);
+     
+   tabGroup.addTab(tab1);
+   tabGroup.open();
+   </pre></code></li>
+<li>Vishal Duggal 2013-09-16
+
+   Marking this as Won't Fix although this obviously shows a limitation of our current implementation of our built in search functionality. 
+   
+   This should be resolved with the refresh Control ticket [TIMOB-12618] when we move to UITableViewController instead of a plain tableView.</li>
+<li>Lee Morris 2017-03-21
+
+    Closing ticket as the issue will not fix.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15010.json">JSON Source</a></p>

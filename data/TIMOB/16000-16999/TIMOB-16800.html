@@ -1,0 +1,199 @@
+---
+title: "[TIMOB-16800] TiAPI: TableView - e.rowData returns different results on each platform"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-21T14:47:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.3</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Android, iOS, TiAPI</td></tr>
+<tr><th>Labels</th><td>parity, qe-3.2.3</td></tr>
+<tr><th>Reporter</th><td>Priya Agarwal</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2014-04-03T11:48:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-24T01:44:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Not a regression since issue occurs on 3.2.2.GA,3.2.1.GA and 3.2.0.GA also.
+e.rowData returns different data on different platform
+
+Steps to reproduce:
+1.copy paste the code given below in app.js
+2.Launch the app and click on Row.
+
+<code><pre>
+var win = Ti.UI.createWindow({
+   });
+  var data=[];
+   var table = Ti.UI.createTableView({
+        top:0,
+        height: "66%"
+   }); 
+   var row = Ti.UI.createTableViewRow({
+        width: Ti.UI.FILL,
+        backgroundColor:"red",
+        height: 64
+   });  
+data.push(row);
+table.addEventListener("click", function (e) { 
+    Ti.API.warn("clicked: " + JSON.stringify(e.rowData));
+});
+table.data = data; 
+win.add(table);
+win.open();
+</pre></code>
+
+Expected Result:
+Both platform must show the same result.
+
+Actual Result:
+Both the platform gives different result.
+
+On Android getting the output as:
+<code><pre>
+[WARN] :   clicked: {"enabled":true,"height":64,"visible":true,"backgroundColor":"red","backgroundRepeat":false,"width":"fill"}
+</pre></code>
+
+On iOS getting the output as:
+<code><pre>
+[WARN]:clicked{"width":"FILL","backgroundColor":"red","horizontalWrap":true,"height":64}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-04-03
+
+   Hieu, thoughts on why this is?</li>
+<li>Hans Knöchel 2016-10-18
+
+   I guess we want the Android behavior in iOS since it has more information? That would mean that we (just) need to expose some missing properties.</li>
+<li>Hans Knöchel 2016-10-19
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8526" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8526</a>
+   
+   Test-case:
+   <code><pre>
+   var win = Ti.UI.createWindow({});
+   var data = [];
+   var table = Ti.UI.createTableView({
+       top: 0,
+       height: "66%"
+   });
+   var row = Ti.UI.createTableViewRow({
+       width: Ti.UI.FILL,
+       enabled: false,
+       backgroundRepeat: false,
+       backgroundColor: "red",
+       height: 64
+   });
+   data.push(row);
+   table.addEventListener("click", function(e) {
+       Ti.API.warn("clicked: " + JSON.stringify(e.rowData));
+   });
+   table.data = data;
+   win.add(table);
+   win.open();
+   </pre></code></li>
+<li>Abir Mukherjee 2017-01-03
+
+   Tested with this environment:
+   NPM Version: 2.15.9
+   Node Version: 4.5.0
+   Mac OS: 10.12.1
+   Appc CLI: 6.1.0
+   Appc CLI NPM: 4.2.8
+   Titanium SDK version: 6.1.0.v20170103080657
+   Appcelerator Studio, build: 4.8.1.201612050850
+   Xcode 8.2
+   iOS Device: 10.0
+   Android Device: 6.0.1
+   
+   I tested this with SDK 6.1.0, but found that the outputs still differ between iOS and Android. For example, iOS shows the horizontalWrap property while Android does not. Also, Android shows touchEnabled property, while iOS does not. I needed to "enable" createTableViewRow, otherwise the row is not clickable in Android. For iOS it did not matter. See below for actual outputs:
+   
+   iOS:
+   <code><pre>
+   [WARN] :   clicked: {"horizontalWrap":true,"visible":true,"enabled":false,"backgroundColor":"red","width":"FILL","height":64,"backgroundRepeat":false}
+   </pre></code>
+   
+   Android:
+   <code><pre>
+   [WARN] :   clicked: {"backgroundColor":"red","width":"fill","height":64,"visible":true,"enabled":true,"hiddenBehavior":4,"backgroundRepeat":false,"touchEnabled":true}
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2017-01-08
+
+   [~amukherjee] You are correct, here are the comparisons:
+   
+   ||Property||iOS||Android||
+   |horizontalWrap|x| |
+   |visible|x|x|
+   |enabled|x|(Wrong value)|
+   |backgroundColor|x|x|
+   |width|x|x|
+   |height|x|x|
+   |touchEnabled| |x|
+   |hiddenBehavior| |x|
+   
+   Notes: <code>hiddenBehavior</code> is Android-only, so it's not intended to be included on iOS. I fixed the <code>touchEnabled</code> one in [this commit](<a href="https://github.com/appcelerator/titanium_mobile/commit/aadb6b0d4475dc886b1c93c1febd68833affeb3a)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/aadb6b0d4475dc886b1c93c1febd68833affeb3a)</a> and what we could do is add <code>horizontalWrap</code> to the Android defaults and see why <code>enabled</code> returns false on Android although (manually) specified as <code>true</code>. [~gmathews] Can you maybe help me with the latter one?</li>
+<li>Michael Gangolf 2017-08-18
+
+   Added <code>horizontalWrap</code>. PR for Android: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9334" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9334</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9335" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9335</a>
+   
+   Output:
+   <code><pre>
+   {"soundEffectsEnabled":true,"backgroundColor":"red","horizontalWrap":true,"visible":true,"height":64,"width":"fill","enabled":true,"hiddenBehavior":4,"backgroundRepeat":false,"touchEnabled":false}
+   </pre></code>
+   
+   <code>enabled</code> is <code>true</code> in my test</li>
+<li>Lokesh Choudhary 2017-08-24
+
+   Verified the fix with SDK 6.2.0.v20170823150226 & 7.0.0.v20170823165814.
+   
+   Closing.
+   
+   Below are the <code>rowData</code> outputs:
+   *SDK 6.2.0.v20170823150226*
+   Android:
+   <code><pre>
+   {"soundEffectsEnabled":true,"backgroundColor":"red","horizontalWrap":true,"height":64,"width":"fill","visible":true,"enabled":true,"hiddenBehavior":4,"backgroundRepeat":false,"touchEnabled":true}
+   </pre></code>
+   
+   IOS:
+   <code><pre>
+   {"horizontalWrap":true,"visible":true,"touchEnabled":true,"width":"FILL","backgroundColor":"red","height":64,"enabled":true,"backgroundRepeat":false}
+   </pre></code>
+   
+   *SDK 7.0.0.v20170823165814*
+   Android:
+   <code><pre>
+   {"soundEffectsEnabled":true,"backgroundColor":"red","horizontalWrap":true,"height":64,"width":"fill","visible":true,"enabled":true,"hiddenBehavior":4,"backgroundRepeat":false,"touchEnabled":true}
+   </pre></code>
+   
+   IOS:
+   <code><pre>
+   {"horizontalWrap":true,"visible":true,"touchEnabled":true,"width":"FILL","backgroundColor":"red","height":64,"enabled":true,"backgroundRepeat":false}
+   </pre></code>
+   
+   Studio Ver:     4.9.1.201707200100
+   OS Ver:         10.12.3
+   Xcode Ver:      Xcode 8.3.3
+   Appc NPM:       4.2.9
+   Appc CLI:       6.2.3
+   Ti CLI Ver:     5.0.14
+   Alloy Ver:      1.9.13
+   Node Ver:       6.10.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ google Nexus 5 --- Android 6.0.1
+                   ⇨ google Pixel --- Android 7.1.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16800.json">JSON Source</a></p>

@@ -1,0 +1,138 @@
+---
+title: "[TIMOB-28352] Android: Application crashes when scrolling to listview marker"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-05-18T18:22:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 9.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.0, Release 9.3.3</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>ListView, android, marker, regression</td></tr>
+<tr><th>Reporter</th><td>Ahmed Mohamed</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2021-02-06T18:09:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-06-01T22:33:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The application will crash when trying to fire a marker event in listview.
+Tested with SDK 9.3.1.GA and 9.3.2.v20210205063432.
+
+*+Test Steps:+*
+<h4>Create a New titanium application</h4>
+<h4>Copy the test case below into the application</h4>
+<h4>Run the application</h4>
+<h4>Scroll list view to Row 20</h4>
+
+*+Test Case:+*
+<code><pre>
+const window = Ti.UI.createWindow();
+
+const emptySection = Ti.UI.createListSection({
+    headerTitle: "I'm an empty Section"
+});
+
+const listItems = [];
+
+for (let index = 0; index < 100; index++) {
+
+    listItems[index] = {
+        properties: {
+            title: "Row " + (index + 1).toString()
+        }
+    };
+}
+
+const listSection = Ti.UI.createListSection({
+    headerTitle: "List Section"
+});
+
+listSection.items = listItems;
+
+const listView = Ti.UI.createListView({
+    canScroll: true,
+});
+
+listView.sections = [emptySection, listSection];
+
+listView.addMarker({
+    sectionIndex: 1,
+    itemIndex: 20
+});
+
+listView.addEventListener("marker", () => {
+    alert("Here");
+});
+
+window.add(listView);
+
+window.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2021-02-12
+
+   The error:
+   <code><pre>
+   [ERROR] TiExceptionHandler: (main) [2,1104] Attempt to read from field 'android.graphics.Rect androidx.recyclerview.widget.RecyclerView$LayoutParams.mDecorInsets' on a null object reference
+   [ERROR] TiExceptionHandler:
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$LayoutManager.getLeftDecorationWidth(RecyclerView.java:9954)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$LayoutManager.getDecoratedLeft(RecyclerView.java:9847)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$LayoutManager$1.getChildStart(RecyclerView.java:7827)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.ViewBoundsCheck.isViewWithinBoundFlags(ViewBoundsCheck.java:249)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$LayoutManager.isViewPartiallyVisible(RecyclerView.java:10150)
+   [ERROR] TiExceptionHandler:     ti.modules.titanium.ui.widget.listview.ListViewProxy.handleMarker(ListViewProxy.java:464)
+   [ERROR] TiExceptionHandler:     ti.modules.titanium.ui.widget.listview.ListViewAdapter.onBindViewHolder(ListViewAdapter.java:107)
+   [ERROR] TiExceptionHandler:     ti.modules.titanium.ui.widget.listview.ListViewAdapter.onBindViewHolder(ListViewAdapter.java:23)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$Adapter.onBindViewHolder(RecyclerView.java:7163)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$Adapter.bindViewHolder(RecyclerView.java:7243)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$Recycler.tryBindViewHolderByDeadline(RecyclerView.java:6110)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.RecyclerView$Recycler.tryGetViewHolderForPositionByDeadline(RecyclerView.java:6376)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.GapWorker.prefetchPositionWithDeadline(GapWorker.java:288)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.GapWorker.flushTaskWithDeadline(GapWorker.java:345)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.GapWorker.flushTasksWithDeadline(GapWorker.java:361)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.GapWorker.prefetch(GapWorker.java:368)
+   [ERROR] TiExceptionHandler:     androidx.recyclerview.widget.GapWorker.run(GapWorker.java:399)
+   [ERROR] TiExceptionHandler:     android.os.Handler.handleCallback(Handler.java:938)
+   [ERROR] TiExceptionHandler:     android.os.Handler.dispatchMessage(Handler.java:99)
+   [ERROR] TiExceptionHandler:     android.os.Looper.loop(Looper.java:223)
+   [ERROR] TiExceptionHandler:     android.app.ActivityThread.main(ActivityThread.java:7660)
+   [ERROR] TiExceptionHandler:     java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] TiExceptionHandler:     com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)
+   [ERROR] TiExceptionHandler:     com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)
+   </pre></code>
+   
+   A try & catch in ListViewProxy around layoutManager.isViewPartiallyVisible + if (isVisible) works but doesn't look like the correct solution :)</li>
+<li>Gary Mathews 2021-02-13
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/12472" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12472</a></li>
+<li>Muhammad Ahmed Fahad 2021-02-16
+
+   Please also apply as patch for 9_3_X</li>
+<li>Satyam Sekhri 2021-02-16
+
+   FR Passed. 
+   Waiting for Jenkins build.</li>
+<li>Christopher Williams 2021-02-17
+
+   merged to master for 10.0.0 target. Also backport PR merged to 9_3_X maintenance branch (but we do not expect to release a formal 9.3.3 GA, so users wanting fix can install via <code>ti sdk install -b 9_3_X</code>)</li>
+<li>Ahmed Mohamed 2021-02-25
+
+   Sometimes marker event doesn't fire. please check it again</li>
+<li>said chaouche 2021-05-30
+
+   In SDK 10.0.0.GA the marker never fired if we don't set item height</li>
+<li>Gary Mathews 2021-06-01
+
+   [~saidCh] See <a href="https://github.com/appcelerator/titanium_mobile/pull/12857" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12857</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28352.json">JSON Source</a></p>

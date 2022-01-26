@@ -1,0 +1,423 @@
+---
+title: "[TIMOB-13392] Android: Implement Scrollable Tabs"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-12-03T01:14:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>notable</td></tr>
+<tr><th>Reporter</th><td>Igor Santos</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2012-12-12T09:10:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-03-18T21:52:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+As seen in the [documentation](<a href="http://developer.android.com/design/patterns/actionbar.html)" rel="nofollow" target="_blank">http://developer.android.com/design/patterns/actionbar.html)</a> [(another place)](<a href="http://developer.android.com/design/building-blocks/tabs.html)" rel="nofollow" target="_blank">http://developer.android.com/design/building-blocks/tabs.html)</a>, there's a new subtype of tab bar in the Android, called Scrollable Tabs.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2014-04-27
+
+   With 3.3.0 using ActionBar AppCompat I think it's appropriate for Titanium to implement scrollable tabs:
+   <a href="http://developer.android.com/training/implementing-navigation/lateral.html" rel="nofollow" target="_blank">http://developer.android.com/training/implementing-navigation/lateral.html</a>
+   This should be the standard tab setup on Android. Virtually every user I've seen tries to swipe between tabs, of course currently to no avail....
+   A good example is Google Play Store app. The big advantage of scrollable tabs is that it allows the developer to implement many side by side tabs (currently 8 tabs in the Play Store app).</li>
+<li>Mark Mokryn 2014-04-30
+
+   See pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5651" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5651</a>
+   The app below has been tested on Android 2.3.6 and 4.1.2
+   
+   Test app:
+   index.xml:
+   <code><pre>
+   <Alloy>
+   	<TabGroup onOpen="tgOpen" onClose="tgClose" onFocus="tgFocus" onBlur="tgBlur" onClick="tgClick">
+   		<Tab id="tab1" title="Tab 1" icon="KS_nav_ui.png" onSelected="onSelected" onUnselected="onUnselected"
+   			onFocus="tabFocus" onBlur="tabBlur" onClick="tabClick">
+   			<Window id="win1" title="Tab 1" onFocus="winFocus" onBlur="winBlur" onClick="winClick" 
+   				onOpen="winOpen" onClose="winClose">
+   				<Label top="10">Pay attention on the console to the window, tab, and tab group events. You can compare the focus, blur, open, close, and click events to the same events in 3.3.0 prior to this PR. These events are the same, so this PR does not break existing logic. The tab selected/unselected are new events that are required since focus/blur did not indicate this in Android prior.</Label>
+   			</Window>
+   		</Tab>
+   		<Tab title="Tab 2" icon="KS_nav_views.png">
+   			<Window title="Tab 2">
+   				<Button id="swipeable" top="50dp" width="90%" height="50dp" title="Toggle swipeable" onClick="toggleSwipeable"
+   					backgroundColor="blue"/>
+   				<Button top="120dp" width="90%" height="50dp" title="Toggle disableTabNavigation" onClick="disableTabs"
+   					backgroundColor="blue"/>
+   			</Window>
+   		</Tab>
+   		<Tab title="Tab 3" icon="KS_nav_views.png">
+   			<Window title="Tab 3">
+   				<Label top="10" height="Ti.UI.SIZE">Focus the text field, then select a different tab. The keyboard should disappear.</Label>
+   				<TextField top="200dp" width="90%" height="Ti.UI.SIZE" value="focus me" backgroundColor="black" color="white"/>
+   			</Window>
+   		</Tab>		
+   	</TabGroup>
+   </Alloy>
+   </pre></code>
+   
+   index.js:
+   <code><pre>
+   function tgOpen() {
+   	Ti.API.info('TabGroup opened');
+   	Ti.API.info('Swipeable: ' + $.index.swipeable);
+   }
+   
+   function tgClose() {
+   	Ti.API.info('TabGroup closed');
+   }
+   
+   function tgFocus() {
+   	Ti.API.info('TabGroup focused');
+   }
+   
+   function tgBlur() {
+   	Ti.API.info('TabGroup blurred');
+   }
+   
+   function tgClick() {
+   	Ti.API.info('TabGroup clicked');
+   }
+   
+   function onSelected() {
+   	Ti.API.info('Tab selected');
+   }
+   
+   function onUnselected() {
+   	Ti.API.info('Tab unselected');
+   }
+   
+   function tabFocus(){
+   	Ti.API.info('Tab focused');
+   }
+   
+   function tabBlur() {
+   	Ti.API.info('Tab blurred');
+   }
+   
+   function tabClick() {
+   	Ti.API.info('Tab clicked');
+   }
+   
+   function winFocus() {
+   	Ti.API.info('Window focused');
+   }
+   
+   function winBlur() {
+   	Ti.API.info('Window blurred');
+   }
+   
+   function winClick() {
+   	Ti.API.info('Window clicked');
+   }
+   
+   function winOpen() {
+   	Ti.API.info('Window opened');
+   }
+   
+   function winClose() {
+   	Ti.API.info('Window closed');
+   }
+   
+   function toggleSwipeable(){
+   	$.index.swipeable = !$.index.swipeable;	
+   }
+   
+   var tabsDisabled = false;
+   function disableTabs() {
+   	tabsDisabled = !tabsDisabled;
+   	if (tabsDisabled){
+   		// Don't mess with swipeable when tabs disabled
+   		$.swipeable.visible = false;
+   	} else {
+   		$.swipeable.visible = true;
+   	}
+   	$.index.disableTabNavigation(tabsDisabled);
+   }
+   
+   $.index.open();
+   </pre></code></li>
+<li>Mark Mokryn 2014-05-05
+
+   Try adding more tabs to the test program and watch them scroll :)</li>
+<li>Ingo Muschenetz 2014-05-05
+
+   [~mokesmokes] We are greatly appreciative of the work you've done here. Our feature freeze was two weeks ago in order to for us to meet our release date in June. We had a discussion, but it's a bit too large of a change to squeeze in at this point. However, we will be reviewing the PR at a priority so interested parties can use it before the official next release.</li>
+<li>Mark Mokryn 2014-05-05
+
+   It's up to you guys.... but quite honestly it maintains the current API to a tee, even all the events are exactly as before, except that two events  and two methods are added (doesn't affect existing apps). The only break I see is with the map module, as noted in the PR comments.</li>
+<li>Mark Mokryn 2014-05-06
+
+   I will also add that the problem with delaying the merge is that (from prior experience) as time passes there is high probability that it not not be mergeable, thus requiring additional work that is not required now. That's understandable in most cases, but in this case we're talking about not merging what is really core functionality in the Android UI, and a user expectation whenever they see tabs in Android.</li>
+<li>Mark Mokryn 2014-05-21
+
+   Now that the master is at 3.4.0, can this please be merged? I'm asking since I would like to avoid unnecessary work if the codebase diverges. The PR is well tested, with all the features that I wrote into it working and in production. Again - the only break is with the Map module being used inside the tab group, and that in any case needed a more robust solution if the system is to use fragments (e.g. for lightweight windows).</li>
+<li>Ingo Muschenetz 2014-05-21
+
+   [~mokesmokes] yes, I just spoke with Vishal about this yesterday. We have a LOT going on, but this is very high on our list.</li>
+<li>Jong Eun Lee 2014-06-23
+
+   +1 :)
+   I hope to merge this feature ASAP! </li>
+<li>Patrick van Vuuren 2014-07-06
+
+    I just created this feature by building it myself, it's almost working the same as the native Android feature, but it's also working for iOS.
+    
+    Check this out:
+    <a href="http://developer.appcelerator.com/question/175688/scrollable-tabs--draggable-windows-example-titanium-alloy" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/175688/scrollable-tabs--draggable-windows-example-titanium-alloy</a></li>
+<li>Ingo Muschenetz 2014-07-06
+
+    [~Serfenia] Great. Are you interested in filing a pull request? Have others who are interested in this feature tried out this version?</li>
+<li>Patrick van Vuuren 2014-07-07
+
+    It's build with the current available features in the Titanium SDK (3.2.3) and Alloy (1.3), so it's just an example in how to implement this feature with current available features. Currently I am working on a mobile application project for my company so I don't really have time to study and modify the SDK.
+    
+    </li>
+<li>Mark Mokryn 2014-07-07
+
+    @Ingo, Patrick's example is 100% Javascript, so it's not really relevant for people who use the TabGroup APIs. Regarding the pull request for Android - it's been working for me merged into 3.3.0 for a very long time now, works perfectly with zero issues. As noted, the API is entirely backwards compatible with the standard Tab and TabGroup APIs, so for the vast majority of apps it will work with zero changes in Javascript. It's really too bad the Ti community needs to wait for 3.4.0 for this. I know of other Titanium developers who merged it into their private trees as well, so it really is well tested on 3.3.0. The only break I know of is with the Map module inside a TabGroup, with the method that was used to find the Map fragment. That should be easily fixed, and would have been broken anyway when Titanium will use Fragments more extensively (e.g. as lightweight window replacement).</li>
+<li>Patrick van Vuuren 2014-07-07
+
+    The only thing Mark, that this feature would be nice to have for iOS as well. I know it's not native, but if you're trying to create the exact same application for both platforms, it would be nice to have it for both as well.
+    
+    In case it's not coming for iOS, I will stick to my own solution.</li>
+<li>Mark Mokryn 2014-07-07
+
+    @Patrick, the difference is that scrollable tabs are native to Android, and expected of all tabbed applications (I have seen many Android users try to swipe tabs and get frustrated when it doesn't work - but not on iOS), while this is not the case for iOS. There are lots of differences between the platforms, and a complex app will never look and feel identical (e.g. ActionBar and menu usage on Android, no equivalent on iOS, etc). Plus in iOS swipes are often used to open item options in ListViews (native behavior), and this cannot live side-by-side with scrollable tabs without confusing the user. A good example is the Facebook app: while on iOS and Android that app has very similar structure, the UI elements are native and behave differently. So tabs are scrollable in Facebook Android, but not on iOS. Your solution may be OK for a simple app (haven't tried it since it's irrelevant to me), but it's not scalable to encompass the overall Android and iOS UI functionality. The platforms are different, having a common Javascript API will never change that, and that is not the point of Titanium. Titanium is about developing great Android and iOS native apps, not identical apps. If you want identical apps then you should use HTML5 and maybe Phonegap.</li>
+<li>Patrick van Vuuren 2014-07-07
+
+    I understand your point, but if the wish from the cliënt is to create identical applications we as a company can't ignore that wish. Even though we advise them to choose the native features that both platforms deliver, they always have their own choice of interaction design. And the cliënt is 'king' in that case.
+    
+    And you may be right on creating the application with Phonegap (or even Sencha), but the MVC framework of Alloy works great for us so we will be using Titanium.</li>
+<li>Mark Mokryn 2014-07-07
+
+    Patrick, your app requirements are your responsibility of course. But try to see my point of view here: I have worked hard on adding this native functionality to Titanium Android, and while the Javascript you wrote is OK in some limited circumstances, it really has nothing to do with providing the required native functionality. So it should not have been reported here, and it's distracting from the real issue. And as to your clients, people have all kinds of misconceptions. You can show them the Facebook app and they will see how they are different. And again, in many cases on iOS what you wrote will just not work (e.g. ListViews with deletable items).</li>
+<li>Mark Mokryn 2014-07-17
+
+    Now that 3.3.0.GA is out, can you guys please merge this PR? <a href="https://github.com/appcelerator/titanium_mobile/pull/5651" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5651</a>
+    Thanks.</li>
+<li>Ingo Muschenetz 2014-07-17
+
+    [~hpham] Can we get this merged in?</li>
+<li>Mark Mokryn 2014-07-23
+
+    Any update? Thanks.</li>
+<li>Mark Mokryn 2014-08-14
+
+    [~ingo], [~hpham] - this PR has been outstanding for 3.5 months now, works great... can you please finally merge this?
+    Thanks</li>
+<li>Ingo Muschenetz 2014-08-26
+
+    From my current understanding, this PR introduces several side effects, some of which we will need to correct ASAP? Do we have tickets for those issues? I believe we have two choices:
+    
+    <h4>Merge the PR and fix the regressions</h4>
+    <h4>Update the PR with the changes necessary</h4>
+    
+    My preference is that we merge this onto a new feature branch and once all the related issues have been solved, we can then proceed from there.</li>
+<li>Mark Mokryn 2014-08-26
+
+    </li>
+<li>Mark Mokryn 2014-08-26
+
+    And regarding <a href="https://github.com/appcelerator/titanium_mobile/pull/5836" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5836</a> : The issue is unchanged in my PR, and the fix will most likely be the same as whatever will end up being the fix for that issue. The only concern here is that <a href="https://github.com/appcelerator/titanium_mobile/pull/5836" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5836</a> may make my PR unable to be merged automatically. The work to fix that underlying issue could just as easily be done on top of my PR as on the original code (which will then require more additional work....). Just trying to save time and effort here....</li>
+<li>Allen Yeung 2014-08-27
+
+    Hi Mark,
+    
+    The PR looks great.  I think the only outstanding things that needs to be fixed are the following:
+    
+    - Fix TabGroups for API Level 10 with a non-AppCompat theme:  You removed the tabhost implementation, and if someone is using a non-appcompat theme for API level 10 or below, this will not work for this.  We probably want to keep that implementation there just in case.
+    
+    - We plan to merge <a href="https://github.com/appcelerator/titanium_mobile/pull/5836" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5836</a>, so it would be great if you could touch up your PR after that has been merged.</li>
+<li>Mark Mokryn 2014-08-29
+
+    </li>
+<li>Mark Mokryn 2014-09-02
+
+    </li>
+<li>Mark Mokryn 2014-09-02
+
+    Future to do: this version of the Android tab group uses [FragmentPagerAdapter](<a href="http://developer.android.com/reference/android/support/v4/app/FragmentPagerAdapter.html)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/support/v4/app/FragmentPagerAdapter.html)</a>, which is optimized for small tab groups, keeps all the tabs in memory and thus switches fast. Android also provides a [FragmentStatePagerAdapter](<a href="http://developer.android.com/reference/android/support/v4/app/FragmentStatePagerAdapter.html)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/support/v4/app/FragmentStatePagerAdapter.html)</a> , which is optimized for lean memory, and flushes fragments outside the view. This would enable a large tab group, and we can have an proxy property to pick a largeTabGroup if we choose. The APIs are similar but not identical, so I had no time to implement it now. Note that for a tab group of 3 tabs, when the middle tab is selected both these implementations would keep all fragments in memory. SO the difference only comes to light in big tab groups.</li>
+<li>Mark Mokryn 2014-09-03
+
+    Updated the PR with comments (no functional changes), please look over and merge. Thanks.</li>
+<li>Dan Tamas 2014-09-03
+
+    A good addition would be to add a flag to make or not the tabs swipeable.
+    In my case I have an app that populates the window in the tab only when focused in one case and with a small delay in other case.
+    
+    This leads to a "not-so-smooth" scroll effect that makes the app look slow. The scroll stales for a split second in a state between windows then goes on.
+    
+    This happens on a powerful device (OnePlus). I suppose the issue is more visible on slower devices.
+    
+    I'll try to provide a testcase soon.
+    </li>
+<li>Mark Mokryn 2014-09-03
+
+    There is a flag "swipeable" - try to set it true/false. May I ask why you're populating the tabs in that fashion?</li>
+<li>Dan Tamas 2014-09-03
+
+    Amazing, and it works :D
+    Why? well, very old codebase (2.5 years) very heavy app, trying to improve the perceived loading time :(</li>
+<li>Dan Tamas 2014-09-03
+
+    Spoke too soon, the swipeable flag set to false indeed disables the gesture itself, but the clicking on tabs the window change it's still animated.</li>
+<li>Mark Mokryn 2014-09-03
+
+    [~rborn] my apologies but you will need to rebuild.... again :D
+    You're right, a tab click should transition without a scroll. Fixed! Just get the latest update from the PR.
+    Regarding the heavy app, see my previous comment. In a next phase (probably not soon, relax Appcelerator guys ;) ) I will let the dev pick between a FragmentPagerAdapter (as today - all tabs in memory together), or a [FragmentStatePagerAdapter](<a href="http://developer.android.com/reference/android/support/v4/app/FragmentStatePagerAdapter.html)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/support/v4/app/FragmentStatePagerAdapter.html)</a> which does exactly what you want. </li>
+<li>Mark Mokryn 2014-09-03
+
+    I looked into it a bit more, some apps (e.g. Facebook) do a smooth scroll on tab clicks as well. So I decided to add a TabGroup property "smoothScrollOnTabClick" which defaults to true, to give the developer flexibility. Already tested and pushed to the PR. That's it! No more changes :D</li>
+<li>Dan Tamas 2014-09-03
+
+    Thank you sir! 
+    
+    Set both - swipeable & smoothScrollOnTabClick - to false and works as advertised.
+    Hope this will be merged in the master branch so we have it ready for 3.5.0 :) [~ingo] any chance?
+    </li>
+<li>Mark Mokryn 2014-09-03
+
+    </li>
+<li>Mark Mokryn 2014-09-03
+
+    Here is a test program that covers about everything:
+    <code><pre>
+    var MapModule = require('ti.map');
+    
+    var tabWin1 = Ti.UI.createWindow({title : 'TW1',backgroundColor:'blue'});
+    var tabWin2 = Ti.UI.createWindow({title : 'TW2',backgroundColor:'red'});
+    var tabWin3 = Ti.UI.createWindow({title : 'TW3',backgroundColor:'green', layout: 'vertical'});
+    var tabWin4 = Ti.UI.createWindow({title : 'Map'});
+    var tabWin5 = Ti.UI.createWindow({title : 'TW5',backgroundColor:'yellow'});
+     
+    var label = Ti.UI.createLabel({text: 'Go to tab 3', color: 'white', font:{fontSize:'20dp'}});
+    tabWin1.add(label);
+     var mapview = MapModule.createView({
+     	region: {latitude:33.74511, longitude:-84.38993,
+     		latitudeDelta:0.01, longitudeDelta:0.01}
+     });
+         
+    tabWin4.add(mapview);
+     
+    var tab1 = Ti.UI.createTab({window : tabWin1,title : 'Tab 1'});
+    var tab2 = Ti.UI.createTab({window : tabWin2,title : 'Tab 2'});
+    var tab3 = Ti.UI.createTab({window : tabWin3,title : 'Tab 3'});
+    var tab4 = Ti.UI.createTab({window : tabWin4,title : 'Map'});
+    var tab5 = Ti.UI.createTab({window : tabWin5,title : 'Tab 5'});
+    
+    var tabGroup = Ti.UI.createTabGroup({tabs : [tab1,tab2,tab3, tab4]});
+     
+    var win2 = Ti.UI.createWindow({title: 'Window 2'});
+     
+    
+    var deleteTabButton = Ti.UI.createButton({top: 30, title: 'Delete Tab2'});
+    var addTabButton = Ti.UI.createButton({top: 30, title: 'Add Tab5'});
+    var openWindowButton = Ti.UI.createButton({top: 30,title:'Open window2'});
+    var disableTabsButton = Ti.UI.createButton({top: 30, title: 'Toggle Disable Tabs'});
+    var toggleSwipeableButton = Ti.UI.createButton({top: 30, title: 'Toggle swipeable'});
+    var toggleSmoothScrollOnTabClickButton = Ti.UI.createButton({top: 30, title: 'Toggle smoothScrollOnTabClick'});
+    
+    tabWin3.add(deleteTabButton);
+    tabWin3.add(openWindowButton);
+    tabWin3.add(addTabButton);
+    tabWin3.add(disableTabsButton);
+    tabWin3.add(toggleSwipeableButton);
+    tabWin3.add(toggleSmoothScrollOnTabClickButton);
+    
+     
+    var closeWindowButton = Ti.UI.createButton({width:Ti.UI.SIZE,height:Ti.UI.SIZE,title:'Close window2'});
+    win2.add(closeWindowButton);
+     
+    openWindowButton.addEventListener('click',function(e){win2.open();});
+    deleteTabButton.addEventListener('click', function(e){tabGroup.removeTab(tab2); deleteTabButton.visible = false;});
+    addTabButton.addEventListener('click', function(e){tabGroup.addTab(tab5);addTabButton.visible = false;});
+    closeWindowButton.addEventListener('click',function(e){win2.close();});
+    
+    toggleSwipeableButton.addEventListener('click', function() {
+        tabGroup.swipeable = !tabGroup.swipeable; 	
+    });
+    
+    toggleSmoothScrollOnTabClickButton.addEventListener('click', function() {
+        tabGroup.smoothScrollOnTabClick = !tabGroup.smoothScrollOnTabClick; 	
+    });
+    
+    var tabsDisabled = false;
+    disableTabsButton.addEventListener('click', function() {
+        tabsDisabled = !tabsDisabled;
+        if (tabsDisabled){
+            // Don't mess with swipeable when tabs disabled
+            toggleSwipeableButton.visible = false;
+        } else {
+            toggleSwipeableButton.visible = true;
+        }
+        tabGroup.disableTabNavigation(tabsDisabled);	
+    });
+    
+    tabGroup.open();
+    </pre></code></li>
+<li>Ingo Muschenetz 2014-09-03
+
+    Hi All, I appreciate greatly the effort the work that went into this PR in. However, as much as we would like to immediately accept this for the next release, we can't pull this into 3.4.0 for a few reasons:
+    
+    <h4>3.4.0 is a release specifically targeted for iOS 8. If we take a new Android feature, we divert attention from iOS testing. Ordinarily, the split would be even. We will do greater testing on Android when L is released.</h4>
+    <h4>We're past code freeze for 3.4.0. An iOS update release is different than others in that we have a hard and fast deadline with little insight into the actual due date other than guessing what Apple will announce. That means we have to be ready to release early (if necessary), and we have likely no flexibility to move the release date back if necessary because a new feature caused an unexpected regression.</h4>
+    
+    We am able to consider major bugs that remain as a result of TIMOB-17016, but we can't take a new feature in to replace that. Small, targeted fixes are welcome. I appreciate your understanding.
+    
+    [~mokesmokes] For the changes you have in your last PR, should I reopen this ticket as they were bugs in the initial implementation, or should we have a separate ticket to encapsulate the new things that were added?</li>
+<li>Mark Mokryn 2014-09-03
+
+    </li>
+<li>Mark Mokryn 2014-10-14
+
+    Reminder: This PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6008" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6008</a> fixes and improves the original merged PR. Thanks.</li>
+<li>Mark Mokryn 2014-10-28
+
+    [~ingo] [~hpham] I just spent time rebasing <a href="https://github.com/appcelerator/titanium_mobile/pull/6008" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6008</a> to current master, can we please merge this and avoid more future work? It's already reviewed, and fixes a number of issues with my previous PR for this ticket. Thanks!</li>
+<li>Ingo Muschenetz 2014-10-28
+
+    Reopening to address new comments.</li>
+<li>Mark Mokryn 2014-11-23
+
+    [~ingo] the latest PR is bugfixes to the existing one, so it really belongs in 3.5.0 in my opinion, plus it's already reviewed and tested by [~hpham]</li>
+<li>Ingo Muschenetz 2014-11-24
+
+    Hi [~mokesmokes] 3.6.0 is the new 3.5.0. Same release date--we just changed versions to indicate the 64-bit builds of iOS is a bigger jump than a minor patch.</li>
+<li>Mark Mokryn 2014-11-24
+
+    [~ingo] thanks for the update. So will there be a 3.4.2 release prior as well? - i.e. is 3_4_X still being updated? What is 3_5_X based on? I noticed that Material is not in it, for example. Just trying to understand the content and schedule of your upcoming releases. Thanks :)</li>
+<li>Hieu Pham 2014-12-03
+
+    I've created a new PR to resolve conflicts with current master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6414" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6414</a></li>
+<li>Mark Mokryn 2014-12-03
+
+    Thanks [~hpham] :)</li>
+<li>Lokesh Choudhary 2015-03-18
+
+    Verified the implementation of scrollable tabs.
+    Closing.
+    
+    Environment:
+    Appc Studio : 3.5.1.201412091616
+    Ti SDK : 4.0.0.v20150313181810
+    CLI : 3.4.2
+    Alloy : 1.5.1
+    MAC Yosemite : 10.10.2
+    Nexus 5 - Android 5.0
+    Samsung Galaxy S3 - Android 4.0.4
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13392.json">JSON Source</a></p>

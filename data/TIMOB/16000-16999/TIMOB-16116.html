@@ -1,0 +1,143 @@
+---
+title: "[TIMOB-16116] Android: Controller Scoped Variables collected during Android Garbage Collection"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-09T22:15:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>alloy, android</td></tr>
+<tr><th>Reporter</th><td>James McBryan</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-12-25T18:55:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-09T22:15:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In a controller ( that is opened by another controller ), the local variables are garbage collected.  When events are called trying to access those local variables, they are garbage collect and as result error out and the app crashes.  
+
+For example, this code errors out:
+
+<code><pre>
+var options = ['a','b','c','d','e'];
+
+var optionsDialogOpts = {
+  options:options,
+  cancel:options.length-1,
+  selectedIndex: 0
+};
+var dialog1 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+var dialog2 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+var dialog3 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+var dialog4 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+var dialog5 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+
+function showDialog1() { dialog1.show(); }
+function showDialog2() { dialog2.show(); }
+function showDialog3() { dialog3.show(); }
+function showDialog4() { dialog4.show(); }
+function showDialog5() { dialog5.show(); }
+</pre></code>
+
+
+To fix this I've had to globalize the variables
+
+<code><pre>
+var options = ['a','b','c','d','e'];
+
+var optionsDialogOpts = {
+  options:options,
+  cancel:options.length-1,
+  selectedIndex: 0
+};
+dialog1 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+dialog2 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+dialog3 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+dialog4 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+dialog5 = Titanium.UI.createOptionDialog(optionsDialogOpts);
+
+function showDialog1() { dialog1.show(); }
+function showDialog2() { dialog2.show(); }
+function showDialog3() { dialog3.show(); }
+function showDialog4() { dialog4.show(); }
+function showDialog5() { dialog5.show(); }
+</pre></code>
+
+And that works.  
+
+Just to be clear, this error exists specifically when the above controller is opened from another controller:
+
+<code><pre>
+function clickLogin() {
+  var b = Alloy.createController('main');
+  b.getView().open();
+}
+</pre></code>
+
+The error in the logs when this error happens is the following:
+
+<code><pre>
+F/libc    ( 4384): Fatal signal 11 (SIGSEGV) at 0x00000014 (code=1), thread 4398 (KrollRuntimeThr)
+I/DEBUG   (  113): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (  113): Build fingerprint: 'generic/vbox86p/vbox86p:4.1.1/JRO03S/eng.buildbot.20131216.105737:userdebug/test-keys'
+I/DEBUG   (  113): pid: 4384, tid: 4398, name: KrollRuntimeThr  >>> com.testapp.test <<<
+I/DEBUG   (  113): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 00000014
+I/DEBUG   (  113):     eax 99757f24  ebx 99757cec  ecx 999c7750  edx 00000000
+I/DEBUG   (  113):     esi 00000000  edi 999c768c
+I/DEBUG   (  113):     xcs 00000073  xds 0000007b  xes 0000007b  xfs 00000000  xss 0000007b
+I/DEBUG   (  113):     eip 9910ee29  ebp 999c7694  esp 999c7650  flags 00010246
+I/DEBUG   (  113): 
+I/DEBUG   (  113): backtrace:
+I/DEBUG   (  113):     #00  pc 00076e29  /data/data/com.testapp.test/lib/libkroll-v8.so (titanium::JavaObject::getJavaObject()+41)
+I/DEBUG   (  113):     #01  pc 00013034  [heap]
+I/DEBUG   (  113):     #02  pc 000bd308  [heap]
+I/DEBUG   (  113): 
+</pre></code>
+
+I have put this sample app here: <a href="https://bitbucket.org/mcpuddin/alloy-error-crash-for-android" rel="nofollow" target="_blank">https://bitbucket.org/mcpuddin/alloy-error-crash-for-android</a>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16116_44811/app.zip">app.zip</td></td><td>2013-12-26T05:13:58.000+0000</td><td>3820637</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2013-12-26
+
+   I am sorry but I cannot spot the difference between the code that works and code that does not. I am having trouble getting the sample example app from the above link so I would appreciate if you can attach a simple test with this ticket itself.</li>
+<li>James McBryan 2013-12-26
+
+   Code that does not work with Android Garbage Collection.</li>
+<li>James McBryan 2013-12-26
+
+   </li>
+<li>James McBryan 2013-12-26
+
+   Here is a youtube video of the error that is happening running my attached code.  I didn't have audio at the time and not sure if I got good resolution, but I am basically doing the following
+   
+   - Showing the error
+   - Adjusting the code and showing no error
+   - Showing the error again, but it doesn't work initially, so I close the app out and re-run it and then it happens
+   
+   <a href="http://www.youtube.com/watch?v=xOjDgmmUAu0" rel="nofollow" target="_blank">http://www.youtube.com/watch?v=xOjDgmmUAu0</a></li>
+<li>Alan Hutton 2020-01-09
+
+   This issue is out of date with our current supported SDK release (7.5.2.GA as of the date of closure), and out of date with mobile OS versions. 
+   
+   If community members feel that the issue is still valid, please create a new ticket. Please reference this closed ticket number, include SDK used, comments, and code that demonstrates/reproduces the issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16116.json">JSON Source</a></p>

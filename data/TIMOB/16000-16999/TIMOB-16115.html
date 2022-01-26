@@ -1,0 +1,560 @@
+---
+title: "[TIMOB-16115] iOS: Unable to disable animation when using ListView.setItems()"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-11-25T07:15:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0, Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>animated, listview, module_listview, qe-3.2.1, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Jong Eun Lee</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-12-19T02:56:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-25T07:15:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce Step</h4>
+<h4>Run below test code. (case1 & case2)</h4>
+<h4>You can see wired section animation</h4>
+
+
+<h4>actual Result</h4>
+see this video : <a href="http://screencast.com/t/rajjRG1g" rel="nofollow" target="_blank">http://screencast.com/t/rajjRG1g</a>
+When items.length is same, it work properly.
+But if items.length is changed, it work with wired animation
+
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor : 'white'
+});
+
+var listView = Ti.UI.createListView();
+var section = Ti.UI.createListSection();
+listView.sections = [section];
+
+var items = [];
+
+var i=0;
+setInterval(function(){
+    items.push({
+        properties : {
+            title : 'Item '+ i++
+        }
+    });
+    // case 1 : animated = false 
+    /*
+    section.setItems(items,{
+        animated : false
+    });
+    */
+    // case 2 : animationStyle = Ti.UI.iPhone.RowAnimationStyle.NONE
+    section.setItems(items,{
+        animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE
+    });
+},1000);
+
+
+win.add(listView);
+win.open();
+</pre></code>
+
+<h4>Expected Result</h4>
+If set animated to false or animationStyle to NONE, there are no animation. 
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shineeth Hamza 2014-01-08
+
+   This the default behaviour in iOS if we reload TableView Section with animation UITableViewRowAnimationNone (i.e Ti.UI.iPhone.RowAnimationStyle.NONE or we haven't set any animation). To get neat reload we have to use Ti.UI.iPhone.RowAnimationStyle.FADE i.e equal to  UITableViewRowAnimationFade in iOS.</li>
+<li>Ed 2014-02-04
+
+   I'm seeing this bug as well with TableViews. I use appendRow() with Ti.UI.iPhone.RowAnimationStyle.NONE and animated:false, yet the animation is rendered. I believe I started noticing this problem after the 3.2.0GA upgrade.  Any work arounds?</li>
+<li>Wilson Luu 2014-02-04
+
+   This issue is reproducible on both iOS 7 and 6; if you set animated to false or animationStyle to Ti.UI.iPhone.RowAnimationStyle.NONE, then rows are still being animated when added to the ListView. 
+   
+   Tested on:
+   
+   Appcelerator Studio, build: 3.2.1.201401311225
+   SDK build: 3.2.0.GA, 3.2.1.v20140203174850 
+   CLI: 3.2.1-beta3
+   Alloy: 1.3.1-cr
+   Xcode: 5.0.2
+   Devices: iphone 5 (6.1.3), iphone 5s (7.0.2)</li>
+<li>Alex Bernier 2014-02-19
+
+   Just to add some information, still seeing this on SDK and CLI 3.2.1.GA, iPhone 5.</li>
+<li>Ed 2014-02-24
+
+   Our app uses a lot of tableviews and listviews, and fast-swtiching between them. The inability to disable the animation is really a problem as it makes the lists appear sluggish. Hoping for a quick fix for this. SDK 3.2.1.GA, iPhone 4/5s.</li>
+<li>Dave Hudson 2014-03-11
+
+   This is a major issue for ListView and setMarker to load in more results. Every time the user reaches the setMarker to load more data from the API the whole list refreshes. This needs to be resolved ASAP to make ListView function as documented, still an issue in SDK 3.2.2 iPhone.</li>
+<li>Ingo Muschenetz 2014-03-11
+
+   We are escalating this issue, but it appears there may not be a way to disable the animation from the iOS side. Is there a difference with iOS 7.1, as that has sped up animation substantially?</li>
+<li>Ed 2014-03-12
+
+   Upgraded to iOS 7.1. While the animations do seem a bit faster, the net effect is still sluggish when loading/appending several items to a listview or a tableview. SDK 3.2.2GA / iOS 7.1 / iPhone 5s.</li>
+<li>Sabil Rahim 2014-04-17
+
+   Doing setItems readds all the items to the tableview and causes the rows to animate. try using appendItems.
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor : 'white'
+   });
+    
+   var listView = Ti.UI.createListView();
+   var section = Ti.UI.createListSection();
+   listView.sections = [section];
+    
+   var items = [];
+   items.push({
+           properties : {
+               title : 'Item 0'
+           }
+       }); 
+   var i=0;
+   setInterval(function(){
+       
+       // case 1 : animated = false 
+       /*
+       section.setItems(items,{
+           animated : false
+       });
+       */
+       // case 2 : animationStyle = Ti.UI.iPhone.RowAnimationStyle.NONE
+       section.appendItems(items,{
+           animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE
+       });
+   },1000);
+    
+    
+   win.add(listView);
+   win.open();
+   </pre></code></li>
+<li>Radamantis Torres-Lechuga 2014-04-18
+
+    Resolving as won't fix since [~srahim] posted a way to append rows to the listView</li>
+<li>Dave Hudson 2014-04-22
+
+    We are using what is presumably the recommended approach by Appcelerator of Alloy databinding with models / collections. As far as I'm aware we therefore don't have an option of using appendItems as the Backbone model takes care of binding the data.
+    
+    When loading more items we use a backbone fetch. If we pass in the option add: true as per the docs <a href="http://docs.appcelerator.com/backbone/0.9.2/#Collection-fetch" rel="nofollow" target="_blank">http://docs.appcelerator.com/backbone/0.9.2/#Collection-fetch</a> then it does indeed add to the collection but we get the list view flickering as it re-loads the entire list. 
+    
+    What would  your advice be in this scenario?
+    
+    To be clear, this works fine on Android, it is an iOS only issue that just seems to require the animation to be disabled.</li>
+<li>Ed 2014-04-23
+
+    I know this ticket has been marked as "Won't Fix", but I don't think the solution offered by Sabil of using "appendItems" really solves anything, as the row animations still seem to be there even with appendItems.
+    
+    The following sample code shows a TableView and a ListView side by side, with an interval that both "sets" and "appends" items. As you can see, the TableView respects the disabled animations for both set and append, while the ListView does not seem to.
+    
+    Hopefully someone can offer a good work around for this, or re-open the ticket for a real fix to the issue. The animation delay of this sample appears trivial, but when you have very complex templated ListItems and hundreds of items, the net effect is very sluggish with the ListView.  
+    
+    app.js
+    <code><pre>
+    var win = Ti.UI.createWindow({ backgroundColor : 'white' });
+     
+    var tableView = Ti.UI.createTableView({ width: 160, top: 34, left: 0, headerTitle: 'TableView' });
+    var listView = Ti.UI.createListView({ width: 160, top: 20, left: 160, headerTitle: 'ListView' });
+    var section = Ti.UI.createListSection();
+    listView.sections = [section];
+      
+      
+    var tvSet = [], lvSet = [];
+    for (var i = 0; i < 5; i++) {
+    	tvSet.push({ title : 'Set ' + i });
+    	lvSet.push({ properties : { title : 'Set ' + i } }); 
+    }
+    
+    
+    var tvAppend = [], lvAppend = [];
+    for (var i = 0; i < 50; i++) {
+    	tvAppend.push({ title : 'Append ' + i });
+    	lvAppend.push({ properties : { title : 'Append ' + i } }); 
+    }
+    
+    
+    setInterval(function() {
+    	
+    	tableView.setData(tvSet, { animated : false });
+    	section.setItems(lvSet, { animated : false });
+    	
+    	setTimeout(function() {
+    		tableView.appendRow(tvAppend, { animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE });
+    		section.appendItems(lvAppend, { animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE });
+    	}, 3000);
+    	
+    }, 6000);
+    
+    
+    win.add(tableView);
+    win.add(listView);
+    win.open();
+    </pre></code></li>
+<li>Ehtesham Kafeel 2014-05-20
+
+    setItems, appendItems don't work without animation. The only workaround to avoid animation is to create ListSection every time you want to populate the list and assign it to the sections property of list. Here's how to do it.
+    
+    <code><pre>
+    var win = Ti.UI.createWindow({
+        backgroundColor : 'white'
+    });
+      
+    var listView = Ti.UI.createListView();
+      
+    var items = [];
+    for (var j = 0; j < 1000; j++) {
+    	items.push({
+            properties : {
+                title : 'Item ' + j
+            }
+        }); 
+    }
+    
+    var populate = function() {
+    	
+    	var section = Ti.UI.createListSection();
+    	
+    	listView.deleteSectionAt(0);
+        
+        setTimeout(function () {
+        	section.appendItems(items, {
+    			animated : false,
+    	        animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE
+    	    });
+    	
+    		listView.sections = [section];
+        }, 500);
+        
+        setTimeout(populate, 2000); 
+    };
+    
+    populate();
+      
+    win.add(listView);
+    win.open();
+    </pre></code></li>
+<li>Ed 2014-05-20
+
+    Ehtesham, thanks for the reply. Your code works well for setting the initial list view data, but every time you re-bind [section] to the list view the old section still has an animation effect when it is removed.  Thus, the problem is still there.  
+    
+    I have several list views that have complex layouts and lots of rows. They are very dynamic, with items being inserted and re-positioned programatically.  The animation is a problem as it makes the ui feel sluggish.  This problem is not present with TableView (as you can see from my sample code above), so I don't understand why the animation cannot be disabled with a list view.  
+    
+    Anyways, if this is simply going to be the case, then the Ti documentation should be updated to properly indicate that animations cannot be disabled with a ListView. 
+    
+    Thanks.
+    -Ed</li>
+<li>Moshe Marciano 2014-06-21
+
+    I confirm, the bug still exists with setItems and in some cases with appendItems as well
+    
+    <code><pre>
+    	$.list.sections[0].setItems(data, {
+    			animated : false,
+                            animationStyle : Ti.UI.iPhone.RowAnimationStyle.NONE
+    	});
+    </pre></code>
+    </li>
+<li>Fokke Zandbergen 2014-07-25
+
+    This tickets needs to be reopened and properly examined. The docs says there's a <code>animated</code> property to disable the animation, so it should either work or not be there. The workarounds mentioned above neither work nor make sense.</li>
+<li>Ingo Muschenetz 2014-07-28
+
+    Reopening to re-discuss.</li>
+<li>Tobias Høegh 2014-07-28
+
+    Hope this will be fixed (soon?). It's not only visually, we talk here about unnecessary power consumption. Animation of larger lists makes it appear sluggish. I only wonder why the Kitchen Sink app don't have animation on the ListView examples like the bug here (of corse, there is a good animation example...). </li>
+<li>Vishal Duggal 2014-08-13
+
+    Additional test case
+    <code><pre>
+    function getData(max,thetitle){
+        var data = [];
+        var index = 0;
+        while (index < max) {
+            data.push({properties: {title:'Item - Animation '+thetitle}});
+            index = index + 1;
+        }
+    
+        return data;
+    }
+    
+    function list_setitems() {
+        var win = Ti.UI.createWindow({
+            backgroundColor:'white',
+            fullscreen:true
+        });
+        
+        win.layout = 'vertical'
+        var button = Ti.UI.createButton({
+            title:'START TEST'
+        })
+        
+        var section = Ti.UI.createListSection();
+        var listView = Ti.UI.createListView({
+            sections: [ section ]
+        })
+    
+        win.add(button);
+        win.add(listView);
+        
+        var animationStyles = {
+            'None': Ti.UI.iPhone.RowAnimationStyle.NONE,
+            'Left': Ti.UI.iPhone.RowAnimationStyle.LEFT,
+            'Right': Ti.UI.iPhone.RowAnimationStyle.RIGHT,
+            'Top': Ti.UI.iPhone.RowAnimationStyle.TOP,
+            'Bottom': Ti.UI.iPhone.RowAnimationStyle.BOTTOM,
+            'Fade': Ti.UI.iPhone.RowAnimationStyle.FADE,
+        };
+        var animationsArray = ['None', 'Left', 'Right', 'Top', 'Bottom', 'Fade'];
+        
+        var interval = null;
+        var i = 0;
+        var j = 1;
+        var testcount = 0;
+        button.addEventListener('click',function(){
+            button.enabled = false;
+            interval = setInterval(function() {
+                var type = animationsArray[i];
+                section.setItems(getData(j,type), { animationStyle: animationStyles[type] });
+                i = (i + 1) % animationsArray.length;
+                testcount = testcount + 1;
+                if (testcount % 4 == 0) {
+                    j = (j % 7) + 1;
+                }
+    
+                if (testcount == 100) {
+                    clearInterval(interval);   
+                    button.enabled = true; 
+                }
+            }, 600);
+        })
+        
+        return win;
+    };
+    
+    var theWin = list_setitems();
+    theWin.open();
+    </pre></code></li>
+<li>Vishal Duggal 2014-08-13
+
+    Pull pending against master
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/5968" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5968</a></li>
+<li>Ed 2014-08-16
+
+    </li>
+<li>Far 2014-08-20
+
+    Why it was marked as resolved? setItem() with animated=false or animationStyle=Titanium.UI.iPhone.RowAnimationStyle.NONE is still not working.</li>
+<li>Ingo Muschenetz 2014-08-20
+
+    It is marked as resolved because it is fixed in the 3.4.0 version of the SDK. If you'd like to test, please do so against the current CI builds from the master branch. See <a href="http://builds.appcelerator.com/#master." rel="nofollow" target="_blank">http://builds.appcelerator.com/#master.</a></li>
+<li>Far 2014-08-20
+
+    Oh, sry, it's my bad. I build SDK but forget to install it...</li>
+<li>Ed 2014-08-21
+
+    </li>
+<li>Ingo Muschenetz 2014-08-21
+
+    [~emerriman] can you verify?</li>
+<li>Olga Romero 2014-08-22
+
+    Tested and verified there is no animation, when using ListView.setItems()
+    Environment tested
+    Mac osx 1-.9.4 Maverics
+    Appcelerator Studio, build: 3.4.0.201408201526
+    Titanium SDK, build: 3.4.0.v20140821144114
+    Node.JS Version: v0.10.28
+    NPM Path: /usr/local/bin/npm
+    NPM Version: 1.4.23
+    acs@1.0.16
+    alloy@1.5.0-dev (git://github.com/appcelerator/alloy.git#b2e8f580d023e45c63072df924666e58193a8981)
+    install@0.1.7
+    npm@1.4.23
+    sudo@1.0.3
+    titanium@3.4.0-dev (git://github.com/appcelerator/titanium.git#9079326639c7f610dafee33dd16742de7d92d795)
+    titanium-code-processor@1.1.1
+    Xcode6
+    Device: iPhone 5c iOS 7.1
+    </li>
+<li>Fokke Zandbergen 2014-08-23
+
+    Is somebody also looking at the insert/append/replace functions or must there be a ticket for that first?</li>
+<li>Far 2014-08-26
+
+    Look like it wasn't fully fixed. We still have animation if ListView length different before and after. Simple example:
+    <code><pre>
+    var flag = false;
+    var items1 = [
+        {properties: {title: 'Cod'}},
+        {properties: {title: 'Haddock'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Clam'}}
+    ];
+    var items2 = [
+        {properties: {title: 'Bird'}},
+        {properties: {title: 'Banana'}},
+        {properties: {title: 'Soup'}}
+    ];
+    
+    var section = Ti.UI.createListSection();
+    section.setItems(items1);
+    
+    var list = Ti.UI.createListView({top: 20});
+    list.appendSection(section);
+    list.addEventListener('itemclick', function() {
+        flag = !flag;
+        section.setItems(flag? items2 : items1, {
+            animated: false,
+            animationStyle: Ti.UI.iPhone.RowAnimationStyle.NONE
+        });
+    });
+    
+    var win = Ti.UI.createWindow();
+    win.add(list);
+    win.open();
+    </pre></code>
+    
+    <a href="https://www.youtube.com/watch?v=-jx6n6hTz1I&list=UUFmvy9r54FhWcOgLrsuALLA" rel="nofollow" target="_blank">https://www.youtube.com/watch?v=-jx6n6hTz1I&list=UUFmvy9r54FhWcOgLrsuALLA</a></li>
+<li>Ingo Muschenetz 2014-08-26
+
+    Reopening.
+    
+    [~penrique] and [~fokke] yes, we need a new ticket for the other cases you mention.</li>
+<li>Jon Alter 2014-08-29
+
+    Confirmed Far's example above is showing an animation. This happens when difference between number of rows being set is 2 or greater.</li>
+<li>Fokke Zandbergen 2014-09-04
+
+    </li>
+<li>Vishal Duggal 2014-09-07
+
+    From the 2010 WWDC Session(<a href="https://developer.apple.com/videos/wwdc/2010/)" rel="nofollow" target="_blank">https://developer.apple.com/videos/wwdc/2010/)</a> on Mastering TableViews it seems that we might not be able to fix this.
+    
+    The animation parameter merely defines how the row is (inserted into /deleted from) space, the transitions to update table view geometry are animated regardless of what animation parameter is specified.
+    
+    The only workaround seems to be to call reloadData on the tableView. The equivalent Titanium API on ListView is to set the <code>sections</code> property.
+    
+     </li>
+<li>Matej 2014-10-05
+
+    The same problem occurs in appendItems, insertItemsAt. Properties <code>animated</code> / <code>animationStyle</code> are basically ignored.</li>
+<li>Vishal Duggal 2014-11-04
+
+    Test case from TIMOB-17620
+    <code><pre>
+    var items = [
+        {properties: {title: 'Cod'}},
+        {properties: {title: 'Haddock'}},
+        {properties: {title: 'Fish'}},
+        {properties: {title: 'Clam'}}
+    ];
+     
+    var section = Ti.UI.createListSection();
+    section.setItems(items);
+      
+    var list = Ti.UI.createListView({
+        top: 60
+    });
+    list.appendSection(section);
+     
+    var insert = Ti.UI.createButton({
+        title: 'Insert'
+    });
+     
+    insert.addEventListener('click', function(e) {
+        section.insertItemsAt(1, items, {
+            animated: false,
+            animationStyle: Ti.UI.iPhone.RowAnimationStyle.NONE
+        });
+    });
+     
+    var replace = Ti.UI.createButton({
+        title: 'Replace'
+    });
+     
+    replace.addEventListener('click', function(e) {
+        section.replaceItemsAt(1, 1, items, {
+            animated: false,
+            animationStyle: Ti.UI.iPhone.RowAnimationStyle.NONE
+        });
+    });
+     
+    var append = Ti.UI.createButton({
+        title: 'Append'
+    });
+     
+    append.addEventListener('click', function(e) {
+        section.appendItems(items, {
+            animated: false,
+            animationStyle: Ti.UI.iPhone.RowAnimationStyle.NONE
+        });
+    });
+     
+    var set = Ti.UI.createButton({
+        title: 'Set'
+    });
+     
+    set.addEventListener('click', function(e) {
+        section.setItems(items, {
+            animated: false,
+            animationStyle: Ti.UI.iPhone.RowAnimationStyle.NONE
+        });
+    });
+     
+    var toolbar = Ti.UI.iOS.createToolbar({
+        top: 20,
+        items: [insert, append, replace, set],
+        extendBackground: true
+    });
+      
+    var win = Ti.UI.createWindow();
+     
+    win.add(toolbar);
+    win.add(list);
+     
+    win.open();
+    </pre></code></li>
+<li>Vishal Duggal 2014-11-04
+
+    Pull pending
+    master - <a href="https://github.com/appcelerator/titanium_mobile/pull/6304" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6304</a>
+    3_4_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/6305" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6305</a></li>
+<li>Kajenthiran Velummaylum 2014-11-25
+
+    Verified the Fix on following environment.
+    Closing the ticket.
+    
+    Test Environment:
+    Titanium SDK: 3.5.0.v20141121153314
+    Appc-Studio:  3.4.1 GA
+    Titanium CLI: 3.4.1 GA
+    Alloy : 1.5.1 GA
+    Xcode : 6.1
+    OS: OSX 10.10.1
+    Device : iPhone 6plus (iOS 8.1)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16115.json">JSON Source</a></p>

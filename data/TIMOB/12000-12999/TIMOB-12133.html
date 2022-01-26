@@ -1,0 +1,162 @@
+---
+title: "[TIMOB-12133] iOS: Titanium.Contacts.getAllPeople() is cached"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-02-04T22:48:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.4, Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2013 Sprint 03 API, 2013 Sprint 03</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, release-note</td></tr>
+<tr><th>Reporter</th><td>Daniel Sefton</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-12-20T05:09:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:43:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Actual result*
+If a contact record is updated in the global Address Book while the app is running in the background, Titanium.Contacts.getAllPeople() is not updated.
+
+*Expected result*
+What I suggest is to add a new method called reloadContacts() which will update the cache.
+
+*Test case*
+<code><pre>var tabGroup = Titanium.UI.createTabGroup();
+
+var win = Titanium.UI.createWindow({
+	backgroundColor : "#fff",
+	tabBarHidden : true
+});
+
+var tab1 = Titanium.UI.createTab({
+	title : 'Tab 1',
+	window : win
+});
+
+var android = (Ti.Platform.osname === 'android');
+
+var activityIndicator;
+if (android) {
+	activityIndicator = Ti.UI.createActivityIndicator({
+		message : 'Loading all contacts, please wait...'
+	});
+	activityIndicator.show();
+}
+
+var makeTable = function() {
+	Ti.API.info("Making table...");
+	var people = Titanium.Contacts.getAllPeople();
+	var rows = [];
+	for (var i = 0; i < people.length; i++) {
+		Ti.API.info("People object is: " + people[i]);
+		var title = people[i].fullName;
+		if (!title || title.length === 0) {
+			title = "(no name)";
+		}
+		rows[i] = Ti.UI.createTableViewRow({
+			title : title,
+			person : people[i],
+			hasChild : true
+		});
+		rows[i].addEventListener('click', function(e) {
+			var display = Ti.UI.createWindow({
+				backgroundColor : 'white',
+				title : e.row.person.fullName
+			});
+			var top = 0;
+			var showedSomething = false;
+			for (var label in e.row.person.address) {
+				top += 20;
+				var addrs = e.row.person.address[label];
+				for (var i = 0; i < addrs.length; i++) {
+					var info = Ti.UI.createLabel({
+						text : '(' + label + ') ' + addrs[i].Street,
+						top : top,
+						left : 20,
+						height : 'auto',
+						width : 'auto'
+					});
+					display.add(info);
+					showedSomething = true;
+				}
+			}
+			if (!showedSomething) {
+				display.add(Ti.UI.createLabel({
+					text : 'No addresses to show'
+				}));
+			}
+			tab1.open(display, {
+				animated : true
+			});
+		});
+	}
+	return rows;
+};
+
+var tableview = Ti.UI.createTableView({
+	data : makeTable()
+});
+
+win.add(tableview);
+
+if (android && activityIndicator) {
+	activityIndicator.hide();
+}
+
+Ti.App.addEventListener("resumed", function(e) {
+	Ti.API.info("Resumed");
+	
+	// Reload data
+	tableview.setData([]);
+    tableview.setData(makeTable());
+});
+
+tabGroup.addTab(tab1);
+tabGroup.open();</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2013-01-25
+
+   Tested and confirmed with SDK 3.0 GA on iOS 6.</li>
+<li>Vishal Duggal 2013-01-29
+
+   For testing
+   
+   Go to KS->Phone->Contacts->Display People
+   Pick a contact and see address displayed
+   Back to Display People
+   Suspend KS. 
+   Go to contacts and edit or add the address field of the contact
+   Resume KS.
+   Ensure that the contact displays updated address
+   </li>
+<li>Vishal Duggal 2013-01-29
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/3820" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3820</a></li>
+<li>Sabil Rahim 2013-02-04
+
+   PR processing. </li>
+<li>Paras Mishra 2013-02-28
+
+   Tested using Kitchen sink app.
+   Contacts are displayed, when updated changes are reflected in the app.
+   
+   Verified on:
+   Device : iPhone 5,iOS version :6
+   SDK version:  3.1.0.v20130227145654
+   CLI version : 3.0.24
+   OS : MAC OSX 10.7.5
+   XCode : 4.5.1
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12133.json">JSON Source</a></p>

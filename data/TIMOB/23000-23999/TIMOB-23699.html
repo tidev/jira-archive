@@ -1,0 +1,250 @@
+---
+title: "[TIMOB-23699] iOS Media.showCamera "Temp" file issue"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-01T07:22:18.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.3.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>camera</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-07-28T20:22:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-10-07T17:27:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description </h4>
+
+Video is recorded and saved to the "Photos" app successfully, but it apparently is also saved in the "applicationDataDirectory". Looking at the physical iPhone > Settings > Usage > Storage, the size of the app increase the exact same amount of the video that was just recorded. After capture more videos, the app is bigger.
+
+<h4>Steps to reproduce</h4>
+<h4>Create a new classic app project</h4>
+<h4>Replace the code inside app.js to the next one</h4>
+<code><pre>
+//Camera Issue with temp storage case#00010479
+var win = Titanium.UI.createWindow({
+    title:"Using the Camera and Video",
+    backgroundColor:"#FFFFFF"
+});
+
+var button = Titanium.UI.createButton({
+    title:"Use camera",
+    width:180,
+    height:48,
+    bottom: 12,
+    zIndex:2
+});
+
+button.addEventListener("click", function(e){
+    //Open the photo gallery
+    Titanium.Media.showCamera({
+        //function to call upon successful load of the gallery
+        success:function(e){
+            if(e.mediaType === Titanium.Media.MEDIA_TYPE_PHOTO){
+                //e.media represents the photo or video
+                var imageView = Titanium.UI.createImageView({
+                    image:e.media,
+                    width:320,
+                    height:480,
+                    top:12,
+                    zIndex:1
+                });
+                win.add(imageView);
+            }else if(e.mediaType === Titanium.Media.MEDIA_TYPE_VIDEO){
+
+                var w = Titanium.UI.createWindow({
+                    title:"New Video",
+                    backgroundColor:"#000000"
+                });
+
+                var videoPlayer = Titanium.Media.createVideoPlayer({
+                    media:e.media,
+                    backgroundColor:"#FFFFFF",
+                
+                });
+
+                w.add(videoPlayer);
+
+                videoPlayer.addEventListener("complete", function(e){
+                    w.remove(videoPlayer);
+                    videoPlayer = null;
+                    w.close();
+                });
+
+                w.open({modal:true});
+            }
+
+        },
+        error:function(e){
+            alert("There was an error");
+        },
+        cancel:function(e){
+            alert("The event was cancelled");
+        },
+        //Allow editing of media before success
+        allowEditing:true,
+        saveToPhotoGallery:true,
+        //Media types to allow
+        mediaTypes:[Titanium.Media.MEDIA_TYPE_PHOTO,Titanium.Media.MEDIA_TYPE_VIDEO],
+        //The other is Titanium.Media.MEDIA_TYPE_VIDEO,
+        //If recording video, you can set the quality to record at
+        videoQuality:Titanium.Media.QUALITY_HIGH
+        /*other possible values for this property are
+         * Titanium.Media.QUALITY_MEDIUM
+         * Titanium.Media.QUALITY_LOW
+         */
+    });
+});
+
+Titanium.App.addEventListener('camera_button', function(){
+    Titanium.Media.takePicture();
+});
+
+win.add(button);
+
+win.open();
+
+</pre></code>
+<h4>Run</h4>
+<h4>Record a video</h4>
+<h4>Check the app size</h4>
+
+<h4>Expected results </h4>
+App should flush the videos if they are not longer used after the app is killed
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-01
+
+   It is not stored in the documents directory by default. The file is stored in /tmp where it gets flushed by iOS as soon as the terminates and/or space gets low. See [this screen](<a href="https://abload.de/img/bildschirmfoto2016-08ldxnl.png)" rel="nofollow" target="_blank">https://abload.de/img/bildschirmfoto2016-08ldxnl.png)</a> for details.
+   
+   Anyway, we have the following snippet in the code, if the user manually edits the video (by dragging the start end end of the video that saves the file [here](<a href="https://abload.de/img/bildschirmfoto2016-085rzc9.png)" rel="nofollow" target="_blank">https://abload.de/img/bildschirmfoto2016-085rzc9.png)</a> indeed:
+   <code><pre>
+   NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+   NSString *documentsDirectory = [paths objectAtIndex:0];
+   </pre></code>
+   
+   So that may needs to be replaced with
+   <code><pre>
+   NSString *tmpDirectory = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] path];
+   </pre></code></li>
+<li>Hans Knöchel 2016-08-01
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8180" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8180</a>
+   
+   Demo (simplified test-case):
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor: "#FFFFFF"
+   });
+   
+   var button = Titanium.UI.createButton({
+       title: "Open camera"
+   });
+   
+   button.addEventListener("click", function(e) {
+       if (!Ti.Media.hasCameraPermissions()) {
+           Ti.Media.requestCameraPermissions(takeVideo);
+       } else {
+           takeVideo();
+       }
+   });
+   
+   win.add(button);
+   win.open();
+   
+   function takeVideo() {
+       Ti.Media.showCamera({
+           success: function(e) {
+               Ti.API.info("Video captured successfully!");
+           },
+           error: function(e) {
+               alert("There was an error");
+           },
+           cancel: function(e) {
+               alert("The event was cancelled");
+           },
+           allowEditing: true,
+           saveToPhotoGallery: true,
+           mediaTypes: [Ti.Media.MEDIA_TYPE_VIDEO],
+           videoQuality: Ti.Media.QUALITY_HIGH
+       });
+   }
+   </pre></code>
+   
+   Important: On iOS 10 and later, we need to store the following keys in the Info.plist in order to access the sensors:
+   <code><pre>
+   	<key>NSCameraUsageDescription</key>
+   	<string>Can we use your camera?</string>
+   	<key>NSMicrophoneUsageDescription</key>
+   	<string>Can we use your microphone?</string>
+   	<key>NSPhotoLibraryUsageDescription</key>
+   	<string>Can we save to your library?</string>
+   </pre></code>
+   
+   I already updated the docs for this iOS 10 change, but I may do additional logs to ensure that the user knows about this change. </li>
+<li>Chee Kiat Ng 2016-08-01
+
+   PR merged.</li>
+<li>Eric Wieber 2016-09-21
+
+   Verified fixed, using:
+   MacOS 10.12 (16A323)
+   Studio 4.7.1.201609100950
+   Ti SDK 6.0.0.v20160921004951
+   Appc NPM 4.2.7
+   Appc CLI 6.0.0-7
+   Alloy 1.9.1
+   Xcode 8.0 (8A218a)
+   
+   Recorded videos are saved in the <code>tmp</code> folder of the app container, even after editing. Tested using the provided sample code as well as other test apps that use the camera. Uncovered TIMOB-23937 during testing (edited videos are not saved to photo gallery), but this issue is resolved.</li>
+<li>Adam Armstrong 2016-10-07
+
+   *Hans pointed me to the changes made to iphone/Classes/MediaModule.m*
+   (at this link <a href="https://github.com/appcelerator/titanium_mobile/pull/8180/files)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8180/files)</a>
+   
+   *I Removed the 3 lines and added the 2 lines as defined in the URL.*
+    - NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    -                NSString *documentsDirectory = [paths objectAtIndex:0];
+    +                NSString *tmpDirectory = [[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] path];
+                     
+    -                NSString *outputURL = [documentsDirectory stringByAppendingPathComponent:@"editedVideo"];
+    +                NSString *outputURL = [tmpDirectory stringByAppendingPathComponent:@"editedVideo"];
+   
+   Deleted App from my phone.
+   Cleaned Build / Deleted "build" folder
+   Packaged app to my phone
+   Checked Settings > Storage to see my app was 21 mb
+   Took video inside app
+   Closed/Killed app
+   Checked Settings again - app size increased to 29.9 mb
+   Sent video to my Macbook and checked file size in Mac OS....8.9 mb
+   The video is still taking up space inside the App Storage and not being removed after killing the app.
+   
+   Adam</li>
+<li>Adam Armstrong 2016-10-07
+
+   - Also worth noting.  
+   
+   This ticket was originally created referencing the use case of just simply recording a video - no mention of editing.  Somewhere along the way and troubleshooting this issue, someone else added the context of "edit video".  But I never defined that as the original issue.  Looking over the PR changes that were applied (specifically referencing "editedVideo") I'm concerned that the original issue may not have been addressed - just a simple video recording.  Especially given my results after applying the suggested changes.
+   
+   Adam.</li>
+<li>Eric Wieber 2016-10-07
+
+   [~amwinsauto] I checked this again and found the same results that I posted before. I believe the main issue here was that files were not being saved to the correct place and/or they were not being removed at the seemingly appropriate time. As Hans indicated and as testing has supported, videos are correctly being saved to the <code>tmp</code> folder (and after the PR, edited videos are saved there as well). The app itself is responsible for removing these files, however Apple can remove them at any time that the app is not running. This is not necessarily on app close. Apple docs snippet for references:
+   {quote}
+   Put temporary data in the tmp/ directory. Temporary data comprises any data that you do not need to persist for an extended period of time. Remember to delete those files when you are done with them so that they do not continue to consume space on the user’s device. The system will periodically purge these files when your app is not running; therefore, you cannot rely on these files persisting after your app terminates.
+   {quote}
+   
+   That being said, if you do ever encounter a file not being saved to the <code>tmp</code> folder, please let us know.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23699.json">JSON Source</a></p>

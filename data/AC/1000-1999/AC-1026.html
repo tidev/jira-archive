@@ -1,0 +1,222 @@
+---
+title: "[AC-1026] Launcing app using Intent from a native module doesn't show splash screen"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-07-22T23:08:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android,, launch, notification, splash-screen</td></tr>
+<tr><th>Reporter</th><td>grebulon</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2014-05-20T09:31:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:37:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+My native android module receives GCM push messages and create a notification. When pressing the notification, if there is *no task* (the app is not running in background), it launches but the *splash screen is not shown*. So it takes a few seconds until the app's main window is displayed which looks awkward.
+
+If the task is in background, the app jumps immediately to foreground, which is excellent. But if there is no task and the application task is createdbu the intent, this should behave like pressing the launcher icon and show a splash screen. The code I use to initialize the notification's pending intent is:
+{noformat}
+PackageManager pm = tiapp.getPackageManager();
+Intent resultIntent = pm.getLaunchIntentForPackage(mainActivityPackage);
+resultIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+{noformat}
+I've tried to add various combinations of flags to the intent like FLAG_ACTIVITY_RESET_TASK_IF_NEEDED, Intent.FLAG_ACTIVITY_NEW_TASK, etc. but the splash screen is never displayed.
+
+Any idea how to make launching from a notification behave like tapping on the launcher icon?
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2014-05-21
+
+   For me, Just tested with my own app. After pressing the notification. 
+   I got following situations.
+   
+   1. If the app is running in background and currently in screen lock status, the app will be displayed *without* splash screen.
+   2. If the app is running in background and currently *not* in screen lock status, the app will be displayed *with* splash screen.
+   3. If the app is not running in background and currently in screen lock status, the app will be displayed *without* splash screen.
+   3. If the app is not running in background and currently *not* in screen lock status, the app will be displayed *with* splash screen.
+   
+   Are those situations same to yours?</li>
+<li>grebulon 2014-05-21
+
+   What is screen lock status? Do you mean that the device is locked and you need to enter a pattern or numerical code? You're not supposed to be able to access the notifications when the device is locked.
+   My situation is that the app is not running, and I just click the notification. The splash screen should come up until the main window is displayed.
+   It should display the splash screen no matter if the screen is locked (whatever that is) or not.</li>
+<li>Mostafizur Rahman 2014-07-19
+
+   Hi,
+   
+   We have tested this issue using [Android notifications using intents](<a href="http://docs.appcelerator.com/titanium/3.0/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/3.0/#</a>!/guide/Android_Notifications) test case and it's working good as we expected.
+    
+   <h4>TESTING ENVIRONMENT</h4>
+    
+   Mac OS
+   Ti CLI 3.3.0-rc
+   Titanium SDK: 3.3.0.RC and 3.2.X.GA
+   Android Device and Emulator
+    
+   <h4>TEST CODE</h4>
+    
+    
+    
+   <code><pre>
+    
+   var win = Titanium.UI.createWindow({
+   	backgroundColor : 'blue'
+   });
+   var btn = Ti.UI.createButton({
+   	title : 'Add Notification'
+   });
+    
+   btn.addEventListener('click', function(e) {
+   	var now = new Date().getTime();
+   	var delta = new Date( now + (4 * 1000) );
+   	var deltaMS = delta - now;
+    
+   	var intent = Ti.Android.createServiceIntent({
+   		url : 'ExampleService.js'
+   	});
+   	intent.putExtra('interval', deltaMS);
+   	intent.putExtra('message' , 'This is that little extra');
+   	Ti.Android.startService(intent);
+   });
+   win.add(btn);
+   win.open();
+    
+   </pre></code>
+    
+    
+   <code><pre>
+    
+    
+   if(!Ti.App.Properties.hasProperty('notificationCount')) {
+   	Ti.App.Properties.setInt('notificationCount', 0);
+   } else {
+   	Ti.App.Properties.removeProperty('notificationCount');
+    
+   	var activity = Ti.Android.currentActivity;
+   	var intent = Ti.Android.createIntent({
+   		action : Ti.Android.ACTION_MAIN,
+    
+   		url : 'app.js',
+   		flags : Ti.Android.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Ti.Android.FLAG_ACTIVITY_SINGLE_TOP
+   	});
+   	intent.addCategory(Titanium.Android.CATEGORY_LAUNCHER);
+    
+   	var pending = Ti.Android.createPendingIntent({
+   		activity : activity,
+   		intent : intent,
+   		type : Ti.Android.PENDING_INTENT_FOR_ACTIVITY,
+   		flags : Ti.Android.FLAG_ACTIVITY_NO_HISTORY
+   	});
+    
+   	var notification = Ti.Android.createNotification({
+   		contentIntent : pending,
+   		contentTitle : 'Test',
+   		contentText : 'test',
+   		tickerText : 'This is a test',
+   		when : new Date().getTime(),
+   		icon : Ti.App.Android.R.drawable.appicon,
+   		flags : Titanium.Android.ACTION_DEFAULT | Titanium.Android.FLAG_AUTO_CANCEL | Titanium.Android.FLAG_SHOW_LIGHTS
+   	});
+    
+   	Ti.Android.NotificationManager.notify(1, notification);
+    
+   	var service = Ti.Android.currentService;
+   	var serviceIntent = service.getIntent();
+    
+    
+   	var teststring = serviceIntent.getStringExtra('message');
+   	Ti.API.info('Extra!: ' + teststring);
+    
+   	Ti.Android.stopService(serviceIntent);
+   }
+    
+   </pre></code>
+    
+    
+   <code><pre>
+    
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+      <!-- the activities tag must be added if you want to use the url property to launch your app -->
+      <activities>
+          <activity url="app.js">
+              <intent-filter>
+                  <action android:name="android.intent.action.VIEW"/>
+                  <category android:name="android.intent.category.DEFAULT"/>
+                  <category android:name="android.intent.category.BROWSABLE"/>
+              </intent-filter>
+          </activity>
+      </activities>
+      <!-- the services tag must be added so that our service will run -->
+      <services>
+          <service type="interval" url="ExampleService.js"/>
+      </services>
+   </android>
+    
+   </pre></code>
+    
+   <h4>STEPS TO TEST</h4>
+    
+   - Create a new project
+   - Update "app.js" file with "app.js" code segment given above.
+   - Create a new file name "ExampleService.js" in the Resource directory of the project.
+   - Update "ExampleService.js" file with "ExampleService.js" code segment given above.
+   - Run on Android Device and Emulator
+   - App runs with showing the splash screen at the beginning.
+    
+   <h4>EXPECTED RESULT</h4>
+    
+   The splash screen should be visible before the app starts.
+    
+   Thanks.
+   
+   </li>
+<li>grebulon 2014-07-22
+
+   I noticed another thing. A strange thing happens if setting opacity=1 (or any other value of opacity) when creating the heavyweight window, e.g.:
+   {noformat}
+   Ti.UI.createWindow({opacity:1});
+   {noformat}
+   The activity is then created with an old style theme. For example toggles created with Ti.UI.createSwitch() are the old style toggles. Removing the opacity, everything returns to normal. I don't think this is related directly to this issue, but if you're looking into the translucent activity, you might as well also look into this.</li>
+<li>Mauro Parra-Miranda 2014-07-22
+
+   Hey [~buddyguards], 
+   can you please take a look into the testcase? We can't reproduce the issue. If you can modify that testcase in order to reproduce your issue, will be more than welcome. 
+   
+   Best Regards</li>
+<li>grebulon 2014-07-24
+
+   I've drilled down more deeply into this and found the cause for this problem.
+   First of all I have to note that I'm doing this very differently. I create the notification in a native Java module as a result of a GCM push notification. The direct cause of the problem is that I launch two intents as a respond to the notification. One to launch and the other to an activity in my module that does some processing of the data passed by the push. It's something like this:
+   {noformat}
+   Intent intentLaunch = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
+   intentLaunch.addCategory(Intent.CATEGORY_LAUNCHER);
+   intentLaunch.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+   intentLaunch.putExtra("privateData", jsondata);
+   
+   Intent intentInternal = new Intent();
+   intentInternal.setClassName(mainActivityPackage, "com.pingapp.gcmjs.GcmReceiverActivity");
+   intentInternal.putExtra("privateData", jsondata);
+   
+   PendingIntent pendIntent = PendingIntent.getActivities(ctx, notifId,
+       new Intent[] {intentLaunch, intentInternal}, PendingIntent.FLAG_UPDATE_CURRENT);
+   {noformat}
+   The problem disappear completely if I instantiate the pending intent to just hold the launch intent:
+   {noformat}
+   PendingIntent pendIntent = PendingIntent.getActivity(ctx, notifId, intentLaunch, PendingIntent.FLAG_UPDATE_CURRENT);
+   {noformat}
+   No idea why this happens.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1026.json">JSON Source</a></p>

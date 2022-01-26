@@ -1,0 +1,193 @@
+---
+title: "[TIMOB-1437] Horizontal Layout broken on iPad"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-15T02:52:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>1.4, defect, horizontal, ios, ipad, layout, sdk</td></tr>
+<tr><th>Reporter</th><td>ctredway</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:52:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-02T19:15:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>The following code does not layout the components in the correct
+manner.</p>
+<p>var viewMore = Ti.UI.createView({<br></p>
+<pre>
+<code>height:20,
+width:150,
+top: 90,
+right: 50,
+layout:'horizontal'</code>
+</pre>
+<p>});<br></p>
+<p>var labelMore = Titanium.UI.createLabel({<br></p>
+<pre>
+<code>text:"Show More",
+font:{fontSize:12,fontWeight:'bold'},
+textAlign:'right',
+color:'#517ca5',
+height:20,
+right: 50</code>
+</pre>
+<p>});</p>
+<p>var imageMore = Titanium.UI.createImageView({<br></p>
+<pre>
+<code>image:"images/show-more.png",
+top:7,
+height:7,
+width:'auto'</code>
+</pre>
+<p>});</p>
+<p>viewMore.add(labelMore);<br>
+viewMore.add(imageMore);</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Need more context. Is this occuring in a split view, or on iPad
+   in general?</p></div></li>
+<li>ctredway 2011-04-15
+
+   <div><p>Just in a regular view on the ipad. I have not tried it in a
+   popover as the customer reported it as a regular view.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Thanks for the information - I'll begin work on a fix.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>I need more information. The width of the view is specified as
+   50, and the label is placed at 50 right (meaning that it's aligned
+   to the far-right of the view). Horizontal layout specifies that
+   anything will be positioned to the right of whatever element is
+   added. This means that the label/image may be overlapping, or that
+   the image may not be drawn at all.</p>
+   <p>I need to know exactly what the user is seeing and what they
+   expect the result to be. This is likely not a bug but an improper
+   use of layout constraints.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>What is the Correct Manner, anyways?</p>
+   <p>In viewMore, we're given height:20 and width:150. Top and Right
+   affect viewMore's placement within its parent, but for placements
+   within viewMore, they're not important. We also have layout of
+   'horizontal', which is akin to packing as if text (left to right,
+   then top to bottom). To make room for the following subviews, all
+   subviews will only be their minimum size required to place it.</p>
+   <p>labelMore is a label, it has text, color, font, and text
+   alignment. None of these affect labelMore's placement in and of
+   themselves, only of the text's placement within labelMore. Since
+   neither height or width are set to 'auto', these can be ignored for
+   the purposes of layout.</p>
+   <p>labelMore has height:20 and right:50. The required vertical
+   space for layout is 20, due to height. No width is requested, so
+   the required horizontal space for the layout will be 50 of padding
+   (blank space) on the right, with the left 0 pixels containing the
+   actual text.</p>
+   <p>imageMore has an image. Since width is auto, the image's width
+   is used and is the required vertical layout. The required vertical
+   space for the layout is top:7 + height:7 = 14.</p>
+   <pre>
+   <code>
+   ++------------+---------+-------------------------+
+   ||            |7 pixels space                     |
+   ||            +---------+                         |
+   ||&lt;50 pixels &gt;|**IMAGE**|&lt; Where next subview     |
+   || of empty   +---------+   will start            |
+   || space      |&lt; The remaining 100 pixels        &gt;|
+   ++------------+---------+-------------------------+
+   ^^
+   ||
+   0 pixels wide</code>
+   </pre>
+   <p>Since the label itself has a width of 0, no text will be
+   visible. The lines are there just for visualization, but won't
+   actually show up. This is the correct manner that the components
+   will be laid out, according to the spec.</p>
+   <p>I'm guessing he wants the layout to be a bit different. Can he
+   provide a screenshot or description of the layout so we can provide
+   the proper javascript for him to put in?</p></div></li>
+<li>Nolan Wright 2011-04-15
+
+   <div><p>it seems like it should be this (plus he needs a width:'auto' on
+   the label):</p>
+   <pre>
+   <code>       main view          50 from right</code>
+   </pre>
+   <p>+-----------150px-----------+&lt;----50px----&gt; -
+   &lt;--50px--&gt;</p>
+   <h2>- <a href="/projects/32238/changesets/label" title=
+   "Changeset [label]">[label]</a>[image]</h2>
+   <p>+----------------------------+-------------+</p>
+   <p>and the image is 7 from the top.</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+   <div><p>back to open</p></div></li>
+<li>hal 2011-04-15
+
+   <div><p>As the OP has set the container view (viewMore) to horizontal
+   layout, presumably he simply wants all elements laid out
+   horizontally. However, as Blain said, the right property on
+   labelMore and top property on imageMore is preventing this.</p>
+   <p>If he wants absolute positioning of the horizontally-laid out
+   elements inside viewMore he needs to create a view inside it.</p>
+   <p>I think he needs to use a series of sub views, so that he can
+   combine the absolute/relative and horizontal/vertical layouts to
+   reach his objective. For example:</p>
+   <pre>
+   <code>var viewMore = Ti.UI.createView({
+       height:20,
+       width:150,
+       top: 90,
+       right: 50
+   });
+   
+   var subviewMore = Ti.UI.createView({
+       layout:'horizontal',
+       right: 50,
+       top:7
+   });
+   
+   var labelMore = Titanium.UI.createLabel({
+       text:"Show More",
+       font:{fontSize:12,fontWeight:'bold'},
+       textAlign:'right', // this is superfluous with a width being set
+       color:'#517ca5',
+       height:20
+   });
+   
+   var imageMore = Titanium.UI.createImageView({
+       image:"images/show-more.png",
+       height:7,
+       width:'auto' // this is superfluous, as it is the default
+   });
+   
+   win.add(viewMore);
+   viewMore.add(subviewMore);
+   subviewMore.add(labelMore);
+   subviewMore.add(imageMore);</code>
+   </pre>
+   <p>I suspect that this ticket should be marked as invalid.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>The constraint-based layout needs better docs. Auto is never the
+   default, because auto is very expensive. Either way, this ticket
+   should indeed be marked as invalid</p></div></li>
+<li>Lee Morris 2017-03-02
+
+    Closed as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1437.json">JSON Source</a></p>

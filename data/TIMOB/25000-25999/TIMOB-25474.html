@@ -1,0 +1,299 @@
+---
+title: "[TIMOB-25474] Android: scrollview not scrolling when moving from SDK 5.5.1 to 6.3.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-04-13T17:44:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0, Release 6.2.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Raymond Verbruggen</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2017-11-02T12:24:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-13T17:44:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Scrollview works fine in SDK 5.5.1, the identical code compiled for SDK 6.3.0 the same scrollview does not work anymore.
+
+This is urgent, I need to update my app for Android 7!!
+
+<h3>Comments</h3>
+
+<ol>
+<li>Raymond Verbruggen 2017-11-02
+
+   5.5.1 OK
+   6.1.2 OK
+   6.2.2 not ok
+   6.3.0 not ok</li>
+<li>Gary Mathews 2017-11-02
+
+   [~ray@raymondverbruggen.nl] Could you provide a test case and explain what behaviour is not working as expected?</li>
+<li>Joshua Quick 2017-11-09
+
+   [~ray@raymondverbruggen.nl], we're unable to reproduce this issue. If you can send us a reproducible case, then that would be great. Thanks.</li>
+<li>Raymond Verbruggen 2017-11-17
+
+   The scrollview was part of a parent view.
+   I was able to pin it down to the following changes:
+   
+   Basically width and height parameters, resp contentWidth and contentHeight.
+   No idea why that helped...
+   
+   exports.createForm = function(o) {
+   	var container = Ti.UI.createView({
+   		layout : 'vertical',
+   		width: '100%',
+   		height: Ti.UI.SIZE,
+   		backgroundColor : 'white'
+   	});
+   	var fieldRefs = {};
+   	var form = Ti.UI.createScrollView({
+   		contentWidth : '100%',
+   		contentHeight : Ti.UI.SIZE,
+   		showVerticalScrollIndicator : true,
+   		showHorizontalScrollIndicator : false,
+   		scrollType : 'vertical',
+   
+   		// new stuff
+   		container : container,
+   		fieldStyle : o.style || exports.STYLE_HINT,
+   		addField : addField,
+   		addFields : addFields
+   	});
+   
+   	form.addFields(o.fields, fieldRefs);
+   
+   	var padding = Ti.UI.createLabel({
+   		height : 20
+   	});
+   	container.add(padding);
+   
+   	form.add(container);
+   
+   	// Add this so each field can be accessed directly, if necessary
+   	form.fieldRefs = fieldRefs;
+   
+   	return form;
+   };
+   
+   
+   
+   exports.createForm = function(o) {
+   	var container = Ti.UI.createView({
+   		layout : 'vertical',
+   		height : 'auto',
+   		borderRadius : 5,
+   		borderWidth : 0,
+   		backgroundColor : 'white'
+   	});
+   	var fieldRefs = {};
+   	var form = Ti.UI.createScrollView({
+   		contentHeight : 'auto',
+   		contentWidth : 'auto',
+   		showVerticalScrollIndicator : true,
+   		showHorizontalScrollIndicator : true,
+   
+   		// new stuff
+   		container : container,
+   		fieldStyle : o.style || exports.STYLE_HINT,
+   		addField : addField,
+   		addFields : addFields
+   	});
+   
+   	form.addFields(o.fields, fieldRefs);
+   
+   	var padding = Ti.UI.createLabel({
+   		height : 20
+   	});
+   	container.add(padding);
+   
+   	form.add(container);
+   
+   	// Add this so each field can be accessed directly, if necessary
+   	form.fieldRefs = fieldRefs;
+   
+   	return form;
+   };</li>
+<li>Joshua Quick 2017-11-17
+
+   [~ray@raymondverbruggen.nl], the code you've posted is incomplete. So, it's difficult to tell what's going on. But I did notice that your ScrollViews are set up to use a "composite" layout (not "vertical" or "horizontal" layouts).
+   
+   Would you mind doing a quick test on your end?
+   Try setting the ScrollView's "contentHeight" property to a large value, such as 5000. Then check if it's scrollable.
+   </li>
+<li>Gertjan Smits 2018-02-16
+
+   I believe we have the same issue. In the following example I have a horizontal scrollview inside a vertical scrolling one. The parent (vertical scrolling) scrolls fine, the horizontal scrollview is 'moveable', but doesn't scroll as expected. It looks like if the don't move your finger only over the x-axis, the scrolling works, but as soon as you move up or down, the event goes to the parent (vertical) scrolling view.
+   
+   The following is tested on 7.0.2.GA and worked fine before 6.
+   
+   <code><pre>
+   var trace = Ti.API.error;
+   var window = Ti.UI.createWindow();
+   
+   var verticalScrollView = Ti.UI.createScrollView({
+   	width : Ti.UI.FILL,
+   	height : Ti.UI.FILL,
+   	contentHeight : 'auto',
+   	contentWidth : '100%',
+   	scrollType : 'vertical',
+   	layout : 'vertical',
+   	backgroundColor : "white"
+   });
+   
+   var horizontalScrollView = Ti.UI.createScrollView({
+   	width : Ti.UI.FILL,
+   	height : 150,
+   	backgroundColor : 'black',
+   	contentHeight : '100%',
+   	contentWidth : 'auto',
+   	scrollType : 'horizontal',
+   	layout : 'absolute'
+   });
+   
+   var colors = ['red', 'green', 'blue'];
+   for (var i = 0, l = 10; i < l; i++) {
+   	horizontalScrollView.add(Ti.UI.createView({
+   		backgroundColor : colors[i % colors.length],
+   		width : 100,
+   		height : 150,
+   		left : i * 110
+   	}));
+   }
+   
+   verticalScrollView.add(Ti.UI.createLabel({
+   	color : 'black',
+   	width : Ti.UI.FILL,
+   	top : 20,
+   	left : 20,
+   	right : 20,
+   	bottom : 20,
+   	height : Ti.UI.SIZE,
+   	text : 'Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Etiam porta sem malesuada magna mollis euismod. Cras mattis consectetur purus sit amet fermentum.'
+   }));
+   
+   verticalScrollView.add(horizontalScrollView);
+   
+   verticalScrollView.add(Ti.UI.createLabel({
+   	color : 'black',
+   	width : Ti.UI.FILL,
+   	top : 20,
+   	left : 20,
+   	right : 20,
+   	bottom : 20,
+   	height : Ti.UI.SIZE,
+   	text : 'Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Etiam porta sem malesuada magna mollis euismod. Cras mattis consectetur purus sit amet fermentum. Cras mattis consectetur purus sit amet fermentum. Donec id elit non mi porta gravida at eget metus. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas sed diam eget risus varius blandit sit amet non magna. Nullam id dolor id nibh ultricies vehicula ut id elit. Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Cras mattis consectetur purus sit amet fermentum. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Nullam quis risus eget urna mollis ornare vel eu leo. Curabitur blandit tempus porttitor. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Etiam porta sem malesuada magna mollis euismod. Nullam id dolor id nibh ultricies vehicula ut id elit. Vivamus sagittis lacus vel augue laoreet rutrum faucibus dolor auctor. Sed posuere consectetur est at lobortis. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec sed odio dui. Donec ullamcorper nulla non metus auctor fringilla. Etiam porta sem malesuada magna mollis euismod. Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Praesent commodo cursus magna, vel scelerisque nisl consectetur et.'
+   }));
+   
+   window.add(verticalScrollView);
+   window.open();
+   </pre></code>
+   </li>
+<li>Malcolm Hollingsworth 2018-02-18
+
+   This is a real issue and is very easy to replicate, I am currently experiencing it myself.
+   
+   As clearly stated by [~gertjans] it is trivial to reproduce the very obvious error that occurs. With that in mind, I took his exact same code and tried it, I have the same issues on 6.3.0 but not on 6.1.2.
+   
+   I then decided to modify the code slightly so there could be not question that any use of older constants like percentages or 'auto' would play a part.  That also failed on 6.3.0 but worked on 6.1.2.
+   
+   So my experience in my own app where this is now a blocker is easily replicated with the minimalist of code.  My own code uses Alloy to perform all the operations that the code given by Gertjans Smits does, so this is not an Alloy related problem, simply a Ti problem.
+   
+   It also affects all versions above 6.1.2 including the most recent one as far as I am able to determine and also shown by both other people including the original reporter [~ray@raymondverbruggen.nl] expressing their concern about this issue.
+   
+   I have provided my variation on the code provided above.  I have simply tweaked some constants, increased the colour pool, re-ordered a couple of parts with named labels.  All with the aim of showing just how easy this is to replicate.
+   
+   I have also added properties that should not be required; bubbleeParent and canCancelEvents.  All variations failed to provide any changes other than total failure.  The last time I saw this sort of issue was just before Ti 3.x.
+   
+   <code><pre>
+   var colors = [ '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#bdc3c7', '#7f8c8d', '#2c3e50' ];
+   
+   var win = Ti.UI.createWindow();
+   var verticalScrollView = Ti.UI.createScrollView({
+       backgroundColor : '#fff',
+       contentHeight: Ti.UI.SIZE,
+       contentWidth: Ti.UI.FILL,
+       height: Ti.UI.FILL,
+       layout: 'vertical',
+       scrollType: 'vertical',
+       width: Ti.UI.FILL
+   });
+   
+   var horizontalScrollView = Ti.UI.createScrollView({
+       backgroundColor: '#000',
+       // should not be required, no effect anyway
+       bubbleParent: false,
+       // should not be required, no effect anyway
+       canCancelEvents: true,
+       contentHeight: 150,
+       contentWidth: Ti.UI.SIZE,
+       height: 150,
+       layout: 'horizontal',
+       scrollType: 'horizontal',
+       width: Ti.UI.FILL
+   });
+   
+   for (var i = 0, l = 10; i < l; i++) {
+       horizontalScrollView.add(Ti.UI.createView({
+           backgroundColor: colors[i % colors.length],
+           // should not be required, no effect anyway
+           bubbleParent: false,
+           height: 150,
+           left: 5,
+           right: 5,
+           width: 100
+       }));
+   }
+   var headerLabel = Ti.UI.createLabel({
+       bottom: 20,
+       color: '#000',
+       height: Ti.UI.SIZE,
+       left: 20,
+       right: 20,
+       text: 'Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Etiam porta sem malesuada magna mollis euismod. Cras mattis consectetur purus sit amet fermentum.',
+       top: 20,
+       width: Ti.UI.FILL
+   });
+   var footerLabel = Ti.UI.createLabel({
+       bottom: 20,
+       color: '#000',
+       height: Ti.UI.SIZE,
+       left: 20,
+       right: 20,
+       text: 'Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Etiam porta sem malesuada magna mollis euismod. Cras mattis consectetur purus sit amet fermentum. Cras mattis consectetur purus sit amet fermentum. Donec id elit non mi porta gravida at eget metus. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Maecenas sed diam eget risus varius blandit sit amet non magna. Nullam id dolor id nibh ultricies vehicula ut id elit. Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Cras mattis consectetur purus sit amet fermentum. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Nullam quis risus eget urna mollis ornare vel eu leo. Curabitur blandit tempus porttitor. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Aenean eu leo quam. Pellentesque ornare sem lacinia quam venenatis vestibulum. Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Etiam porta sem malesuada magna mollis euismod. Nullam id dolor id nibh ultricies vehicula ut id elit. Vivamus sagittis lacus vel augue laoreet rutrum faucibus dolor auctor. Sed posuere consectetur est at lobortis. Integer posuere erat a ante venenatis dapibus posuere velit aliquet. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Donec sed odio dui. Donec ullamcorper nulla non metus auctor fringilla. Etiam porta sem malesuada magna mollis euismod. Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Praesent commodo cursus magna, vel scelerisque nisl consectetur et.',
+       top: 20,
+       width: Ti.UI.FILL
+   });
+   verticalScrollView.add(headerLabel);
+   verticalScrollView.add(horizontalScrollView);
+   verticalScrollView.add(footerLabel);
+   win.add(verticalScrollView);
+   win.open();
+   </pre></code>
+   
+   This problem should be considered a blocker.</li>
+<li>Joshua Quick 2018-02-21
+
+   Okay. We're able to reproduce it now. The issue is with scrolling a child "horizontal" ScrollView within a parent "vertical" ScrollView. All other nested child views scroll as expected (ie: vertical ScrollViews/TableView/ListView within a vertical ScrollView scroll fine).
+   
+   I've written this up as a separate ticket to better clarify the issue here: [TIMOB-25792]
+   I've also posted a work-around in that same ticket.</li>
+<li>Raymond Verbruggen 2018-02-21
+
+   Great news Joshua!!</li>
+<li>Joshua Quick 2018-04-13
+
+    We plan on resolving this issue in Titanium 7.2.0.
+    Keep an eye on ticket [TIMOB-25792] for more details.
+    Thank you for reporting this issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25474.json">JSON Source</a></p>

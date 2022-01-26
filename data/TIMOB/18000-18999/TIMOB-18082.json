@@ -1,0 +1,921 @@
+{
+	"id": "140183",
+	"key": "TIMOB-18082",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "16980",
+				"description": "New V8",
+				"name": "Release 6.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2016-11-15"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2016-07-20T14:41:58.000+0000",
+		"created": "2014-11-21T21:11:53.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"android",
+			"notable"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "49154",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"outwardIssue": {
+					"id": "150391",
+					"key": "TIMOB-19348",
+					"fields": {
+						"summary": "Android: Split google-play-services library to optimize method counts",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "4",
+							"description": "An improvement or enhancement to an existing feature or task.",
+							"name": "Improvement",
+							"subtask": false
+						}
+					}
+				}
+			},
+			{
+				"id": "51479",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "159619",
+					"key": "AC-3512",
+					"fields": {
+						"summary": "\"Failed to run dexer\" error for SDK more recent than 3.5.1",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"updated": "2017-12-07T03:17:23.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "h4. Problem\r\nTitanium tooling will not build a project that has more than 65536 total method calls\r\n\r\nCurrently android has a limit  on the number of methods permitted in a single dex file. (65536 - who thought a short int should be used here???)\r\nAs an example, the latest google-play-services.jar from 3.4.1 has 23600.\r\nFor basic S3 support from aws 2.0, a module uses 26800.\r\n\r\nBy the time you build an empty titanium app you are left with:\r\n{code}\r\n[ERROR] trouble writing output: Too many method references: 68927; max is 65536.\r\n{code}\r\n\r\nh4. Solution\r\n\r\nThe solution is to use the --multi-dex option in calling dexer.\r\nThe problem will be that --multi-dex cant just be dropped in as it requires a different output. A decision will need to be made on how to modify this.buildBinClassesDex.\r\n\r\nExample (~2952)\r\n{code}\r\ndexArgs = [\r\n    '-Xmx' + this.dxMaxMemory,\r\n    '-XX:-UseGCOverheadLimit',\r\n    '-Djava.ext.dirs=' + this.androidInfo.sdk.platformTools.path,\r\n    '-jar', this.androidInfo.sdk.dx,\r\n    '--dex', '--multi-dex',\r\n    '--output=' + this.buildBinClassesDex,\r\n    this.buildBinClassesDir,\r\n    path.join(this.platformPath, 'lib', 'titanium-verify.jar')\r\n{code}\r\n\r\nIn this case, if this.buildBinClassesDex points to a directory  (lets say this.buildBinDir) we end up with our 2 .dex files\r\n\r\n{code}\r\n-rw-r--r--  1 stephenfeather  8276656 Nov 21 16:53 classes.dex\r\n-rw-r--r--  1 stephenfeather   633200 Nov 21 16:53 classes2.dex\r\n{code}\r\n\r\nAround like 4029 we can add a hack to push the other .dex file into our package. This would need to be coded to scan the directory for all *.dex files and add them to the bundle.\r\n{code}\r\ndest.append(fs.createReadStream(path.join(this.buildBinDir, 'classes.dex')), { name: 'classes.dex' });\r\ndest.append(fs.createReadStream(path.join(this.buildBinDir, 'classes2.dex')), { name: 'classes2.dex' });\r\n{code}\r\n\r\nThe problem however, is that the app will not run on a device because we would need to tell the application loader that this is a multidex package which will require another ticket.\r\nhttps://developer.android.com/reference/android/support/multidex/MultiDexApplication.html\r\n\r\n{code}\r\n[WARN]  dalvikvm: Unable to resolve superclass of Lorg/appcelerator/titanium/TiBaseActivity; (802)\r\n[WARN]  dalvikvm: Link of class 'Lorg/appcelerator/titanium/TiBaseActivity;' failed\r\n[WARN]  dalvikvm: Unable to resolve superclass of Lorg/appcelerator/titanium/TiLaunchActivity; (7431)\r\n[WARN]  dalvikvm: Link of class 'Lorg/appcelerator/titanium/TiLaunchActivity;' failed\r\n[WARN]  dalvikvm: Unable to resolve superclass of Lorg/appcelerator/titanium/TiRootActivity; (7445)\r\n[WARN]  dalvikvm: Link of class 'Lorg/appcelerator/titanium/TiRootActivity;' failed\r\n[WARN]  dalvikvm: VFY: unable to\r\n[WARN]  dalvikvm: VFY: Ljava/lang/Object; is not instance of Landroid/app/Activity;\r\n[WARN]  dalvikvm: VFY: bad arg 1 (into Landroid/app/Activity;)\r\n[WARN]  dalvikvm: VFY:  rejecting call to Lorg/appcelerator/titanium/TiVerify;.<init> (Landroid/app/Activity;Lorg/appcelerator/titanium/TiApplication;)V\r\n[WARN]  dalvikvm: VFY:  rejecting opcode 0x70 at 0x0002\r\n[WARN]  dalvikvm: VFY:  rejected Lcom/stephenfeather/test/classic/TestingClassicApplication;.verifyCustomModules (Lorg/appcelerator/titanium/TiRootActivity;)V\r\n[WARN]  dalvikvm: Verifier rejected class Lcom/stephenfeather/test/classic/TestingClassicApplication;\r\n[WARN]  dalvikvm: Class init failed in newInstance call (Lcom/stephenfeather/test/classic/TestingClassicApplication;)\r\n{code}\r\n\r\ncode snippets are from _build.js\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Enable --multi-dex for android builds",
+		"creator": {
+			"name": "sfeather",
+			"key": "sfeather",
+			"displayName": "Stephen Feather",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "sfeather",
+			"key": "sfeather",
+			"displayName": "Stephen Feather",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 682,
+				"state": "closed",
+				"name": "2016 Sprint 15 SDK",
+				"startDate": "2016-07-16T00:19:20.819Z",
+				"endDate": "2016-07-30T00:19:00.000Z",
+				"completeDate": "2016-08-01T04:40:11.421Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "333612",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "To those curious about why this is an issue. The map module includes Google Play services (by necessity). Google Play services added 12K+ methods from one version of the library to another. Yes, 12 *thousand* methods.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-11-25T13:52:09.000+0000",
+					"updated": "2014-11-25T13:52:21.000+0000"
+				},
+				{
+					"id": "333740",
+					"author": {
+						"name": "aleard",
+						"key": "aleard",
+						"displayName": "Alan Leard",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "aleard",
+						"key": "aleard",
+						"displayName": "Alan Leard",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-11-25T22:12:43.000+0000",
+					"updated": "2014-11-25T22:12:43.000+0000"
+				},
+				{
+					"id": "333748",
+					"author": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Unless I'm reading this wrong, Multidex is brought to pre-L platforms via the support library... with caveats:\r\n\r\nhttps://developer.android.com/tools/building/multidex.html#limitations",
+					"updateAuthor": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2014-11-25T22:27:57.000+0000",
+					"updated": "2014-11-25T22:27:57.000+0000"
+				},
+				{
+					"id": "333819",
+					"author": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "* The application will need to be derived from MultiDexApplication (http://developer.android.com/reference/android/support/multidex/MultiDexApplication.html) OR attachBaseContext will need to be overridden and a call for multidex.install() made.\r\n{code:title=example}\r\npublic abstract class TiApplication extends MultiDexApplication implements KrollApplication { .. }\r\n{code}\r\n* MultiDexApplication may need to be declared in AndroidManifest.xml (this is only required if an app uses the default Application implementation)\r\n* --main-dex-list will need to be used to be sure that the multidex support library's class names are in the first .dex file as well as any appc classes required at first/early launch (this includes a custom Application class if used). Following the flow in an appc android app (while enjoying my morning coffee) leads me to believe that Kroll absolutely must be in the first dex, and due to the way the appc classes relate, probably all of the appc classes as well. Start with ALL then, if required, weed out those that are not.  But to get this started, this optimization step should be delayed. This references the location of a text file containing one class per line.\r\n* google's primary examples are all now gradle based with ant being shoved into 'legacy'\r\n* level 21 tools are required I believe  (google could do a better job with their release notes, as this may be in 19/20 but not mentioned??)\r\n\r\nCommentary for those driving by: Ingo is correct in that it was the increase in methods in the google-play-services library that caught me off guard.  Combined with the bloated sow that is AWS 2.0, a mess was created. Until this point, our most complicated android app was around 55k methods in total, including maps and a handful of custom modules. The fault of failed builds with 3.4.1 is NOT that of Appcelerator's, but with the creation of giant all-inclusive libraries which then requires the average dev to learn about proguard and multidex.  Appcelerator has already initiated work to integrate proguard support as a plugin (see TIMOB-14740) although it was attempted earlier (TIMOB-2782). The problem with proguard comes when adding modules, as it takes a very good understanding of native android development to optimize a proguard.cfg file.",
+					"updateAuthor": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-11-26T04:37:50.000+0000",
+					"updated": "2014-11-26T15:23:02.000+0000"
+				},
+				{
+					"id": "341558",
+					"author": {
+						"name": "pinnamuri",
+						"key": "pinnamuri",
+						"displayName": "Praveen Innamuri",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~hpham] Any thoughts ?",
+					"updateAuthor": {
+						"name": "pinnamuri",
+						"key": "pinnamuri",
+						"displayName": "Praveen Innamuri",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-01-31T03:49:35.000+0000",
+					"updated": "2015-01-31T03:49:35.000+0000"
+				},
+				{
+					"id": "354550",
+					"author": {
+						"name": "kopiro",
+						"key": "kopiro",
+						"displayName": "Flavio De Stefano",
+						"active": true,
+						"timeZone": "Europe/Rome"
+					},
+					"body": "Any progress here?",
+					"updateAuthor": {
+						"name": "kopiro",
+						"key": "kopiro",
+						"displayName": "Flavio De Stefano",
+						"active": true,
+						"timeZone": "Europe/Rome"
+					},
+					"created": "2015-06-08T11:11:30.000+0000",
+					"updated": "2015-06-08T11:11:30.000+0000"
+				},
+				{
+					"id": "359775",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "@Hieu, while this addresses the immediate issue around multi-dex, we should likely keep a separate ticket for implementing it once 5.0 is the floor for Android (or in case a user only wishes to serve 5.0+ devices)",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-13T05:01:40.000+0000",
+					"updated": "2015-08-13T05:01:40.000+0000"
+				},
+				{
+					"id": "359845",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-13T19:48:10.000+0000",
+					"updated": "2015-08-23T21:58:26.000+0000"
+				},
+				{
+					"id": "360119",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix for the modules by using SDK 4.1.1.v20150816214206. The modules build fine on pre & post android 5.0.\r\nAlso built kitchensink by adding these 3 modules & did not find any issues. \r\n\r\nVerification pending with master branch.\r\n\r\nEnvironment:\r\nAppc Studio :  4.2.0.201508062204\r\nTi SDK :  4.1.1.v20150816214206\r\nTi CLI : 4.1.4\r\nAlloy : 1.6.2\r\nMAC Yosemite : 10.10.4\r\nAppc NPM : 4.1.0\r\nAppc CLI : 4.2.0-54\r\nNode: v0.10.37\r\nSamsung Galaxy S4 - Android 4.4.2\r\nNexus 6 - Android 5.0.1\r\nNexus 5 - Android 5.1.1",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-17T22:49:54.000+0000",
+					"updated": "2015-08-17T23:01:01.000+0000"
+				},
+				{
+					"id": "360400",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix with both 4_1_X & master (5.0.0) SDK.\r\n\r\nClosing.\r\n\r\nEnvironment:\r\nAppc Studio :  4.2.0.201508062204\r\nTi SDK :  5.0.0.v2015081914042, 4.1.1.v20150816214206\r\nTi CLI : 4.1.4\r\nAlloy : 1.6.2\r\nMAC Yosemite : 10.10.4\r\nAppc NPM : 4.1.0\r\nAppc CLI : 5.0.0-3\r\nNode: v0.10.37\r\nNexus 5 - Android 5.1.1\r\nNode : v0.10.37\r\nSamsung Galaxy S4 - Android 4.4.4\r\nNexus 5 - Android 5.1.1",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-19T21:57:30.000+0000",
+					"updated": "2015-08-19T21:57:43.000+0000"
+				},
+				{
+					"id": "360404",
+					"author": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "I'm sorry, but NO, the original issue has NOT been fixed.  The original problem, namely **Titanium tooling will not build a project that has more than 65536 total method calls** is still there, no matter how tightly engineering closes its eyes.\r\n\r\nSliding the issue off onto a new ticket, then hijacking this one to bring in hacked up google-play jars as a patch job is disingenuous. If you viewed your modules as the source of a different issue, then a ticket should have been opened for those.\r\n\r\nThis ticket was raised to address the FACT, which remains as of the time of this comment, that without multi-dex support, serious developers will run into development issues caused by a limitation within Appcelerator Titanium when they try to scale their apps, to include additional 3rd party libraries.\r\n\r\nMy piece said, I'm washing my hands of this.\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+					"updateAuthor": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-08-19T22:19:04.000+0000",
+					"updated": "2015-08-19T22:19:04.000+0000"
+				},
+				{
+					"id": "360823",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-08-23T22:00:51.000+0000",
+					"updated": "2015-08-23T22:00:51.000+0000"
+				},
+				{
+					"id": "361111",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "I agree with Stephen -- any serious app will quickly run into this problem.  Our WRAL News app has 16 android modules embedded.  Four of them use google-play-services.jar, which is the big hog.   It's hard to avoid using google play services these days.  Mapping, push, analytics, and ads all use it.  \r\n\r\nNot only is it a PITA to keep the versions of google-play-services.jar in sync across all these modules (I'm maintaining \"hacked\" versions of ti.map and ti.cloudpush just to use a more current jar), now we have to deal with the bloat in this library causing this dexer problem.\r\n\r\nMy workaround was to unpack google-play-services.jar and remove chunks of the library that I'm not using (games, drive, vision, wallet, wearable).  That seemed to get rid of about 10K references, which should buy me enough headroom for now.\r\n",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-08-25T15:06:40.000+0000",
+					"updated": "2015-08-25T15:06:40.000+0000"
+				},
+				{
+					"id": "365378",
+					"author": {
+						"name": "buddyguards",
+						"key": "buddyguards",
+						"displayName": "grebulon",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"body": "There's a good script to re-pack the play services jar based on a configuration file at: https://gist.github.com/dextorer/a32cad7819b7f272239b.\r\nStill, multidex must be supported in android/cli/commands/_build.js",
+					"updateAuthor": {
+						"name": "buddyguards",
+						"key": "buddyguards",
+						"displayName": "grebulon",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"created": "2015-09-30T08:46:23.000+0000",
+					"updated": "2015-09-30T08:46:23.000+0000"
+				},
+				{
+					"id": "365410",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "All, to confirm, --multi-dex does not work for Android SDKs < 5.0 without us adding yet another backwards compatibility library (https://developer.android.com/tools/support-library/features.html#multidex). Are you all comfortable with this only working for 5.0+ devices? Or do we need to enable it for 4.0 as well?\r\n\r\nSee https://developer.android.com/tools/building/multidex.html for more info.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-09-30T14:06:57.000+0000",
+					"updated": "2015-09-30T14:06:57.000+0000"
+				},
+				{
+					"id": "365411",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "That's a tricky question.  If you *need* multidex, then presumably, you're in a situation where you *can't* build without it.  So if it only supported Android 5.0+, you wouldn't be able to build your app for 4.0.\r\n\r\nIf you *did* implement it for 5.0+ only, it would probably be a long time before we could use it -- we'd have to wait until we could drop support for Android 4.x.  Given how slowly android users adopt new versions, it might be 3 years before Android 4.x usage is low enough for us to drop support.\r\n\r\nI think the more immediate pain is all centered around google play services.  The google play services JAR is responsible for a massive amount of references in apps, and almost every serious android app is going to use google play services.  One solution is to use stripped-down versions of google play services, or maybe the API-specific jar files.  But there are so many android modules using google play services, each with possibly different versions of the library, that all of this becomes very difficult to do.\r\n\r\nI really think that Appcelerator should drive a strategy for android developers to make the most efficient use of google play services.  We need uniformity in the version of the JAR that is supported by appcelerator-provided modules *and* community-provided modules (like ti.dfp, ti.google-analytics, etc.).  And maybe the Appcelerator tooling would let you pick google play services APIs from a menu to build a minimal JAR, and then use that custom JAR instead of the JARs shipped with the various modules.\r\n\r\nI think this would work safely if all the modules were on the same (up-to-date) version of google play services, *and* the user makes the right API choices in this proposed tool.  Of course, it would be even better if the tool could detect which APIs were in use in the various modules and automatically built a minimal google play services JAR.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-09-30T14:20:23.000+0000",
+					"updated": "2015-09-30T14:20:23.000+0000"
+				},
+				{
+					"id": "365413",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~jpriebe] thank you for the comment. Did you view the work we did on TIMOB-19348? We honestly CANNOT use the whole SDK from Google Play Services  as isand standardize on that. That alone has 30-40K methods and they keep adding to it all the time.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-09-30T14:25:05.000+0000",
+					"updated": "2015-09-30T14:25:05.000+0000"
+				},
+				{
+					"id": "365419",
+					"author": {
+						"name": "buddyguards",
+						"key": "buddyguards",
+						"displayName": "grebulon",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"body": "Support for SDK<5 is a must have.\r\nSplitting the play services jar as a general solution is problematic because of native modules that rely on different combinations of it.\r\nOne solution would be to add multidex to the build script (including the additional support jar - which is small enough), and condition it on a ti config varialble (e.g., _ti config set android.multidex true_)\r\nThe proper solution would be to move to a gradle build, with the google defined split libraries, but this of course is a LOT of work.",
+					"updateAuthor": {
+						"name": "buddyguards",
+						"key": "buddyguards",
+						"displayName": "grebulon",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"created": "2015-09-30T14:39:36.000+0000",
+					"updated": "2015-09-30T14:39:36.000+0000"
+				},
+				{
+					"id": "365439",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "@Ingo: I understand that using the entire google play services jar is becoming problematic.  I appreciate how you've been using individual APIs.  That's good stuff.\r\n\r\n@grebulon: I understand that native modules rely on different combinations.\r\n\r\nBut I'm not sure what I was saying is in conflict with either one of your statements.  But perhaps my idea of stripping down the full JAR is not as good as just using the individual API jars.\r\n\r\nSo -- if we could work towards version standardization for all modules that use google play services, then the modules could ship the individual API jars that they need, and they would all get combined by the build process into one big happy binary.\r\n\r\nI think it would be easy enough to get module authors to use the individual API jars.  If Appcelerator issued an official statement with that guidance, I think module authors would get on board.  As the maintainer of ti.dfp, I know I would, and if the titanium-google-analytics maintainer doesn't want to, I would be happy to fork that module and make the change.  But I think any reasonable dev would comply.\r\n\r\nThe bigger challenge is dealing with version mismatches of the jars.  Somehow, we need to package the module with different \"flavors\" (same module source code, but linked against different versions of the google play services library).   Then the build process could examine the modules, find the highest GPS version that is shared by each module, and it would use that one.  Of course, this puts burden on the module author to link against a number of old GPS versions.  Not exactly convenient, but I don't know of a better way to handle this.\r\n\r\nThis could get impractical, since there's not a great way to get old versions of google play services.  I've been maintaining a blog post with the version history here: [http://www.smorgasbork.com/2015/01/05/google-play-services-sdk-version-history/], but AFAIK, google doesn't provide an \"official\" way to get old libraries.\r\n\r\nNot only that, but for good interoperability, you'd probably want each module to be linked against all the google play services versions that have been released in the past year or two.  That way, each module author can go 4 or 5 months without an update and know that all the other modules out there would still be including a build with the same GPS version.  Google's released 7 versions in the past year alone.  So you might have to link against 15 versions to cover a two-year period...\r\n\r\nI'd love to hear better solutions.  But right now, there are only two ways a developer can build an android app with Titanium today:\r\n\r\n- use *only* GPS-linked modules provided by appcelerator directly (to guarantee version compatibility)\r\n- *OR* use a mix of appcelerator and open source modules, which requires you to get your hands dirty and start tearing apart the modules, replacing JARs, re-linking, etc.\r\n\r\nIt's a nightmare right now, and it's only going to get worse without a real solution from Appcelerator.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-09-30T17:51:27.000+0000",
+					"updated": "2015-09-30T17:51:27.000+0000"
+				},
+				{
+					"id": "366782",
+					"author": {
+						"name": "mfogg",
+						"key": "mfogg",
+						"displayName": "Mike Fogg",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Hey guys, just wanted to chime in here on this and see if we had any thoughts on when we might have a fix for this? It's becoming a pretty big problem and is actually a show-stopper for us at the moment that we are limited to that small number of methods. I know it's been a year since this was posted, but it's still very much an issue. Right now we have:\r\n\r\n1) An Image Compression module\r\n2) Facebook (Connect)\r\n3) Crash Reporting (Crittercism)\r\n4) Analytics (Google)\r\n5) Push Notifications (Localytics)\r\n6) A Drawer Layout module\r\n\r\nWith just those 6 modules (which really don't seem that out of the ordinary to have in an app) we are 40-ish methods over the limit and have to strip one out to build it. Without too much knowledge of the Android OS, I really can't do too much to help out unfortunately, but will gladly try to dig in where I can.",
+					"updateAuthor": {
+						"name": "mfogg",
+						"key": "mfogg",
+						"displayName": "Mike Fogg",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-10-14T14:18:54.000+0000",
+					"updated": "2015-10-14T14:18:54.000+0000"
+				},
+				{
+					"id": "371383",
+					"author": {
+						"name": "flaviolacer",
+						"key": "flaviolacer",
+						"displayName": "Flavio Lacerda",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi. My app stopped with this problem on 5.1.0 update. Anyone working on this?\r\n\r\nRegards.",
+					"updateAuthor": {
+						"name": "flaviolacer",
+						"key": "flaviolacer",
+						"displayName": "Flavio Lacerda",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-11-24T20:21:30.000+0000",
+					"updated": "2015-11-24T20:21:30.000+0000"
+				},
+				{
+					"id": "371385",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~flaviolacer] What error did it give you?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-11-24T20:33:17.000+0000",
+					"updated": "2015-11-24T20:33:17.000+0000"
+				},
+				{
+					"id": "371549",
+					"author": {
+						"name": "flaviolacer",
+						"key": "flaviolacer",
+						"displayName": "Flavio Lacerda",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi, \r\n\r\ntrouble writing output: Too many method references: 68004; max is 65536.\r\n[ERROR] :  You may try using --multi-dex option.",
+					"updateAuthor": {
+						"name": "flaviolacer",
+						"key": "flaviolacer",
+						"displayName": "Flavio Lacerda",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-11-26T21:38:04.000+0000",
+					"updated": "2015-11-26T21:38:04.000+0000"
+				},
+				{
+					"id": "375197",
+					"author": {
+						"name": "sg552",
+						"key": "sg552",
+						"displayName": "Siwei Shen",
+						"active": true,
+						"timeZone": "Asia/Hong_Kong"
+					},
+					"body": "\r\nI got the same problem.  The FACT issue is not fixed:  the method limit is still there!   \r\nMy application has modules with:  chat,  map, third party sign in, push.  \r\n\r\n\r\n\r\n{code}\r\ntrouble writing output: Too many method references: 67181; max is 65536.\r\n[ERROR] You may try using --multi-dex option.\r\n\r\n{code}\r\n\r\n\r\n\r\nI am still adding \"third party pay\", \"share\", and other modules, but it seems possible using Titanium.\r\n\r\nmy environment:  SDK 5.1.1.GA,  Android SDK 23, mac pro 8G memory. \r\n\r\nmy temporary solution : just remove the unnecessary jar files !    missing the jar files only cause the run-time errors. if you don't use those jar files in your code, there's no error. ( it's a trick,but not an solution. ) \r\n\r\nhope this issue be solved. ",
+					"updateAuthor": {
+						"name": "sg552",
+						"key": "sg552",
+						"displayName": "Siwei Shen",
+						"active": true,
+						"timeZone": "Asia/Hong_Kong"
+					},
+					"created": "2016-01-23T01:09:17.000+0000",
+					"updated": "2016-01-23T08:58:36.000+0000"
+				},
+				{
+					"id": "377403",
+					"author": {
+						"name": "leo@conceptsol.com",
+						"key": "leo@conceptsol.com",
+						"displayName": "Leonardo Farias",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hey guys same thing here. I wanted to know if there is any way we can get this bumped.",
+					"updateAuthor": {
+						"name": "leo@conceptsol.com",
+						"key": "leo@conceptsol.com",
+						"displayName": "Leonardo Farias",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-02-19T19:13:03.000+0000",
+					"updated": "2016-02-19T19:13:03.000+0000"
+				},
+				{
+					"id": "377404",
+					"author": {
+						"name": "justinc",
+						"key": "justinc",
+						"displayName": "Justin Camp",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Greetings,\r\n\r\nWe are encountering this issue in 5.1.2.GA.\r\nIs there a current workaround or a way to enable multidex?",
+					"updateAuthor": {
+						"name": "justinc",
+						"key": "justinc",
+						"displayName": "Justin Camp",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-02-19T19:13:44.000+0000",
+					"updated": "2016-02-19T19:13:44.000+0000"
+				},
+				{
+					"id": "377405",
+					"author": {
+						"name": "justinc",
+						"key": "justinc",
+						"displayName": "Justin Camp",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "(duplicate)",
+					"updateAuthor": {
+						"name": "fokkezb",
+						"key": "fokke",
+						"displayName": "Fokke Zandbergen",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"created": "2016-02-19T19:15:20.000+0000",
+					"updated": "2016-02-20T08:21:38.000+0000"
+				},
+				{
+					"id": "379319",
+					"author": {
+						"name": "amurcia",
+						"key": "amurcia",
+						"displayName": "Anna",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I'm having the same problem in 5.2.0.GA\r\n\r\nFailed to run dexer:\r\n[ERROR] :  \r\n[ERROR] :  trouble writing output: Too many method references: 66795; max is 65536.\r\n[ERROR] :  You may try using --multi-dex option.",
+					"updateAuthor": {
+						"name": "amurcia",
+						"key": "amurcia",
+						"displayName": "Anna",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-03-09T10:48:30.000+0000",
+					"updated": "2016-03-09T10:51:46.000+0000"
+				},
+				{
+					"id": "379405",
+					"author": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"body": "[~amurcia] This should be looked into.\r\n\r\nA workaround is to slim down the modules. Are there modules that include google play services jar that could be replaced? This would reduce the method count and possibly help compile it.",
+					"updateAuthor": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"created": "2016-03-10T03:57:42.000+0000",
+					"updated": "2016-03-10T03:57:42.000+0000"
+				},
+				{
+					"id": "383311",
+					"author": {
+						"name": "topener",
+						"key": "topener",
+						"displayName": "Rene Pot",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "What is the progress on this? Seems a pretty critical issue for most serious app developers. This ticket is already open 1,5 years! ",
+					"updateAuthor": {
+						"name": "topener",
+						"key": "topener",
+						"displayName": "Rene Pot",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-04-20T11:44:11.000+0000",
+					"updated": "2016-04-20T11:44:11.000+0000"
+				},
+				{
+					"id": "383317",
+					"author": {
+						"name": "arif",
+						"key": "arif",
+						"displayName": "Arjan",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"body": "I am also bumping into this issue, after trying to compile with SDK 5.4.0. ;-[",
+					"updateAuthor": {
+						"name": "arif",
+						"key": "arif",
+						"displayName": "Arjan",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"created": "2016-04-20T11:57:59.000+0000",
+					"updated": "2016-04-20T11:57:59.000+0000"
+				},
+				{
+					"id": "383321",
+					"author": {
+						"name": "mfogg",
+						"key": "mfogg",
+						"displayName": "Mike Fogg",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Is there anyone or any team out there we can pay to add this functionality? It seems as though it's clearly not going to be worked on (as you said @rene, it's been 1.5 years). Maybe we should start a Gofundme page and hopefully hire someone with more Android technical know-how to implement this :)",
+					"updateAuthor": {
+						"name": "mfogg",
+						"key": "mfogg",
+						"displayName": "Mike Fogg",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2016-04-20T12:03:50.000+0000",
+					"updated": "2016-04-20T12:03:50.000+0000"
+				},
+				{
+					"id": "389283",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "https://github.com/appcelerator/titanium_mobile/pull/8095",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2016-06-28T17:22:14.000+0000",
+					"updated": "2016-06-28T17:22:14.000+0000"
+				},
+				{
+					"id": "390876",
+					"author": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"body": "Updated comment in the PR to mention that the PR does work for anything that is above Android L.\r\n\r\nAnything below that requires a different implementation.\r\n\r\nAlso we need to note that there are some limitations as mentioned in the docs [https://developer.android.com/studio/build/multidex.html](https://developer.android.com/studio/build/multidex.html).\r\n{quote}\r\nThe installation of .dex files during startup onto a device's data partition is complex and can result in Application Not Responding (ANR) errors if the secondary dex files are large. In this case, you should apply code shrinking techniques with ProGuard to minimize the size of dex files and remove unused portions of code.\r\n\r\nApplications that use multidex may not start on devices that run versions of the platform earlier than Android 4.0 (API level 14) due to a Dalvik linearAlloc bug (Issue 22586). If you are targeting API levels earlier than 14, make sure to perform testing with these versions of the platform as your application can have issues at startup or when particular groups of classes are loaded. Code shrinking can reduce or possibly eliminate these potential issues.\r\n\r\nApplications using a multidex configuration that make very large memory allocation requests may crash during run time due to a Dalvik linearAlloc limit (Issue 78035). The allocation limit was increased in Android 4.0 (API level 14), but apps may still run into this limit on Android versions prior to Android 5.0 (API level 21).\r\n\r\nThere are complex requirements regarding what classes are needed in the primary dex file when executing in the Dalvik runtime. The Android build tooling updates handle the Android requirements, but it is possible that other included libraries have additional dependency requirements including the use of introspection or invocation of Java methods from native code. Some libraries may not be able to be used until the multidex build tools are updated to allow you to specify classes that must be included in the primary dex file.\r\n{quote}\r\n",
+					"updateAuthor": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"created": "2016-07-18T07:31:45.000+0000",
+					"updated": "2016-07-18T07:31:45.000+0000"
+				},
+				{
+					"id": "392369",
+					"author": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"body": "For test case, please add modules to the Titanium app in 5.4.0 till it fails with {{Too many method references: 68927; max is 65536.}}\r\n\r\nThen switch to test with 6.0.0. It should pass as multidex is in use.",
+					"updateAuthor": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"created": "2016-08-04T03:38:20.000+0000",
+					"updated": "2016-08-04T03:38:20.000+0000"
+				},
+				{
+					"id": "398017",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix.\r\n\r\nChecked by using https://github.com/ashcoding/ReachTheLimit module.\r\nIt fails with 5.5.1.GA but works fine with 6.0.0 which has the fix.\r\n\r\nClosing. Please reopen if you find the issue is reproducible after the fix.\r\n\r\nEnvironment:\r\nAppc Studio : 4.8.0.201609292239\r\nTi SDK :  6.0.0.v20161002235150\r\nTi CLI : 5.0.10\r\nAlloy : 1.9.2\r\nMAC El Capitan : 10.11.6\r\nAppc NPM : 4.2.8-7\r\nAppc CLI : 6.0.0-55\r\nNode: 4.4.4\r\nNexus 5 - Android 6.0.1",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-10-03T22:57:43.000+0000",
+					"updated": "2016-10-03T22:57:43.000+0000"
+				},
+				{
+					"id": "431821",
+					"author": {
+						"name": "fahad86",
+						"key": "fahad86",
+						"displayName": "Muhammad Ahmed Fahad",
+						"active": true,
+						"timeZone": "Asia/Shanghai"
+					},
+					"body": "How do we achieve multi-dex support in titanium for android versions < 5.0?\r\n\r\nI tried changing the android application name, i.e.:\r\n    <application android:name=\"android.support.multidex.MultiDexApplication\" >\r\n\r\nas mentioned in: https://developer.android.com/studio/build/multidex.html#mdex-pre-l\r\n\r\nbut while trying to run the application, the app crashes with the error:\r\n\r\nE/AndroidRuntime(32659): java.lang.RuntimeException: Unable to start activity ComponentInfo{com.xyz/com.xyz.XYZActivity}: java.lang.ClassCastException: android.support.multidex.MultiDexApplication cannot be cast to org.appcelerator.titanium.TiApplication\r\n\r\nOr how can I override the attachBaseContext method on the Main application class? ",
+					"updateAuthor": {
+						"name": "fahad86",
+						"key": "fahad86",
+						"displayName": "Muhammad Ahmed Fahad",
+						"active": true,
+						"timeZone": "Asia/Shanghai"
+					},
+					"created": "2017-12-07T03:17:23.000+0000",
+					"updated": "2017-12-07T03:17:23.000+0000"
+				}
+			],
+			"maxResults": 55,
+			"total": 55,
+			"startAt": 0
+		}
+	}
+}

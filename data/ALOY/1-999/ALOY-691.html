@@ -1,0 +1,209 @@
+---
+title: "[ALOY-691] Alloys Data Binding feature does not respect platform property"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-05-22T15:50:18.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.4.0</td></tr>
+<tr><th>Components</th><td>Models</td></tr>
+<tr><th>Labels</th><td>alloy, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Jick Steen</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2013-06-05T16:12:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-05-23T17:32:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi,
+
+when using data binding on an element limited to a specific platform, the data function will be created twice. After compiling the example below you will notice the created resource contains two render functions. The render function for iOS and MobileWeb overwrites the function for Android. Calling $.destroy() might break on iOS because the Android related collection is not defined.
+
+Link to Q&A: <a href="http://developer.appcelerator.com/question/153195/alloys-data-binding-feature-does-not-respect-platform-property" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/153195/alloys-data-binding-feature-does-not-respect-platform-property</a>
+
+View:
+<code><pre>
+<Alloy>
+    <Collection src="test" />
+    <Window id="index">
+        <View id="content" dataCollection="test" dataFunction="render" platform="android">
+            <View></View>
+        </View>
+        <TableView id="content" dataCollection="test" dataFunction="render" platform="ios,mobileweb">
+            <TableViewRow>
+                <View></View>
+            </TableViewRow>
+        </TableView>
+    </Window>
+</Alloy>
+</pre></code>
+
+Controller:
+<code><pre>
+$.index.open(); 
+ 
+render();
+ 
+$.destroy();
+</pre></code>
+
+Model:
+<code><pre>
+exports.definition = {
+ 
+  configuration : {
+    "columns": {
+      "username":"string"
+    },
+    "adapter": {
+      "type": "sql",
+      "collection_name": "test"
+    },
+  },
+ 
+  extendModel: function(Model) {
+ 
+    _.extend(Model.prototype, {});
+ 
+    return Model;
+  },
+ 
+  extendCollection: function(Collection) {
+ 
+    _.extend(Collection.prototype, {});
+ 
+    return Collection;
+  }
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-02-19
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/339" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/339</a>
+   
+   Functional test:
+   
+   Using either the sample code provided in the ticket above or in the test app ALOY-691, build the app. Only one copy of render() is included in the generated code.</li>
+<li>Tony Lukasavage 2014-02-26
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/342" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/342</a></li>
+<li>Lokesh Choudhary 2014-05-15
+
+   Reopening as for android I am seeing two copies of render() in the generated code.
+   On iOS & mobileweb, only one copy of render() is seen.
+   
+   Code generated for android:
+   <code><pre>
+   function Controller() {
+       function render(e) {
+           if (e && e.fromAdapter) return;
+           render.opts || {};
+           var models = __alloyId5.models;
+           var len = models.length;
+           var children = $.__views.content.children;
+           for (var d = children.length - 1; d >= 0; d--) $.__views.content.remove(children[d]);
+           for (var i = 0; len > i; i++) {
+               var __alloyId2 = models[i];
+               __alloyId2.__transform = {};
+               var __alloyId4 = Ti.UI.createView({});
+               $.__views.content.add(__alloyId4);
+           }
+       }
+       function render(e) {
+           if (e && e.fromAdapter) return;
+           render.opts || {};
+           var models = __alloyId11.models;
+           var len = models.length;
+           var rows = [];
+           for (var i = 0; len > i; i++) {
+               var __alloyId6 = models[i];
+               __alloyId6.__transform = {};
+               var __alloyId8 = Ti.UI.createTableViewRow({});
+               rows.push(__alloyId8);
+               var __alloyId10 = Ti.UI.createView({});
+               __alloyId8.add(__alloyId10);
+           }
+           $.__views.content.setData(rows);
+       }
+   </pre></code>
+   
+   Environment:
+   Appc Studio : 3.3.0.201405121247
+   Ti SDK : 3.3.0.v20140514163013
+   Mac OSX : 10.8.5
+   Alloy : 1.4.0-alpha
+   CLI - 3.3.0-dev
+   Nexus 5 - android 4.4.2</li>
+<li>Tim Poulsen 2014-05-19
+
+   New PR <a href="https://github.com/appcelerator/alloy/pull/401" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/401</a> submitted and merged</li>
+<li>Tim Poulsen 2014-05-21
+
+   Reopening because my last implementation didn't work properly when an element was tagged to support multiple platforms.</li>
+<li>Tim Poulsen 2014-05-22
+
+   New PR <a href="https://github.com/appcelerator/alloy/pull/410" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/410</a>
+   
+   Merged to 1_4_X and master
+   
+   Properly prevents the processing of children (e.g. TableViewRows) of tags not for the current platform (e.g. TableView). 
+   
+   Test app <a href="https://github.com/appcelerator/alloy/tree/master/test/apps/testing/ALOY-691" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps/testing/ALOY-691</a></li>
+<li>Federico Casali 2014-05-22
+
+   Verified fixed and working as expected with the latest sample code and fix. 
+   Closing.
+   
+   TiSDK 3.3.0.v20140522110830
+   Alloy 1.4.0-alpha4
+   Appcelerator Studio 3.3.0.201405211748
+   CLI 3.3.0-alpha5
+   
+   iOS Compiled code :
+   <code><pre>
+   function render(e) {
+           if (e && e.fromAdapter) return;
+           render.opts || {};
+           var models = __alloyId7.models;
+           var len = models.length;
+           var rows = [];
+           for (var i = 0; len > i; i++) {
+               var __alloyId2 = models[i];
+               __alloyId2.__transform = {};
+               var __alloyId4 = Ti.UI.createTableViewRow({});
+               rows.push(__alloyId4);
+               var __alloyId6 = Ti.UI.createView({});
+               __alloyId4.add(__alloyId6);
+           }
+           $.__views.content.setData(rows);
+       }
+   </pre></code>
+   
+   Android Compiled code:
+   <code><pre>
+     function render(e) {
+           if (e && e.fromAdapter) return;
+           render.opts || {};
+           var models = __alloyId5.models;
+           var len = models.length;
+           var children = $.__views.content.children;
+           for (var d = children.length - 1; d >= 0; d--) $.__views.content.remove(children[d]);
+           for (var i = 0; len > i; i++) {
+               var __alloyId2 = models[i];
+               __alloyId2.__transform = {};
+               var __alloyId4 = Ti.UI.createView({});
+               $.__views.content.add(__alloyId4);
+           }
+       }
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-691.json">JSON Source</a></p>

@@ -1,0 +1,201 @@
+---
+title: "[TIMOB-1122] Geolocation listener fires repeatedly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-05-04T15:49:17.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-18</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>geolocation, ios</td></tr>
+<tr><th>Reporter</th><td>Curtis Olson</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:44:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-02T19:31:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Titanium.Geolocation.addEventListener gets fired 50-75/sec on
+app startup with no location changes. My understanding was that
+this was only supposed to fire when the location changed. On the
+iphone simulator, I'm seeing this fire every 3 seconds. On the
+devices its many, many times a second. It slows down the app
+start-up and causes time-outs.</p>
+<p><a href=
+"<a href="http://pastie.org/994622" rel="nofollow" target="_blank">http://pastie.org/994622</a>"><a href="http://pastie.org/994622" rel="nofollow" target="_blank">http://pastie.org/994622</a></a></p>
+<p>In the console log, you can see the first location request and
+then the following 187 are lines are the location listenter.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Curtis Olson 2011-04-15
+
+   <div><p>Here is the code from app.js that requests location. It is very
+   close to the KitchenSink code.</p>
+   <pre>
+   <code>try {
+       Ti.API.debug('Titanium.Geolocation.locationServicesEnabled: ' + Titanium.Geolocation.locationServicesEnabled);
+       if (Titanium.Geolocation.locationServicesEnabled == false) {
+           Titanium.UI.createAlertDialog({
+               title: 'Warning',
+               message: 'Your device has geolocation turned off. Please turn it on now.'
+           }).show();
+       }
+       else {
+           Ti.API.debug('Location services are available');
+           //
+           //  SET ACCURACY
+           //
+           Titanium.Geolocation.accuracy = Titanium.Geolocation.ACCURACY_BEST;
+           //
+           //  SET DISTANCE FILTER.  THIS DICTATES HOW OFTEN AN EVENT FIRES BASED ON THE DISTANCE THE DEVICE MOVES
+           //  THIS VALUE IS IN METERS
+           //
+           Titanium.Geolocation.distanceFilter = 10;
+           //
+           // GET CURRENT POSITION - THIS FIRES ONCE
+           //
+           var myLongitude;
+           var myLatitude;
+           var myAltitude;
+           var myHeading;
+           var myAccuracy;
+           var mySpeed;
+           var myGeoTimestamp;
+           var myAltitudeAccuracy;
+           Titanium.Geolocation.getCurrentPosition(function(e){        
+               if (e.error) {
+                   Ti.API.error('Geolocation Error');
+                   Ti.API.error('error:' + JSON.stringify(e.error));
+                   return;
+               };
+               // get values from geolocation call
+               myLatitude = e.coords.latitude;
+               Titanium.App.Properties.setDouble('myLatitude', myLatitude);
+               myLongitude = e.coords.longitude;
+               Titanium.App.Properties.setDouble('myLongitude', myLongitude);
+               myAltitude = e.coords.altitude;
+               myHeading = e.coords.heading;
+               myAccuracy = e.coords.accuracy;
+               mySpeed = e.coords.speed;
+               myGeoTimestamp = e.coords.timestamp;
+               myAltitudeAccuracy = e.coords.altitudeAccuracy;
+               showVariables('Got Geolocation info');
+           });
+           //
+           // EVENT LISTENER FOR GEO EVENTS - THIS WILL FIRE REPEATEDLY (BASED ON DISTANCE FILTER)
+           //
+           Titanium.Geolocation.addEventListener('location', function(e){
+               if (e.error) {
+                   Ti.API.error('Geolocation Error');
+                   Ti.API.error('error:' + JSON.stringify(e.error));
+                   return;
+               };
+               
+               // get values from geolocation call
+               myLatitude = e.coords.latitude;
+               Titanium.App.Properties.setDouble('myLatitude', myLatitude);
+               myLongitude = e.coords.longitude;
+               Titanium.App.Properties.setDouble('myLongitude', myLongitude);
+               myAltitude = e.coords.altitude;
+               myHeading = e.coords.heading;
+               myAccuracy = e.coords.accuracy;
+               mySpeed = e.coords.speed;
+               myGeoTimestamp = e.coords.timestamp;
+               myAltitudeAccuracy = e.coords.altitudeAccuracy;
+               
+               geoCount = geoCount + 1;
+               Ti.API.info('***********  Geo: ' + geoCount + ' ' + myLatitude + '/' + myLongitude + ' ');
+               Titanium.Geolocation.distanceFilter = 100; // changed after first location event 
+           });
+       };
+   }
+   catch(err) {
+       Titanium.UI.createAlertDialog({
+           title: 'Geolocation Error',
+           message: err
+       }).show();  
+   };</code>
+   </pre></div></li>
+<li>Udi 2011-04-15
+
+   <div><p>I'm seeing the same behavior. It doesn't make any sense.</p></div></li>
+<li>Clifton Labrum 2011-04-15
+
+   <div><p>I'm see this problem as well.</p>
+   <p>When I test the code in the KitchenSink, I can't get the
+   position to update based on a position change (according to the
+   distance filter). Only the initial position is acquired, and no
+   subsequent positions are acquired. The distance filter seems
+   inoperable.</p>
+   <p>The only way I've managed to get working GPS functionality is to
+   call <code>getCurrentPosition</code> on the location event like
+   this:</p>
+   <pre>
+   <code>Ti.Geolocation.addEventListener('location', getPosition);
+   
+   function getPosition(e) {
+       
+       //Watch for errors
+       if(e.error){ return; }
+   
+       Ti.Geolocation.accuracy = Ti.Geolocation.ACCURACY_BEST;
+       Ti.Geolocation.distanceFilter = 100;            
+     
+       Ti.Geolocation.getCurrentPosition(function(e){
+           if(e.error){ return; }
+           
+           //Get the GPS goods
+           var longitude = e.coords.longitude;
+           var latitude = e.coords.latitude;
+           var altitude = e.coords.altitude;
+           var accuracy = e.coords.accuracy;
+           var timestamp = e.coords.timestamp;
+       });
+   }</code>
+   </pre>
+   <p>So I'm basically getting the initial position over and over
+   again using the <code>location</code> event. It feels wrong, but
+   it's the only thing I've been able to figure out.</p></div></li>
+<li>Norm 2011-04-15
+
+   <div><p>Having the same problem with the kitchen sink code, it only
+   seems to update the first time then hangs. Although, after opening
+   the google maps app and allowing the GPS to sync and pulse, closing
+   google maps, then opening the kitchen sink app again it seems to
+   work properly and location updates flow in and regular intervals.
+   Any ideas!?</p></div></li>
+<li>Taazza 2011-04-15
+
+   <div><p>We are seeing the same problem that norm is seeing.</p>
+   <p>Later location updates seem to fire up even when the location
+   doesnt change. Kitchensink example doesnt work as coded. Let us
+   know if you need more info.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Looks like this is a pressing issue.</p></div></li>
+<li>Stephen Tramer 2011-05-04
+
+   "Fixed" by 89ba1a4.  Issue was that we had a feature which covers this issue, but it was not documented.</li>
+<li>Steve 2011-05-09
+
+   @Stephen Tramer,
+   
+   Where can we find the documentation?</li>
+<li>Stephen Tramer 2011-05-09
+
+   In the apidocs, which are not published until release.  You can always view the specific changes made to the documentation formatting files:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/89ba1a4b9f450909cc58c67cdf0d8669f388d9d7#diff-0" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/89ba1a4b9f450909cc58c67cdf0d8669f388d9d7#diff-0</a></li>
+<li>Lee Morris 2017-03-02
+
+    Closed as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1122.json">JSON Source</a></p>

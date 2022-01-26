@@ -1,0 +1,168 @@
+{
+	"id": "161682",
+	"key": "TIMOB-23625",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2016-07-12T01:58:26.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "17706",
+				"name": "Release 5.4.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2016-08-11"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "52193",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "160357",
+					"key": "TIMOB-23411",
+					"fields": {
+						"summary": "Windows: After app crash app is unable to boot.",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Critical",
+							"id": "1"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			},
+			{
+				"id": "52248",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "161774",
+					"key": "TIMOB-23635",
+					"fields": {
+						"summary": "Windows app performance issue",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "kiguchi",
+			"key": "kota",
+			"displayName": "Kota Iguchi",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2016-08-26T07:21:30.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "12642",
+				"name": "Windows",
+				"description": "Windows authoring support"
+			}
+		],
+		"description": "Currently {{TableView}} and {{ListView}} has performance issue where it can not load chunk of data at once because it requires a lot of CPU/memory resource. We might want to introduce UI virtualization or progressive data loading or something like that so that we can load data as many as possible.\r\n\r\nPer comments in TIMOB-23411\r\n\r\n{quote}\r\nI'm guessing we need to do some deep looks into trying to optimize our usage of the ListView implementation under the hood to avoid these issues.\r\n\r\nI'm guessing perhaps the way the controls are nested, we're hitting a use case where the phone's UI virtualization for the ListView is defeated. See https://msdn.microsoft.com/windows/uwp/debug-test-perf/optimize-gridview-and-listview \r\n\r\nThe critical portion being:\r\nbq. The concept of a viewport is critical to UI virtualization because the framework must create the elements that are likely to be shown. In general, the viewport of an ItemsControl is the extent of the logical control. For example, the viewport of a ListView is the width and height of the ListView element. Some panels allow child elements unlimited space, examples being ScrollViewer and a Grid, with auto-sized rows or columns. When a virtualized ItemsControl is placed in a panel like that, it takes enough room to display all of its items, which defeats virtualization. Restore virtualization by setting a width and height on the ItemsControl.\r\n\r\nLots more links out there on GridView/ListView performance problems:\r\n\r\n- https://blogs.msdn.microsoft.com/alainza/2014/09/03/listview-basics-and-virtualization-concepts/\r\n- https://www.interact-sw.co.uk/iangblog/2014/07/15/phone-listview-grouping\r\n- http://nanovazquez.com/2013/11/28/windows-8.1-gridview-and-listview-performance-improvements/\r\n- http://stackoverflow.com/questions/28944705/multiple-listview-ui-virtualization\r\n- http://mikaelkoskinen.net/post/winrt-xaml-gridview-performance-problems-on-windows-rt-tablets\r\n\r\n\r\nLong story short? First make sure you explicitly set a size on the ListView impl and not let it FILL, or it'll never virtualize. Second, it looks like sometimes grouping can basically kill UI virtualization as well, as each group effectively becomes auto-scaled in size to contain it's items.\r\n{quote}\r\n\r\nWe also want to tackle with performance difference between {{TableView}} and {{ListView}}, currently creating ListView data is 5x times slower than TableView. It is likely because ListView is relatively complex component with custom template support, but we'd like to close the gap as much as we can.\r\n\r\n*TableView*\r\n\r\n{code}\r\nvar win = Ti.UI.createWindow();\r\n\r\nvar data = [];\r\nvar start = +new Date();\r\nfor (var i = 0; i < 20; i++) {\r\n    var sectionFruit = Ti.UI.createTableViewSection({ headerTitle: 'Fruit' });\r\n    sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Apples' }));\r\n    sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Bananas' }));\r\n    data.push(sectionFruit);\r\n\r\n    var sectionVeg = Ti.UI.createTableViewSection({ headerTitle: 'Vegetables' });\r\n    sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Carrots' }));\r\n    sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Potatoes' }));\r\n    data.push(sectionVeg);\r\n\r\n    var sectionFish = Ti.UI.createTableViewSection({ headerTitle: 'Fish' });\r\n    sectionFish.add(Ti.UI.createTableViewRow({ title: 'Cod' }));\r\n    sectionFish.add(Ti.UI.createTableViewRow({ title: 'Haddock' }));\r\n    data.push(sectionFish);\r\n}\r\n\r\nvar table = Ti.UI.createTableView({\r\n    data: data\r\n});\r\n\r\nTi.API.info('Elapsed: ' + (+new Date() - start));\r\n\r\nwin.add(table);\r\nwin.open();\r\n{code}\r\n\r\n*ListView*\r\n\r\n{code}\r\nvar win = Ti.UI.createWindow({ backgroundColor: 'green' });\r\nvar listView = Ti.UI.createListView();\r\nvar sections = [];\r\n\r\nvar start = +new Date();\r\nfor (var i = 0; i < 20; i++) {\r\n    var fruitSection = Ti.UI.createListSection({ headerTitle: 'Fruits' });\r\n    var fruitDataSet = [\r\n        { properties: { title: 'Apple' } },\r\n        { properties: { title: 'Banana' } },\r\n    ];\r\n    fruitSection.setItems(fruitDataSet);\r\n    sections.push(fruitSection);\r\n\r\n    var vegSection = Ti.UI.createListSection({ headerTitle: 'Vegetables' });\r\n    var vegDataSet = [\r\n        { properties: { title: 'Carrots' } },\r\n        { properties: { title: 'Potatoes' } },\r\n    ];\r\n    vegSection.setItems(vegDataSet);\r\n    sections.push(vegSection);\r\n\r\n    var fishSection = Ti.UI.createListSection({ headerTitle: 'Fish' });\r\n    var fishDataSet = [\r\n        { properties: { title: 'Cod' } },\r\n        { properties: { title: 'Haddock' } },\r\n    ];\r\n    fishSection.setItems(fishDataSet);\r\n    sections.push(fishSection);\r\n}\r\n\r\nlistView.sections = sections;\r\n\r\nTi.API.info('Elapsed: ' + (+new Date() - start));\r\n\r\nwin.add(listView);\r\nwin.open();\r\n{code}\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Windows: Progressive loading for ListView/TableView",
+		"creator": {
+			"name": "kiguchi",
+			"key": "kota",
+			"displayName": "Kota Iguchi",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "kiguchi",
+			"key": "kota",
+			"displayName": "Kota Iguchi",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

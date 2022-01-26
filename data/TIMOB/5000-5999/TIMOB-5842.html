@@ -1,0 +1,87 @@
+---
+title: "[TIMOB-5842] Android: Allow type specifier for Android Intent extras"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 1.7.3</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2011-10-24T09:45:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-03T09:39:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Many Android Intents allow extras that require specific types. In some instances when the Titanium Android code can't convert these types, defaults will be used resulting in unexpected behavior. For example, the intent below expects integers for the first 4 extra values, but is automatically casting them as doubles on the Android side. This is causing all of those extras to default to 0.
+
+<code><pre>
+var intent = Ti.Android.createIntent({
+        action: "com.android.camera.action.CROP",
+        data: 'file:///mnt/sdcard/download/images.jpeg',
+        type: 'image/*'
+    });
+    intent.putExtra("crop", "true");
+    intent.putExtra("aspectX", 1);
+    intent.putExtra("aspectY", 1);
+    intent.putExtra("outputX", 60);
+    intent.putExtra("outputY", 80);
+    intent.putExtra("return-data", true);
+</pre></code>
+
+When the above intent is run from an activity, the following can be found in the log:
+
+<code><pre>
+10-24 16:08:18.217: W/Bundle(945): Key outputX expected Integer but value was a java.lang.Double.  The default value 0 was returned.
+10-24 16:08:18.227: W/Bundle(945): Attempt to cast generated internal exception:
+10-24 16:08:18.227: W/Bundle(945): java.lang.ClassCastException: java.lang.Double
+10-24 16:08:18.227: W/Bundle(945):  at android.os.Bundle.getInt(Bundle.java:918)
+10-24 16:08:18.227: W/Bundle(945):  at android.os.Bundle.getInt(Bundle.java:901)
+10-24 16:08:18.227: W/Bundle(945):  at com.android.camera.CropImage.onCreate(CropImage.java:124)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1047)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2627)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2679)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.ActivityThread.access$2300(ActivityThread.java:125)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2033)
+10-24 16:08:18.227: W/Bundle(945):  at android.os.Handler.dispatchMessage(Handler.java:99)
+10-24 16:08:18.227: W/Bundle(945):  at android.os.Looper.loop(Looper.java:123)
+10-24 16:08:18.227: W/Bundle(945):  at android.app.ActivityThread.main(ActivityThread.java:4627)
+10-24 16:08:18.227: W/Bundle(945):  at java.lang.reflect.Method.invokeNative(Native Method)
+10-24 16:08:18.227: W/Bundle(945):  at java.lang.reflect.Method.invoke(Method.java:521)
+10-24 16:08:18.227: W/Bundle(945):  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:868)
+10-24 16:08:18.227: W/Bundle(945):  at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:626)
+10-24 16:08:18.227: W/Bundle(945):  at dalvik.system.NativeStart.main(Native Method)
+</pre></code>
+
+To remedy the situation, we should likely allow developers to specify a type when declaring extras, or create convenience functions for all available types that can be passed to an Intent. So <code>Titanium.Android.Intent.putExtra</code> should, in addition to the current <code>name</code> and <code>value</code> parameters, also take a <code>type</code> parameter that can be used to cast the value on the Android side. Alternatively, or complimentary, There could also be extra convenience functions like <code>putStringExtra</code>, <code>putIntExtra</code>, <code>putDoubleExtra</code>, etc...
+
+For reference, this ticket is a result of the following Q&A question: [<a href="http://developer.appcelerator.com/question/127302/how-do-i-pass-integers-to-intents" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/127302/how-do-i-pass-integers-to-intents</a>](<a href="http://developer.appcelerator.com/question/127302/how-do-i-pass-integers-to-intents)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/127302/how-do-i-pass-integers-to-intents)</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Karl Åström 2012-05-28
+
+   Six months since last update on this. It's high priority. Can we get a statement on this? Forgotten? In the works?</li>
+<li>Dan Ziemba 2012-07-07
+
+   I agree that this would be a useful feature.  I was unable to properly set the begin and end times when launching an intent to insert a new calendar event to content://com.android.calendar/events because the 'beginTime' and 'endTime' extra keys were expecting Long but being given Integer.
+   
+   I've created a module that implements putLongExtra and it should be simple to add other similar methods.  So until this feature is added, here's the module:  <a href="https://github.com/zman0900/titanium-improvedintent" rel="nofollow" target="_blank">https://github.com/zman0900/titanium-improvedintent</a></li>
+<li>Gautier Drusch 2019-04-03
+
+   Is there a plan to resolve this issue? We need to add a calendar Intent to our app but when we create an Intent from Ti.Android.createIntent and then set the beginTime like that:
+   <code><pre>
+   intent.putExtra("beginTime", 1554276167093)
+   </pre></code>
+    the extra is passed as a Double instead of Long to the Android SDK.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5842.json">JSON Source</a></p>

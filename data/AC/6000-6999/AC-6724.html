@@ -1,0 +1,190 @@
+---
+title: "[AC-6724] iOS 15: Glitch in headerview when creating ListView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>ios-15</td></tr>
+<tr><th>Reporter</th><td>Jonas Funk Johannessen</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2021-10-13T08:55:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-11-29T14:10:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After updating to iOS 15 (without updating SDK), most of our headerViews in ListViews have started to have a "glitch", -when setting data- when creating listview. Have a look at attached video from our app as an example of this behaviour. 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6724_68004/glitch.mov">glitch.mov</td></td><td>2021-10-13T08:54:30.000+0000</td><td>3207527</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6724_68018/listviewWithReplace.mov">listviewWithReplace.mov</td></td><td>2021-10-19T07:13:59.000+0000</td><td>1614763</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6724_68014/RPReplay_Final1634561670.MP4">RPReplay_Final1634561670.MP4</td></td><td>2021-10-18T13:01:07.000+0000</td><td>1550464</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6724_68019/Screenshot_listviewWithReplace.png">Screenshot_listviewWithReplace.png</td></td><td>2021-10-19T07:14:05.000+0000</td><td>255318</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2021-10-14
+
+   [~jonasfunk] There was a behaviour change in iOS 15 around the padding of headers in ListViews that was accounted for in 10.1.0.GA (TIMOB-28524), your description states <code>without updating SDK</code> but the environment states 10.1.0.GA? Could you please confirm what SDK you are using and if possible provide a better example</li>
+<li>Jonas Funk Johannessen 2021-10-14
+
+   Thanks for looking into this issue. To clarify: After updating to iOS 15, we began seeing this issue on our app in production build with 9.2.2.GA. We updated to 10.1.0.GA, to see if that issue was fixed. It wasn't. </li>
+<li>Jonas Funk Johannessen 2021-10-14
+
+   By better example do you mean, you are not able to see the issue in the video, or do mean an example with code?</li>
+<li>Ewan Harris 2021-10-14
+
+   Ideally a code sample would be best</li>
+<li>Jonas Funk Johannessen 2021-10-18
+
+   
+   {noformat}
+   const win = Ti.UI.createWindow();
+   
+   const addListviewButton = Ti.UI.createButton({
+       title: 'Create listview',
+       zIndex:1000,
+       bottom:40,
+       height:50,
+       width:200,
+       style:Ti.UI.iOS.SystemButtonStyle.BUTTON_STYLE_OPTION_NEUTRAL
+   });
+   
+   addListviewButton.addEventListener('click',function(){
+       win.add(createListView());
+   });
+   
+   win.add(addListviewButton);
+   
+   
+   win.open();
+   win.add(createListView());
+   
+   
+   function createListView(){
+   
+       //Remove listview if already added
+       if(win.children.length == 2)
+           win.remove(win.children[1]);
+   
+       const headerView = Ti.UI.createView({
+           height:300,
+           backgroundColor:'blue'
+       });
+       
+       const listView = Ti.UI.createListView({
+           headerView: headerView
+       });
+    
+   
+       return listView;
+   }
+   {noformat}
+   </li>
+<li>Jonas Funk Johannessen 2021-10-18
+
+   I've attached another screen recording of running the above code sample on an iPhone 13 Pro / iOS 15, and clicking the 'Create listview' button 3 times. You can especially see the glitch described, when opening the window. It's like the header is moving down to the middle of the screen.</li>
+<li>Jonas Funk Johannessen 2021-10-18
+
+   I should emphasise that this is only observable when running on device. Simulator is fine. </li>
+<li>Ewan Harris 2021-10-18
+
+   [~jonasfunk], is it only on a notched device like the 13 Pro or does it also occurs on non-notch devices?</li>
+<li>Jonas Funk Johannessen 2021-10-18
+
+   I havn't got a non-notch device at hand, so I havn't tested that, but I might be able to ask someone to test it for me. </li>
+<li>Ewan Harris 2021-10-18
+
+    I have a non-notch iPhone 7 and it looks to be ok for me, so I'm wondering if that's the case. [~jquick] [~gmathews] [~amukherjee] any of you have a notch device?</li>
+<li>Joshua Quick 2021-10-18
+
+    I'm only able to test in the iOS simulator. I sometimes see a flicker using the attached example code.
+    
+    My guess from looking at the video is the <code>remove()</code> method is removing the view immediately from the screen (it's forcing a render) and the view you're adding is shown on the next rendered frame. Perhaps a better solution would be to switch to using the <code>replaceAt()</code> method?
+    <a href="https://titaniumsdk.com/api/titanium/ui/view.html#replaceat" rel="nofollow" target="_blank">https://titaniumsdk.com/api/titanium/ui/view.html#replaceat</a>
+    
+    How does the following code run for you?
+    <code><pre>
+    function createListView() {
+    	const headerView = Ti.UI.createView({
+    		height: 300,
+    		backgroundColor: 'blue',
+    	});
+    	const listView = Ti.UI.createListView({
+    		headerView: headerView
+    	});
+    	return listView;
+    }
+    
+    const win = Ti.UI.createWindow();
+    const addListviewButton = Ti.UI.createButton({
+    	title: 'Create listview',
+    	zIndex: 1000,
+    	bottom: 40,
+    	height: 50,
+    	width: 200,
+    	style: Ti.UI.iOS.SystemButtonStyle.BUTTON_STYLE_OPTION_NEUTRAL
+    });
+    addListviewButton.addEventListener('click', () => {
+    	const listView = createListView();
+    	if (win.children.length < 2) {
+    		win.add(listView);
+    	} else {
+    		win.replaceAt({ position: 1, view: listView });
+    	}
+    });
+    win.add(addListviewButton);
+    win.add(createListView());
+    win.open();
+    </pre></code>
+    
+    Note: An even better solution would be to re-use the existing <code>ListView</code> by replacing its header and list items. This would be the most efficient thing to do... and it might solve that flicker issue since it looks like the <code>remove()</code> method is doing a blocking render like I said above.</li>
+<li>Jonas Funk Johannessen 2021-10-19
+
+    Thanks for chiming in Joshua. I've created a new screen recording with your modification. I agree that it is a better approach to 
+    {noformat}
+    replace
+    {noformat}
+     than 
+    {noformat}
+    remove
+    {noformat}
+     (got to remember to use that one more), but the result is more or less the same. I've attached a new video, and a screenshot of one of the frames where the issue is apparent. The header is centered for a single frame, causing the flicker. Going back to the issue in our app, which i've also attached a video of, I dont think reusing a single listview in tabs is a solution for us – either way, you will always see a flicker upon first creation. </li>
+<li>Jonas Funk Johannessen 2021-10-28
+
+    Got my hands on a non-notch device (iPhone 8), and there is no flicker, so it must be a notch device thing. </li>
+<li>Jonas Funk Johannessen 2021-11-29
+
+    I have tried adding top:0 to headerview in code, but that does not work. Not that this is the right solution, but I found that adding a top of 0 to 
+    <code><pre>
+    _headerViewProxy
+    </pre></code>
+     in 
+    <code><pre>
+    - (void)configureHeaders,  TiUIListView.m
+    </pre></code>
+     seems to solve the issue.
+    Like this:
+    
+    <code><pre>
+    [_headerViewProxy layoutProperties]->top = TiDimensionDip(0.0);
+    </pre></code>
+    </li>
+</ol>
+
+
+<p><a href="/AC/AC-6724.json">JSON Source</a></p>

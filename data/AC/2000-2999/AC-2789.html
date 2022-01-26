@@ -1,0 +1,149 @@
+---
+title: "[AC-2789] Android: Picker does not work properly before window opens"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2012-01-30T03:56:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ivan Skugor</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2012-01-30T03:10:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+The problem is that selecting picker's row programmatically (by calling its "setSelectedRow" method) is not reflected immediately and reading selected row's value (by calling its "getSelectedRow" method) does not work, unless window is opened. Also, "change" event in that case is not fired.
+
+<h4>Test case</h4>
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	navBarHidden: true
+});
+
+var picker = Ti.UI.createPicker();
+
+var data = [];
+data[0] = Ti.UI.createPickerRow({ title:'Bananas' });
+data[1] = Ti.UI.createPickerRow({ title:'Strawberries' });
+data[2] = Ti.UI.createPickerRow({ title:'Mangos' });
+data[3] = Ti.UI.createPickerRow({ title:'Grapes' });
+picker.add(data);
+
+picker.addEventListener('change', function(e) {
+	Ti.API.error('Picker change ' + e.row.title);
+});
+
+win.add(picker);
+
+picker.setSelectedRow(0, 2);
+var selectedRow = picker.getSelectedRow(0) || {};
+Ti.API.info('Picker selected row ' + selectedRow.title);
+
+win.addEventListener('open', function() {
+	
+	Ti.API.info('Picker selected row WINDOW OPEN 1 ' + picker.getSelectedRow(0).title);
+	
+	picker.setSelectedRow(0, 1);
+	
+	Ti.API.info('Picker selected row WINDOW OPEN 2 ' + picker.getSelectedRow(0).title);
+});
+
+win.open();
+</pre></code>
+
+<h4>Logs</h4>
+
+<code><pre>
+01-30 11:56:36.410: I/TiAPI(3576): Picker selected row undefined
+01-30 11:56:36.640: I/TiAPI(3576): Picker selected row WINDOW OPEN 1 Mangos
+01-30 11:56:36.690: I/TiAPI(3576): Picker selected row WINDOW OPEN 2 Strawberries
+01-30 11:56:36.690: E/TiAPI(3576): Picker change Strawberries
+</pre></code>
+
+<h4>Expected behavior</h4>
+
+Picker's "setSelectedRow" and "getSelectedRow" method calls outside window's "open" event handler should work in same manner as in window's "open" event handler.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2012-01-30
+
+   Thanks for raising this, Ivan.
+   
+   This is expected behavior that is being addressed in the apidocs, via ticket TIMOB-7050.
+   
+   The fact that it does not work inside of an open eventlistener is related to TIMOB-5303. Let's see the outcome of that ticket before raising more, potentially duplicate, tickets.
+   
+   Hence, closing this for now.</li>
+<li>Paul Dowsett 2012-01-30
+
+   btw, if you can prove that settimeout cannot be used to resolve the open in eventlistener issue, then please report back.
+   
+   Thanks</li>
+<li>Ivan Skugor 2012-01-30
+
+   "setTimeout" cannot be used because there is no way to know how much time will take opening of the window ("open" event must be used in my opinion).You can pick some value for time in "setTimeout", but that doesn't guarantee it will work in any situation.
+   
+   
+   
+   Btw, in Picker API docs:
+   
+   win.add(picker);
+   win.open();
+               
+   // must be after picker has been displayed
+   picker.setSelectedRow(0, 2, false); // select Mangos
+   
+   
+   
+   That works if it's used before "win.open()" and if you try to use "getSelectedRow", you'll get "null".</li>
+<li>Ivan Skugor 2012-01-31
+
+   Switch component also has similar (event not fired before window is opened) issue:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	navBarHidden: true
+   });
+   
+   var toogle = Ti.UI.createSwitch();
+   
+   toogle.addEventListener('change', function(e) {
+   	Ti.API.info('Change event ...');
+   	Ti.API.debug(JSON.stringify(e));
+   });
+   
+   win.add(toogle);
+   
+   toogle.value = true;
+   
+   win.addEventListener('open', function() {
+   	
+   	toogle.value = false;
+   	
+   });
+   
+   win.open();
+   </pre></code>
+   
+   If you run this example, you'll see that "change" event is fired only once, while value is changed twice.
+   
+   I think the problem is that UI components are not created immediately (when they are created via factory methods in JS code) and therefore some of their functionality is missing/not working before they actually are created (which is when windows opens, for sure).</li>
+<li>Mauro Parra-Miranda 2013-11-24
+
+   DUP issue. </li>
+</ol>
+
+
+<p><a href="/AC/AC-2789.json">JSON Source</a></p>

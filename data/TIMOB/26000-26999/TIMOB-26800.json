@@ -1,0 +1,291 @@
+{
+	"id": "172956",
+	"key": "TIMOB-26800",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20482",
+				"description": "",
+				"name": "Release 7.5.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-04-04"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-12-04T18:27:19.000+0000",
+		"created": "2019-02-04T10:08:26.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"engSchedule",
+			"ios"
+		],
+		"versions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			},
+			{
+				"id": "20429",
+				"name": "Release 7.5.1",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-02-26"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "vijaysingh",
+			"key": "vijaysingh",
+			"displayName": "Vijay Singh",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-12-04T18:27:19.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [],
+		"description": "The TiBlob.imageAsCompressed method leaks memory as it's not initialising the blob with the page context. For that reason, is not deallocated once it's JS proxy is garbage collected.\r\nThe following code (TiBlob.m, line 387,also in TitaniumKit) should be changed:\r\n\r\n{code:java}\r\nreturn [[[TiBlob alloc] initWithData:UIImageJPEGRepresentation(image, compressionQuality) mimetype:@\"image/jpeg\"] autorelease];\r\n{code}\r\ninto this:\r\n\r\n{code:java}\r\nreturn [[[TiBlob alloc] _initWithPageContext:self.pageContext andData:UIImageJPEGRepresentation(image, compressionQuality) mimetype:@\"image/jpeg\"] autorelease];\r\n{code}\r\n\r\nI can provide a PR if needed.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS:TiBlob.imageAsCompressed leaks memory",
+		"creator": {
+			"name": "rlustemberg",
+			"key": "rlustemberg",
+			"displayName": "Richard Lustemberg",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "rlustemberg",
+			"key": "rlustemberg",
+			"displayName": "Richard Lustemberg",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": "SDK 8, 7.x",
+		"comment": {
+			"comments": [
+				{
+					"id": "445847",
+					"author": {
+						"name": "rmitro",
+						"key": "rmitro",
+						"displayName": "Rakhi Mitro",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hello,\r\n\r\n\r\nWould you mind providing more information for the issues you are experiencing? For example is this something for iOS platform? If so, what SDK are you using? Which event listener is creating the issue? If this is a new issue can you share a simple test project app and test steps to recreate the issue on our end. After that, we will discuss with our team to fix this.",
+					"updateAuthor": {
+						"name": "rmitro",
+						"key": "rmitro",
+						"displayName": "Rakhi Mitro",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-05T11:50:44.000+0000",
+					"updated": "2019-02-05T11:50:44.000+0000"
+				},
+				{
+					"id": "445848",
+					"author": {
+						"name": "rlustemberg",
+						"key": "rlustemberg",
+						"displayName": "Richard Lustemberg",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hi Rahki, If you look at the code, you'll notice that they are using the wrong init method when creating the TiBlob for the imageAsCompressed method. In all the other image manipulation methods the code was updated to provide the pageContext. The leak is not caused by any event listener, but what happens is that the TiBlob is not deallocated after the JSProxy is garbage collected. If you debug using XCode you'll notice that as you create and nullify TiBlobs from the imageAsCompressed method, blobs are not deallocated from memory, and can be all found using the memory graph.\r\nSteps to reproduce:\r\n1)Create an image blob (using the Photo gallery)\r\n2)Pass the blob to a new window holding an image view\r\n3) Use the imageAsCompressed method to generate a new blob and use it for the image property of the image view.\r\n4)Close the window.\r\nDo this 10 times or more and the app will leak every blob until is terminated.\r\nI've already fixed the issue on my modified version of the sdk, so I'm reporting the bug and providing the solution.\r\nYou can use this example: https://github.com/rlustemberg/Titanium-memory-management-tutorial. Use tab 1, Button 'Open gallery 4' to reproduce.\r\nI can provide a PR for sdk 8.x and backports to 7.4 and 7.5 (7.5 is severely broken at the moment so I'm not using it anymore until it's fixed)",
+					"updateAuthor": {
+						"name": "rlustemberg",
+						"key": "rlustemberg",
+						"displayName": "Richard Lustemberg",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2019-02-05T12:28:40.000+0000",
+					"updated": "2019-02-05T12:35:53.000+0000"
+				},
+				{
+					"id": "445849",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~rlustemberg], Can you share the PR here? I will forward it to the TIMOB now. Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2019-02-05T16:26:28.000+0000",
+					"updated": "2019-02-05T16:26:28.000+0000"
+				},
+				{
+					"id": "445871",
+					"author": {
+						"name": "rlustemberg",
+						"key": "rlustemberg",
+						"displayName": "Richard Lustemberg",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Done!",
+					"updateAuthor": {
+						"name": "rlustemberg",
+						"key": "rlustemberg",
+						"displayName": "Richard Lustemberg",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2019-02-06T09:48:17.000+0000",
+					"updated": "2019-02-06T09:48:17.000+0000"
+				},
+				{
+					"id": "445891",
+					"author": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master) : https://github.com/appcelerator/titanium_mobile/pull/10680",
+					"updateAuthor": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-06T21:36:55.000+0000",
+					"updated": "2019-02-06T21:36:55.000+0000"
+				},
+				{
+					"id": "446581",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "I took the liberty to fix a linting issue in the existing PRs and create a backport for 8_0_X:\r\n\r\n7_4_X: https://github.com/appcelerator/titanium_mobile/pull/10681\r\n7_5_X: https://github.com/appcelerator/titanium_mobile/pull/10682\r\n8_0_X: https://github.com/appcelerator/titanium_mobile/pull/10755\r\n\r\n[~rlustemberg], you mentioned 7_5_X is severely broken for your right now. Care to drop me a line what exactly you have issues with? Either on Slack or shot me a mail at [mailto:jvennemann@axway.com]. Thanks!",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2019-03-06T13:44:41.000+0000",
+					"updated": "2019-03-06T13:44:41.000+0000"
+				},
+				{
+					"id": "447033",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR passed. PR merged  for master. waiting for resolving  Jenkins issue's for 7_4_X,7_5_X and 8_0_X  to merge.",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-20T22:48:47.000+0000",
+					"updated": "2019-03-20T22:48:47.000+0000"
+				},
+				{
+					"id": "447122",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "merged to master, 8_0_X, 7_5_X. 7_4_X backport is still in progress/building, but I don't think we anticipate doing any further 7.4.x releases at this point...",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-03-25T15:58:10.000+0000",
+					"updated": "2019-03-25T15:58:10.000+0000"
+				},
+				{
+					"id": "447126",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Also merged 7_4_X backport...",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-03-25T17:05:50.000+0000",
+					"updated": "2019-03-25T17:05:50.000+0000"
+				}
+			],
+			"maxResults": 9,
+			"total": 9,
+			"startAt": 0
+		}
+	}
+}

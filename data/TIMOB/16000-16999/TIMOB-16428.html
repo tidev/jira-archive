@@ -1,0 +1,155 @@
+---
+title: "[TIMOB-16428] MobileWeb: Compile doesn't correctly parse font folders and font names"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-03-23T02:39:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 05, 2014 Sprint 05 Tooling, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>MobileWeb</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Andrew Greenstreet</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2014-02-08T19:03:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:42:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Mobile web compile does not correctly setup up @font-face naming and path
+
+Currently if I have fonts in the android directory and the mobile web directory I will end up with this in the html of index.html
+
+@font-face{font-family:"android\fonts\HelveticaNeueLTPro-Bd";src:url("android\fonts\HelveticaNeueLTPro-Bd.otf");}
+@font-face{font-family:"mobileweb\fonts\HelveticaNeueLTPro-Bd";src:url("mobileweb\fonts\HelveticaNeueLTPro-Bd.otf");}
+
+It should look like
+
+@font-face{font-family:"HelveticaNeueLTPro-Bd";src:url("/fonts/HelveticaNeueLTPro-Bd.otf");}
+
+This is due to:
+
+1. Not taking into account the directory separator for windows
+2. Recursive search of all folders in Resources (Alloy projects), instead of just "mobileweb"
+
+Patched _build.js file is attached. Please see line 749.
+
+
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16428_45743/_build.js">_build.js</td></td><td>2014-02-08T19:03:15.000+0000</td><td>34290</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-02-09
+
+   Moving this ticket to engineering for further evaluation of the proposed fix.</li>
+<li>Andrew Greenstreet 2014-02-09
+
+   I had to make one more change to this. Fonts of the same name, but with a different extension are not split into separate items.
+   
+   For example:
+   
+   @font-face{font-family:"HelveticaNeueLTPro-Bd";src:url("/fonts/HelveticaNeueLTPro-Bd.otf,/fonts/HelveticaNeueLTPro-Bd.woff");}
+   
+   should be
+   
+   @font-face{font-family:"HelveticaNeueLTPro-Bd";src:url("/fonts/HelveticaNeueLTPro-Bd.otf");}
+   
+   @font-face{font-family:"HelveticaNeueLTPro-Bd";src:url("/fonts/HelveticaNeueLTPro-Bd.woff");}
+   
+   Patch is:
+   
+   <code><pre>
+   Object.keys(fonts).forEach(function (name) {
+   	fonts[name].forEach(
+   		function(path) {
+   			tiCSS.push('@font-face{font-family:"' + name + '";src:url("' + path + '");}\n');
+   		}
+   	)
+   }, this);
+   </pre></code>
+   
+   </li>
+<li>Andrew Greenstreet 2014-02-14
+
+   I actually had to make quite a lot of tweaks to this code. 
+   
+   <code><pre>
+   Object.keys(fonts).forEach(function (name) {
+   			var fontFace = '@font-face{font-family:"' + name + '";src:';
+   			for (i = 0; i < fonts[name].length; i++) {
+   				fontFace += "url(\"" + fonts[name][i] + "\")" ;
+   				fontFace += getFormat(fonts[name][i]);
+   				HTML_HEADER += "\n<link rel='prefetch' href='" + fonts[name][i] + "' />"; //Important for webkit
+   				if (i + 1 < fonts[name].length) {
+   					fontFace += ",\n";
+   				}
+   			}
+   			fontFace += "}";
+   			this.logger.info("Adding Font " + fontFace);
+   			tiCSS.push(fontFace);
+   		}, this);
+   
+   		function getFormat(path) {
+   			var parts = path.split(".");
+   			var ext = parts[parts.length-1];
+   			switch (ext) {
+   				case "ttf" : return " format('truetype')"; break;
+   				default  : return " format('" + ext + "')";
+   			}
+   		}
+   </pre></code></li>
+<li>Andrew Greenstreet 2014-02-14
+
+   If you do not prefetch the fonts, then FontWidget.js does not correctly measure the width of the fonts (especially on webkit)
+   
+   textRuler.clientWidth & textRuler.clientHeight will be not reflect the actually size of the text, causing wrapping, or clipping.
+   
+   <link rel='prefetch' href='/fonts/myfont.ttf> is absolutely required.
+   
+   </li>
+<li>Andrew Greenstreet 2014-02-24
+
+   Fixed in
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/5372" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5372</a></li>
+<li>Chris Barber 2014-03-03
+
+   Master pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5404" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5404</a>
+   3_2_X_hybrid pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5405" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5405</a></li>
+<li>Chris Barber 2014-05-08
+
+   [~emerriman] Well, sorta. Yes, you can simply put some fonts in a "fonts" folder in the Resources directory, but I advise against putting them in the "android" folder. When you do a mobile web build, it will display in the build output the web fonts that it found.</li>
+<li>Olga Romero 2014-05-29
+
+   Tested the default project with
+   Mac osx 10.9.3 Mavericks
+   Appcelerator Studio, build: 3.3.0.201405271647
+   Titanium SDK, build: 3.3.0.v20140528144113 
+   Node.JS Version: v0.10.13 
+   NPM Version: 1.3.2 
+   acs@1.0.14 
+   alloy@1.4.0-beta 
+   npm@1.3.2 
+   titanium@3.3.0-beta 
+   titanium-code-processor@1.1.1
+   
+   added the font folder to resources and verified font-family is recognized</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16428.json">JSON Source</a></p>

@@ -1,0 +1,166 @@
+---
+title: "[TIMOB-4948] Cannot fill a tableViewRow with another view to 100% width (clipping)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2011-10-27T14:34:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-43</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>clipping, tableviewrow, width</td></tr>
+<tr><th>Reporter</th><td>Andreas Pardeike</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-08-08T05:43:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-11-08T09:39:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Adding a new View to a TableViewRow results in unexpected clipping on the left and right side of the cell regardless of the size of the view added.
+
+Expected behavior: the new view fills 100% width and height of the parent view (the tableviewrow) without any clipping.
+Experienced behavior: on a tableviewrow with a with of 240px, approx. 5 pixel on the left and approx. 7 pixel on the right are clipped thus revealing the background color of the tableviewrow.
+
+I provided a simple test case that will work as 'app.js' in a standard project and a screenshot that shows the result I get. Please pay extra attention to the background colors I specify in the example code and how they appear in the screenshot or in the result of running the example code. One would expect to not see a single pixel of red color.
+
+As far as I could see, this bug appears only on Android and not on the iPhone.
+
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+ 
+var win = Titanium.UI.createWindow({  
+    exitOnClose: true,
+    fullscreen: true,
+    orientationModes: [Ti.UI.PORTRAIT],
+    backgroundColor: 'green'
+});
+ 
+rows = [];
+for(i = 0; i < 20; i++) {
+    rows[i] = Ti.UI.createTableViewRow({
+        height: 40,
+        backgroundColor: 'red'
+    });
+    var view = Ti.UI.createView({
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'orange'
+    });
+    rows[i].add(view);
+}
+ 
+var table = Ti.UI.createTableView({
+    top: 40,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    data: rows
+});
+win.add(table);
+ 
+win.open();
+</pre></code>
+
+!<a href="http://www.pardeike.net/tabletest.png" rel="nofollow" target="_blank">http://www.pardeike.net/tabletest.png</a>! 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2011-08-08
+
+   Andreas
+   
+   Thanks for the ticket, which is almost perfect. Would you mind please stating the Titanium SDK build date and hash, so that the core devs can be certain of reproducing the issue?  Once this is added to the environment field, I can move this ticket across.
+   
+   Many thanks</li>
+<li>Andreas Pardeike 2011-08-09
+
+   Done.</li>
+<li>Paul Dowsett 2011-08-09
+
+   Andreas
+   
+   Sorry I missed this before, but Android 2.2.1 is obsolete. Would you update to the latest 2.2.X release, and test again? Refer to [Android SDK / Target Android Platform](<a href="http://wiki.appcelerator.org/display/guides/Titanium+Compatibility+Matrix#TitaniumCompatibilityMatrix-AndroidSDK%2FTargetAndroidPlatform)" rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/Titanium+Compatibility+Matrix#TitaniumCompatibilityMatrix-AndroidSDK%2FTargetAndroidPlatform)</a> if you are going to upgrade to a newer major release.
+   
+   Thanks</li>
+<li>Ivan Skugor 2011-08-09
+
+   Hi Andreas.
+   
+   
+   Have you tried workaround that I suggested to you in Q/A topic? :)</li>
+<li>Andreas Pardeike 2011-08-09
+
+   @PaulDowsett: Bug still present after testing with Android 2.3.3. This seems not to be android version specific.
+   
+   @IvanSkugor: I am not sure if I understand your comment there. You're suggesting that I use the TableViewCell directly instead of adding a new View? That is hardly a workaround because most non-trivial cases of table cell layouts probably require one to have several views/components in that cell - in my case, I want a rectangular area with a background png for the top part of the cell containing a centered label and then some text below the rectangular header. I cannot see a way to do what you suggested without adding several elements to the TableViewCell which will then clip that content on the left and right where in fact, it should not clip anything at all.</li>
+<li>Ivan Skugor 2011-08-09
+
+   Yes, that was my suggestion (but "TableViewRow", not "TableViewCell").
+   
+   If I understand correctly what you want, I think that you need to use "layout: vertical" for "TableViewRow", in combination with other components.</li>
+<li>Andreas Pardeike 2011-08-09
+
+   Exactly. That is what I am trying to do in my real project:
+   
+   <code><pre>
+   var row = Ti.UI.createTableViewRow({
+   	className: 'row',
+   	selectionStyle: Titanium.UI.iPhone.TableViewCellSelectionStyle.GRAY,
+   	layout: 'vertical'
+   });
+   
+   var titleView = Ti.UI.createView({
+   	id: 'titleView',
+   	backgroundImage: 'images/jobtitlebg.png'
+   });
+   var titleLabel = Ti.UI.createLabel({
+   	className: 'jobtext',
+   	id: 'titleLabel',
+   	text: rssTitle
+   });
+   titleView.add(titleLabel);
+   var titleArrow = Ti.UI.createView({
+   	id: 'titleArrow',
+   	backgroundImage: 'images/pil.png'
+   });
+   titleView.add(titleArrow);
+   row.add(titleView);
+   
+   var descriptionLabel = Ti.UI.createLabel({
+   	id: 'descriptionLabel',
+   	className: 'jobtext',
+   	text: rssDescription
+   });
+   row.add(descriptionLabel);
+   
+   var createDateLabel = Ti.UI.createLabel({
+   	id: 'createDateLabel',
+   	className: 'jobtext',
+   	text: deltaDays
+   });
+   row.add(createDateLabel);
+   </pre></code>
+   
+   I cannot find a workaround that prevents clipping of 'titleView'...</li>
+<li>Shannon Hicks 2011-10-01
+
+   I'm having the exact same problem. I have my tableview line separator set to 'transparent' so I can draw my own... except they're clipping on the left/right sides now.</li>
+<li>Shamsul Azhar 2011-11-06
+
+   Can I know which bug is this a duplicate of so that I can track it's progress. I'm having the same issue with my project.
+   
+   Thanks.</li>
+<li>Jude Osborn 2011-11-07
+
+    This is proving to be a major visual problem for my company's app. Does anyone know if this has been confirmed as a Titanium bug, or if it's an OS limitation?</li>
+<li>Don Thorp 2011-11-08
+
+    the ticket his one is linked to shows that it's resolved. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4948.json">JSON Source</a></p>

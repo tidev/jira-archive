@@ -1,0 +1,163 @@
+---
+title: "[TIMOB-20286] Support getElementById method to lookup views by ID"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-05T01:26:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Android, iOS, Windows</td></tr>
+<tr><th>Labels</th><td>android, ios, windows</td></tr>
+<tr><th>Reporter</th><td>Jeff Haynie</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-01-28T17:48:57.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-04T08:36:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+To facilitate a common web pattern (such as JQuery $ or DOM selector getElementById), we should support a simple selector like syntax or at a minimum getElementById-like API.
+
+My suggestion would be something like Ti.UI.getViewById which would return the view object or null if not found.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jeff Haynie 2016-01-28
+
+   <a href="http://stackoverflow.com/questions/35068169/select-dynamically-generated-element-by-id-in-titanium-appcelerator/35068348#35068348" rel="nofollow" target="_blank">http://stackoverflow.com/questions/35068169/select-dynamically-generated-element-by-id-in-titanium-appcelerator/35068348#35068348</a></li>
+<li>Hans Knöchel 2016-12-11
+
+   [~cng] This is currently scheduled for 6.1.0. Thinking about the implementation, we could use the proposed <code>Ti.UI.View.getViewById</code> method and inherit it to the subclasses of it. We would set the <code>id</code> property of the proxy and loop through the view's children to determine the correct view. I don't see many problems there, and parity would be doable as well. /cc [~gmathews]
+   
+   iOS/Android PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8677" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8677</a>
+   
+   Test-Case:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   var container = Ti.UI.createView({
+       width: 300,
+       height: 300,
+       backgroundColor: 'red'
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: 'Get view by ID',
+       id: 'myButton'
+   });
+    
+   btn.addEventListener('click', function() {
+       var myButton = win.getViewById('myButton');
+       
+       // If no button is found, it will return null
+       if (myButton) {
+           myButton.setTitle('Worked!');
+       }
+   });
+    
+   container.add(btn);
+   win.add(container);
+   win.open();
+   </pre></code>
+   
+   This change is perfect for unit-tests as well. Will do those this week.</li>
+<li>Chris Barber 2016-12-12
+
+   jQuery's <code>$()</code> is effectively <code>document.querySelectorAll()</code>, which is actually pretty involved. Simply being able to find a UI element by ID is going to be MUCH easier and it's a good start.
+   
+   If we plan to support something like <code>document.querySelectorAll()</code>, which I support, then it really needs to work with CSS selector syntax. However, it makes the most sense to support this in the context of Alloy where there are "tags".
+   
+   If this ticket is to only support getting an element by ID, then we should update this ticket's title.
+   
+   [~hansknoechel] Note that <code>getElementById()</code> will return an array of elements if there are more than one that matches the specified ID. Not saying we need to do the same, but it's a great idea.</li>
+<li>Hans Knöchel 2016-12-12
+
+   [~eharris] Yes, definitely!
+   [~cbarber] Thanks for the feedback! I guess we can expose all selectors then. And I'll change the existing implementation to return an array for multiple results. </li>
+<li>Chris Barber 2016-12-12
+
+   [~hansknoechel] "Expose all selectors"? Not sure I follow.</li>
+<li>Hans Knöchel 2016-12-12
+
+   I meant the <code>querySelectorAll</code> method. So we would support something like <code>view.querySelectorAll('#myButton, .myLabel')</code>? In Alloy, I think that classes are assigned using the <code>className</code> property, so we could search that one as well. Then we would need an algorithm to process the arguments and implement it on each platform. If so, we should move the whole thing to 6.2.0 and think about a proper architecture first.</li>
+<li>Chris Barber 2016-12-12
+
+   That's what I'm getting at. Adding a "get by id" is easy and we should do today, but supporting selectors is not easy and probably only makes sense in the context of Alloy. So, probably best to rename this ticket to "get element by id" and create a new ticket to support selectors.</li>
+<li>Hans Knöchel 2016-12-12
+
+   Agree, thx Chris! Created TIMOB-24213 as a follow-up.</li>
+<li>Kota Iguchi 2016-12-21
+
+   PR for Windows: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/911" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/911</a></li>
+<li>Samir Mohammed 2017-01-13
+
+    Verified improvement with the test case provided above, no error is shown when <code>getElementById</code> is used. 
+    
+    *iOS and Android environment* 
+    <code><pre>
+    Appcelerator Command-Line Interface, version 6.1.0
+    Android 7.1 (Google Nexus 6P)
+    iOS 10.1.1 (iPhone 7)
+    Operating System Name: Mac OS X El Capitan
+    Operating System Version: 10.11.6
+    Node.js Version: 4.6.0
+    npm: 4.2.8
+    Titanium SDK Version: 6.1.0.v20170112013001
+    Xcode: 8.2
+    Appcelerator Studio: 4.8.1.201612050850
+    </pre></code>
+    
+    *Windows Environment*
+    <code><pre>
+    Nokia Lumia 640 LTE (RM-1073)
+    Version 1607 (OS build: 10.14393.576)
+    Operating System
+    Name                        = Microsoft Windows 10 Pro
+    Version                     = 10.0.14393
+    Architecture                = 64bit
+    <h4>CPUs                      = 4</h4>
+    Memory                      = 17034395648
+     
+    Node.js
+    Node.js Version             = 4.4.4
+    npm Version                 = 2.11.3
+     
+    Titanium SDK
+    SDK Version                 =  6.1.0.v20170112013001
+    </pre></code>
+    
+    
+    </li>
+<li>Andrea Vitale 2018-06-04
+
+    I'm using the latest 7.2.0 build and getViewById works well on iOS, not on Android.
+    
+    
+    <code><pre>
+    <Alloy>
+    	<TableViewRow>
+    		<View class="w-fill h-size vertical">
+    			<Label id="Primary" />
+    			<Label id="Secondary" />
+    		</View>
+    		<View id="Accessory">
+    			<View id="Child" />
+    			<ActivityIndicator id="Loader" />
+    		</View>
+    	</TableViewRow>
+    </Alloy>
+    </pre></code>
+    
+    If I try to get the <code>ActivityIndicator</code> reference using <code>const loader = event.row.getViewById('Loader');</code> inside the TableView click event, on iOS it correctly gives me the ActivityIndicator instance, on Android gives a null value.
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20286.json">JSON Source</a></p>

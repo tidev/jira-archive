@@ -1,0 +1,122 @@
+---
+title: "[TIMOB-12830] iOS Facebook v3 Module: Cannot create an event using the GRAPH API"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Benjamin Hatfield</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-02-22T22:47:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+REPRODUCTION:
+Run the code below with 3.1.0 and the Facebook v3 module on the iOS simulator.  After logging in, click the button to try and post an event.
+
+RESULTS:
+On the iOS platform, the API call fails.  The console outputs:
+
+{noformat}
+[ERROR] :  : HTTP status code: 400
+{noformat}
+
+and an alert dialog displays:
+{noformat}
+The operation couldn't be completed. (com.facebook.sdk error 5.)
+{noformat}
+
+On the Android platform, the GRAPH API call succeeds.
+
+ADDITIONAL NOTES:
+With 3.0.2.GA, the code runs OK on both Android and iOS.
+
+The other examples mentioned in <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.Facebook
+work except the logout example for iOS (TIMOB-12828).
+
+TEST CODE: 
+<code><pre>
+//var fb = Ti.Facebook;
+var fb = require('facebook');
+fb.appid = 495338853813822;
+fb.permissions = ['create_event'];
+fb.addEventListener('login', function(e) {
+    if (e.success) {
+        alert('Logged In');
+    } else if (e.error) {
+        alert(e.error);
+    } else if (e.cancelled) {
+        alert("Canceled");
+    }
+});
+
+var evt = Ti.UI.createButton({title: 'GRAPH Create Event'});
+evt.addEventListener('click', function(e){
+	var starttime = new Date(2013, 4, 30, 17, 0);
+	var endtime = new Date(2013, 4, 30, 19, 0);
+	var title = "Barry's Birthday Celebration";
+	var description = "Barry will have a great party";
+	var data = {
+	    start_time: JSON.stringify(starttime), // API expects a JSON stringified date
+	    end_time: JSON.stringify(endtime),
+	    summary: description,
+	    name: title
+	};
+	fb.requestWithGraphPath('me/events', data, 'POST', function(e) {
+	    if (e.success) {
+	        alert("Success! Returned from FB: " + e.result);
+	    } else {
+	        if (e.error) {
+	            alert(e.error);
+	        } else {
+	            alert("Unknown result");
+	        }
+	    }
+	});
+});
+
+var win = Ti.UI.createWindow({backgroundColor: 'white'});
+win.add(evt);
+win.open();
+
+if (!fb.loggedIn) {
+	fb.authorize();
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Benjamin Hatfield 2013-02-22
+
+   Found some new information.  Investigating.</li>
+<li>Benjamin Hatfield 2013-02-22
+
+   Also tried using the reauthorize method.  Did not work for creating an event, but did work for posting a status update.
+   
+   <code><pre>
+   // Initialization
+   ...
+   fb.permissions = ['read_stream'];
+   fb.forceDialogAuth = false;
+   ...
+   // After setting up the data dict object...
+   
+       fb.reauthorize(['create_event'], 'everyone', function(e){
+       if (e.success) {
+           fb.requestWithGraphPath('me/events', data, 'POST', function(e) {  
+   ...          
+   
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12830.json">JSON Source</a></p>

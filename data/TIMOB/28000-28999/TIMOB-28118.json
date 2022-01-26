@@ -1,0 +1,147 @@
+{
+	"id": "175519",
+	"key": "TIMOB-28118",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2020-09-10T04:58:53.000+0000",
+		"epic": {
+			"id": 175512,
+			"key": "TIMOB-28114",
+			"name": "TiAPI: Geolocation Parity",
+			"summary": "TiAPI: Geolocation Parity",
+			"color": {
+				"key": "color_1"
+			},
+			"done": false
+		},
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"geolocation",
+			"iOS",
+			"parity",
+			"permission"
+		],
+		"versions": [
+			{
+				"id": "21051",
+				"description": "",
+				"name": "Release 9.2.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2020-09-23"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "58716",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "175520",
+					"key": "TIMOB-28119",
+					"fields": {
+						"summary": "Android: Add Ti.Geolocation.locationAccuracyAuthorization support",
+						"status": {
+							"description": "The issue is open and ready for the assignee to start work on it.",
+							"name": "Open",
+							"id": "1",
+							"statusCategory": {
+								"id": 2,
+								"key": "new",
+								"colorName": "blue-gray",
+								"name": "To Do"
+							}
+						},
+						"priority": {
+							"name": "Low",
+							"id": "4"
+						},
+						"issuetype": {
+							"id": "4",
+							"description": "An improvement or enhancement to an existing feature or task.",
+							"name": "Improvement",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2021-02-22T19:00:45.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "*Summary:*\r\nAs of Titanium 9.2.0, we added a new [Ti.Geolocation.locationAccuracyAuthorization|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.Geolocation-property-locationAccuracyAuthorization] property which is only supported on iOS 14. Attempting to use this property on older iOS versions causes an error to be logged and it will return an undocumented {{-1}} value. While this is by design, this makes the geolocation permission handling code more difficult to write between OS versions and platforms.\r\n\r\n*Proposal:*\r\nAdd support for the \"locationAccuracyAuthorization\" on older iOS versions. It should work as following...\r\n* On iOS 14 and higher, continue to read the native API.\r\n* On older iOS version, return [ACCURACY_AUTHORIZATION_FULL|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.Geolocation-property-ACCURACY_AUTHORIZATION_FULL] if location permission was granted. Otherwise return [ACCURACY_AUTHORIZATION_REDUCED|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.Geolocation-property-ACCURACY_AUTHORIZATION_REDUCED].\r\n\r\n*Current Solution:*\r\nThe below code is what people have to do \"today\" to access the precise GPS location data on iOS 14 and older... and Android. The extra iOS version check and Android guarding makes this more difficult to write.\r\n{code:javascript}\r\nfunction hasFullLocationAccuracy() {\r\n\tif (OS_IOS && (OS_VERSION_MAJOR >= 14)) {\r\n\t\tconst accuracy = Ti.Geolocation.locationAccuracyAuthorization;\r\n\t\treturn (accuracy === Ti.Geolocation.ACCURACY_AUTHORIZATION_FULL);\r\n\t}\r\n\treturn true\r\n}\r\n\r\nif (!Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE)) {\r\n\tTi.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE, (e) => {\r\n\t\tif (e.success) {\r\n\t\t\tif (hasFullLocationAccuracy()) {\r\n\t\t\t\tTi.Geolocation.addEventListener('location', onLocationDataReceived);\r\n\t\t\t} else {\r\n\t\t\t\talert('App was not granted \"precise\" location access.');\r\n\t\t\t}\r\n\t\t} else {\r\n\t\t\talert('Location permission was denied.');\r\n\t\t}\r\n\t});\r\n} else if (!hasFullLocationAccuracy()) {\r\n\tTi.Geolocation.requestTemporaryFullAccuracyAuthorization('MyLocationPurposeKey', () => {\r\n\t\tif (hasFullLocationAccuracy()) {\r\n\t\t\tTi.Geolocation.addEventListener('location', onLocationDataReceived);\r\n\t\t} else {\r\n\t\t\talert('App was not granted \"precise\" location access.');\r\n\t\t}\r\n\t});\r\n}\r\n{code}\r\n\\\\\r\n\r\n*New Solution:*\r\nIf we do what this ticket suggests and add support on Android via ticket [TIMOB-28119], then we can reduce the above code to the below and it'll work on both Android and iOS.\r\n{code:javascript}\r\nif (!Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE)) {\r\n\tTi.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE, (e) => {\r\n\t\tif (e.success) {\r\n\t\t\tif (Ti.Geolocation.locationAccuracyAuthorization === Ti.Geolocation.ACCURACY_AUTHORIZATION_FULL) {\r\n\t\t\t\tTi.Geolocation.addEventListener('location', onLocationDataReceived);\r\n\t\t\t} else {\r\n\t\t\t\talert('App was not granted \"precise\" location access.');\r\n\t\t\t}\r\n\t\t} else {\r\n\t\t\talert('Location permission was denied.');\r\n\t\t}\r\n\t});\r\n} else if (Ti.Geolocation.locationAccuracyAuthorization !== Ti.Geolocation.ACCURACY_AUTHORIZATION_FULL) {\r\n\tTi.Geolocation.requestTemporaryFullAccuracyAuthorization('MyLocationPurposeKey', () => {\r\n\t\tif (Ti.Geolocation.locationAccuracyAuthorization === Ti.Geolocation.ACCURACY_AUTHORIZATION_FULL) {\r\n\t\t\tTi.Geolocation.addEventListener('location', onLocationDataReceived);\r\n\t\t} else {\r\n\t\t\talert('App was not granted \"precise\" location access.');\r\n\t\t}\r\n\t});\r\n}\r\n{code}\r\n_NOTE: The else-if part above is inconvenient too. Ideally, we should extend our existing hasLocationPermissions() and requestLocationPermissions() methods to avoid the requestTemporaryFullAccuracyAuthorization() method part under the else-if section._\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Add Ti.Geolocation.locationAccuracyAuthorization support on iOS 13 and older",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [],
+			"maxResults": 0,
+			"total": 0,
+			"startAt": 0
+		}
+	}
+}

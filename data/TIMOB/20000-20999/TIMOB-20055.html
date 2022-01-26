@@ -1,0 +1,124 @@
+---
+title: "[TIMOB-20055] iOS: Refactor previewContext to be more memory-efficient"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-12-21T16:50:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-11-23T23:32:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-22T22:56:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The current <code>Ti.UI.iOS.PreviewContent</code> implementation works. But to make it even more efficient related to memory management, I refactored a few parts:
+- Remove manual properties of <code>TiUIiOSPreviewContext</code> inside the <code>TiPreviewingDelegate</code> and access them through the <code>previewContext</code> property (since the delegate is not public and it keeps the object dependencies clean)
+- Release some properties that have not been released before
+- Add missing code docs in the <code>TiPreviewingDelegate</code> header file
+- Change counter index from <code>int</code> to <code>NSUInteger</code> and remove unused <code>actionGroupIndex</code> property that have been used during testing
+- Enable ARC in all related files (!)
+
+Demo code (should work exactly like before):
+<code><pre>
+var actions = [];
+var win = Ti.UI.createWindow({
+    backgroundColor: "white"
+});
+
+// The view to be previewed while popping.
+var previewView = Ti.UI.createView({
+    backgroundColor: "blue"
+});
+
+// The window to be opened after popping the preview.
+var detailWindow = Ti.UI.createWindow({
+    backgroundColor: "yellow"
+});
+
+detailWindow.add(Ti.UI.createLabel({
+    text: "You made it!"
+}));
+
+// The actions to be added to the preview context.
+var action = Ti.UI.iOS.createPreviewAction({
+    title: "Preview Action",
+    style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+});
+
+action.addEventListener("click", function(e) {
+    alert("Title: " + e.title + " / Style: " + e.style+" / Index: " + e.index);
+});
+
+var subAction = Ti.UI.iOS.createPreviewAction({
+    title: "Preview Subaction"
+})
+
+subAction.addEventListener("click", function(e) {
+    alert("Title: " + e.title + " / Style: " + e.style+" / Subindex: " + e.index);
+});
+
+var actionGroup = Ti.UI.iOS.createPreviewActionGroup({
+    title: "More actions...",
+    style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DESTRUCTIVE,
+    actions: [subAction]
+});
+
+actions.push(action);
+actions.push(actionGroup);
+
+// Create the preview context
+var context = Ti.UI.iOS.createPreviewContext({
+    preview: previewView,
+    actions: actions, // Can have both Ti.UI.iOS.PreviewAction + Ti.UI.iOS.PreviewActionGroup
+     contentHeight: 300 // When unspecified, we use the available height
+});
+
+// Fired after popping the preview
+context.addEventListener("pop", function(e) {
+    detailWindow.open();
+});
+
+// Assign the preview context
+var button = Ti.UI.createButton({
+    previewContext: context, // Will be ignored on unsupported devices
+    title : "Open Window!",
+    backgroundColor: "#A6171C",
+    width: 200,
+    height: 50,
+    tintColor: "#fff"
+});
+
+win.add(button);
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2015-11-23
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7487" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7487</a></li>
+<li>Chee Kiat Ng 2015-11-27
+
+   CR and FT passed! PR Merged!</li>
+<li>Hans Knöchel 2015-12-21
+
+   Improvements to prevent the preview view on peek, if the preview is set to null. Use case: We want the preview only be shown in a tableview, if the cell contains an image to be previewed. This improvements make that possible. Before, a blank preview would have been shown.
+   
+   PR master: <a href="https://github.com/appcelerator/titanium_mobile/pull/7594" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7594</a>
+   PR 5_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/7595" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7595</a></li>
+<li>Josh Longton 2016-01-22
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20055.json">JSON Source</a></p>

@@ -1,0 +1,93 @@
+---
+title: "[TIMOB-24761] Windows: List view performance affected"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2017-09-26T01:47:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2017-06-01T20:16:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:34:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description</h4>
+
+We've been trying to load a ListView in Windows with 500 users (<a href="https://randomuser.me/api/?results=500&nat=us)" rel="nofollow" target="_blank">https://randomuser.me/api/?results=500&nat=us)</a> and performance gets quite low when loading 200+ elements in a single ListView (with a custom ItemTemplate). 
+
+Here's a little bit of benchmarking we manually did by testing a blank application with only a Window with a ListView on it - App first requests for 500 users and when obtained, it renders them within the ListView and it's really the actual UI rendering which seems to be taking a lot of time, as the server response happens almost immediately after the request.
+
+**Please note ALL of these tests have been performed in an actual Windows device (Surface 3).
+
+100 users - 07.71s, minor blink issue when scrolling down/up (user image to the right disappears and reappears as the rows gain focus)
+200 users - 13.35s, major blink issue in the list items when scrolling down/up (they completely disappear and are rendered with a delay)
+300 users - 19.91s, same blinking issue as above
+400 users - 25.51s, same blinking issue as above
+500 users - 32.32s, same blinking issue as above
+
+We'd also like to mention we replicated this (a single Windowed app with only a ListView on it and an HTTP requests that asks for a certain amount of users that will be rendered in the ListView...) and performance looks overwhelmingly better in the native side.
+
+<h4>Steps to reproduce. </h4>
+<h4>Download the attached app. <a href="https://drive.google.com/file/d/0BwTWo-c2a0b9LUhpc1Jha0JubWc/view?usp=sharing" rel="nofollow" target="_blank">https://drive.google.com/file/d/0BwTWo-c2a0b9LUhpc1Jha0JubWc/view?usp=sharing</a></h4>
+<h4>Run</h4>
+<h4>Scroll</h4>
+<h4>App is getting slower</h4>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24761_62956/ti.xaml.listview-windows-1.0.0.zip">ti.xaml.listview-windows-1.0.0.zip</td></td><td>2017-08-01T04:28:16.000+0000</td><td>651274</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2017-06-07
+
+   I was able to reproduce this on Windows 10 Mobile device. So as far as I see the major difference in Titanium app that affects performance is that Titanium is using its own layout system and data binding with custom UI template system, that's basically different from Windows default layout & binding system XAML. We might want to find a way to leverage Windows XAML data & UI binding to get more efficient rendering.</li>
+<li>Kota Iguchi 2017-06-09
+
+   So what I've found for this issues is that Titanium ListView is not quite optimized because of API difference between Titanium and native Windows API (XAML). In this case I'm planning to borrow some features from Hyperloop to make ListView work better. I would like to integrate native data binding & UI templating mechanics in XAML into Titanium with Hyperloop, because Titanium ListView API is not quite optimized for Xaml ListView. We don't want to re-invent UI templating mechanics but want to borrow powerful features from XAML wherever we can. I'm planing to implement Windows-specific new feature for ListView for this.</li>
+<li>Kota Iguchi 2017-07-12
+
+   Status Update: Been investigating on this performance issue but ended up finding out there is fundamental difficulties while integrating Windows table view binding interface with Titanium's one because of functionality differences. I am trying to see if we could integrate part of Hyperloop functions with ListView, but probably it could drop some functionalities (like custom layout with template) because of API differences between Titanium and XAML. (for instance obviously Microsoft's [DataTemplating API](<a href="https://docs.microsoft.com/en-us/uwp/api/windows.ui.xaml.datatemplate)" rel="nofollow" target="_blank">https://docs.microsoft.com/en-us/uwp/api/windows.ui.xaml.datatemplate)</a> works much better with XAML rather than Titanium Alloy bindings).
+   
+   I guess we have few options there,
+   
+   - Develop faster version of ListView (and probably TableView) with fewer functionalities specialized for better performance, which will be probably Windows-only Titanium API. OR
+   - Integrate Hyperloop with ListView (such as enabling native XAML data templating with ListView) OR
+   - Do everything on [native ListView](<a href="https://docs.microsoft.com/en-us/uwp/api/windows.ui.xaml.controls.listview)" rel="nofollow" target="_blank">https://docs.microsoft.com/en-us/uwp/api/windows.ui.xaml.controls.listview)</a> with Hyperloop
+   
+     [~rramirez] [~emerriman] Any thoughts?</li>
+<li> Ricardo Ramirez 2017-07-12
+
+   I will go for Develop faster version of ListView (and probably TableView) with fewer functionalities specialized for better performance, which will be probably Windows-only Titanium API. </li>
+<li>Kota Iguchi 2017-07-13
+
+   sounds good, probably I would start from creating custom module so you can test it faster and easier.</li>
+<li>Kota Iguchi 2017-08-01
+
+   </li>
+<li>Kota Iguchi 2017-09-26
+
+   Marked done for this ticket for now, we are tackling this with new module [ti.xaml.listview](<a href="https://github.com/appcelerator-modules/ti.xaml.listview)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.xaml.listview)</a> and wait for customer test. Feel free to file a new ticket if this module has a issue.</li>
+<li>Eric Merriman  2018-08-06
+
+   Closed as completed. If this is in error, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24761.json">JSON Source</a></p>

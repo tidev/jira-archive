@@ -1,0 +1,86 @@
+---
+title: "[ALOY-654] Android builds runs the new CLI hook, then also the legacy python compiler plugin "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-05-02T21:38:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Alloy 1.1.0, Alloy 1.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.2.0, 2013 Sprint 09</td></tr>
+<tr><th>Components</th><td>Titanium SDK, Tooling</td></tr>
+<tr><th>Labels</th><td>cli, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-05-02T15:22:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-18T19:59:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Due to the splintered nature of the Android build process currently, where the new CLI runs and then delegates back to the old python plugins, both the Alloy new CLI hook and and legacy python compiler plugin are running on each Android build. This is causing Alloy to essentially be executed twice. The execution of the legacy plugin should be eliminated. It is responsible for the issue in TIMOB-13744.
+
+Unfortunately, the new CLI hooks and the legacy python plugins use the same notation in the tiapp.xml file for indicating that they should be used:
+
+<code><pre>
+<plugins>
+	<plugin version="1.0">ti.alloy</plugin>
+</plugins>
+</pre></code>
+
+The new CLI hook executes first. As the hook/plugin gets added in on every build, as a final step to the new CLI hook it could delete the old legacy plugin. Then on subsequent builds that match a certain criteria, like Android with TiSDK >= 3.0.2, Alloy could _not_ copy back in the legacy compiler plugin. The caveat here is that although this  would prevent the android build process from running twice on on TiSDK versions that support the new CLI, if a dev rolls back to an earlier version, the alloy process won't run at all. 
+
+There may need to be something in the CLI itself that determines how to handle this situation, as it is created by laying the new CLI on top of the old one, a situation that is by definition a temporary one.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-05-02
+
+   PR: <a href="https://github.com/appcelerator/alloy/pull/127" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/127</a>
+   
+   <h4>testing</h4>
+   
+   *Make sure the log level is set to at least "debug".*
+   
+   Any basic Alloy app will do for functional testing. Follow these steps to first produce the error resolved in this issue, and please do so on Mac, Windows, and Linux:
+   
+   1. Install Alloy 1.1.2
+   2. Build an app for Alloy with TiStudio or the CLI for Android emulator.
+   3. Watch the console log. You should see the Alloy compile process run twice. The first time is the new CLI hook, the second time is the legacy python plugin.  You do not have to wait for a full build and install to see this, it should happen within the first few seconds.
+   
+   Once you have asserted that you created the "double compile" condition with android builds, install Alloy to the version from the PR via the command below:
+   
+   <code><pre>
+   [sudo] npm install -g git://github.com/appcelerator/alloy.git#ALOY-654
+   </pre></code>
+   
+   Now on all supported OSes, let's do this again:
+   
+   1. Install alloy as above
+   2. Build an Alloy app for Android. Use an existing Alloy app. You will likely still see the "alloy compile" command run twice still. This is because the code to prevent this needs to be executed once before it takes effect and it is contained in the plugin code itself. 
+   3. Build the same app for Android again. You should see Alloy execute only once this time
+   4. Dig through console log to find a line that reads: 
+   <code><pre>
+   [DEBUG] build/.alloynewcli file found, skipping plugin...
+   </pre></code>
+   Though only seeing Alloy run once confirms the issue is resolved, validating that the message that .alloynewcli file was found makes certain.
+   
+   Repeat the above steps, on all OSes, for a fresh Alloy app as well. The default one will work just fine, the content of the app is not important. After all that, if the Alloy compile command is being run only once on Android builds and there are no failures, the issue can be verified as fixed. </li>
+<li>Federico Casali 2013-07-18
+
+   Verified as fixed.
+   
+   Titanium SDK 3.1.2.v20130718094558
+   Alloy 1.2.0
+   Appcelerator Studio 3.1.1.201306131423
+   
+   Android device 4.2.2 - iOS 6
+   Max OS X 10.8.4, Linux Ubuntu 12.04 and Windows 8 OS
+   
+   Closing.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-654.json">JSON Source</a></p>

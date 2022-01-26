@@ -1,0 +1,97 @@
+---
+title: "[AC-2597] Playing a sound from an Android service, crashes the process, as the activity is null"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-18T05:23:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>grebulon</td></tr>
+<tr><th>Assignee</th><td>Ritu Agrawal</td></tr>
+<tr><th>Created</th><td>2014-01-21T18:00:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm using a native Android module that creates a service like this:
+
+<code><pre>
+package com.test.jsservice;
+import ti.modules.titanium.android.TiJSService;
+public final class TestJsService extends TiJSService {
+	public TestJsService() {
+		super("testservice.js");
+	}
+}
+</pre></code>
+
+In testservice.js run these lines:
+
+<code><pre>
+var player = Ti.Media.createSound({url: "sound.wav"});
+player.play();
+</pre></code>
+
+This will crash with null exception at SoundProxy.java in initActivity(Activity activity), as activity is null.
+{noformat}
+01-22 10:34:42.301: E/KrollProxy(3098): (KrollRuntimeThread) [215,97313] Error creating proxy
+01-22 10:34:42.301: E/KrollProxy(3098): java.lang.NullPointerException
+01-22 10:34:42.301: E/KrollProxy(3098): 	at ti.modules.titanium.media.SoundProxy.initActivity(SoundProxy.java:64)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.KrollProxy.setupProxy(KrollProxy.java:129)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.KrollProxy.createProxy(KrollProxy.java:140)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:159)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:289)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:185)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at android.os.Looper.loop(Looper.java:137)
+01-22 10:34:42.301: E/KrollProxy(3098): 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+01-22 10:34:42.301: A/libc(3098): Fatal signal 11 (SIGSEGV) at 0x00000000 (code=1), thread 3133 (KrollRuntimeThr)
+{noformat}
+
+To fix this bug, you just need to test for activity!=null:
+
+<code><pre>
+	@Override
+	protected void initActivity(Activity activity) {
+		super.initActivity(activity);
+		if (activity != null) {
+			((TiBaseActivity) activity).addOnLifecycleEventListener(this);
+			((TiBaseActivity) activity).addOnWindowFocusChangedEventListener(this);
+		}
+	}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-01-21
+
+   Thanks for proposing the solution but it would be helpful if we have a log trace. Can you please attach the log trace for this issue?</li>
+<li>Allen Yeung 2014-01-22
+
+   Just curious if you tried this with an Android service via the titnaium API.  It's not clear to me why you need to create a native module for this.  It would be helpful to narrow this down to see if it happens without the native module component.  You can read more about the Titanium Android Service APIs here: <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.Android.Service</li>
+<li>grebulon 2014-01-23
+
+   Haven't tested it with Ti,Android.Service. I need a service for various reasons, one of which to receive GCM push notifications. That's why I made a module, it was just simpler.
+   The bottom line is that there may not be an activity when playing a sound.
+   I suspect there may be more things that won't work when calling from a service, just haven't found them yet. I will report if I encounter anything.</li>
+<li>Ritu Agrawal 2014-01-24
+
+   I am curious if you have tried ACS GCM push notification service. It is integrated very well with Titanium and may eliminate the need for you to write your own GCM module.
+   
+   <a href="http://docs.appcelerator.com/cloud/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/cloud/latest/#</a>!/api/PushNotifications
+   </li>
+<li>Ritu Agrawal 2014-02-18
+
+   Resolving this ticket as we have not received the requested information and we don't have a test case to reproduce this problem. </li>
+</ol>
+
+
+<p><a href="/AC/AC-2597.json">JSON Source</a></p>

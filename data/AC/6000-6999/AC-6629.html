@@ -1,0 +1,140 @@
+---
+title: "[AC-6629] AttributedString type "strikethrough" not working on portions, only full length of strings"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2020-11-26T15:02:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>eric harms</td></tr>
+<tr><th>Assignee</th><td>Rene Pot</td></tr>
+<tr><th>Created</th><td>2020-11-17T01:38:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-11-26T15:03:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi,
+
+I am trying to apply an attributedString of type "strikethrough" as documented here
+
+<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/Attributed_Strings-section-src-37538231_AttributedStrings-Strikethrough
+
+I've tested the code in my app as well as separately in a sample app.  It seems that the strikethrough can only be applied to the full string, and not parts of the string via the range of the attributedString.
+
+To reproduce, create a sample app with the following.  range: [0, text.length] should show the full strikethrough. 
+
+Changing the range to what is in the documentation example range: [text.indexOf('hyperloop'), ('hyperloop').length] does not show the strikethrough, and adding manual values like [0,13] does not create the strikethrough.
+
+Issue is iOS only, and all other attribute types work.
+
+
+<code><pre>
+// index.xml
+<Alloy>
+	<Window class="container" >
+		<Label id="myLabel" />
+	</Window>
+</Alloy>
+
+// index.js
+var text = "Have you tried hyperloop ti.next yet?";
+var attr = Ti.UI.createAttributedString({
+    text: text,
+    attributes: [
+        {
+            type: Ti.UI.ATTRIBUTE_STRIKETHROUGH_STYLE,
+            value: Ti.UI.ATTRIBUTE_UNDERLINE_STYLE_THICK, 
+            range: [0, text.length]
+        }
+    ]
+});
+
+$.myLabel.attributedString = attr
+
+$.index.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>eric harms 2020-11-17
+
+   If I do something like this, the strikethrough is applied.  It does not if i use text1 and text2 in the attributes
+   
+   <code><pre>
+   var text1 = "Have you tried "
+   var text2 = "hyperloop"
+   var text3 = " ti.next yet?"
+   var text = text1 + text2 + text3;
+   var attr = Ti.UI.createAttributedString({
+       text: text,
+       attributes: [
+           {
+               type: Ti.UI.ATTRIBUTE_STRIKETHROUGH_STYLE,
+               value: Ti.UI.ATTRIBUTE_UNDERLINE_STYLE_THICK, // Ignored by Android only displays a single line
+               range: [text.indexOf(text2), (text2).length]
+           },
+           {
+               type: Ti.UI.ATTRIBUTE_STRIKETHROUGH_STYLE,
+               value: Ti.UI.ATTRIBUTE_UNDERLINE_STYLE_THICK, // Ignored by Android only displays a single line
+               range: [text.indexOf(text3), (text3).length]
+           }
+       ]
+   });
+   </pre></code>
+   </li>
+<li>Rene Pot 2020-11-18
+
+   Hi, <code>ATTRIBUTE_UNDERLINE_STYLE_THICK</code> is an iOS and MacOS only property I'm afraid, not supported on Android. [Link to docs](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI-property-ATTRIBUTE_UNDERLINE_STYLE_THICK)
+   
+   edit: ignore this comment as I misread it being an android issue :) </li>
+<li>Vijay Singh 2020-11-25
+
+   [~eric.harms@gmail.com]
+     
+   This is iOS 14 bug, which got fixed in iOS 14.2 . See <a href="https://developer.apple.com/forums/thread/657015." rel="nofollow" target="_blank">https://developer.apple.com/forums/thread/657015.</a>  In iOS < 14.0, it is working fine.
+   
+   As a workaround for 14.0 <= iOS < 14.2, <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI-property-ATTRIBUTE_BASELINE_OFFSET can be used in combination with <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI-property-ATTRIBUTE_STRIKETHROUGH_STYLE .
+   
+   See following example - 
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#ddd',
+   });
+    
+   var text = "Have you tried hyperloop ti.next yet?";
+   var attr = Ti.UI.createAttributedString({
+       text: text,
+       attributes: [
+           {
+               type: Ti.UI.ATTRIBUTE_STRIKETHROUGH_STYLE,
+               value: Ti.UI.ATTRIBUTE_UNDERLINE_STYLE_THICK,
+               range: [text.indexOf('hyperloop'), ('hyperloop').length]
+           },
+           {
+               type: Ti.UI.ATTRIBUTE_BASELINE_OFFSET,
+               value: 0,     // default value
+               range: [text.indexOf('hyperloop'), ('hyperloop').length]
+           }
+       ]
+   });
+    
+   var label = Ti.UI.createLabel({
+       attributedString: attr
+   });
+    
+   win.add(label);
+   win.open();
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-6629.json">JSON Source</a></p>

@@ -1,0 +1,155 @@
+---
+title: "[TIMOB-3286] Android: Support service constants"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-17T15:06:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-04, Release 2.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>MarkE</td></tr>
+<tr><th>Assignee</th><td>Bill Dawson</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:41:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T20:51:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Is it possible to add support for the constants for services for
+better control over the instances through Ti.Android.Service and
+the start event handler?</p>
+<p>I'm finding my Android background service is getting cleared up
+when the device is running low on memory. I guess the alternative
+is support for foreground services.</p>
+<p>Android Docs: <a href=
+"<a href="http://developer.android.com/reference/android/app/Service.html#START_STICKY" rel="nofollow" target="_blank">http://developer.android.com/reference/android/app/Service.html#START_STICKY</a>">
+<a href="http://developer.android.com/reference/android/app/Service.html#STA..." rel="nofollow" target="_blank">http://developer.android.com/reference/android/app/Service.html#STA...</a></a><br>
+QA Thread: <a href=
+"<a href="http://developer.appcelerator.com/question/116757/creating-services-with-startsticky" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/116757/creating-services-with-startsticky</a>">
+<a href="http://developer.appcelerator.com/question/116757/creating-services..." rel="nofollow" target="_blank">http://developer.appcelerator.com/question/116757/creating-services...</a></a></p></div>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-3286_25786/timob3286.zip">timob3286.zip</td></td><td>2012-02-15T13:17:59.000+0000</td><td>2320728</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brian Dittmer 2011-08-30
+
+   Really need to have support for Android Service StartForeground method.</li>
+<li>Brian Dittmer 2011-09-01
+
+   Meant to include this link 
+   <a href="http://developer.android.com/reference/android/app/Service.html#startForeground(int" rel="nofollow" target="_blank">http://developer.android.com/reference/android/app/Service.html#startForeground(int</a>, android.app.Notification)</li>
+<li>Bill Dawson 2012-02-15
+
+   <h4>Testing Notes</h4>
+   
+   
+   * Unzip the attached timob3286.zip and import it into Titanium Studio.
+   
+   * Run the app *on an Emulator* (because we're going to do some stuff in <code>adb</code> that you're non-rooted phone probably won't allow.)
+   
+   * Go to Terminal (command prompt, whatevs) and enter <code>adb logcat</code>.
+   
+   * You should see messages such as "hello from inside the service JS code" passing by. This is a <code>Ti.API.info</code> message from inside the test service's Javascript (testservice.js).
+   
+   * Now do <code>adb shell ps</code> in Terminal.  You'll see a list of processes running on the emulator.  Find com.billdawson.timob3286 and note its PID.  It's typically the number in the second column, like here it's 485:
+   
+   <code><pre>
+   app_38    485   33    105004 31400 ffffffff afd0c51c S com.billdawson.timob3286
+   </pre></code>
+   
+   * Now do <code>adb shell "kill -2 PID"</code> in Terminal, but replace PID with the number you got in the previous step.  E.g.,
+   
+   <code><pre>
+   adb shell "kill -2 485"
+   </pre></code>
+   
+   * Real quick do <code>adb logcat</code> again and look at the logcat output. Now you should see indications that the application was killed, plus an indication that the system will restart the Service that was running in the application.  It will tell you how many milliseconds will elapse before it tries to restart the service.  Example:
+   
+   <code><pre>
+   I/ActivityManager(   61): Force stopping package com.billdawson.timob3286 uid=10038
+   W/ActivityManager(   61): Scheduling restart of crashed service com.billdawson.timob3286/.TestserviceService in 5000ms
+   </pre></code>
+   
+   * The example above shows that Android will restart the service in about 5 seconds.  You should see something similar (warning: sometimes Android hikes this number up considerably, like up to 5 _minutes_).
+   
+   * Sit there and wait until the time has elapsed, keeping your eye on logcat output.
+   
+   * When the time elapses, the logcat output should show you that the service has been restarted.  You should start seeing the "hello from inside the service JS code" messages fly by again.
+   
+   So the above steps, if successful, prove that <code>startMode: Ti.Android.START_REDELIVER_INTENT</code> functions correctly (you'll see that line in app.js).  That constant means "if I get killed, then restart me, and when you restart me, send me again the Intent that originally started me."
+   
+   Now you need to test two more variants:
+   
+   a) Change app.js by removing <code>startMode: Ti.Android.START_REDELIVER_INTENT</code> and re-installing, re-running the app.  Follow the steps above.  The behavior should be the same (the milliseconds until restart may change -- Android seems to randomize that.)  This proves that <code>START_REDELIVER_INTENT</code> is the default behavior, so if you don't specify <code>startMode</code> it will behave as though you did specify <code>START_REDELIVER_INTENT</code>.
+   
+   b) Change app.js again, this time put <code>startMode: Ti.Android.START_NOT_STICKY</code>, then re-install and re-run the app.  Follow the steps above.  *However*, this time the service should *not* restart.  (Even if Android says it's scheduling the restart of the service, when the time elapses it should not, in fact, be restarted.)  <code>START_NOT_STICKY</code> is your way of telling Android, "Hey, if you decide to kill me off to save memory, that's okay, and you don't even need to restart me later, I'm totally cool with that, muchacho."
+   </li>
+<li>Bill Dawson 2012-02-15
+
+   Pull request ready:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/1433" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/1433</a></li>
+<li>Michael Gangolf 2014-01-20
+
+   i'm testing the REDELIVER_INTENT example with 3.2.0 and receive the following log:
+   
+   <code><pre> 
+   01-20 22:43:13.368: I/TiAPI(17954):  hello from _inside_ the service JS code
+   01-20 22:43:18.353: I/TiAPI(17954):  hello from _inside_ the service JS code
+   01-20 22:43:19.404: D/AndroidRuntime(17990): >>>>>> AndroidRuntime START com.android.internal.os.RuntimeInit <<<<<<
+   01-20 22:43:19.404: D/AndroidRuntime(17990): CheckJNI is OFF
+   01-20 22:43:19.434: D/dalvikvm(17990): Trying to load lib libjavacore.so 0x0
+   01-20 22:43:19.444: D/dalvikvm(17990): Added shared lib libjavacore.so 0x0
+   01-20 22:43:19.454: D/dalvikvm(17990): Trying to load lib libnativehelper.so 0x0
+   01-20 22:43:19.454: D/dalvikvm(17990): Added shared lib libnativehelper.so 0x0
+   01-20 22:43:19.454: D/dalvikvm(17990): No JNI_OnLoad found in libnativehelper.so 0x0, skipping init
+   01-20 22:43:19.504: D/dalvikvm(17990): Note: class Landroid/app/ActivityManagerNative; has 179 unimplemented (abstract) methods
+   01-20 22:43:19.725: D/AndroidRuntime(17990): Calling main entry com.android.commands.am.Am
+   01-20 22:43:19.725: I/ActivityManager(610): Force stopping com.billdawson.timob3286 appid=10219 user=0: from pid 17990
+   01-20 22:43:19.725: I/ActivityManager(610): Killing 17954:com.billdawson.timob3286/u0a219 (adj 0): stop com.billdawson.timob3286
+   01-20 22:43:19.725: W/ActivityManager(610): Force removing ActivityRecord{41f16980 u0 com.billdawson.timob3286/org.appcelerator.titanium.TiActivity t1307}: app died, no saved state
+   01-20 22:43:19.735: I/ActivityManager(610):   Force finishing activity ActivityRecord{41f0f1e0 u0 com.billdawson.timob3286/.Timob3286Activity t1307}
+   01-20 22:43:19.745: I/ActivityManager(610):   Force stopping service ServiceRecord{437b1060 u0 com.billdawson.timob3286/.TestserviceService}
+   01-20 22:43:19.765: D/AndroidRuntime(17990): Shutting down VM
+   01-20 22:43:19.765: W/InputDispatcher(610): channel '426cf850 com.billdawson.timob3286/org.appcelerator.titanium.TiActivity (server)' ~ Consumer closed input channel or an error occurred.  events=0x9
+   01-20 22:43:19.765: I/WindowState(610): WIN DEATH: Window{426c8370 u0 com.billdawson.timob3286/com.billdawson.timob3286.Timob3286Activity}
+   01-20 22:43:19.775: E/InputDispatcher(610): channel '426cf850 com.billdawson.timob3286/org.appcelerator.titanium.TiActivity (server)' ~ Channel is unrecoverably broken and will be disposed!
+   01-20 22:43:19.775: D/jdwp(17990): Got wake-up signal, bailing out of select
+   01-20 22:43:19.775: D/dalvikvm(17990): Debugger has detached; object registry had 1 entries
+   01-20 22:43:19.785: W/InputDispatcher(610): Attempted to unregister already unregistered input channel '426cf850 com.billdawson.timob3286/org.appcelerator.titanium.TiActivity (server)'
+   01-20 22:43:19.785: I/WindowState(610): WIN DEATH: Window{426cf850 u0 com.billdawson.timob3286/org.appcelerator.titanium.TiActivity}
+   01-20 22:43:19.885: W/Binder(852): Caught a RuntimeException from the binder stub implementation.
+   01-20 22:43:19.885: W/Binder(852): java.lang.NullPointerException
+   01-20 22:43:19.885: W/Binder(852): 	at android.inputmethodservice.IInputMethodWrapper.setSessionEnabled(IInputMethodWrapper.java:280)
+   01-20 22:43:19.885: W/Binder(852): 	at com.android.internal.view.IInputMethod$Stub.onTransact(IInputMethod.java:129)
+   01-20 22:43:19.885: W/Binder(852): 	at android.os.Binder.execTransact(Binder.java:404)
+   01-20 22:43:19.885: W/Binder(852): 	at dalvik.system.NativeStart.run(Native Method)
+   01-20 22:43:19.885: W/InputMethodManagerService(610): Got RemoteException sending setActive(false) notification to pid 17954 uid 10219
+   01-20 22:43:20.005: V/RenderScript(17769): Application requested CPU execution
+   01-20 22:43:20.015: V/RenderScript(17769): 0x7683d6a8 Launching thread(s), CPUs 4
+   </pre></code> 
+   
+   the service won't restart. can you verify that it is still working there?
+   
+   Android 4.4.2, Nexus 4,  Ti 3.2.0</li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3286.json">JSON Source</a></p>

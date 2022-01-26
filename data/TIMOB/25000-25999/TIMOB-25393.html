@@ -1,0 +1,102 @@
+---
+title: "[TIMOB-25393] Adding Third-Party iOS Framework causes build error with 6.2.x"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-17T06:44:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>regression</td></tr>
+<tr><th>Reporter</th><td>Joe Falcone</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2017-10-14T20:40:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-17T16:27:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We're experimenting with integration of third-party libraries and frameworks with Hyperloop.
+
+We added the ContentfulAPI ObjC Framework to the app/platform/ios directory of the hyperloop_examples app.  When we built the app with either SDK 6.2.1 or 6.2.2, we get this error late in the build process...
+
+2017-10-14T20:24:55.215Z | ERROR  | An uncaught exception was thrown!
+(buildSettings.LD_RUNPATH_SEARCH_PATHS || "").replace is not a function
+2017-10-14T20:24:55.216Z | ERROR  | (buildSettings.LD_RUNPATH_SEARCH_PATHS || "").replace is not a function
+
+When we remove the Framework, the build completes successfully.  
+
+I've attached the log.  This appears to be either a regression based on comments in other reports that this mechanism worked.
+
+Also, parenthetically, and the source of another JIRA report not yet filed - we did attempt to use the Contentful Pod and that also resulted in build errors.  So at this point we're shall we say "stymied" with respect to integrating the Contentful SDK.  We've also tried to do the same with the Flurry SDK and have also encountered problems.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25393_63440/log.rtf">log.rtf</td></td><td>2017-10-14T20:32:32.000+0000</td><td>798064</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joe Falcone 2017-10-16
+
+   The Contentful ObjC framework we added to the build was this one...
+   
+   <a href="http://static.contentful.com/downloads/iOS/ContentfulDeliveryAPI-1.10.4.zip" rel="nofollow" target="_blank">http://static.contentful.com/downloads/iOS/ContentfulDeliveryAPI-1.10.4.zip</a></li>
+<li>Joe Falcone 2017-10-16
+
+   OK, I think the paths conflict came from having a leftover appc.js file lying around.  When I removed the appc.js and ran again, I did get a different error...
+   
+   [TRACE] :  Undefined symbols for architecture x86_64:
+   [TRACE] :    "_OBJC_CLASS_$_NSManagedObject", referenced from:
+   [TRACE] :        _OBJC_CLASS_$_CDALocalizablePersistedEntry in ContentfulDeliveryAPI(CDALocalizablePersistedEntry.o)
+   [TRACE] :    "_OBJC_METACLASS_$_NSManagedObject", referenced from:
+   [TRACE] :        _OBJC_METACLASS_$_CDALocalizablePersistedEntry in ContentfulDeliveryAPI(CDALocalizablePersistedEntry.o)
+   [TRACE] :  ld: symbol(s) not found for architecture x86_64
+   [TRACE] :  clang: error: linker command failed with exit code 1 (use -v to see invocation)
+   [ERROR] :  ** BUILD FAILED **
+   [ERROR] :  The following build commands failed:
+   [ERROR] :  	Ld build/Products/Debug-iphonesimulator/Hyperloop_Sample.app/Hyperloop_Sample normal x86_64
+   [ERROR] :  (1 failure)</li>
+<li>Jan Vennemann 2017-10-16
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9528" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9528</a>
+   PR (6_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9529" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9529</a>
+   
+   There is another follow up fix needed for Hyperloop to make the Contentful SDK working. Will update the ticket as soon as that is ready.</li>
+<li>Jan Vennemann 2017-10-17
+
+   [~jfalcone], i assume you are currently using Hyperloop 2.1.3, which is not yet capable of picking up frameworks from the platform folder as it was released before SDK 6.2.0 (where the new framework handling was introduced). Support for this will follow with Hyperloop 2.2.0.
+   
+   The reason you see the above error when you remove <code>appc.js</code> is because the initial issue you were seeing only occurred with other other third-party swift sources configured, which the hyperloop-examples project does in it's <code>appc.js</code>. By removing that file you worked around the issue. To resolve the error you are seeing now you have to explicitly pull in the Contentful SDK dependencies via <code>appc.js</code> configuration key <code>hyperloop.ios.xcodebuild.frameworks</code> and add <code>SystemConfiguration</code>, <code>MobileCoreServices</code> and <code>CoreData</code>. You can take a look at the <code>appc.js</code> file from hyperloop-examples project to see an example. However, there are still two follow up fixes required for Hyperloop to actually be able to use the Contentful SDK which are tracked in TIMOB-25402 and TIMOB-25403.</li>
+<li>Jan Vennemann 2017-10-17
+
+   [~amukherjee], [~ewieber], test instructions with Hyperloop 2.1.3
+   
+   <h4>Follow the steps in this ticket by adding the framework to <code>app/platform/ios</code></h4>
+   <h4>Add the following system frameworks to the <code>frameworks</code> configuration option in <code>appc.js</code></h4>
+   #* SystemConfiguration
+   #* MobileCoreServices
+   #* CoreData
+   <h4>Build and run the hyperloop-examples application</h4>
+   
+   *Expected behavior*
+   The build is successful and the app loads without a crash.
+   
+   Note that it won't be possible to reference the Contentful SDK with Hyperloop 2.1.3 as this ticket focuses on the SDK fix to make the build work again.
+   </li>
+<li>Eric Wieber 2017-10-17
+
+   Verified in SDK builds 7.0.0.v20171017022901 & 6.3.0.v20171017063048</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25393.json">JSON Source</a></p>

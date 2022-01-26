@@ -1,0 +1,248 @@
+---
+title: "[TIMOB-11523] Android: TableView - delete row cannot delete a row without giving it a number, but iOS can"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-11-20T17:55:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2012 Sprint 23 API, 2012 Sprint 23</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, module_tableview, parity, qe-and100112, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Natalie Huynh</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-10-17T21:46:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:42:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Steps To Reproduce:
+1. Run test code from TIMOB-11510
+
+Actual:
+Runtime error because you delete a row by row name 
+
+Expected:
+To be able to delete the row by row name
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ping Wang 2012-11-07
+
+   Steps for FR:
+   1. Run the code below.
+   <code><pre>
+   Ti.UI.backgroundColor = 'white';
+   var win = Ti.UI.createWindow();
+   
+   var sectionFruit = Ti.UI.createTableViewSection({ headerTitle: 'Fruit' });
+   sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Apples' }));
+   sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Bananas' }));
+   sectionFruit.addEventListener("click", function(){
+   	Ti.API.info("*************************** Clicked section: " + sectionFruit.headerTitle);
+   });
+   
+   var sectionVeg = Ti.UI.createTableViewSection({ headerTitle: 'Vegetables' });
+   sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Carrots' }));
+   sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Potatoes' }));
+   
+   var sectionFish = Ti.UI.createTableViewSection({ headerTitle: 'Fish' });
+   sectionFish.add(Ti.UI.createTableViewRow({ title: 'Cod' }));
+   sectionFish.add(Ti.UI.createTableViewRow({ title: 'Haddock' }));
+   sectionFish.addEventListener("click", function(){
+   	Ti.API.info("*************************** Clicked section: " + sectionFish.headerTitle);
+   });
+   
+   var table = Ti.UI.createTableView({
+     data: [sectionFruit, sectionVeg, sectionFish]
+   });
+   table.addEventListener("click", function(){
+   	Ti.API.info("*************************** Clicked table: table");
+   });
+   
+   win.add(table);
+   win.open();
+   
+   var currentRows = [];
+   
+   var b1 = Ti.UI.createButton({
+   	bottom: 10,
+   	title: "remove Blue Row " + currentRows.length
+   });
+   b1.addEventListener("click", function(){
+   	var r = currentRows.pop();
+   	table.deleteRow(r);
+   	if (currentRows.length >= 1) {
+   		b1.title = "remove Blue Row " + (currentRows.length-1);
+   	}
+   });
+   
+   var b2 = Ti.UI.createButton({
+   	bottom: 100,
+   	title: "insert Blue Row after index 0"
+   });
+   b2.addEventListener("click", function(){
+   	var r = Ti.UI.createTableViewRow({
+       	height:80,
+       	title:"Blue Row " + currentRows.length,
+       	color:'blue'
+   	});
+   	table.insertRowAfter(0, r);
+   	b1.title = "remove Blue Row " + currentRows.length;
+   	currentRows.push(r);
+   	
+   	r.addEventListener("click", function(){
+   		Ti.API.info("*************************** Clicked row: " + r.title);
+   	});
+   });
+   
+   var b3 = Ti.UI.createButton({
+   	bottom: 190,
+   	title: "append Blue Row"
+   });
+   b3.addEventListener("click", function(){
+   	var r = Ti.UI.createTableViewRow({
+       	height:80,
+       	title:"Blue Row " + currentRows.length,
+       	color:'blue'
+   	});
+   	table.appendRow(r);
+   	b1.title = "remove Blue Row " + currentRows.length;
+   	currentRows.push(r);
+   	
+   	r.addEventListener("click", function(){
+   		Ti.API.info("*************************** Clicked row: " + r.title);
+   	});
+   });
+   
+   win.add(b1);
+   win.add(b2);
+   win.add(b3);
+   </pre></code>
+      i) Click the buttons to add Blue Row to the table and then click the button "remove Blue Row" to check the new functionality of deleteRow(TableViewRowProxy).
+      ii) Click the Blue Row which is added to the table (or any row in the table) and check the event bubbling from the console log. Should see something like:
+   <code><pre>
+   I/TiAPI   (32361):  *************************** Clicked row: Blue Row 0
+   I/TiAPI   (32361):  *************************** Clicked section: Fish
+   I/TiAPI   (32361):  *************************** Clicked table: table
+   </pre></code>
+   2. Run the test case in TIMOB-10328.
+   3. Run KS->Base UI->Views->Table Views to make sure nothing is broken.</li>
+<li>Ping Wang 2012-11-07
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/3386" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3386</a></li>
+<li>Vishal Duggal 2012-11-07
+
+   iOS does not support deleting row by row proxy. However this will be implemented as part of TIMOB-11683</li>
+<li>Olga Romero 2013-03-12
+
+   Tested code:
+   <code><pre>
+   Ti.UI.backgroundColor = 'white';
+   var win = Ti.UI.createWindow({backgroundColor:'white',fullscreen:false});
+    
+   var sectionFruit = Ti.UI.createTableViewSection({ headerTitle: 'Fruit' });
+   sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Apples' }));
+   sectionFruit.add(Ti.UI.createTableViewRow({ title: 'Bananas' }));
+   sectionFruit.addEventListener("click", function(){
+       Ti.API.info("*************************** Clicked section: " + sectionFruit.headerTitle);
+   });
+    
+   var sectionVeg = Ti.UI.createTableViewSection({ headerTitle: 'Vegetables' });
+   sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Carrots' }));
+   sectionVeg.add(Ti.UI.createTableViewRow({ title: 'Potatoes' }));
+    
+   var sectionFish = Ti.UI.createTableViewSection({ headerTitle: 'Fish' });
+   sectionFish.add(Ti.UI.createTableViewRow({ title: 'Cod' }));
+   sectionFish.add(Ti.UI.createTableViewRow({ title: 'Haddock' }));
+   sectionFish.addEventListener("click", function(){
+       Ti.API.info("*************************** Clicked section: " + sectionFish.headerTitle);
+   });
+    
+   var table = Ti.UI.createTableView({
+     data: [sectionFruit, sectionVeg, sectionFish]
+   });
+   table.addEventListener("click", function(){
+       Ti.API.info("*************************** Clicked table: table");
+   });
+    
+   win.add(table);
+   win.open();
+    
+   var currentRows = [];
+    
+   var b1 = Ti.UI.createButton({
+       bottom: 10,
+       title: "remove Blue Row " + currentRows.length
+   });
+   b1.addEventListener("click", function(){
+       var r = currentRows.pop();
+       table.deleteRow(r);
+       if (currentRows.length >= 1) {
+           b1.title = "remove Blue Row " + (currentRows.length-1);
+       }
+   });
+    
+   var b2 = Ti.UI.createButton({
+       bottom: 100,
+       title: "insert Blue Row after index 0"
+   });
+   b2.addEventListener("click", function(){
+       var r = Ti.UI.createTableViewRow({
+           height:80,
+           title:"Blue Row " + currentRows.length,
+           color:'blue'
+       });
+       table.insertRowAfter(0, r);
+       b1.title = "remove Blue Row " + currentRows.length;
+       currentRows.push(r);
+        
+       r.addEventListener("click", function(){
+           Ti.API.info("*************************** Clicked row: " + r.title);
+       });
+   });
+    
+   var b3 = Ti.UI.createButton({
+       bottom: 190,
+       title: "append Blue Row"
+   });
+   b3.addEventListener("click", function(){
+       var r = Ti.UI.createTableViewRow({
+           height:80,
+           title:"Blue Row " + currentRows.length,
+           color:'blue'
+       });
+       table.appendRow(r);
+       b1.title = "remove Blue Row " + currentRows.length;
+       currentRows.push(r);
+        
+       r.addEventListener("click", function(){
+           Ti.API.info("*************************** Clicked row: " + r.title);
+       });
+   });
+    
+   win.add(b1);
+   win.add(b2);
+   win.add(b3);
+   
+   </pre></code>
+   
+   with:
+   Titanium Studio, build: 3.0.3.201302201202
+   Titanium SDK, build: 3.1.0.v20130311151655 
+   Devices:
+   Nexus4 4.2
+   GalaxyS3 4.0.4</li>
+<li>Shameer Jan 2013-12-10
+
+   Anvil testcase PR <a href="https://github.com/appcelerator/titanium_mobile/pull/5003" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5003</a>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11523.json">JSON Source</a></p>

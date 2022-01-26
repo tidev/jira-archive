@@ -1,0 +1,79 @@
+---
+title: "[TIMOB-27074] IOS: Rebuilding the app with simulator fails with due to log port being occupied"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-07-12T11:29:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0, Release 8.0.1, Release 8.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>cb-tooling, engSchedule</td></tr>
+<tr><th>Reporter</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2019-05-09T23:43:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-30T23:07:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Steps to reproduce:</h4>
+1. Create a default app.
+2. Build for IOS simulator.
+3. After app launch, rebuild the app for the same simulator, without quitting the current simulator.
+
+<h4>Actual results:</h4>
+1. The build fails with :
+<code><pre>
+[DEBUG] :  Log server port 28544 is in use, testing if it's the app we're building
+[ERROR] :  Another process is currently bound to port 28544
+[ERROR] :  Set a unique <log-server-port> between 1024 and 65535 in the <ios> section of the tiapp.xml
+</pre></code>
+2. Works fine after quitting the emulator & then rebuilding.
+
+<h4>Expected result:</h4>
+1. The build should not fail.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2019-06-18
+
+   I also run into this from time to time. [~cbarber], i remember killing stale node processes solved this for me, so maybe the log server sometimes doesn't quit properly? Not 100% sure, i'll check again when i run into this next time.</li>
+<li>Jan Vennemann 2019-06-18
+
+   [~cbarber], i did some testing and this happens when the app is put in the background. When you bring it to the foreground it works again. Updated testing steps are:
+   
+   <h4>Build and launch app on Simulator</h4>
+   <h4>Put the app in the background </h4>
+   <h4>Rebuild and see the error happening</h4>
+   <h4>Bring the app to foreground, do another rebuild and everything works again</h4></li>
+<li>Chris Barber 2019-06-18
+
+   After having a quick call with [~jvennemann] and doing some tests, [we think] we figured out the problem!
+   
+   Node's <code>net.connect()</code> has a <code>timeout</code> option and it's an *activity* timeout, not a *connection* timeout. So, even if you receive data, it will still timeout.
+   
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10975" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10975</a></li>
+<li>Samir Mohammed 2019-07-02
+
+   FR passed on Master, waiting on Jenkins build and a back-port for 8_1_X.</li>
+<li>Christopher Williams 2019-07-09
+
+   Did a manual rebase and merge to master (had to fix some lint issues and re-work the commit message). Then cherry-picked to 8_1_X.</li>
+<li>Chris Barber 2019-07-09
+
+   Thanks [~cwilliams]!</li>
+<li>Samir Mohammed 2019-07-12
+
+   Closing ticket, fix verified in SDK version <code>8.1.0.v20190711103439</code> and SDK version <code>8.2.0.v20190711103355</code>
+   
+   Test an other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10975" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10975</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27074.json">JSON Source</a></p>

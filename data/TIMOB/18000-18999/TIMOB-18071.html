@@ -1,0 +1,144 @@
+---
+title: "[TIMOB-18071] CLI: Fail build if compiled architectures do not match module manifest"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-12-15T19:29:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android, BlackBerry, CLI, iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>qe-assigned</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2014-11-21T20:43:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-01-18T04:14:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+With the addition of 64-bit support, it becomes helpful to know the architectures available in a compiled module. We can then use this ins tooling to make sure modules are compiled correctly for use.
+
+See TIMOB-18065 for more information.
+
+Once the module build is complete, we need to check the architectures specified and fail the build if they do not match.
+
+* If the line exists, but is wrong, suggest the updated version. If they are missing 64-bit for iOS, warn them
+* If the line does not exist, suggest what it should be.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-12-01
+
+   Feon, is this something you or [~skypanther] could tackle?</li>
+<li>Feon Sua Xin Miao 2014-12-02
+
+   I can give it a shot.</li>
+<li>Feon Sua Xin Miao 2014-12-05
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6433" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6433</a>
+   
+   Functional Test:
+   
+   1. create a module 
+   <code><pre>ti create -p all -t module -n test -u http:// --id com.appc.test</pre></code>
+   
+   <h4>For iOS</h4>
+   1. cd into module iphone directory
+   2. comment out  <code>architectures: armeabi armeabi-v7a x86</code> in <code>manifest</code>
+   3. run <code>./build.py</code>
+   4. build should fail with follow error
+   <code><pre> missing required manifest key 'architectures' </pre></code>
+   5. edit architectures value in manifest, build again build should fail
+   <code><pre> 
+   [WARN] there is discrepancy between the architectures specified in module manifest and compiled binary.
+   [WARN] architectures in manifest: i386, arm64, armv7
+   [WARN] compiled binary architectures: x86_64, i386, arm64, armv7
+   please update manifest to match module binary architectures.
+   </pre></code>
+   6. undo all changes to manifest, module should be build successfully.
+   
+   <h4>For Android</h4>
+   1. cd into module android directory
+   2. comment out  <code>architectures: armeabi armeabi-v7a x86</code> in <code>manifest</code>
+   3. run <code>ant</code>
+   4. build should fail with follow error
+   <code><pre>
+   BUILD FAILED
+   /Users/feonsua/work/testapps/360/mods/newTestMod/android/build.xml:11: Missing required manifest key 'architectures'.
+   </pre></code>
+   5.edit architectures value in manifest, build should fail
+   <code><pre>
+   check.build.arch:
+        [echo] Architectures in manifest: armeabi armeabi-v7a
+        [echo] Compiled binary architectures: armeabi;armeabi-v7a;x86
+   
+   BUILD FAILED
+   /Users/feonsua/Library/Application Support/Titanium/mobilesdk/osx/3.6.0/module/android/build.xml:374: The following error occurred while executing this line:
+   /Users/feonsua/Library/Application Support/Titanium/mobilesdk/osx/3.6.0/module/android/build.xml:376: There is discrepancy between the architectures specified in manifest and compiled binary.
+   </pre></code>
+   6. undo all changes to manifest, module should be build successfully.</li>
+<li>Tim Poulsen 2014-12-05
+
+   FR/CR passed. PR merged.</li>
+<li>Tim Poulsen 2014-12-05
+
+   Reopen to backport to 3_5_X</li>
+<li>Tim Poulsen 2014-12-05
+
+   3_5_X backport <a href="https://github.com/appcelerator/titanium_mobile/pull/6434" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6434</a></li>
+<li>Praveen Innamuri 2014-12-06
+
+   PR passed, but found a parity with iphone module build. If x86_64 arch is removed, then there is a warning in the build logs, but the build still succeed. However, if any arch is missing for android module, then the build has failed with appropriate warning. Created TIMOB-18145 for this.</li>
+<li>Eric Wieber 2014-12-09
+
+   Verified fixed using:
+   
+   Titanium SDK 3.5.0.v20141208122514
+   Studio 3.4.1.201410281743 
+   Xcode 6.1.1</li>
+<li>Jon Alter 2014-12-15
+
+   Getting this error in the log when building an iOS module even though the architectures being built are correct:
+   <code><pre>
+   [WARN] built module is missing 64-bit support.
+   [WARN] there is discrepancy between the architectures specified in module manifest and compiled binary.
+   [WARN] architectures in manifest: x86_64, i386, arm64, armv7
+   [WARN] compiled binary architectures: x86_64, (cputype, i386, (16777228), armv7, cpusubtype, (0))
+   please update manifest to match module binary architectures.
+   </pre></code>
+   
+   <h4>PR</h4>
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6482" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6482</a>
+   3_5_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/6485" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6485</a></li>
+<li>Vishal Duggal 2014-12-15
+
+    PRs merged
+    3_5_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/6485" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6485</a></li>
+<li>Lokesh Choudhary 2015-01-07
+
+    Verified using functional test by [~fmiao] for android & as expected build fails if compiled architectures do not match module manifest.
+    
+    Environment:
+    Appc Studio : 3.4.1.201410281743
+    Ti SDK : 3.5.0.v20150106150919, 3.6.0.v20150106160923
+    CLI : 3.4.1
+    Alloy : 1.5.1 GA
+    Code Processor : 1.1.1
+    MAC Yosemite : 10.10</li>
+<li>Eric Merriman  2015-01-12
+
+    Closing as fixed.</li>
+<li>曹俊 2015-01-17
+
+    what time or which version do you publish it?</li>
+<li>Ingo Muschenetz 2015-01-18
+
+    [~mdsb100] What do you mean?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18071.json">JSON Source</a></p>

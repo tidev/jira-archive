@@ -1,0 +1,217 @@
+---
+title: "[TIMOB-25786] Android: WebView eval JS timeout error "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-04-17T21:32:36.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Victor Vazquez Montero</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-02-16T18:31:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-17T21:32:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue</h4>
+When setting run-on-main-thread to true webview.evalJS errors with the following message: 
+<code><pre>[WARN] TiWebViewBinding: (main) [4577,18530] Timeout waiting to evaluate JS </pre></code>
+When setting run-on-main-thread to false webview.evalJS calls are executed as expected
+This is important since the customer has to have run-on-main-thread in order to use Hyperloop
+
+<h4>Steps to replicate</h4>
+1. download project:  [^evalJs-bug-demo.zip] 
+2. Run project to Android simulator and view console log
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25786_64869/evalJs-bug-demo.zip">evalJs-bug-demo.zip</td></td><td>2018-02-16T18:30:41.000+0000</td><td>723090</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Victor Vazquez Montero 2018-02-23
+
+   Hey [~amukherjee] can we have someone check out this ticket.
+   </li>
+<li>Abir Mukherjee 2018-02-23
+
+   [~vvazquezmontero], Okay, I'll ask one of our Android devs to look into this.</li>
+<li>Gary Mathews 2018-02-23
+
+   This happens because we prevent the thread being blocked for more than 3500ms to prevent an ANR pop-up.
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewBinding.java#L164" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewBinding.java#L164</a>
+   
+   We should probably use a callback here instead</li>
+<li>Christopher Williams 2018-02-23
+
+   I think it's a deadlock due to the code being run on the main thread and not having special logic for handling it inline.
+   
+   I've never looked at this code before but it appears to make a special JS environment on the web view where it sets up a polling mechanism to grab code snippets off a queue from Java-land, then wraps the code in some wrapping JS code to eval it and set the result back on the java proxy. I imagine we'd have to retool this quite a bit to get it to work in a "main thread" way.
+   
+   As Gary suggested, we actually ran into this on Windows where the API is async and requires a second callback argument. I think it'd be a much simpler implementation to move this way on Android as well since they already have an async api to evaluate Javascript without all this polling script injection stuff: <a href="https://developer.android.com/reference/android/webkit/WebView.html#evaluateJavascript(java.lang.String" rel="nofollow" target="_blank">https://developer.android.com/reference/android/webkit/WebView.html#evaluateJavascript(java.lang.String</a>,%20android.webkit.ValueCallback<java.lang.String>)
+   
+   I honestly can't immediately think of a nice way to get this to work synchronously on the ui/main thread.
+   
+   But obviously this is a large breaking API change...</li>
+<li>Christopher Williams 2018-02-27
+
+   Posted a PR with a possible async variant of the API that matches Windows. This would involve the developers/users passing a second argument to evalJS that was an async function that received the result, i.e.: 
+   <code><pre>
+   webview.evalJS('1 + 2', function (result) {
+     Ti.API.info(result);
+   });
+   </pre></code>
+   
+   This PR is meant to get some feedback from Android devs, but may offer an alternative when using main thread. My attempt to spin off a thread to get this to work in a synchronous fashion with run-on-main-thread was unsuccessful.</li>
+<li>Joshua Quick 2018-02-28
+
+   [~vvazquezmontero],
+   
+   For now, you can work-around this issue by moving the <code>evalJS()</code> calls out of the custom "App.DOMContentLoaded" event and to the <code>WebView</code> "load" event handler like this...
+   
+   <code><pre>
+   // Don't do this...
+   /*
+   Ti.App.addEventListener ('App:DOMContentLoaded', function () {
+       Ti.API.info('DOMContentLoaded listener called in app.js');
+       wv.evalJS('add_outbrain()');
+       wv.evalJS('populate_ad_slots()');
+   });
+   */
+   
+   // Do this instead. It works on the main thread.
+   wv.addEventListener('load', function () {
+       Ti.API.info('WebView load listener called);
+       wv.evalJS('add_outbrain()');
+       wv.evalJS('populate_ad_slots()');
+   }
+   </pre></code></li>
+<li>Joshua Quick 2018-03-01
+
+   I've isolated the issue.
+   
+   This is not a thread deadlock issue.
+   
+   What's happening is that the <code>WebView.evalJS()</code> function is getting called before the web page has finished loading. We inject a <code>POLLING_SCRIPT</code> to the page *+after+* it has finished loading via <code>TiWebViewClient.onPageFinished()</code> here...
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewClient.java#L45" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewClient.java#L45</a>
+   
+   The polling script's job is to fetch a JavaScript snippet that has been added to the stack by the <code>TiWebViewBinding.getJSValue()</code> method. This is the method that gets called by <code>WebView.evalJS()</code> and blocks/waits for the polling script to fetch the snippet, execute it, and return a result. But since the page hasn't finished loading yet and this method blocks the main UI thread, the polling script never gets injected and the snippet in the stack is ignored.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewBinding.java#L151" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/webview/TiWebViewBinding.java#L151</a>
+   
+   Note that this is why my work-around from my previous post works. It's doing an <code>evalJS()</code> after the page is loaded and after the polling script has been injected.
+   
+   Now that we know what's going on (and knowing is half the battle), we can look into fixing it. ;)</li>
+<li>Victor Vazquez Montero 2018-03-07
+
+   Hey [~jquick] thanks for the update!!</li>
+<li>Joshua Quick 2018-03-07
+
+   [~vvazquezmontero], I'm going to write this up as a separate ticket and flag it as an enhancement. This isn't technically a bug because there are cases where doing a blocking <code>evalJS()</code> is impossible to execute, such as with [TIMOB-12095] where it's calling <code>evalJS()</code> before the WebView is being displayed on-screen (I'm sure this would be impossible on iOS as well).
+   
+   So, the enhancements needed are:
+   * Document that <code>evalJS()</code> should only be called after the page has been loaded.
+   * Modify <code>fireEvent()</code> handling in HTML to be fired after the page has been loaded, not while loading. (This solves the customer case and makes it more convenient to use.)
+   
+   I'll write up the ticket later today.</li>
+<li>Joshua Quick 2018-03-10
+
+    I'd like to offer one more work-around.
+    
+    On Android (and I mean only Android), you can async call a JavaScript function in your HTML by doing the following.
+    <code><pre>
+    Ti.App.addEventListener ('App:DOMContentLoaded', function () {
+        wv.url = 'javascript:add_outbrain()';
+        wv.url = 'javascript:populate_ad_slots()';
+    });
+    </pre></code>
+    
+    Note the "javascript:" URL scheme used above. This is how a native Android developer would do it on Android. Just remember that the above won't work on iOS. This is also something Titanium does not officially document, but it is a feature that Google officially documents for Android here...
+    <a href="https://developer.android.com/reference/android/webkit/WebView.html#addJavascriptInterface(java.lang.Object" rel="nofollow" target="_blank">https://developer.android.com/reference/android/webkit/WebView.html#addJavascriptInterface(java.lang.Object</a>,%20java.lang.String)
+    
+    I'm bringing this up because <code>evalJS()</code> may still timeout when using a very large HTML page containing a lot of JavaScript on a horribly slow device. Even after you wait for the "load" event to be received. For a blocking <code>evalJS()</code> function call, there is really not much more we can do. As in, there is no way to "fix" it. An async call is the only solution in such a case.</li>
+<li>Joshua Quick 2018-03-12
+
+    I've written this up as an enhancement request here: [TIMOB-25859]</li>
+<li>Joshua Quick 2018-03-14
+
+    [~vvazquezmontero],
+    
+    Hold on. There's a much simpler solution.
+    We already support async communications with the WebView on all platforms *+today+*.
+    
+    The HTML's JavaScript has access to APIs <code>Ti.App.addEventListener()</code> and <code>Ti.App.fireEvent()</code>. Titanium developers can also make up their own unique names for these events as well. So, instead of doing blocking <code>evalJS()</code> calls, it would be far far better to do an event-driven approach between the WebView's JavaScript and Titanium's JavaScript.
+    
+    For example, if you want the Titanium side to invoke a JavaScript function on the HTML side, then you can do it like the below, which works on all platforms...
+    <code><pre>
+    var htmlText =
+    		'<!DOCTYPE html>' +
+    		'<html>' +
+    		'	<body>' +
+    		'		<p id="label"></p>' +
+    		'	</body>' +
+    		'	<script>' +
+    		'		Ti.App.addEventListener("app:webViewSetLabel", function(e) {' +
+    		'			document.getElementById("label").innerHTML = e.text' +
+    		'		});' +
+    		'	</script>' +
+    		'</html>';
+    
+    var window = Ti.UI.createWindow();
+    var webView = Ti.UI.createWebView({
+    	html: htmlText,
+    });
+    webView.addEventListener("load", function(e) {
+    	Ti.App.fireEvent("app:webViewSetLabel", { text: "Hello World" });
+    });
+    window.add(webView);
+    window.open();
+    </pre></code>
+    
+    And if you want to do an async <code>evalJS()</code> equivalent, that too can be done via events like the below. Again, the below works on all platforms.
+    <code><pre>
+    var htmlText =
+    		'<!DOCTYPE html>' +
+    		'<html>' +
+    		'	<body>' +
+    		'		<p id="label"></p>' +
+    		'	</body>' +
+    		'	<script>' +
+    		'		Ti.App.addEventListener("app:webViewEval", function(e) {' +
+    		'			eval(e.javaScriptString)' +
+    		'		});' +
+    		'	</script>' +
+    		'</html>';
+    
+    var window = Ti.UI.createWindow();
+    var webView = Ti.UI.createWebView({
+    	html: htmlText,
+    });
+    webView.addEventListener("load", function(e) {
+    	Ti.App.fireEvent('app:webViewEval', {
+    		javaScriptString: 'document.getElementById("label").innerHTML = "Hello World"',
+    	});
+    });
+    window.add(webView);
+    window.open();
+    </pre></code>
+    
+    Now, the above solution will only work for HTML that's under your control versus some random webpage loaded from the Internet, but from a security standpoint that's probably for the best.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25786.json">JSON Source</a></p>

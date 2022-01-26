@@ -1,0 +1,115 @@
+{
+	"id": "133462",
+	"key": "TIMOB-17351",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "7",
+			"description": "",
+			"name": "Invalid"
+		},
+		"resolutiondate": "2015-09-22T23:05:27.000+0000",
+		"created": "2014-07-21T17:15:44.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "emerriman",
+			"key": "emerriman",
+			"displayName": "Eric Merriman ",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2017-03-24T18:03:32.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "13715",
+				"name": "Hyperloop",
+				"description": "Hyperloop project"
+			},
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Using the current version of Hyperloop for iOS. When accessing a variable that holds a native object wrapped by a Hyperloop JS object, the app will crash with this stack trace:\r\n\r\nh4. EXC_BAD_ACCESS (code=2,address=0xc)\r\n{code}\r\n#0\t0x03fac0b2 in objc_msgSend ()\r\n#1\t0x0027c674 in TiBindingTiValueToNSObject at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/TiBindingTiValue.m:112\r\n#2\t0x0002fe4c in TiValueToId at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/KrollObject.m:86\r\n#3\t0x00031cd1 in +[KrollObject toID:value:] at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/KrollObject.m:515\r\n#4\t0x0002aebc in KrollCallAsFunction at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/KrollMethod.m:37\r\n#5\t0x002d1b03 in TI::TiCallbackObject<TI::TiObjectWithGlobalObject>::call(TI::TiExcState*) at /Users/max/dev/titanium/tijscore/TiCore/API/TiCallbackObjectFunctions.h:397\r\n#6\t0x0031483a in TI::Interpreter::privateExecute(TI::Interpreter::ExecutionFlag, TI::RegisterFile*, TI::TiExcState*) at /Users/max/dev/titanium/tijscore/TiCore/interpreter/Interpreter.cpp:4073\r\n#7\t0x00319a5b in TI::Interpreter::executeCall(TI::TiExcState*, TI::TiObject*, TI::CallType, TI::CallData const&, TI::TiValue, TI::ArgList const&) at /Users/max/dev/titanium/tijscore/TiCore/interpreter/Interpreter.cpp:965\r\n#8\t0x0035c963 in TI::call(TI::TiExcState*, TI::TiValue, TI::CallType, TI::CallData const&, TI::TiValue, TI::ArgList const&) at /Users/max/dev/titanium/tijscore/TiCore/runtime/CallData.cpp:45\r\n#9\t0x002cc9dc in TiObjectCallAsFunction at /Users/max/dev/titanium/tijscore/TiCore/API/TiObjectRef.cpp:449\r\n#10\t0x0027bcd6 in TiBindingEventProcess at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/TiBindingEvent.m:278\r\n#11\t0x0027bfd3 in -[TiBindingCallbackInvoke invoke:] at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/TiBindingRunLoop.m:53\r\n#12\t0x00025c05 in -[KrollContext invoke:] at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/KrollContext.m:958\r\n#13\t0x0002768c in -[KrollContext main] at /Users/penrique/Documents/Titanium_Studio_Workspace/TestClassic/build/iphone/Classes/KrollContext.m:1315\r\n#14\t0x010fda07 in -[NSThread main] ()\r\n{code}\r\nNote: the line numbers might vary deepening on the SDK version, but they're close enough\r\n\r\nThe reason for this is very simple. When using Titanium Mobile we have two types of JS object: A normal JS object, and a JS object containing an Objective-C object. \r\nWhen using a Hyperloop module, there's another JS object added to the equation, a JS object containing a Hyperloop object.\r\nIn JavaScriptCore every JS object has a place for a void*. In Titanium Mobile we store an Objective-C \"id\" directly there. In Hyperloop, in the other hand, we store a c++ class in that same void* property, and that class has a void* property (called \"data\") and there we sore an objective-c \"id\". This is why it crashes.\r\n\r\nTitanium Mobile:\r\nJS Object -> void* -> id\r\nHyperloop\r\nJSObject -> void* -> c++ class -> void* -> id\r\n\r\n{code}\r\nid privateObject = (id)TiObjectGetPrivate(obj);\r\nif ([privateObject isKindOfClass:[KrollObject class]]) {\r\n\treturn [privateObject target];\r\n}\r\n{code}\r\nIn the first line of code we get the void* from the JS object and cast it as an \"id\". Then we call an Objective-C method on it - \"isKindOfClass:\". This is fine in Titanium mobile, but in Hyperloop, that void* is a c++ class, and on that second line, we call an objective-c method on that c++ class, and then the app crashes hard.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS - Hyperloop modules might crash when accessing native objects",
+		"creator": {
+			"name": "penrique",
+			"key": "penrique",
+			"displayName": "Pedro Enrique",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "penrique",
+			"key": "penrique",
+			"displayName": "Pedro Enrique",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "315061",
+					"author": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Pull Requests:\r\nhttps://github.com/appcelerator/hyperloop-ios/pull/61\r\nhttps://github.com/appcelerator/hyperloop-common/pull/65\r\nhttps://github.com/appcelerator/titanium_mobile/pull/5914",
+					"updateAuthor": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-07-21T17:17:24.000+0000",
+					"updated": "2014-07-21T17:17:24.000+0000"
+				}
+			],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

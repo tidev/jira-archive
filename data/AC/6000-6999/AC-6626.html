@@ -1,0 +1,112 @@
+---
+title: "[AC-6626] Android: ti.map 5.3.0 clicks are not working correctly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2020-11-03T14:26:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-01-22T17:06:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I've created an issue on github already when the PR got merged:
+<a href="https://github.com/appcelerator-modules/ti.map/issues/342" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/issues/342</a>
+
+With this <a href="https://github.com/appcelerator-modules/ti.map/pull/336" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/pull/336</a> PR the Marker popups are not opening every time and a click on the boxes don't fire a click. 
+
+*infoWindow click:*
+<a href="https://github.com/appcelerator-modules/ti.map/blob/master/android/src/ti/map/TiMapInfoWindow.java#L208" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/blob/master/android/src/ti/map/TiMapInfoWindow.java#L208</a>
+p is null and
+
+<a href="https://github.com/appcelerator-modules/ti.map/blob/master/android/src/ti/map/TiMapInfoWindow.java#L213" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/blob/master/android/src/ti/map/TiMapInfoWindow.java#L213</a>
+is returning 0/0 for me so it is not going into the if-case
+
+*pin click to open infoWindow*
+looks like it depends on the zoom level somehow
+
+*example*
+<code><pre>
+var Map = require('ti.map');
+var win = Titanium.UI.createWindow();
+var annotations = [];
+
+var mapview = Map.createView({
+    mapType: Map.NORMAL_TYPE,
+    animate: true,
+    regionFit: true
+});
+
+
+for (var i = 0; i < 10; i++) {
+	annotations.push(Map.createAnnotation({
+		title: 'Appcelerator Inc.',
+		subtitle: 'TiRocks!',
+		clusterIdentifier: 'abc', // Required for clusters
+		collisionMode: Map.ANNOTATION_VIEW_COLLISION_MODE_RECTANGLE,
+		showAsMarker: true,
+		markerGlyphText: i.toString(),
+		markerColor: 'blue',
+		markerGlyphColor: 'green',
+		markerTitleVisibility: Map.FEATURE_VISIBILITY_VISIBLE,
+		markerSubtitleVisibility: Map.FEATURE_VISIBILITY_HIDDEN,
+		markerGlyphImage: 'path/to/flag.png',
+		markerSelectedGlyphImage: 'path/to/flag-selected.png',
+		annotationDisplayPriority: Map.FEATURE_DISPLAY_PRIORITY_DEFAULT_LOW,
+		latitude: 40 + Math.random() * 0.1,
+		longitude: 10 + Math.random() * 0.1,
+	}));
+}
+
+mapview.region = {
+	latitude: 40 + Math.random() * 0.1,
+	longitude: 10 + Math.random() * 0.1,
+	latitudeDelta: 0.2,
+	longitudeDelta: 0.2
+}
+
+
+mapview.addEventListener('clusterstart', function(e) {
+	Ti.API.info('clustering started!');
+
+	var clusterAnnotation = Map.createAnnotation({
+		showAsMarker: true,
+		markerText: e.memberAnnotations.length.toString(),
+		title: 'Cluster Title',
+		subtitle: 'Cluster Subtitle',
+	});
+
+	mapview.setClusterAnnotation({
+		annotation: clusterAnnotation,
+		memberAnnotations: e.memberAnnotations
+	});
+});
+mapview.addEventListener('click', function(event) {
+    Ti.API.info('Clicked ' + event.clicksource + ' on ' + event.latitude + ', ' + event.longitude);
+});
+mapview.annotations = annotations;
+win.add(mapview);
+win.open();
+</pre></code>
+
+Annoations not opening all the time. Working fine with 5.2.0
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2021-01-22
+
+   PR: <a href="https://github.com/appcelerator-modules/ti.map/pull/386" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/pull/386</a></li>
+</ol>
+
+
+<p><a href="/AC/AC-6626.json">JSON Source</a></p>

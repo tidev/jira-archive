@@ -1,0 +1,141 @@
+---
+title: "[TIMOB-23711] iOS: Incrementing instances of "Window is not open Ignoring this close call" on win.close() "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-02T15:44:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Harry Bryant</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-08-01T17:43:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-02T16:38:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*This does not occur with 5.3.1.GA*
+
+when opening and closing the window a couple of times, I receive the following DEBUG log: 
+<code><pre>
+[DEBUG] :  Window is not open. Ignoring this close call
+</pre></code>
+
+The log count is incremented every time I cycle through Open / Close. For example after 5 cycles I receive the following:
+<code><pre>
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+[DEBUG] :  Window is not open. Ignoring this close call
+</pre></code>
+
+( 1 + 2 + 3 + 4 + 5 ) 
+
+<h4>TEST CODE</h4>
+<code><pre>
+Ti.UI.backgroundColor = "Black";
+ 
+var win = Ti.UI.createWindow({backgroundColor:'blue'});
+ 
+var open = Ti.UI.createButton({
+	title: 'Open Window'	
+});
+ 
+var close = Ti.UI.createButton({
+	title: 'Close Window'
+});
+ 
+open.addEventListener('click', function(){
+	var win2 = Ti.UI.createWindow({backgroundColor:'green'});
+	win2.add(close);
+	close.addEventListener('click', function(){
+		win2.close();
+	});
+	win2.open();
+});
+ 
+win.add(open);
+win.open();
+</pre></code>
+
+<h4>Steps to Reproduce</h4>
+1. Create a new Classic Mobile Project.
+2. Copy above test code into app.js file.
+4. Run App to device / sim.
+5. Click on "Open Window" button.
+6. Click on "Close Window" button.
+7. Repeat Steps 5-6 to receive the log message
+
+<h4>Actual Result</h4>
+
+Incrementing count of <code>[DEBUG] :  Window is not open. Ignoring this close call</code>
+
+<h4>Expected Result</h4>
+
+<code>[DEBUG] :  Window is not open. Ignoring this close call</code> only when relevant, and should not increment every cycle. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-01
+
+   I'm wondering if that could be related to the event-listeners inside the event-listener causing. But as you're saying it didn't happen in 5.3.1.GA, it's making me unsure.
+   
+   *EDIT*: The <code>close</code> button is defined outside the scope, I'm 80 % sure that's the problem here. That would also explain, why the sum of logs (1+2+3+4+5) is as it is, because the existing event-listeners are still being triggered because they are scoped to the <code>close</code> button outside the click-event.
+   
+   *EDIT2*: And the reason why it isn't logged in 5.3.1.GA may be, because the log is only thrown when using main-thread.
+   
+   *EDIT3*:
+   Not reproducible anymore using the correct demo-code following here:
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor:'blue'});
+    
+   var open = Ti.UI.createButton({
+   	title: 'Open Window'	
+   });
+    
+   open.addEventListener('click', function(){
+   	var win2 = Ti.UI.createWindow({backgroundColor:'green'});
+   	
+   	var close = Ti.UI.createButton({
+   		title: 'Close Window'
+   	});
+   	
+   	win2.add(close);
+   	close.addEventListener('click', function(){
+   		win2.close();
+   	});
+   	win2.open();
+   });
+    
+   win.add(open);
+   win.open();
+   </pre></code>
+   
+   [~htbryant] Please verify and close, thanks!</li>
+<li>Hans Knöchel 2016-08-02
+
+   Resolving as invalid for now, [~htbryant] to confirm.</li>
+<li>Harry Bryant 2016-08-02
+
+   Can confirm that the issue was the <code>close</code> button being defined outside of the scope. Closing as Invalid. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23711.json">JSON Source</a></p>

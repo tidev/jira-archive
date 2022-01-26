@@ -1,0 +1,130 @@
+---
+title: "[TIMOB-18846] Parity: HTTPClient sends array of objects differently on iOS then it does on Android"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2015-04-23T08:41:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A [Q&A user](<a href="https://community.appcelerator.com/topic/178/http-request-problem-with-array-data/3)" rel="nofollow" target="_blank">https://community.appcelerator.com/topic/178/http-request-problem-with-array-data/3)</a> discovered that when following the [docs](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Network.HTTPClient-method-send) to send arrays, but if those arrays include objects, the result on iOS is different then it is on Android. The expected result is seen on Android, while the result on iOS is unusable because of added <code>+</code> characters, newlines and <code>;</code>.
+
+<h4>To reproduce</h4>
+
+Run the following code on both iOS and Android with an updated requestb.in URL.
+
+<code><pre>
+var xhr = Titanium.Network.createHTTPClient();
+
+xhr.open('POST', '<a href="http://requestb.in/101jps01" rel="nofollow" target="_blank">http://requestb.in/101jps01</a>');
+
+var data = {
+	string: 'a',
+	arrayOfStrings: ['a', 'b'],
+	arrayOfObjects: [{
+		'a': 'x'
+	}, {
+		'b': 'y',
+	}]
+};
+
+//Dealing with arrays on data
+for (var key in data) {
+	if (Array.isArray(data[key])) {
+		for (var i = 0, l = data[key].length; i < l; i++) {
+			data[key + '[' + i + ']'] = data[key][i];
+		}
+		delete data[key];
+	}
+}
+
+console.log(data);
+
+xhr.send(data);
+</pre></code>
+
+<h4>Android</h4>
+
+The <code>console.log</code> will show:
+
+<code><pre>
+{
+	"string": "a",
+	"arrayOfStrings[0]": "a",
+	"arrayOfStrings[1]": "b",
+	"arrayOfObjects[0]": {
+		"a": "x"
+	},
+	"arrayOfObjects[1]": {
+		"b": "y"
+	}
+}
+</pre></code>
+
+The body shown on requestb.in will be:
+
+<code><pre>
+arrayOfObjects%5B0%5D=%7Bc%3Dd%2C+a%3Db%7D&arrayOfStrings%5B0%5D=a&arrayOfStrings%5B1%5D=b&string=a
+</pre></code>
+
+which decoded is the expected:
+
+<code><pre>
+arrayOfObjects[1]={b=y}&arrayOfObjects[0]={a=x}&arrayOfStrings[1]=b&arrayOfStrings[0]=a&string=a
+</pre></code>
+
+<h4>iOS</h4>
+
+The <code>console.log</code> will show similar:
+
+<code><pre>
+{
+    "arrayOfObjects[0]" =     {
+        a = x;
+    };
+    "arrayOfObjects[1]" =     {
+        b = y;
+    };
+    "arrayOfStrings[0]" = a;
+    "arrayOfStrings[1]" = b;
+    string = a;
+}
+</pre></code>
+
+But the body shown on requestb.in will be:
+
+<code><pre>
+arrayOfStrings%5B1%5D=b&arrayOfObjects%5B0%5D=%7B%0A++++a+%3D+x%3B%0A%7D&arrayOfStrings%5B0%5D=a&arayOfObjects%5B1%5D=%7B%0A++++b+%3D+y%3B%0A%7D&string=a
+</pre></code>
+
+which decoded is:
+
+<code><pre>
+arrayOfStrings[1]=b&arrayOfObjects[0]={
+++++a+=+x;
+}&arrayOfStrings[0]=a&arrayOfObjects[1]={
+++++b+=+y;
+}&string=a
+</pre></code>
+
+<h4>Solution</h4>
+
+The Android output is better, although <code>{b=y}</code> is no valid JSON or form data either. It might better be <code>{"b":"y"}</code>?
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-18846.json">JSON Source</a></p>

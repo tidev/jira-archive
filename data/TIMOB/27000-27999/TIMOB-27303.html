@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-27303] Windows: Issue with TableView scrollend event (Windows 10 uwp apps)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-05-15T18:25:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.2, Release 8.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-08-02T13:48:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-05-15T18:25:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello!
+Scroll event attached in Ti.UI.createTableView. After scroll event-triggered then the user wants to refresh table view. While scrolling, the table view shows blank.
+This is happening in Windows 10 app (UWP) but working fine in android/iOS
+
+Teste project: TestUWP.zip
+*Steps to reproduce:*
+1. Import attached project.
+2. Build with sdk 8.0.2.GA or 7.0.2.GA on Windows 10 uwp apps on Windows Desktop
+3. Scroll the table view
+4.  It showing blank
+
+<code><pre>
+Operating System
+  Name                        = Microsoft Windows 10 Pro
+  Version                     = 10.0.17134
+  Architecture                = 32bit
+  # CPUs                      = 4
+  Memory                      = 17091956736
+Node.js
+  Node.js Version             = 8.9.1
+  npm Version                 = 5.5.1
+Titanium CLI
+  CLI Version                 = 5.1.1
+Titanium SDK
+  SDK Version                 = 8.0.2.GA
+  SDK Path                    = C:\ProgramData\Titanium\mobilesdk\win32\8.0.2.GA
+  Target Platform             = windows
+</pre></code>
+
+Thanks 
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27303_66799/TestUWP.zip">TestUWP.zip</td></td><td>2019-08-02T13:44:17.000+0000</td><td>101637</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2019-08-15
+
+   So it turns out the reason why table view shows blank is because UI is too busy rendering the table view. 
+   We see there are multiple reasons there;
+   
+   <h4>Updating <code>TableView.data</code> causes re-creating of _entire_ table view row</h4>
+   
+   In the <code>scrollend</code> event in [^TestUWP.zip] shows that you update <code>TableView.data</code> property with empty array, and the update with concatenated array like below:
+   
+   <code><pre>
+   tblPartsList.addEventListener('scrollend', function(e){
+     var cData = generateRamdomArray();
+     searchedResult = searchedResult.concat(cData);
+       		
+     tblPartsList.data = [];
+     tblPartsList.data = searchedResult;
+   });
+   </pre></code>
+   
+   However, this cause _re-creation of entire table view row_ despite you only want to append new rows. Instead of doing this, following code would be much better because this does not re-create entire table view rows.
+   
+   <code><pre>
+   tblPartsList.addEventListener('scrollend', function(e){
+     var cData = generateRamdomArray();    		
+     tblPartsList.appendRow(cData);
+   });
+   </pre></code>
+   
+   <h4><code>scrollend</code> is fired too often when you drag scroll bar on Windows desktop</h4>
+   
+   We see that Windows desktop TableView fires <code>scrollend</code> too often when you drag scroll bar. This is because Windows UWP component actually fires the event too often and Titanium is only forwarding the event acoordingly:( FYI this does not happen when you click (not drag) scroll bar arrow button so I would think this is platform component behavior bug but TIMOB-27335 will be taking care of this to try to suppress this.
+   
+   <h4>Windows TableView is basically heavy weight UI component</h4>
+   
+   Windows <code>TableView</code> and <code>ListView</code> is relatively heavy weight UI component. You might want to check out the <a href="https://github.com/appcelerator-modules/ti.xaml.listview" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.xaml.listview</a> - we have much more lightweight module to represent tables -   in case you want to push lot more rows to the table.
+   </li>
+<li>Kota Iguchi 2019-08-26
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/1422" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/1422</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27303.json">JSON Source</a></p>

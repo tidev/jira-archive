@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-4888] iOS: app does not rotate to landscape if it is launched while the device is in landscape"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-11-16T11:19:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-37, Release 1.7.4, Release 1.8.0, Release 1.8.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_orientation, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Jon Alter</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-08-03T18:08:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you hold the device in landscape and the launch the app it fires up in portrait as it should but it does not rotate to landscape as it should. It does rotate to landscape after you rotate the device to portrait and then back to landscape.
+
+If launching the app on a device that is in landscape, the app should launch in portrait and then rotate to landscape. You can see this using the mail app.
+
+Step 1: run the code below
+Step 2: hold the device in landscape before launching the app (this is the same for the simulator, you just need to rotate it to landscape before the app launches)
+Step 3: launch the app
+Step 4: notice that the app does not rotate to landscape after it launches
+Step 5: rotate the device to portrait and then back to landscape
+Step 6: notice that the app rotates to landscape
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: 'blue',
+	orientationModes: [Ti.UI.PORTRAIT, Ti.UI.LANDSCAPE_LEFT, Ti.UI.LANDSCAPE_RIGHT]
+});
+
+var label = Ti.UI.createLabel({
+	text: "I am a string"
+});
+win.add(label);
+
+win.open();
+</pre></code>
+
+<h4>Associated Helpdesk Ticket</h4>
+<a href="http://appc.me/c/APP-724825" rel="nofollow" target="_blank">http://appc.me/c/APP-724825</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Alan Vaghti 2011-09-13
+
+   As per Blain, tiapp.xml orientation attributes must be changed to the following for a proper test case:
+   
+       <code><pre><iphone>
+           <orientations device="iphone">
+               <orientation>Ti.UI.PORTRAIT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_LEFT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_RIGHT</orientation>
+           </orientations>
+           <orientations device="ipad">
+               <orientation>Ti.UI.PORTRAIT</orientation>
+               <orientation>Ti.UI.UPSIDE_PORTRAIT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_LEFT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_RIGHT</orientation>
+           </orientations>
+   </iphone>
+   </pre></code></li>
+<li>Reggie Seagraves 2011-09-14
+
+   resolved <a href="https://github.com/appcelerator/titanium_mobile/pull/464" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/464</a></li>
+<li>Alan Vaghti 2011-09-15
+
+   Fix verified on iPhone 4 4.2.10, iPod 3rd gen 4.0.2, and iPad 4.3.5.
+   
+   SDK used for testing: 1.8.0v20110915101349</li>
+<li>Eric Merriman  2011-10-21
+
+   verified fixed with SDK 1.7.4.v20111021114614 on iPhone 4 (iOS 5), iPod touch 4th gen (iOS 4.3.5)</li>
+<li>Eric Merriman  2011-10-23
+
+   Reopening as I failed to try the simulator. Verified fixed with SDK 1.7.4.v20111021181815, iPod Touch 3rd gen (iOS 4.0.2), iPad2 (iOS 5.0). Verified not functioning on simulator when quickly switching to landscape just before launch, or when launch from simulator home, the bug occurs. 
+   
+   Lowering severity since this is only affecting the simulator.</li>
+<li>Eric Merriman  2011-10-24
+
+   With TiApp only specifying iPhone orientation "portrait" with no iPad orientation set in Tiapp, the applications on the first launch with device in landscape will load with the portrait splash as expected, but the UI will not rotate to landscape after load until the device is rotated. On subsequent launches it works as expected. This is a more important issue for pre-4.0 devices as each launch is a "first launch".</li>
+<li>Blain Hamon 2011-11-14
+
+   Having to note, that despite it being logical, rotating the simulator does not always translate into a physical rotation. In other words, if the device UI is in portrait yet on its side when launching the app, the OS gives no landscape rotation event. You can verify this by doing the same test with Safari. The safari app also won't rotate on the sim if launched on its side.</li>
+<li>Stephen Tramer 2011-11-16
+
+   Issues are linked in commits and fix-version.</li>
+<li>Eric Merriman  2011-11-22
+
+   Update:
+   For Blain's comment above: Safari in all three simulators (iPad, iPhone, iPhone retina) does not rotate after launch, this does not match actual device behavior, see below.
+   
+   Baseline Apple iOS behavior: On three devices (iPad 2 4.3.5, iPod 4.0.1, iPhone 4s 5.01) held in landscape: When launching safari on iPad, the UI is always landscape, and safari launches landscape. On the other two devices, the main screen ui is in portrait even while the device in landscape. Launching safari begins in portrait, then rotates to landscape on load.
+   
+   Investigation: Using an app with <orientation>Ti.UI.PORTRAIT</orientation> set in TiApp.xml, but with all orientations allowed in the app.js. Devices all held in landscape to launch the apps: Expected result is splash in portrait, and UI rotates to landscape on launch. Actual results:
+   
+   iPod (4.0.1):
+   1.7.6.v20111114104114: App loads with portrait splash, does not rotate. This occurs on the first launch only. Susequent launches rotate to landscape as expected.
+   1.8.0.1.v20111121164257: App loads with portrait splash, rotates as expected.
+   
+   iPad 2 (4.3.5):
+   1.7.6.v20111114104114: App loads with portrait splash, does not rotate. This occurs on the first launch only. Susequent launches rotate to landscape as expected.
+   1.8.0.1.v20111121164257: App loads with portrait splash, rotates as expected.
+   
+   iPhone 4s (5.01):
+   1.7.6.v20111114104114: App loads with portrait splash, rotates as expected.
+   1.8.0.1.v20111121164257: App loads with portrait splash, rotates as expected.</li>
+<li>Wilson Luu 2011-12-07
+
+    Closing bug. Verified fix on:
+    
+    OS: Mac OS X Lion
+    Titanium Studio, build: 1.0.7.201112061404
+    SDK build: 1.8.0.1.v20111207151125
+    Device: iphone 4S Sprint (5.0.1)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4888.json">JSON Source</a></p>

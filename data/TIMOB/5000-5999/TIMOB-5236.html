@@ -1,0 +1,591 @@
+---
+title: "[TIMOB-5236] Android: Resource not found exception with density specific images"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-10-17T07:56:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.1, Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-37, Release 1.7.3, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>test-1.7.3</td></tr>
+<tr><th>Reporter</th><td>Jon Alter</td></tr>
+<tr><th>Assignee</th><td>Bill Dawson</td></tr>
+<tr><th>Created</th><td>2011-09-08T15:59:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Without Barcode </h4>
+
+Steps to reproduce without barcode
+Step 1: download and run the attached app
+Step 2: comment references to the barcode module from tiapp.xml and app.js
+Step 3: launch the app
+Step 3: see the app crash (The app has stopped unexpectedly)
+Step 4: if it does not crash: kill the app, launch the app
+
+If you rename the "Resources/android/images" folder so that the density specific resources are not available you will no longer see this error.
+
+<h4>With Barcode Module</h4>
+On the HTC HERO200, 2.1-update1 it was only possible to reproduce this error when the barcode module was included in the project. 
+
+If you use the barcode module and have and image view that uses a density specific image, the image is not found when you click it and the barcode module is launched. This is random, it happens maybe 1 in 5x.
+
+These are the steps to reproduce with the barcode module.
+Step 1: download and run the attached app
+Step 2: click the barcode button/image
+Step 3: see the app crash (The app has stopped unexpectedly)
+Step 4: if it does not crash: kill the app, launch the app, click the barcode button
+
+If you rename the "Resources/android/images" folder so that the density specific resources are not available you will no longer see this error.
+
+Requirements to reproduce:
+1. density specific images (if you delete the "Resources/android/images" folder it will not crash)
+2. createImageView must be in a function
+3. createAppImageView must be called at least 2x (the second one does not need to be added to the window)
+
+<h4>Examples</h4>
+<code><pre>
+Titanium.Barcode = Ti.Barcode = require('ti.barcode');
+Ti.Barcode.addEventListener('success', function(e) {
+	Ti.API.info('###### Success #####');
+});
+var createAppImageView = function(image, top, left) {
+	var imageView = Ti.UI.createImageView({
+		image : image,
+		top : top,
+		left : left,
+		height : 'auto',
+		width : 'auto'
+	});
+	return imageView;
+};
+var homeWindow = Titanium.UI.createWindow({
+	backgroundColor : "#fff",
+	color : "black"
+});
+homeWindow.exitOnClose = true;
+t1 = 60;
+t2 = 175;
+t3 = 290;
+l1 = 25;
+l2 = 122;
+l3 = 220;
+
+var QRcode = createAppImageView('/images/home_icons/icon_qr_scan.png', t3, l1);
+// var events = createAppImageView('/images/home_icons/icon_events.png', t3, l2);
+var mymichaels = createAppImageView('/images/home_icons/icon_my_michaels.png', t3, l3);
+
+QRcode.addEventListener('click', function() {
+	Ti.Barcode.capture();
+});
+
+homeWindow.add(QRcode);
+homeWindow.open();
+
+</pre></code>
+D/dalvikvm(  522): GC freed 720 objects / 32752 bytes in 111ms
+W/dalvikvm(  104): disableGcForExternalAlloc: true
+I/ActivityManager(  104): Starting activity: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.michaels.michaelsstores/.MichaelsActivity bnds=[163,238][237,317] }
+D/Sensors (  104): open_akm, fd=195
+D/AK8973  (   61): Compass Start
+I/TiRootActivity(22485): (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+D/dalvikvm(22485): GC freed 7092 objects / 495256 bytes in 126ms
+E/TiApplication(22485): (main) [247,247] APP PROXY: [Ti.App]
+D/KrollContext(22485): (kroll$2: app://app.js) [16,263] Running evaluated script: file:///android_asset/Resources/app.js
+D/TitaniumModule(22485): (kroll$2: app://app.js) [51,314] Attempting to include native module: ti.barcode
+D/TitaniumModule(22485): (kroll$2: app://app.js) [3,317] Succesfully loaded module: barcode/1.1
+I/TiRootActivity(22485): (main) [0,0] checkpoint, on root activity resume. context = org.appcelerator.titanium.TiContext@445ba588
+I/ActivityManager(  104): Displayed activity com.michaels.michaelsstores/.MichaelsActivity: 553 ms (total 553 ms)
+W/dalvikvm(  104): disableGcForExternalAlloc: false
+D/BarcodeModule(22485): (kroll$2: app://app.js) [1558,1558] start the capture
+W/dalvikvm(  104): disableGcForExternalAlloc: true
+I/ActivityManager(  104): Starting activity: Intent { act=com.google.zxing.client.android.SCAN cmp=com.michaels.michaelsstores/com.google.zxing.client.android.CaptureActivity }
+I/WindowManager(  104): Setting rotation to 1, animFlags=0
+I/ActivityManager(  104): Config changed: { scale=1.0 imsi=310/120 loc=en_US touch=3 keys=1/1/2 nav=3/1 orien=2 layout=18}
+I/ActivityManager(  104): Launch activity, postpone broadcast intents
+W/ResourceType(22485): Failure getting entry for 0x7f02000b (t=1 e=11) in package 0: 0xffffffb5
+D/AndroidRuntime(22485): Shutting down VM
+W/dalvikvm(22485): threadid=3: thread exiting with uncaught exception (group=0x4001e390)
+E/TiUncaughtHandler(22485): (main) [669,2227] Sending event: exception on thread: main msg:android.content.res.Resources$NotFoundException: Resource ID #0x7f02000b; Titanium 1.7.1,2011/06/21 14:28,293a6d
+E/TiUncaughtHandler(22485): android.content.res.Resources$NotFoundException: Resource ID #0x7f02000b
+E/TiUncaughtHandler(22485): 	at android.content.res.Resources.getValue(Resources.java:891)
+E/TiUncaughtHandler(22485): 	at android.content.res.Resources.openRawResource(Resources.java:816)
+E/TiUncaughtHandler(22485): 	at android.content.res.Resources.openRawResource(Resources.java:798)
+E/TiUncaughtHandler(22485): 	at org.appcelerator.titanium.view.TiDrawableReference.getInputStream(TiDrawableReference.java:539)
+E/TiUncaughtHandler(22485): 	at org.appcelerator.titanium.view.TiDrawableReference.getBitmap(TiDrawableReference.java:370)
+E/TiUncaughtHandler(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView.setImage(TiUIImageView.java:589)
+E/TiUncaughtHandler(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView.access$400(TiUIImageView.java:52)
+E/TiUncaughtHandler(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView$1.sizeChanged(TiUIImageView.java:129)
+E/TiUncaughtHandler(22485): 	at ti.modules.titanium.ui.widget.TiImageView$NoLayoutImageView.onSizeChanged(TiImageView.java:97)
+E/TiUncaughtHandler(22485): 	at android.view.View.setFrame(View.java:6897)
+E/TiUncaughtHandler(22485): 	at android.widget.ImageView.setFrame(ImageView.java:776)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6824)
+E/TiUncaughtHandler(22485): 	at ti.modules.titanium.ui.widget.TiImageView.onLayout(TiImageView.java:435)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:358)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:358)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at android.widget.FrameLayout.onLayout(FrameLayout.java:333)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at android.widget.LinearLayout.setChildFrame(LinearLayout.java:1119)
+E/TiUncaughtHandler(22485): 	at android.widget.LinearLayout.layoutVertical(LinearLayout.java:998)
+E/TiUncaughtHandler(22485): 	at android.widget.LinearLayout.onLayout(LinearLayout.java:918)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at android.widget.FrameLayout.onLayout(FrameLayout.java:333)
+E/TiUncaughtHandler(22485): 	at android.view.View.layout(View.java:6830)
+E/TiUncaughtHandler(22485): 	at android.view.ViewRoot.performTraversals(ViewRoot.java:1000)
+E/TiUncaughtHandler(22485): 	at android.view.ViewRoot.handleMessage(ViewRoot.java:1639)
+E/TiUncaughtHandler(22485): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+E/TiUncaughtHandler(22485): 	at android.os.Looper.loop(Looper.java:123)
+E/TiUncaughtHandler(22485): 	at android.app.ActivityThread.main(ActivityThread.java:4595)
+E/TiUncaughtHandler(22485): 	at java.lang.reflect.Method.invokeNative(Native Method)
+E/TiUncaughtHandler(22485): 	at java.lang.reflect.Method.invoke(Method.java:521)
+E/TiUncaughtHandler(22485): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:860)
+E/TiUncaughtHandler(22485): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:618)
+E/TiUncaughtHandler(22485): 	at dalvik.system.NativeStart.main(Native Method)
+E/AndroidRuntime(22485): Uncaught handler: thread main exiting due to uncaught exception
+E/AndroidRuntime(22485): android.content.res.Resources$NotFoundException: Resource ID #0x7f02000b
+E/AndroidRuntime(22485): 	at android.content.res.Resources.getValue(Resources.java:891)
+E/AndroidRuntime(22485): 	at android.content.res.Resources.openRawResource(Resources.java:816)
+E/AndroidRuntime(22485): 	at android.content.res.Resources.openRawResource(Resources.java:798)
+E/AndroidRuntime(22485): 	at org.appcelerator.titanium.view.TiDrawableReference.getInputStream(TiDrawableReference.java:539)
+E/AndroidRuntime(22485): 	at org.appcelerator.titanium.view.TiDrawableReference.getBitmap(TiDrawableReference.java:370)
+E/AndroidRuntime(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView.setImage(TiUIImageView.java:589)
+E/AndroidRuntime(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView.access$400(TiUIImageView.java:52)
+E/AndroidRuntime(22485): 	at ti.modules.titanium.ui.widget.TiUIImageView$1.sizeChanged(TiUIImageView.java:129)
+E/AndroidRuntime(22485): 	at ti.modules.titanium.ui.widget.TiImageView$NoLayoutImageView.onSizeChanged(TiImageView.java:97)
+E/AndroidRuntime(22485): 	at android.view.View.setFrame(View.java:6897)
+E/AndroidRuntime(22485): 	at android.widget.ImageView.setFrame(ImageView.java:776)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6824)
+E/AndroidRuntime(22485): 	at ti.modules.titanium.ui.widget.TiImageView.onLayout(TiImageView.java:435)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:358)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:358)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at android.widget.FrameLayout.onLayout(FrameLayout.java:333)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at android.widget.LinearLayout.setChildFrame(LinearLayout.java:1119)
+E/AndroidRuntime(22485): 	at android.widget.LinearLayout.layoutVertical(LinearLayout.java:998)
+E/AndroidRuntime(22485): 	at android.widget.LinearLayout.onLayout(LinearLayout.java:918)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at android.widget.FrameLayout.onLayout(FrameLayout.java:333)
+E/AndroidRuntime(22485): 	at android.view.View.layout(View.java:6830)
+E/AndroidRuntime(22485): 	at android.view.ViewRoot.performTraversals(ViewRoot.java:1000)
+E/AndroidRuntime(22485): 	at android.view.ViewRoot.handleMessage(ViewRoot.java:1639)
+E/AndroidRuntime(22485): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+E/AndroidRuntime(22485): 	at android.os.Looper.loop(Looper.java:123)
+E/AndroidRuntime(22485): 	at android.app.ActivityThread.main(ActivityThread.java:4595)
+E/AndroidRuntime(22485): 	at java.lang.reflect.Method.invokeNative(Native Method)
+E/AndroidRuntime(22485): 	at java.lang.reflect.Method.invoke(Method.java:521)
+E/AndroidRuntime(22485): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:860)
+E/AndroidRuntime(22485): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:618)
+E/AndroidRuntime(22485): 	at dalvik.system.NativeStart.main(Native Method)
+I/Process (  104): Sending signal. PID: 22485 SIG: 3
+I/dalvikvm(22485): threadid=7: reacting to signal 3
+I/dalvikvm(22485): Wrote stack trace to '/data/anr/traces.txt'
+I/BatteryStatsImpl(  104): notePhoneSignalStrengthLocked: 4->3
+D/dalvikvm(  104): GC freed 8757 objects / 600008 bytes in 261ms
+<code><pre>
+
+</pre></code>
+/* AUTO-GENERATED FILE.  DO NOT MODIFY.
+ *
+ * This class was automatically generated by the
+ * aapt tool from the resource data it found.  It
+ * should not be modified by hand.
+ */
+
+package com.michaels.michaelsstores;
+
+public final class R {
+    public static final class attr {
+    }
+    public static final class color {
+        public static final int contents_text=0x7f060000;
+        public static final int encode_view=0x7f060001;
+        public static final int help_button_view=0x7f060002;
+        public static final int help_view=0x7f060003;
+        public static final int possible_result_points=0x7f060004;
+        public static final int result_image_border=0x7f060005;
+        public static final int result_minor_text=0x7f060006;
+        public static final int result_points=0x7f060007;
+        public static final int result_text=0x7f060008;
+        public static final int result_view=0x7f060009;
+        public static final int sbc_header_text=0x7f06000a;
+        public static final int sbc_header_view=0x7f06000b;
+        public static final int sbc_layout_view=0x7f06000d;
+        public static final int sbc_list_item=0x7f06000c;
+        public static final int sbc_page_number_text=0x7f06000e;
+        public static final int sbc_snippet_text=0x7f06000f;
+        public static final int share_text=0x7f060010;
+        public static final int share_view=0x7f060011;
+        public static final int status_text=0x7f060013;
+        public static final int status_view=0x7f060012;
+        public static final int transparent=0x7f060014;
+        public static final int viewfinder_frame=0x7f060015;
+        public static final int viewfinder_laser=0x7f060016;
+        public static final int viewfinder_mask=0x7f060017;
+    }
+    public static final class drawable {
+        public static final int appicon=0x7f020000;
+        public static final int appicon_e5fbaffc57=0x7f020001;
+        public static final int background=0x7f020002;
+        public static final int home_icons__57e1a7d905=0x7f020003;
+        public static final int home_icons_icon_coupons_081f921e4b=0x7f020004;
+        public static final int home_icons_icon_deals_3c8efd5311=0x7f020005;
+        public static final int home_icons_icon_events_41bdbd9131=0x7f020006;
+        public static final int home_icons_icon_lists_cf86c827c8=0x7f020007;
+        public static final int home_icons_icon_my_michaels_34007f623a=0x7f020008;
+        public static final int home_icons_icon_products_f4d11de1c3=0x7f020009;
+        public static final int home_icons_icon_projects_3bfe34dcb0=0x7f02000a;
+        public static final int home_icons_icon_qr_scan_3029f04cfd=0x7f02000b;
+        public static final int home_icons_icon_stores_8e6232758c=0x7f02000c;
+        public static final int home_icons_icons_background_4f85cf2e88=0x7f02000d;
+        public static final int launcher_icon=0x7f02000e;
+        public static final int share_via_barcode=0x7f02000f;
+        public static final int shopper_icon=0x7f020010;
+    }
+    public static final class id {
+        public static final int app_button=0x7f070029;
+        /**  Messages IDs 
+         */
+        public static final int auto_focus=0x7f070000;
+        public static final int back_button=0x7f070021;
+        public static final int barcode_image_view=0x7f070011;
+        public static final int bookmark_button=0x7f07002a;
+        public static final int bookmark_title=0x7f07000c;
+        public static final int bookmark_url=0x7f07000d;
+        public static final int clipboard_button=0x7f07002c;
+        public static final int contact_button=0x7f07002b;
+        public static final int contents_text_view=0x7f07001a;
+        public static final int decode=0x7f070001;
+        public static final int decode_failed=0x7f070002;
+        public static final int decode_succeeded=0x7f070003;
+        public static final int done_button=0x7f070022;
+        public static final int encode_failed=0x7f070004;
+        public static final int encode_succeeded=0x7f070005;
+        public static final int encode_view=0x7f07001e;
+        public static final int format_text_view=0x7f070013;
+        public static final int format_text_view_label=0x7f070012;
+        public static final int help_contents=0x7f070020;
+        public static final int image_view=0x7f07001f;
+        public static final int launch_product_query=0x7f070006;
+        public static final int meta_text_view=0x7f070019;
+        public static final int meta_text_view_label=0x7f070018;
+        public static final int networkStatus=0x7f070023;
+        public static final int page_number_view=0x7f070027;
+        public static final int preview_view=0x7f07000e;
+        public static final int query_button=0x7f070025;
+        public static final int query_text_view=0x7f070024;
+        public static final int quit=0x7f070007;
+        public static final int restart_preview=0x7f070008;
+        public static final int result_button_view=0x7f07001b;
+        public static final int result_list_view=0x7f070026;
+        public static final int result_view=0x7f070010;
+        public static final int return_scan_result=0x7f070009;
+        public static final int search_book_contents_failed=0x7f07000a;
+        public static final int search_book_contents_succeeded=0x7f07000b;
+        public static final int shopper_button=0x7f07001c;
+        public static final int snippet_view=0x7f070028;
+        public static final int status_view=0x7f07001d;
+        public static final int time_text_view=0x7f070017;
+        public static final int time_text_view_label=0x7f070016;
+        public static final int type_text_view=0x7f070015;
+        public static final int type_text_view_label=0x7f070014;
+        public static final int viewfinder_view=0x7f07000f;
+    }
+    public static final class layout {
+        public static final int bookmark_picker_list_item=0x7f030000;
+        public static final int capture=0x7f030001;
+        public static final int encode=0x7f030002;
+        public static final int help=0x7f030003;
+        public static final int network=0x7f030004;
+        public static final int search_book_contents=0x7f030005;
+        public static final int search_book_contents_header=0x7f030006;
+        public static final int search_book_contents_list_item=0x7f030007;
+        public static final int share=0x7f030008;
+        public static final int titanium_tabgroup=0x7f030009;
+    }
+    public static final class raw {
+        public static final int beep=0x7f050000;
+    }
+    public static final class string {
+        public static final int app_name=0x7f080000;
+        public static final int app_picker_name=0x7f080001;
+        public static final int bookmark_picker_name=0x7f080002;
+        public static final int button_add_calendar=0x7f080003;
+        public static final int button_add_contact=0x7f080004;
+        public static final int button_back=0x7f080005;
+        public static final int button_book_search=0x7f080006;
+        public static final int button_cancel=0x7f080007;
+        public static final int button_clipboard_empty=0x7f080008;
+        public static final int button_custom_product_search=0x7f080009;
+        public static final int button_dial=0x7f08000a;
+        public static final int button_done=0x7f08000b;
+        public static final int button_email=0x7f08000c;
+        public static final int button_get_directions=0x7f08000d;
+        public static final int button_google_shopper=0x7f08000e;
+        public static final int button_mms=0x7f08000f;
+        public static final int button_ok=0x7f080010;
+        public static final int button_open_browser=0x7f080011;
+        public static final int button_product_search=0x7f080012;
+        public static final int button_read_book=0x7f080013;
+        public static final int button_search_book_contents=0x7f080014;
+        public static final int button_share_app=0x7f080015;
+        public static final int button_share_bookmark=0x7f080016;
+        public static final int button_share_by_email=0x7f080017;
+        public static final int button_share_by_sms=0x7f080018;
+        public static final int button_share_clipboard=0x7f080019;
+        public static final int button_share_contact=0x7f08001a;
+        public static final int button_show_map=0x7f08001b;
+        public static final int button_sms=0x7f08001c;
+        public static final int button_web_search=0x7f08001d;
+        public static final int button_wifi=0x7f08001e;
+        public static final int contents_contact=0x7f08001f;
+        public static final int contents_email=0x7f080020;
+        public static final int contents_location=0x7f080021;
+        public static final int contents_phone=0x7f080022;
+        public static final int contents_sms=0x7f080023;
+        public static final int contents_text=0x7f080024;
+        public static final int history_clear_text=0x7f080025;
+        public static final int history_email_title=0x7f080026;
+        public static final int history_send=0x7f080027;
+        public static final int history_title=0x7f080028;
+        public static final int menu_about=0x7f080029;
+        public static final int menu_help=0x7f08002a;
+        public static final int menu_history=0x7f08002b;
+        public static final int menu_settings=0x7f08002c;
+        public static final int menu_share=0x7f08002d;
+        public static final int msg_about=0x7f08002e;
+        public static final int msg_buggy=0x7f08002f;
+        public static final int msg_bulk_mode_scanned=0x7f080030;
+        public static final int msg_camera_framework_bug=0x7f080031;
+        public static final int msg_default_contents=0x7f080032;
+        public static final int msg_default_format=0x7f080033;
+        public static final int msg_default_meta=0x7f080034;
+        public static final int msg_default_mms_subject=0x7f080035;
+        public static final int msg_default_status=0x7f080036;
+        public static final int msg_default_time=0x7f080037;
+        public static final int msg_default_type=0x7f080038;
+        public static final int msg_encode_barcode_failed=0x7f080039;
+        public static final int msg_encode_contents_failed=0x7f08003a;
+        public static final int msg_google_shopper_missing=0x7f08003b;
+        public static final int msg_install_google_shopper=0x7f08003c;
+        public static final int msg_intent_failed=0x7f08003d;
+        public static final int msg_loading_apps=0x7f08003e;
+        public static final int msg_not_our_results=0x7f08003f;
+        public static final int msg_sbc_book_not_searchable=0x7f080040;
+        public static final int msg_sbc_failed=0x7f080041;
+        public static final int msg_sbc_no_page_returned=0x7f080042;
+        public static final int msg_sbc_page=0x7f080043;
+        public static final int msg_sbc_searching_book=0x7f080044;
+        public static final int msg_sbc_snippet_unavailable=0x7f080045;
+        public static final int msg_sbc_unknown_page=0x7f080046;
+        public static final int msg_share_explanation=0x7f080047;
+        public static final int msg_share_subject_line=0x7f080048;
+        public static final int msg_unmount_usb=0x7f080049;
+        public static final int preferences_actions_title=0x7f08004a;
+        public static final int preferences_bulk_mode_summary=0x7f08004b;
+        public static final int preferences_bulk_mode_title=0x7f08004c;
+        public static final int preferences_copy_to_clipboard_title=0x7f08004d;
+        public static final int preferences_custom_product_search_summary=0x7f08004e;
+        public static final int preferences_custom_product_search_title=0x7f08004f;
+        public static final int preferences_decode_1D_title=0x7f080050;
+        public static final int preferences_decode_Data_Matrix_title=0x7f080051;
+        public static final int preferences_decode_QR_title=0x7f080052;
+        public static final int preferences_front_light_summary=0x7f080053;
+        public static final int preferences_front_light_title=0x7f080054;
+        public static final int preferences_general_title=0x7f080055;
+        public static final int preferences_name=0x7f080056;
+        public static final int preferences_play_beep_title=0x7f080057;
+        public static final int preferences_result_title=0x7f080058;
+        public static final int preferences_scanning_title=0x7f080059;
+        public static final int preferences_vibrate_title=0x7f08005a;
+        public static final int result_address_book=0x7f08005b;
+        public static final int result_calendar=0x7f08005c;
+        public static final int result_email_address=0x7f08005d;
+        public static final int result_geo=0x7f08005e;
+        public static final int result_isbn=0x7f08005f;
+        public static final int result_product=0x7f080060;
+        public static final int result_sms=0x7f080061;
+        public static final int result_tel=0x7f080062;
+        public static final int result_text=0x7f080063;
+        public static final int result_uri=0x7f080064;
+        public static final int result_wifi=0x7f080065;
+        public static final int sbc_name=0x7f080066;
+        public static final int share_name=0x7f080067;
+        public static final int title_about=0x7f080068;
+        public static final int wa_name=0x7f080069;
+        public static final int wifi_changing_network=0x7f08006a;
+        public static final int wifi_connect_failed=0x7f080070;
+        public static final int wifi_connected=0x7f08006b;
+        public static final int wifi_creating_network=0x7f08006c;
+        public static final int wifi_modifying_network=0x7f08006d;
+        public static final int wifi_ssid_label=0x7f080071;
+        public static final int wifi_ssid_missing=0x7f08006e;
+        public static final int wifi_type_incorrect=0x7f08006f;
+        public static final int wifi_type_label=0x7f080072;
+        public static final int zxing_url=0x7f080073;
+    }
+    public static final class style {
+        public static final int Theme_Titanium=0x7f090000;
+    }
+    public static final class xml {
+        public static final int preferences=0x7f040000;
+    }
+    public static final class styleable {
+        /** Attributes that can be used with a ViewfinderView.
+         */
+        public static final int[] ViewfinderView = {
+            
+        };
+    };
+}
+<code><pre>
+
+</pre></code>
+/* AUTO-GENERATED FILE.  DO NOT MODIFY.
+ *
+ * This class was automatically generated by the
+ * aapt tool from the resource data it found.  It
+ * should not be modified by hand.
+ */
+
+package com.michaels.michaelsstores;
+
+public final class R {
+    public static final class attr {
+    }
+    public static final class drawable {
+        public static final int appicon=0x7f020000;
+        public static final int appicon_e5fbaffc57=0x7f020001;
+        public static final int background=0x7f020002;
+        public static final int home_icons__57e1a7d905=0x7f020003;
+        public static final int home_icons_icon_coupons_081f921e4b=0x7f020004;
+        public static final int home_icons_icon_deals_3c8efd5311=0x7f020005;
+        public static final int home_icons_icon_events_41bdbd9131=0x7f020006;
+        public static final int home_icons_icon_lists_cf86c827c8=0x7f020007;
+        public static final int home_icons_icon_my_michaels_34007f623a=0x7f020008;
+        public static final int home_icons_icon_products_f4d11de1c3=0x7f020009;
+        public static final int home_icons_icon_projects_3bfe34dcb0=0x7f02000a;
+        public static final int home_icons_icon_qr_scan_3029f04cfd=0x7f02000b;
+        public static final int home_icons_icon_stores_8e6232758c=0x7f02000c;
+        public static final int home_icons_icons_background_4f85cf2e88=0x7f02000d;
+    }
+    public static final class layout {
+        public static final int titanium_tabgroup=0x7f030000;
+    }
+    public static final class style {
+        public static final int Theme_Titanium=0x7f040000;
+    }
+}
+```
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5236_22869/Archive 3 (1).zip">Archive 3 (1).zip</td></td><td>2011-09-08T15:59:25.000+0000</td><td>3329962</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5236_22918/timob5236.zip">timob5236.zip</td></td><td>2011-09-13T08:24:24.000+0000</td><td>7129429</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jeff English 2011-09-09
+
+   @Marshall I could only get it to fail on device -- Android Incredible, Android 2.2. Works fine on emulator.</li>
+<li>Jon Alter 2011-09-09
+
+   @Marshall I was only able to repro this on the HTC HERO200. It works fine on the emulator.</li>
+<li>Jon Alter 2011-09-09
+
+   Confirmed crashing with 1.8.0.v20110908112549
+   logcat: <a href="http://www.pastie.org/private/e0nysmmlq2ejvbxcfd1vg" rel="nofollow" target="_blank">http://www.pastie.org/private/e0nysmmlq2ejvbxcfd1vg</a></li>
+<li>Bill Dawson 2011-09-12
+
+   I'm pretty sure this is just happening because you're tilting the phone a bit, enough for Android to start looking to load the resource file (for the image) that is relevant for landscape mode.  And there isn't one, therefore the error.  If I create res-long-land-mdpi, res-long-land-hdpi, res-notlong-land-mdpi and res-notlong-land-hdpi folders and dump images in there, the exception doesn't ever occur.</li>
+<li>Bill Dawson 2011-09-13
+
+   Simpler test project (no modules)</li>
+<li>Bill Dawson 2011-09-13
+
+   We've improved the situation so that at least you get a hint in an error message in logcat.  (In the branch for the pull request.)
+   
+   To reproduce error (and see the new message in logcat):
+   
+   1) Download timob5236.zip attached here and unzip it.
+   
+   2) Run the project on an Android physical device (because tilting is important.)
+   
+   3) Start the app with the phone in portrait mode.  When it's done loading, rotate the phone to landscape.
+   
+   4) If it doesn't crash at that point, go to Settings - Applications on the phone and force stop the application.  Then start it again in portrait and move it to landscape.  It could be you need to do this a few times to get the crash.
+   
+   5) When the crash finally happens, view logcat.  You should see (above the stack trace) a message such as the following:
+   
+   <code><pre>
+   E/TiDrawableReference(17592): (main) [0,2535] Drawable resource could not be opened. Are you sure you have the resource for the current device configuration (e.g., orientation, screen size, etc.)?
+   </pre></code>
+   
+   </li>
+<li>Bill Dawson 2011-09-13
+
+   Pull request ready:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/463" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/463</a></li>
+<li>Natalie Huynh 2011-09-21
+
+   Tested with 1.8.0.v20110921124951 on
+   Hero 2.1 
+   GSlate 3.1</li>
+<li>Bill Dawson 2011-09-28
+
+   Reopening for 1.7.X merge</li>
+<li>Bill Dawson 2011-09-28
+
+    Merged to 1_7_3 branch.</li>
+<li>Natalie Huynh 2011-09-30
+
+    Tested with 1.7.3.v20110928185013 on GSlate 3.1
+    
+    E/TiDrawableReference( 8236): (main) [3,24] Drawable resource could not be opened. Are you sure you have the resource for the current device configuration (orientation, screen size, etc.)?
+    D/AndroidRuntime( 8236): Shutting down VM
+    W/dalvikvm( 8236): threadid=1: thread exiting with uncaught exception (group=0x401f6760)
+    
+    Compiling in emulator I get this running:
+    D/TiFastDev(  291): (Thread-11) [302,357016] checking for message? true
+    D/TiFastDev(  291): (Thread-11) [302,357318] checking for message? true
+    D/TiFastDev(  291): (Thread-11) [302,357620] checking for message? true
+    D/TiFastDev(  291): (Thread-11) [301,357921] checking for message? true</li>
+<li>Bill Dawson 2011-09-30
+
+    The FastDev messages are not relevant -- they always scroll by the screen.  Set the android debug property to <code>false</code> in the tiapp.xml to avoid them.  Then it will be easier to pinpoint any problems you have building and releasing to the emulator, since you won't have all those messages to sort through.
+    
+    I just tested on Emulator, no problem.  It could be you need to do <code>adb kill-server</code> and <code>adb start-server</code>.  You can check to see if the emulator is ready by doing <code>adb devices</code> and see if it's available.
+    
+    I tested on G-Slate with Android 3.1.  No problems there either.  Remember, the test app is testing going from portrait to landscape.  Did you start the app with the G-Slate in portrait mode?  (It's in landscape by default.)
+    
+    It's my opinion that no changes are required.</li>
+<li>Thomas Huelbert 2011-10-01
+
+    E/TiDrawableReference(10073): (main) [0,10367] Drawable resource could not be opened. Are you sure you have the resource for the current device configuration (orientation, screen size, etc.)?
+    
+    gslate (3.1) 1.7.3 20110928185013</li>
+<li>Thomas Huelbert 2011-10-01
+
+    been confirmed in 1.8.0 and 1.7.3, closing</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5236.json">JSON Source</a></p>

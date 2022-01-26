@@ -1,0 +1,113 @@
+---
+title: "[AC-5819] Cannot change launchMode for Android in tiapp.xml"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-01T13:47:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, titanium</td></tr>
+<tr><th>Reporter</th><td>Yahya Uddin</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2018-07-31T22:05:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T19:27:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Whenever I add <code>android:launchMode="singleTask"</code> to the main activity of the application in tiapp.xml, and build the application, it does not appear in the compiled <code>AndroidManifest.xml</code>.
+
+To reproduce the issue:
+<h4>Create a new project</h4>
+<h4>Build to generate initial AndroidManifest.xml file: <code>appc ti run -b -p android</code></h4>
+<h4>Open the generated <code>build/android/AndroidManifest.xml</code> and copy the first <code><activity></code> tree to the <code>tiapp.xml</code> under <code>ti:app/android/manifest/application</code>. You will need to create the empty <code><manifest></code> and <code><application></code> elements yourself.</h4>
+<h4>Add android:launchMode="singleTask" to the <activity> element and save tiapp.xml.</h4>
+<h4>Re-build the app using:  <code>appc ti run -b -p android</code></h4>
+<h4>Open the generated  <code>build/android/AndroidManifest.xml</code>, and you will see the <code>android:launchMode="singleTask"</code> was not added.</h4>
+
+Here is an example of how the tiapp.xml file will look something like:
+
+
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app
+        xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+    <name>Sandbox</name>
+    <!-- ... -->
+    <android
+            xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+        <manifest android:versionCode="3" android:versionName="2.0.0.0">
+            <application android:debuggable="true" android:icon="@drawable/appicon" android:label="Sandbox"
+                         android:name="SandboxApplication" android:theme="@style/Theme.AppCompat">
+                <activity android:name=".SandboxActivity" android:label="@string/app_name"
+                          android:theme="@style/Theme.Titanium"
+                          android:configChanges="keyboardHidden|orientation|fontScale|screenSize|smallestScreenSize|screenLayout|density"
+                          android:launchMode="singleTask">
+                </activity>
+            </application>
+        </manifest>
+    </android>
+    <!-- ... -->
+</ti:app>
+</pre></code>
+
+
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-08-01
+
+   This is not a bug. Titanium purposely ignores the "launchMode" setting. Attempting to set it will output the following build warning...
+   <code><pre>
+   [WARN] : android:launchMode should not be used. Ignoring definition from <ActivityName>
+   </pre></code>
+   
+   The reason is because there is a lot of confusion about how Google's "singleTask" feature works. When using "singleTask", the Android OS will automatically close all child windows and display the root window when resuming your app. This is the OS' behavior and not Titanium's behavior. In a Titanium app, the root singleTask window is the splash-screen window. So, all Titanium windows you've opened in JavaScript will have been closed. (Again, we have no control over this behavior.)
+   
+   We do offer an alternative solution via our "tiapp.xml" <code>intent-filter-new-task</code> property. Please see the following...
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/8897" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8897</a>
+   </li>
+<li>Yahya Uddin 2018-08-01
+
+   I see. Thank you for your help, but I would consider updating the documentation in Ti.nfc examples:
+   <a href="https://github.com/appcelerator-modules/ti.nfc/blob/master/android/example/TagViewer/app/controllers/index.js" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.nfc/blob/master/android/example/TagViewer/app/controllers/index.js</a></li>
+<li>Yahya Uddin 2018-08-01
+
+   Please note that I have added 
+   
+   <code><pre>
+   <property name="intent-filter-new-task" type="bool">false</property>
+   </pre></code>
+   
+   as a child element to <code>ti:app</code>, but when I scan an NFC tag using the example shown above, it opens a new instance of the app with the app name as "NFC Service".
+   What am I doing wrong?</li>
+<li>Rene Pot 2018-08-01
+
+   [~yahya12] this documentation should be more up to date, can you follow this: <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Nfc</li>
+<li>Rene Pot 2018-08-01
+
+   Also marked this as duplicate as AC-5820 seems to be the same issue.</li>
+<li>Yahya Uddin 2018-08-01
+
+   Yes I have looked at the doc also, and it doesn't solve the issue.</li>
+<li>Joshua Quick 2018-08-02
+
+   Due to popular demand, we plan on making "launchMode" settable in Titanium 7.3.0 GA.
+   Please see: [TIMOB-26250]
+   
+   I've also posted code on how to deal with "singleTask" mode here...
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10225" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10225</a>
+   
+   The key thing here is that "singleTask" mode will automatically close all child windows when resumed. What you're supposed to do is listen for the "newIntent" event from the root singleTask activity, which you can acquire on app startup. When a new intent has been received, you should display UI related to that intent.</li>
+</ol>
+
+
+<p><a href="/AC/AC-5819.json">JSON Source</a></p>

@@ -1,0 +1,191 @@
+---
+title: "[TIMOB-17740] iOS: Aborting upload causes file to stay in RAM"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-12-05T21:39:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>3.4.0, TCSupport, release-3.3.0, release-3.4.0</td></tr>
+<tr><th>Reporter</th><td>Donovan Lewis</td></tr>
+<tr><th>Assignee</th><td>Jon Alter</td></tr>
+<tr><th>Created</th><td>2014-09-19T03:02:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-01-19T19:39:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+When aborting a file upload the file that was loaded into ram is kept in ram. The ram does not get cleared unless the upload is completed. So every file thats uploaded and aborted is being kept in active ram on the device. 
+
+If a user uploads a file and aborts the upload multiple times ram usage becomes very high and will cause the app to crash. This did not happen with release-3.2.3 the ram would get cleared when the upload was aborted.  
+
+When watching instruments while preforming a upload you can watch ram using spike on each upload but never be released.
+
+
+<h4>Steps to reproduce</h4>
+1. Create new mobile project (classic titanium)
+2. Please copy the Attached file to the Resources directory. 
+3. Paste the Sample Code to app.js ( to test with large upload file that will automatically abort after 2.5 seconds) :
+<code><pre>
+var win = Titanium.UI.createWindow({backgroundColor:'#fff',layout:'vertical'});
+ 
+var ind = Titanium.UI.createProgressBar({
+    width:200,
+    height:50,
+    min:0,
+    max:1,
+    value:0,
+    top:10,
+    message:'Progress',
+    font:{fontSize:12, fontWeight:'bold'},
+    color:'#888'
+});
+ 
+win.add(ind);
+ind.show();
+
+addButton({
+    title: 'Upload File',
+    callback: function(e) {
+        ind.value = 0;
+ 
+ 		var canceled = false;
+        var file = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory,'sunset.jpg');
+        var uploadfile = file.read();
+ 
+        var httpClient = Titanium.Network.createHTTPClient(); 
+        httpClient.setTimeout(12000);
+ 
+        var uploadStartTime = new Date().getTime();
+ 
+        httpClient.onsendstream = function(e){ 
+            ind.value = e.progress;
+            // The upload is cancelled at 25%
+            if (e.progress >= 0.25) {
+            	httpClient.abort();
+            	httpClient = null;
+            }
+        };
+ 
+        httpClient.open('POST', '<a href="http://cachefly.cachefly.net" rel="nofollow" target="_blank">http://cachefly.cachefly.net</a>'); 
+        httpClient.send({media:uploadfile});
+    }
+});
+
+addButton({
+    title: 'Open Window',
+    callback: function(e) {
+        openWindow();
+    }
+});
+   
+function addButton(args) {
+    var b1 = Ti.UI.createButton({
+        title: args.title,
+        top: 40
+    });
+    b1.addEventListener('click', args.callback);
+    win.add(b1);
+}
+  
+function openWindow() {
+    var win2 = Ti.UI.createWindow({
+        backgroundColor: 'blue',
+        layout:'horizontal'
+    });
+    for (var i=0;i<500;i++) {
+        var v = Ti.UI.createView({
+            backgroundColor: 'red',
+            height: 50, width: 50,
+            top:5, left:5
+        });
+ 
+        var l = Ti.UI.createLabel({text: i})
+        v.add(l);
+        win2.add(v);
+    }
+    win2.addEventListener('click', function() {
+        win2.close();
+    });
+    win2.open();
+}
+
+win.open();
+</pre></code>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17740_51433/sunset.jpg">sunset.jpg</td></td><td>2014-09-19T03:02:37.000+0000</td><td>7712782</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Donovan Lewis 2014-09-22
+
+   Did some more on device testing of this with a iPhone 5s and iPhone 6. When watching with instruments the ram usage spikes on each upload test and isn't released when aborted and eventually with crash the app with a NSAllocateMemoryPages error. 
+   
+   If I build the same code with TI SDK 3.2.3 this is not the case, the file is never even put into ram on the upload I can do it hundreds of times with no memory issues at all. </li>
+<li>Ingo Muschenetz 2014-09-30
+
+   Removing iOS 8 label as I don't believe this is iOS 8 related</li>
+<li>Jon Alter 2014-11-25
+
+   There is a memory leak in master (TIMOB-18096) that needs to be resolved before this one.</li>
+<li>Jon Alter 2014-11-26
+
+   PR
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6404" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6404</a>
+   
+   <h4>Testing instructions</h4>
+   Because of the way garbage collection is now handled in JSCore (TIMOB-18096) it will be tricky to see that this fixed the issue. Follow the instructions below.
+   
+   <h4>Download the image attached to this ticket and put it in your *Resources* directory.</h4>
+   <h4>Copy the example code seen in the description of this ticket and put it in your *app.js*.</h4>
+   <h4>Build your app.</h4>
+   <h4>Open the generated Xcode project found in *YourApp/build/iphone/*.</h4>
+   <h4>In Xcode click and hold on the *Run* button at the top left (It looks like a "play" button on a music player). You will see a dropdown, select *Profile* and release your click. Once Xcode builds the app, it will launch *Instruments*.</h4>
+   <h4>Instruments will prompt you for a profiling template. Pick *Allocations* and then click *Choose*.</h4>
+   <h4>In Instruments click the *Record* button at the top left (It looks like a "record" button).</h4>
+   <h4>Once your app starts notice the level of the blue graph, that is the memory used by the app.</h4>
+   <h4>In Instruments you will also see a list of allocations, at the top right of this list there is a text area, add the text "proxy".</h4>
+   <h4>Now you should now only see 3 proxies in the allocations list.</h4>
+   <h4>In your app click *Upload File* and notice the memory usage grow.</h4>
+   <h4>You will also see a couple more proxies in the allocations list, make a note of *TiNetworkHTTPClientProxy*.</h4>
+   <h4>At this point the memory usage will stay the same and it will look like this ticket is not actually fixed. We just need to create some memory pressure so garbage collection will run and we can see what that memory is actually being released.</h4>
+   <h4>In your app click *Open Window* (the app may be slow as it opens the window and adds 500 views to it).</h4>
+   <h4>Once the window is open, click anywhere on the window to close it.</h4>
+   <h4>It may be necessary to repeat this process of opening and closing the window a couple times before you see the memory usage of the app drop.</h4>
+   <h4>You will also see *TiNetworkHTTPClientProxy* disappear from the allocations list. This means that it has been garbage collected and is no longer in memory.</h4>
+   </li>
+<li>Ewan Harris 2015-01-19
+
+   Verified fix on:
+   
+   Mac OSX 10.10.1
+   Appcelerator Studio, build: 3.4.1.201410281743
+   Titanium SDK build:  3.6.0.v20150119054128
+   Titanium CLI, build: 3.4.1
+   Alloy: 1.5.1
+   Xcode 6.1.1
+   iPhone 6 Plus (8.1.1), iPhone 5s (8.0.2)
+   
+   When the file upload is aborted and memory pressure is created the proxy relating to the file upload is collected and removed form memory.
+   
+   Closing ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17740.json">JSON Source</a></p>

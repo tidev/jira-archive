@@ -1,0 +1,147 @@
+---
+title: "[TIMOB-25636] Android: Calling ScrollableView's setters causes a crash if parent window is closed as of 7.0.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-16T00:00:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>ScrollableView, android</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2017-12-28T16:44:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-05-16T00:00:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi,
+
+We are migrating our app from 6.3.0GA Ti SDK to 7.0.0.GA SDK and we are facing couple of issues:
+
+1. In a window, we are using scrollable view and on close of window we are emptying the views of scrollable view by using scrollableView.views = []. with 6.3.0.GA it is working fine but with 7.0.0.GA we are getting error stating 
+<code><pre>
+“TiApplication: (main) [16638,27440] Sending event: exception on thread: main msg:java.lang.RuntimeException: Unable to destroy activity {com.hthworldwide.GeoBlue/org.appcelerator.titanium.TiActivity}: java.lang.NullPointerException: Attempt to invoke virtual method 'void ti.modules.titanium.ui.widget.TiUIScrollableView.setViews(java.lang.Object)' on a null object reference; Titanium 7.0.1,2017/12/18 10:42,undefined”
+</pre></code>
+2. In a window, we are using activity indicator and on close of that window we are hiding activity indicator by activityIndicator.hide(). with 6.3.0.GA it is working fine but with 7.0.0.GA we are getting error stating 
+<code><pre>
+“TiApplication(16766): (main) [21008,142400] Sending event: exception on thread: main msg:java.lang.NullPointerException: Attempt to invoke virtual method 'void ti.modules.titanium.ui.widget.TiUIActivityIndicator.hide()' on a null object reference; Titanium 7.0.1,2017/12/18 10:42,undefined”
+</pre></code>
+
+
+Steps to reproduce the issues:
+1. Create a sample classic project
+2. Copy the attached files and paste them into resources folder
+3. Run the App on android device
+4. Click on the label “click to view scrollable window”, once window is opened click on android back button.
+5. Click on label “click to show indicator”, once window is opened click on android back button.
+
+
+Note : This is an issue in android platform. 
+Even tried with 7.0.1.GA sdk still we are facing these issues.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25636_63864/activityIndWin.js">activityIndWin.js</td></td><td>2017-12-28T16:43:41.000+0000</td><td>847</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25636_63863/app.js">app.js</td></td><td>2017-12-28T16:43:41.000+0000</td><td>567</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25636_65128/ScrollableViewCloseTest.js">ScrollableViewCloseTest.js</td></td><td>2018-05-03T23:37:33.000+0000</td><td>739</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25636_63862/scrollableWin.js">scrollableWin.js</td></td><td>2017-12-28T16:43:41.000+0000</td><td>831</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-01-05
+
+   I'm able to reproduce this issue in Titanium 7.0.0 with the following code:
+   
+   <code><pre>
+   var window = Ti.UI.createWindow();
+   var scrollableView = Ti.UI.createScrollableView(
+   {
+   	views:
+   	[
+   		Ti.UI.createLabel({ text: "Page 1" }),
+   		Ti.UI.createLabel({ text: "Page 2" }),
+   		Ti.UI.createLabel({ text: "Page 3" }),
+   		Ti.UI.createLabel({ text: "Page 4" }),
+   	],
+   	showPagingControl: true,
+   });
+   window.add(scrollableView);
+   window.addEventListener("close", function(e) {
+   	var view = Ti.UI.createView();
+   	scrollableView.addView(view);
+   	scrollableView.insertViewsAt(0, [Ti.UI.createView()]);
+   	scrollableView.removeView(view);
+   	scrollableView.moveNext();
+   	scrollableView.movePrevious();
+   	scrollableView.scrollToView(0);
+   	scrollableView.currentPage = 1;
+   	scrollableView.scrollingEnabled = false;
+   	scrollableView.views = [];
+   });
+   window.open();
+   </pre></code>
+   
+   *Result:*
+   Crashes with exception...
+   <code><pre>
+   [WARN] :   W/System.err: java.lang.NullPointerException: Attempt to invoke virtual method 'void ti.modules.titanium.ui.widget.TiUIScrollableView.addView(org.appcelerator.titanium.proxy.TiViewProxy)' on a null object reference
+   [WARN] :   W/System.err: 	at ti.modules.titanium.ui.ScrollableViewProxy.handleMessage(ScrollableViewProxy.java:114)
+   [WARN] :   W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:101)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.common.TiMessenger.sendMessage(TiMessenger.java:323)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.common.TiMessenger.sendBlockingMessage(TiMessenger.java:289)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.common.TiMessenger.sendBlockingMainMessage(TiMessenger.java:164)
+   [WARN] :   W/System.err: 	at ti.modules.titanium.ui.ScrollableViewProxy.addView(ScrollableViewProxy.java:176)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:934)
+   [WARN] :   W/System.err: 	at org.appcelerator.kroll.KrollProxy.fireSyncEvent(KrollProxy.java:807)
+   [WARN] :   W/System.err: 	at org.appcelerator.titanium.proxy.TiWindowProxy.closeFromActivity(TiWindowProxy.java:206)
+   [WARN] :   W/System.err: 	at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1518)
+   [WARN] :   W/System.err: 	at org.appcelerator.titanium.TiActivity.onDestroy(TiActivity.java:32)
+   [WARN] :   W/System.err: 	at android.app.Activity.performDestroy(Activity.java:7177)
+   [WARN] :   W/System.err: 	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1248)
+   [WARN] :   W/System.err: 	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4425)
+   [WARN] :   W/System.err: 	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:4456)
+   [WARN] :   W/System.err: 	at android.app.ActivityThread.-wrap5(Unknown Source:0)
+   [WARN] :   W/System.err: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1654)
+   [WARN] :   W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:105)
+   [WARN] :   W/System.err: 	at android.os.Looper.loop(Looper.java:164)
+   [WARN] :   W/System.err: 	at android.app.ActivityThread.main(ActivityThread.java:6541)
+   [WARN] :   W/System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+   [WARN] :   W/System.err: 	at com.android.internal.os.Zygote$MethodAndArgsCaller.run(Zygote.java:240)
+   [WARN] :   W/System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:767)
+   </pre></code>
+   
+   *Cause:*
+   The native view has been released and null-out when its parent window was closed. The above code's setters and methods should no-op in this case.
+   Note that this is not an issue in Titanium versions older than 7.0.0.
+   
+   *Work-Around:*
+   Don't call the ScrollableView's setters and methods once its parent window has been closed. For example, you don't need to set its child views to [] to release the child references since their references are already released automatically.
+   </li>
+<li>Joshua Quick 2018-01-06
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9696" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9696</a></li>
+<li>Joshua Quick 2018-05-03
+
+   This issue is only reproducible in Titanium 7.0.0 and 7.0.1.
+   This issue is not reproducible in 7.0.2 and 7.1.0.
+   It was inadvertently fixed by a change in 7.0.2.
+   Closing as resolved.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25636.json">JSON Source</a></p>

@@ -1,0 +1,160 @@
+---
+title: "[TIMOB-26300] iOS: Initializing Ti.UI.TextArea crashes app when running on kroll-thread"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-21T07:42:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Andreas Pingas</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2018-08-14T10:28:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-21T10:14:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+At version 7.3.0 it seems that the error below appears whereas in version 7.2.0.GA does not.
+Check the above algorithm with the setting “run on main thread”  turned off.
+
+
+<code><pre>
+[ERROR] :  Script Error {
+[ERROR] :      column = 28;
+[ERROR] :      line = 228;
+[ERROR] :      message = "Only run on the main thread!";
+[ERROR] :      nativeStack = "3   Foundation 0x00000001109a064f -[NSAssertionHandler handleFailureInFunction:file:lineNumber:description:] + 165\n4   UIFoundation    0x00000001228d4e9a -[NSLayoutManager(NSPrivate) _resizeTextViewForTextContainer:] + 1178\n5   UIFoundation    0x00000001228d48c2 -[NSLayoutManager(NSPrivate) _recalculateUsageForTextContainerAtIndex:] + 2232\n6   UIFoundation    0x000000012290bb10 _enableTextViewResizing + 228\n7   UIFoundation    0x0000000122910010 -[NSLayoutManager textStorage:edited:range:changeInLength:invalidatedRange:] + 584\n8   UIFoundation    0x0000000122910064 -[NSLayoutManager processEditingForTextStorage:edited:range:changeInLength:invalidatedRange:] + 47\n9   UIFoundation    0x000000012293b7f1 -[NSTextStorage _notifyEdited:range:changeInLength:invalidatedRange:] + 168\n10  UIFoundation    0x000000012293b346 -[NSTextStorage processEditing] + 372\n11  UIFoundation    0x000000012293af90 -[NSTextStorage endEditing] + 83\n12  UIKit 0x0000000111bb5516 -[UITextView setAttributedText:] + 254\n13  UIKit 0x0000000111bbe833 -[UITextView setText:] + 185\n14    0x000000010dee2f49 -[TiUITextArea textWidgetView] + 393\n15    0x000000010de77bea -[TiUITextWidget init] + 122\n16    0x000000010deafb9c -[TiViewProxy newView] + 236\n17    0x000000010deacc4c -[TiViewProxy view] + 108\n18    0x000000010dead029 -[TiViewProxy view] + 1097\n19    0x000000010dead029 -[TiViewProxy view] + 1097";
+[ERROR] :      sourceURL = "file:///Users/..../Library/Developer/CoreSimulator/Devices/7E9AEA65-E384-4187-B67F-273B159CE8DC/data/Containers/Bundle/Application/B1179AAB-1B97-43D5-8AE9-C1242625E85E/.app/ui/templates/listener.js";
+[ERROR] :      stack = "    at [native code]\n    at tableViewListener(/ui/templates/listener.js:228:28)";
+[ERROR] :  }
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-08-14
+
+   Hey there,
+   
+   unfortunately your report does not include much details (the ticket title does not help either). Reading through the exception, it may be around setting the "value" property of the Ti.UI.TextArea API, but even that is just wild guessing. Please edit your description with your full environment (iOS version, tiapp.xml configuration) and a reproducible test-case. 
+   
+   *EDIT*: Looks like I'm right, it's a known issue in the native world as well. I assume you did not migrate your app to run on the main thread so far, which would not cause this issue. You are probably updating your text-area from a background-thread, causing this error. Once you have a reproducible test-case, we can verify that.
+   
+   Thanks!
+   
+   *EDIT 2*: Quick fix: Replace the following line in <code><your-sdk-version>/iphone/Classes/TiUITextWidget.m</code>:
+   <code><pre>
+   [(id)[self textWidgetView] setText:string];
+   </pre></code>
+   with:
+   <code><pre>
+     TiThreadPerformOnMainThread(^{
+       [(id)[self textWidgetView] setText:string];
+     }, YES);
+   </pre></code>
+   
+   I am still curious how that could come from SDK 7.3.0, since we did not change anything related to that API in this version.</li>
+<li>Andreas Pingas 2018-08-14
+
+   Please check out the following:
+   
+   
+   <code><pre>
+   
+   					
+   var windowA = Ti.UI.createWindow();
+   
+   var	windowB = Ti.UI.createWindow();
+   
+   var tabA = Ti.UI.createTab({
+   	window:windowA
+   });
+   
+   var tabB = Ti.UI.createTab({
+   	window:windowB
+   });
+   	
+   var tabGroup = Titanium.UI.createTabGroup({
+   	tabs:[tabA, tabB]
+   });
+   
+   tabGroup.open();
+   
+   windowA.addEventListener('click', function(e) {
+   
+   	var win = Ti.UI.createWindow();
+   	 		
+   	var tableView = Ti.UI.createTableView();
+   	
+   	win.add(tableView);
+   
+   	var typingView = Ti.UI.createView();
+   	
+   	var keyboardMessageView = Ti.UI.createView();
+   	
+   	var keyboardMessage = Ti.UI.createTextArea();
+   	
+   	keyboardMessageView.add(keyboardMessage);
+   	
+   	typingView.add(keyboardMessageView);
+   		
+   	win.add(typingView);
+   	
+   	tabA.open(win);
+   
+   });
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2018-08-14
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10254" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10254</a>
+   PR (7_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/10255" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10255</a>
+   
+   (Unit-test included)
+   
+   Test-Case:
+   <code><pre>
+   var windowA = Ti.UI.createWindow();
+   var	windowB = Ti.UI.createWindow();
+   
+   var tabA = Ti.UI.createTab({
+       window: windowA,
+       title: 'Tab A'
+   });
+   
+   var tabB = Ti.UI.createTab({
+       window:windowB,
+       title: 'Tab B'
+   });
+       
+   var tabGroup = Titanium.UI.createTabGroup({
+       tabs: [tabA, tabB]
+   });
+   
+   windowA.addEventListener('open', function() { 
+       var win = Ti.UI.createWindow({ backgroundColor: 'blur' })
+       var typingView = Ti.UI.createView();
+       var keyboardMessageView = Ti.UI.createView();
+       var keyboardMessage = Ti.UI.createTextArea();
+   
+       keyboardMessageView.add(keyboardMessage);
+       typingView.add(keyboardMessageView);
+       win.add(typingView);
+       tabA.open(win);
+   });
+   
+   tabGroup.open();
+   </pre></code></li>
+<li>Samir Mohammed 2018-08-21
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26300.json">JSON Source</a></p>

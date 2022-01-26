@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-24369] Hyperloop Android: JS wrappers for external AAR's dependencies not generated"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-04-08T08:41:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 2.1.0</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>android, bug, hyperloop</td></tr>
+<tr><th>Reporter</th><td>Rodolfo Perottoni</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2017-02-02T09:37:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-04-18T18:04:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When including an external AAR to an Titanium Application and trying to use it, you may face issues if it has a dependency on the v4 and v7 libs.
+
+*Steps to reproduce*:
+1. Create an empty Android module. This can be done on Android Studio.
+2. In this module, include the support v7 library in the build.gradle file:
+
+<code><pre>
+compile 'com.android.support:appcompat-v7:23.4.0'
+</pre></code>
+
+3. Create a new class that extends from *AppCompatActivity*.
+4. Define this activity in your module's *AndroidManifest.xml* file.
+5. Build the module into an *.aar* and place it inside an Titanium project with Hyperloop.
+6. Inside your Titanium app, create a simple window with a button.
+
+<code><pre>
+var testactivity = require('com.test.ActivityTest');
+
+$.index.open();
+
+function onButtonClick(e) {
+    var intent = Ti.Android.createIntent({
+        className: 'com.test.ActivityTest',
+    });
+
+    Ti.Android.currentActivity.startActivity(intent);
+}
+</pre></code>
+
+7. Execute the project and try launching your external activity. The error below occurs because the JS wrapper of your external activity at some point requires the *AppCompatActivity* class and can't find it.
+
+<code><pre>
+Uncaught Error: Requested module not found: ./android.support.v7.app.AppCompatActivity
+</pre></code>
+
+Launching an external activity with this method works as long as it doesn't depend on an external lib (like v4 or v7).
+
+I've tried manually adding the v4 and v7 libraries to my Titanium project, but doing so results in several errors just like this:
+
+
+<code><pre>
+[ERROR] Failed to package application:
+[ERROR] /var/folders/1j/7_wc2wx52yzggclqvnw1wpjh0000gn/T/117029-2405-16cw5bj/res/values/attrs.xml:123: error: Attribute "actionBarSize" already defined with incompatible format.
+[ERROR] /Users/Rodolfo/Documents/Workspace/app-sandbox/build/hyperloop/android/appcompat-v7-23.4.0/res/values/values.xml:82: O
+riginal attribute defined here.
+</pre></code>
+
+
+Example Titanium project and Android module attached to this ticket.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24369_61427/androidmodule.zip">androidmodule.zip</td></td><td>2017-02-02T09:37:20.000+0000</td><td>5497</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24369_61428/Example.zip">Example.zip</td></td><td>2017-02-02T09:35:43.000+0000</td><td>153745</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2017-03-01
+
+   Quick summary of what's happening here: If you specify a module dependency with Gradle, this dependency will not be automatically built into the module. You have put all required dependencies into your Titanium project manually. The reason why this approach fails for the appcompat library is because it's already bundled with Titanium and it tries to add the resource files from both, resulting in the described error. Hyperloop doesn't know about the bundled appcompat library and thus does not generate the JS wrappers for it.</li>
+<li>Jan Vennemann 2017-04-05
+
+   PR (master): <a href="https://github.com/appcelerator/hyperloop.next/pull/143" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/143</a>
+   PR (2_0_X): <a href="https://github.com/appcelerator/hyperloop.next/pull/144" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/144</a></li>
+<li>Lokesh Choudhary 2017-04-18
+
+   Verified the fix. No <code>Requested module not found</code> error seen if a module dependency with gradle is specified.
+   
+   Closing.
+   
+   Studio Ver : 4.8.1.201612050850
+   SDK Ver :    6.0.3.GA
+   OS Ver :     10.12.3
+   Xcode Ver :  Xcode 8.3.1
+   Appc NPM :   4.2.9
+   Appc CLI :   6.2.0
+   Ti CLI Ver : 5.0.12
+   Alloy Ver :  1.9.11
+   Node Ver :   6.10.1
+   Java Ver :   1.8.0_101
+   Hyperloop: 2.1.0</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24369.json">JSON Source</a></p>

@@ -1,0 +1,458 @@
+---
+title: "[TIMOB-26297] Android: Resolve ImageView "images" property so that it'll work when targeting Android P"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-09-19T13:16:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, android-9, apache, common-codec</td></tr>
+<tr><th>Reporter</th><td>Omri Sapir</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-08-14T06:37:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-10-01T19:00:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Greetings,
+
+Our existing app, found at
+<a href="https://play.google.com/store/apps/details?id=com.imoogi.gevacampus" rel="nofollow" target="_blank">https://play.google.com/store/apps/details?id=com.imoogi.gevacampus</a> ,
+does not seem to work on the new Android Pie. We have not made any changes to the app in the past year or so.
+I've asked the app's developer, who no longer works for us (just to explain why I'm here), for help. He used an emulator to come up with the attached log.
+
+Can you tell what the problem is from that? Is there a quick fix?
+
+Edit: I'm not sure what version of the studio the app was compiled with, given that it was uploaded more than a year ago. I'm still trying to figure out if the issue is still occuring on a recent alpha release that was compiled on a newer SDK.
+
+Appreciate your help.
+Omri sapir
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26297_65439/Geva app log.txt">Geva app log.txt</td></td><td>2018-08-14T06:36:15.000+0000</td><td>146093</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-08-14
+
+   It looks like the <code>BinaryEncoder</code> class was removed in Android 9.0. It is used in the Ti.UI.ImageView [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiUIHelper.java#L922)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiUIHelper.java#L922)</a> to handle image resources.
+   
+   A simple fix would be to use the following instead:
+   <code><pre>
+   result.append(new String(Hex.encodeHex(DigestUtils.md5(forHash))).substring(0, 10));
+   </pre></code>
+   
+   *EDIT*: I just ran our kitchensink sample-app on Android 9 and it works fine, even with image-views. It is possible that you use some kind of Ti.Android.R or Ti.App.Android.R API's to get Android resources (aka res-id's) to be displayed in an image-view within your app?
+   
+   *EDIT 2*: Ok, so I think I pinpointed it. Where and how do you use the <code>images</code> (not <code>image</code>) property of the Ti.UI.ImageView and what do you pass?</li>
+<li>Omri Sapir 2018-08-14
+
+   Hi!
+   
+   Thanks for the quick update. According to our developer, We use it for splash animation. Here is the bit of code that deals with it:
+   
+   <code><pre>
+   let frames = [
+      'frame_01.png',
+      'frame_02.png',
+      'frame_03.png',
+      'frame_04.png',
+      'frame_05.png',
+      'frame_06.png',
+      'frame_07.png',
+      'frame_08.png',
+      'frame_09.png',
+      'frame_10.png',
+      'frame_11.png',
+      'frame_12.png',
+      'frame_13.png',
+      'frame_14.png',
+      'frame_15.png',
+      'frame_16.png',
+      'frame_16.png'
+   ];
+   
+   if (Ti.Platform.osname === 'android') {
+      frames = [
+         Ti.App.Android.R.drawable.frame_01,
+         Ti.App.Android.R.drawable.frame_02,
+         Ti.App.Android.R.drawable.frame_03,
+         Ti.App.Android.R.drawable.frame_04,
+         Ti.App.Android.R.drawable.frame_05,
+         Ti.App.Android.R.drawable.frame_06,
+         Ti.App.Android.R.drawable.frame_07,
+         Ti.App.Android.R.drawable.frame_08,
+         Ti.App.Android.R.drawable.frame_09,
+         Ti.App.Android.R.drawable.frame_10,
+         Ti.App.Android.R.drawable.frame_11,
+         Ti.App.Android.R.drawable.frame_12,
+         Ti.App.Android.R.drawable.frame_13,
+         Ti.App.Android.R.drawable.frame_14,
+         Ti.App.Android.R.drawable.frame_15,
+         Ti.App.Android.R.drawable.frame_16,
+         Ti.App.Android.R.drawable.frame_16,
+      ];
+   }
+   
+   let animatedSplashContainer = Ti.UI.createView({
+      height: Ti.UI.FILL,
+      width: Ti.UI.FILL,
+      backgroundColor: '#fff',
+      zIndex: 100
+   });
+   self.add(animatedSplashContainer);
+   
+   let animatedSplash = Ti.UI.createImageView({
+      images: frames,
+      height: Ti.UI.FILL,
+      duration: 100,
+      
+   });
+   animatedSplashContainer.add(animatedSplash);
+   
+   animatedSplash.addEventListener('start', function () {
+      bootApp();
+      
+      animatedSplash.repeatCount = 1;
+   });
+   animatedSplash.addEventListener('stop', function () {
+      this.animate({
+         opacity: 0,
+         duration: 200
+      }, function () {
+         self.remove(animatedSplashContainer);
+         animatedSplashContainer.remove(animatedSplash);
+         animatedSplash = null;
+         animatedSplashContainer = null;
+         
+         postIntroAnimation();
+      });
+   });
+   
+   self.open();
+   animatedSplash.start();
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2018-08-14
+
+   Thanks, so I was right, yey! Would you be able to provide the above test-case in a simplified (classic app.js) project that you can attach? Once we are able to reproduce it, we could fix it on the fly and provide you a custom version of the SDK so you can reupload your app asap. Thank you!
+   
+   *EDIT*: I just tested the following code (with some demo resources in platform/android/res/drawable) and it works fine on Android 9:
+   <code><pre>
+   var self = Ti.UI.createWindow();
+   var frames = [
+     Ti.App.Android.R.drawable.frame_01,
+     Ti.App.Android.R.drawable.frame_02,
+     Ti.App.Android.R.drawable.frame_03,
+     Ti.App.Android.R.drawable.frame_04,
+     Ti.App.Android.R.drawable.frame_05,
+     Ti.App.Android.R.drawable.frame_06,
+     Ti.App.Android.R.drawable.frame_07,
+     Ti.App.Android.R.drawable.frame_08,
+     Ti.App.Android.R.drawable.frame_09,
+     Ti.App.Android.R.drawable.frame_10,
+     Ti.App.Android.R.drawable.frame_11,
+     Ti.App.Android.R.drawable.frame_12,
+     Ti.App.Android.R.drawable.frame_13,
+     Ti.App.Android.R.drawable.frame_14,
+     Ti.App.Android.R.drawable.frame_15,
+     Ti.App.Android.R.drawable.frame_16,
+     Ti.App.Android.R.drawable.frame_16,
+   ];
+   
+   var animatedSplashContainer = Ti.UI.createView({
+     height: Ti.UI.FILL,
+     width: Ti.UI.FILL,
+     backgroundColor: '#fff',
+     zIndex: 100
+   });
+   self.add(animatedSplashContainer);
+   
+   var animatedSplash = Ti.UI.createImageView({
+     images: frames,
+     height: Ti.UI.FILL,
+     duration: 100,
+   
+   });
+   animatedSplashContainer.add(animatedSplash);
+   
+   animatedSplash.addEventListener('start', function() {
+     animatedSplash.repeatCount = 1;
+   });
+   animatedSplash.addEventListener('stop', function() {
+     this.animate({
+       opacity: 0,
+       duration: 200
+     }, function() {
+       self.remove(animatedSplashContainer);
+       animatedSplashContainer.remove(animatedSplash);
+       animatedSplash = null;
+       animatedSplashContainer = null;
+   
+   	Ti.API.info('DONE')
+     });
+   });
+   
+   self.addEventListener('open', function() {
+     animatedSplash.start();
+   });
+   
+   self.add(animatedSplashContainer)
+   self.open();
+   </pre></code>
+   
+   I used 7.2.0.GA, but 7.1.1 should work quite the same. Did you try to use 7.2.0 or even 7_3_X (ti sdk install -b 7_3_X) already? I even tried to remove some drawables to see if that triggers the error but it doesn't.</li>
+<li>Hans Knöchel 2018-08-14
+
+   I was able to reproduce it. The issue can also be seen when using <code>Ti.Utils.md5HexDigest</code> which uses the same internal API's:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor: '#fff'
+    });
+    
+    var btn = Ti.UI.createButton({
+      title: 'Trigger'
+    });
+    
+    btn.addEventListener('click', function() {
+      Ti.API.info(Ti.Utils.md5HexDigest('HELLO_WORLD'));
+    });
+    
+    win.add(btn);
+    win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2018-08-14
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10253" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10253</a>
+   Test-Case: Above</li>
+<li>Omri Sapir 2018-08-14
+
+   Tried to remove the code that dealt with the animation. I still see errors in the log; hopefully it helps:
+   
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [WARN]  W/oogi.gevacampu: Unexpected CPU variant for X86 using defaults: x86
+   [ERROR] E/oogi.gevacampu: Not starting debugger since process cannot load the jdwp agent.
+   [WARN]  W/oogi.gevacampu: resources.arsc in APK '/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk' is compressed.
+   [INFO]  TiApplication: (main) [0,0] checkpoint, app created.
+   [INFO]  I/oogi.gevacampu: Background concurrent copying GC freed 24127(3MB) AllocSpace objects, 9(736KB) LOS objects, 37% free, 10MB/16MB, paused 31.144ms total 285.091ms
+   [INFO]  TiApplication: (main) [308,308] Titanium 7.2.0 (2018/06/07 05:21 undefined)
+   [INFO]  MultiDex: VM with version 2.1.0 has multidex support
+   [INFO]  MultiDex: install
+   [INFO]  MultiDex: VM has multidex support, MultiDex support library is disabled.
+   [INFO]  TiApplication: (main) [85,393] Analytics have been disabled
+   [INFO]  TiApplication: (main) [111,504] Titanium Javascript runtime: v8
+   [WARN]  TiAndroid: (KrollRuntimeThread) [1503,2007] Application instance no longer available. Unable to get current activity.
+   [WARN]  TiAndroid: (KrollRuntimeThread) [1,2008] Application instance no longer available. Unable to get current activity.
+   [WARN]  TiAndroid: (KrollRuntimeThread) [1,2009] Application instance no longer available. Unable to get current activity.
+   [WARN]  ActivityThread: handleWindowVisibility: no activity for token android.os.BinderProxy@419f1c
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   [INFO]  TiApplication: (main) [22,22] Analytics have been disabled
+   [INFO]  Not found: mobi-main_window-default-yoel_geva_head
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.imoogi.gevacampus.YoelGevaCampusActivity@6ee36ab
+   [INFO]  I/oogi.gevacampu: Background concurrent copying GC freed 83219(5MB) AllocSpace objects, 19(4MB) LOS objects, 49% free, 5MB/10MB, paused 8.785ms total 101.511ms
+   [INFO]  ConfigStore: android::hardware::configstore::V1_0::ISurfaceFlingerConfigs::hasWideColorDisplay retrieved: 0
+   [INFO]  ConfigStore: android::hardware::configstore::V1_0::ISurfaceFlingerConfigs::hasHDRDisplay retrieved: 0
+   [INFO]  OpenGLRenderer: Initialized EGL, version 1.4
+   [WARN]  OpenGLRenderer: Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+   [WARN]  ActivityThread: handleWindowVisibility: no activity for token android.os.BinderProxy@690066b
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  I/oogi.gevacampu: Rejecting re-init on previously-failed class java.lang.Class<org.apache.commons.codec.binary.Hex>: java.lang.NoClassDefFoundError: Failed resolution of: Lorg/apache/commons/codec/BinaryEncoder;
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu: Caused by: java.lang.ClassNotFoundException: Didn't find class "org.apache.commons.codec.BinaryEncoder" on path: DexPathList[[zip file "/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk"],nativeLibraryDirectories=[/data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/lib/x86, /data/app/com.imoogi.gevacampus-a_NWODml5z1rdD3dxwuqnw==/base.apk!/lib/x86, /system/lib]]
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class dalvik.system.BaseDexClassLoader.findClass(java.lang.String) (BaseDexClassLoader.java:134)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String, boolean) (ClassLoader.java:379)
+   [INFO]  I/oogi.gevacampu:   at java.lang.Class java.lang.ClassLoader.loadClass(java.lang.String) (ClassLoader.java:312)
+   [INFO]  I/oogi.gevacampu:   at java.lang.String org.apache.commons.codec.digest.DigestUtils.shaHex(java.lang.String) (DigestUtils.java:150)
+   [INFO]  I/oogi.gevacampu:   at void org.appcelerator.titanium.TiVerify.run() ((null):-1)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.mainLoop() (Timer.java:562)
+   [INFO]  I/oogi.gevacampu:   at void java.util.TimerThread.run() (Timer.java:512)
+   [INFO]  I/oogi.gevacampu:
+   [INFO]  Process: Sending signal. PID: 24711 SIG: 9
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2018-08-14
+
+   [~osapir] The root cause was an outdated Apache "common-codec" library used for md5/sha calculations. I am just uploading you a custom 7.1.2 version that represents a 7.1.1.GA + this fix so you can test and upload it right away. [Download 7.1.2 here](<a href="https://eu.syncplicity.com/share/x75owoazxqh6wfc/mobilesdk-7.1.2-osx)." rel="nofollow" target="_blank">https://eu.syncplicity.com/share/x75owoazxqh6wfc/mobilesdk-7.1.2-osx).</a></li>
+<li>Omri Sapir 2018-08-14
+
+   Our developer is installing and checking right now.
+   I really appreciate the quick handling of the situation. Thank you.
+   
+   Edit: Our developer is having issues with the installation. Is there a chance for a Windows version?</li>
+<li>Hans Knöchel 2018-08-14
+
+   I'm sorry, I run on macOS only. You could cherry-pick the changes from the pull-request manually and build an own (windows-based) version of the SDK.</li>
+<li>Joshua Quick 2018-08-16
+
+    [~osapir], is your app targeting API Level 28 (aka: Android P) as shown below?
+    <code><pre>
+    <uses-sdk android:minSdkVersion="16" android:targetSdkVersion="28"/>
+    </pre></code>
+    
+    Titanium does not support "targeting" API Level 28 yet. As of Titanium 7.3.0, we support targeting up to API Level 27 (aka: Android 8.1). We document what we support [here](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/Titanium_Compatibility_Matrix-section-src-29004837_safe-id-VGl0YW5pdW1Db21wYXRpYmlsaXR5TWF0cml4LUFuZHJvaWRTREsvVGFyZ2V0QW5kcm9pZHBsYXRmb3Jt).
+    
+    Now, we do allow app developer to target a higher API Level at their own risk, but recommend that you stick to what Titanium supports since this is what we internally test against. I say this because Google introduces breaking-changes when targeting higher API Levels. For example, Google documents the following breaking-changes for Android P in the link below. We have to go out of our way to resolve these breaking changes in our core Titanium code before we can claim that we support targeting it (like the changes [~hknoechel] is suggesting).
+    <a href="https://developer.android.com/about/versions/pie/android-9.0-changes-all" rel="nofollow" target="_blank">https://developer.android.com/about/versions/pie/android-9.0-changes-all</a>
+    
+    For now, I recommend that you build with Titanium 7.3.0 and target API Level 27, which is the API Level that Google Play currently requires. An Android P device will run your app in backward compatibility mode and will correctly load your images and perform MD5 hashes. I've confirmed this.
+    </li>
+<li>Omri Sapir 2018-08-16
+
+    Since our current production build was uploaded on March 2017, I assume the target SDK is much lower than that. And that's the build that is having issues on Pie.</li>
+<li>Joshua Quick 2018-08-16
+
+    I can't reproduce this issue in Titanium 7.1.1 unless I explicitly target API Level 28 (Android P) in XML myself. By default, Titanium 7.1.1 won't target Android P, which avoids this issue.
+    
+    Can you double check your "tiapp.xml" file please?
+    Check if you have the below set. If you do, then I recommend that you delete it. Titanium will then automatically target the highest API Level it supports.
+    <code><pre>
+    <uses-sdk android:minSdkVersion="16" android:targetSdkVersion="28"/>
+    </pre></code>
+    </li>
+<li>Keerthi Mahalingam 2018-10-01
+
+    Verified the fix on SDK 7.5.0.v20181001073642. Image view displayed correctly on android 9 and other OS versions.Closing
+    Operating System
+      Name                        = Mac OS X
+      Version                     = 10.13.6
+      Architecture                = 64bit
+    Node.js
+      Node.js Version             = 8.9.1
+      npm Version                 = 5.5.1
+    Titanium CLI
+      CLI Version                 = 5.1.1
+    Titanium SDK
+    SDK                            =7.5.0.v20181001073642
+    Device                        =samsung s5 android 6,pixel2 android 9, sony experia android4.1 emulator.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26297.json">JSON Source</a></p>

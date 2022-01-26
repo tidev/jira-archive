@@ -1,0 +1,138 @@
+---
+title: "[TIMOB-5043] Make second argument of removeEventListener() optional rather than mandatory (Android and iOS)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-08-18T07:06:03.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.1, Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Paul Dowsett</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-08-18T06:38:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-13T17:52:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Although it is not stated in the [removeEventListener](<a href="http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window.removeEventListener-method.html)" rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window.removeEventListener-method.html)</a> documentation, the method's second argument (a callback) is mandatory. Unless there is a good reason, please make it optional.
+
+There is also an inconsistency between Android and iOS (Android simply requires an object, whereas iOS requires an anonymous function), as demonstrated using following code:
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: '#000',
+	exitOnClose:true
+});
+
+var button = Ti.UI.createButton({
+	title: 'Click to log events!',
+	height:80,
+	width: 300
+});
+
+win.add(button);
+win.open();
+
+button.addEventListener('click', function(){
+	Ti.API.info('Button click event fired');
+	win.fireEvent('testWinEvent');
+	Ti.App.fireEvent('testTiAppEvent');
+});
+
+win.addEventListener('testWinEvent', function(){
+	Ti.API.info('testWinEvent event fired');
+});
+Ti.App.addEventListener('testTiAppEvent', function(){
+	Ti.API.info('testTiAppEvent event fired');
+});
+win.removeEventListener('testWinEvent'); // this will generate an exception
+// win.removeEventListener('testWinEvent', {}); // this will work on android but generate an exception on iOS
+// win.removeEventListener('testWinEvent', function(){}); // this will work on both platforms without generating an exception
+Ti.App.removeEventListener('testTiAppEvent',function(){});
+</pre></code>
+
+If the second argument is omitted on Android, the following exception is generated:
+
+<code><pre>
+D/KrollContext(  637): (kroll$1: app://app.js) [117,656] Running evaluated script: file:///android_asset/Resources/app.js
+E/KrollMethod(  637): (kroll$1: app://app.js) [168,824] Exception calling kroll method removeEventListener, invocation: null ]
+E/KrollMethod(  637): java.lang.IllegalArgumentException: Expected 2 arguments for removeEventListener, got 1
+E/KrollMethod(  637): 	at org.appcelerator.kroll.util.KrollBindingUtils.assertRequiredArgs(KrollBindingUtils.java:30)
+E/KrollMethod(  637): 	at org.appcelerator.kroll.KrollProxyBindingGen$4.invoke(KrollProxyBindingGen.java:242)
+E/KrollMethod(  637): 	at org.appcelerator.kroll.KrollMethod.call(KrollMethod.java:51)
+E/KrollMethod(  637): 	at org.mozilla.javascript.Interpreter.interpretLoop(Interpreter.java:1701)
+E/KrollMethod(  637): 	at org.mozilla.javascript.Interpreter.interpret(Interpreter.java:854)
+E/KrollMethod(  637): 	at org.mozilla.javascript.InterpretedFunction.call(InterpretedFunction.java:164)
+E/KrollMethod(  637): 	at org.mozilla.javascript.ContextFactory.doTopCall(ContextFactory.java:426)
+E/KrollMethod(  637): 	at org.mozilla.javascript.ScriptRuntime.doTopCall(ScriptRuntime.java:3177)
+E/KrollMethod(  637): 	at org.mozilla.javascript.InterpretedFunction.exec(InterpretedFunction.java:175)
+E/KrollMethod(  637): 	at org.mozilla.javascript.Context.evaluateReader(Context.java:1142)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.kroll.KrollContext$DefaultEvaluator.evaluateFile(KrollContext.java:105)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.kroll.KrollContext.evaluateScript(KrollContext.java:306)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.kroll.KrollContext.handleEvalFile(KrollContext.java:318)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.kroll.KrollContext.handleMessage(KrollContext.java:217)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.TiMessageQueue.handleMessage(TiMessageQueue.java:223)
+E/KrollMethod(  637): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+E/KrollMethod(  637): 	at android.os.Looper.loop(Looper.java:123)
+E/KrollMethod(  637): 	at org.appcelerator.titanium.kroll.KrollHandlerThread.run(KrollHandlerThread.java:86)
+E/KrollContext(  637): (kroll$1: app://app.js) [17,841] Error evaluating source: Wrapped java.lang.IllegalArgumentException: Expected 2 arguments for removeEventListener, got 1 (file:///android_asset/Resources/app.js#1249)
+E/KrollContext(  637): org.mozilla.javascript.WrappedException: Wrapped java.lang.IllegalArgumentException: Expected 2 arguments for removeEventListener, got 1 (file:///android_asset/Resources/app.js#1249)
+E/KrollContext(  637): 	at org.mozilla.javascript.Context.throwAsScriptRuntimeEx(Context.java:1786)
+E/KrollContext(  637): 	at org.appcelerator.kroll.KrollMethod.call(KrollMethod.java:85)
+E/KrollContext(  637): 	at org.mozilla.javascript.Interpreter.interpretLoop(Interpreter.java:1701)
+E/KrollContext(  637): 	at script(file:///android_asset/Resources/app.js:1249)
+E/KrollContext(  637): 	at org.mozilla.javascript.Interpreter.interpret(Interpreter.java:854)
+E/KrollContext(  637): 	at org.mozilla.javascript.InterpretedFunction.call(InterpretedFunction.java:164)
+E/KrollContext(  637): 	at org.mozilla.javascript.ContextFactory.doTopCall(ContextFactory.java:426)
+E/KrollContext(  637): 	at org.mozilla.javascript.ScriptRuntime.doTopCall(ScriptRuntime.java:3177)
+E/KrollContext(  637): 	at org.mozilla.javascript.InterpretedFunction.exec(InterpretedFunction.java:175)
+E/KrollContext(  637): 	at org.mozilla.javascript.Context.evaluateReader(Context.java:1142)
+E/KrollContext(  637): 	at org.appcelerator.titanium.kroll.KrollContext$DefaultEvaluator.evaluateFile(KrollContext.java:105)
+E/KrollContext(  637): 	at org.appcelerator.titanium.kroll.KrollContext.evaluateScript(KrollContext.java:306)
+E/KrollContext(  637): 	at org.appcelerator.titanium.kroll.KrollContext.handleEvalFile(KrollContext.java:318)
+E/KrollContext(  637): 	at org.appcelerator.titanium.kroll.KrollContext.handleMessage(KrollContext.java:217)
+E/KrollContext(  637): 	at org.appcelerator.titanium.TiMessageQueue.handleMessage(TiMessageQueue.java:223)
+E/KrollContext(  637): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+E/KrollContext(  637): 	at android.os.Looper.loop(Looper.java:123)
+E/KrollContext(  637): 	at org.appcelerator.titanium.kroll.KrollHandlerThread.run(KrollHandlerThread.java:86)
+E/KrollContext(  637): Caused by: java.lang.IllegalArgumentException: Expected 2 arguments for removeEventListener, got 1
+E/KrollContext(  637): 	at org.appcelerator.kroll.util.KrollBindingUtils.assertRequiredArgs(KrollBindingUtils.java:30)
+E/KrollContext(  637): 	at org.appcelerator.kroll.KrollProxyBindingGen$4.invoke(KrollProxyBindingGen.java:242)
+E/KrollContext(  637): 	at org.appcelerator.kroll.KrollMethod.call(KrollMethod.java:51)
+E/KrollContext(  637): 	... 15 more
+E/TiJSError(  637): (kroll$1: app://app.js) [20,861] ----- Titanium Javascript Runtime Error -----
+E/TiJSError(  637): (kroll$1: app://app.js) [0,861] - In file:///android_asset/Resources/app.js:1249,0
+E/TiJSError(  637): (kroll$1: app://app.js) [1,862] - Message: Wrapped java.lang.IllegalArgumentException: Expected 2 arguments for removeEventListener, got 1 (file:///android_asset/Resources/app.js#1249)
+E/TiJSError(  637): (kroll$1: app://app.js) [1,863] - Source: null
+D/dalvikvm(  637): GC freed 3236 objects / 293944 bytes in 48ms
+I/TiRootActivity(  637): (main) [0,0] checkpoint, on root activity resume. context = org.appcelerator.titanium.TiContext@44c3b8e0
+W/TiAnalyticsSvc(  637): (Thread-12) [27,27] Analytics Service Started
+W/InputManagerService(   53): Starting input on non-focused client com.android.internal.view.IInputMethodClient$Stub$Proxy@44d65ea0 (uid=10030 pid=637)
+W/InputManagerService(   53): Client not active, ignoring focus gain of: com.android.internal.view.IInputMethodClient$Stub$Proxy@44d64260
+I/TiAnalyticsSvc(  637): (Thread-12) [357,384] Sending 1 analytics events.
+I/ActivityManager(   53): Displayed activity com.testing.testing7/.Testing7Activity: 2947 ms (total 2947 ms)
+D/dalvikvm(  637): GC freed 7578 objects / 456336 bytes in 57ms
+W/TiAnalyticsSvc(  637): (Thread-12) [2161,2545] Stopping Analytics Service
+D/dalvikvm(  236): GC freed 43 objects / 2096 bytes in 59ms
+D/dalvikvm(   96): GC freed 2327 objects / 135008 bytes in 72ms
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2011-08-18
+
+   Closing due to reason explained in TIMOB-5042.</li>
+<li>Lee Morris 2017-03-13
+
+   Closing ticket as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5043.json">JSON Source</a></p>

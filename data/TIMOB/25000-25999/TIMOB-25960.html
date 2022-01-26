@@ -1,0 +1,208 @@
+---
+title: "[TIMOB-25960] Hyperloop: iOS - Property returns function instead of string "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>engReviewed, hyperloop, ios</td></tr>
+<tr><th>Reporter</th><td>Andreas Schräder</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2018-01-05T00:08:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-18T15:52:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Instead of strings, I only get functions that produce errors when processing the Hyperloop results. That said: console.log prints the correct value for the unmodified variable. I need to access the string that console.log prints.
+<code><pre>
+var HMHomeManager = require('HomeKit/HMHomeManager');
+var NSArray = require('Foundation/NSArray');
+	
+var HMHomeManagerDelegate = Hyperloop.defineClass('HMHomeManagerDelegate', 'NSObject'); 
+	
+HMHomeManagerDelegate.addMethod({
+	selector: 'homeManagerDidUpdateHomes:',
+	instance: true,
+	arguments: ['HMHomeManager'],
+	callback: function(sender) {
+		if (this.homeManagerDidUpdateHomes) {
+			this.homeManagerDidUpdateHomes(sender);
+		}
+	}
+});
+
+var HMHome = require('HomeKit/HMHome');		
+
+var delegate = new HMHomeManagerDelegate();
+delegate.homeManagerDidUpdateHomes = function(sender) {
+	
+	var name = sender.primaryHome.name;
+	console.log('name: '+ name);
+	console.log(JSON.stringify({"name":"name","value":name}));
+};
+
+var homeManager = new HMHomeManager();
+homeManager.delegate = delegate;
+</pre></code>
+Prints:
+<code><pre>
+[INFO] :   name: My Home
+</pre></code>
+Should print:
+<code><pre>
+[INFO] :   name: My Home
+[INFO] :  {"name":"name","value":"My Home"}
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25960_63943/HomeKitAccess.zip">HomeKitAccess.zip</td></td><td>2018-01-10T20:32:49.000+0000</td><td>9299327</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mostafizur Rahman 2018-01-07
+
+   Hello [~aschräder],
+   Thanks for sharing with us. Can you please share a simple test case to reproduce this on our end. Also share your environment details.
+   Best</li>
+<li>Andreas Schräder 2018-01-08
+
+   Hi Mostafizur,
+   
+   I think the below code should be the minimal test case to reproduce the behaviour. Putting this into the index.js should produce the described behaviour:
+   <code><pre>
+   var HMHomeManager = require('HomeKit/HMHomeManager');
+   var NSArray = require('Foundation/NSArray');
+   	
+   var HMHomeManagerDelegate = Hyperloop.defineClass('HMHomeManagerDelegate', 'NSObject');  // also tried: ['HomeKit/HMHomeManagerDelegate'] or ['HMHomeManagerDelegate'] instead of manually adding the 'homeManagerDidUpdateHomes:', but that did not work
+   	
+   HMHomeManagerDelegate.addMethod({
+   	selector: 'homeManagerDidUpdateHomes:',
+   	instance: true,
+   	arguments: ['HMHomeManager'],
+   	callback: function(sender) {
+   		if (this.homeManagerDidUpdateHomes) {
+   			this.homeManagerDidUpdateHomes(sender);
+   		}
+   	}
+   });
+   
+   var HMHome = require('HomeKit/HMHome');		
+   
+   var delegate = new HMHomeManagerDelegate();
+   delegate.homeManagerDidUpdateHomes = function(sender) {
+   	var homes = [
+   		{name: sender.primaryHome.name, uuid: sender.primaryHome.uniqueIdentifier}
+   	];
+   	var name = homes[0].name;
+   	console.log('name: '+ name);
+   	console.log('name: '+name.toString);
+   	console.log('name: '+JSON.stringify(
+   		{"name":"name","value":name}
+   	));
+   };
+   
+   var homeManager = new HMHomeManager();
+   homeManager.delegate = delegate;
+   </pre></code>
+   
+   With regards to environment details: MacOS, iOS, HomeKit, Appcelerator Studio 5.0.0. (all the latest versions). The hyperloop module is activated. As build properties I have selected the Titanium SDK 6.3.0.GA. in the tiapp.xml I have configured the necessary properties and entitlements: 
+   <code><pre>
+       <ios>
+           <entitlements>
+               <dict>
+                   <key>com.apple.developer.homekit</key>
+                   <true/>
+                   <key>com.apple.external-accessory.wireless-configuration</key>
+                   <true/>
+               </dict>
+           </entitlements>
+                <property name="run-on-main-thread" type="bool">true</property>
+               <use-jscore-framework>true</use-jscore-framework>
+               <dict>
+                   <key>NSHomeKitUsageDescription</key>
+                   <string>Switch needs access to your HomeKit devices.</string>
+               </dict>
+           </plist>
+      </ios>
+   </pre></code>
+   Hope this helps reproducing the behaviour. In case anything is missing, please let me know.</li>
+<li>Sharif AbuDarda 2018-01-08
+
+   Hello, Please create a sample Alloy project with the reproducible code and attach the file in here. Thanks.</li>
+<li>Hans Knöchel 2018-01-09
+
+   This is not a Hyperloop issue, please read the native documentation more carefully. I see this kind of issues popping up more and more. Some background for your issue:
+   
+   - The issue is in <code>uuid</code>, not <code>name</code>
+   - <code>uniqueIdentifier</code> returns a <code>UUID</code> instance, not String as documented [here](<a href="https://developer.apple.com/documentation/homekit/hmhome/1620243-uniqueidentifier)" rel="nofollow" target="_blank">https://developer.apple.com/documentation/homekit/hmhome/1620243-uniqueidentifier)</a>
+   - Access it as a String by using <code>uniqueIdentifier.uuidString</code> as documented [here](<a href="https://developer.apple.com/documentation/foundation/uuid/1779712-uuidstring)" rel="nofollow" target="_blank">https://developer.apple.com/documentation/foundation/uuid/1779712-uuidstring)</a>
+   - <code>toString</code> is no property but a function (e.g. <code>toString()</code>). It is no native method but a JavaScript method that only works with proper JavaScript types like <code>Number</code> and <code>Array</code> as documented [here](<a href="https://www.w3schools.com/jsref/jsref_tostring_number.asp)" rel="nofollow" target="_blank">https://www.w3schools.com/jsref/jsref_tostring_number.asp)</a></li>
+<li>Andreas Schräder 2018-01-10
+
+   Please reopen the issue as this has nothing to do with the uniqueIdentifier or the use of toString(). I have cleaned the case description in order to avoid distraction - albeit at the cost that the error message disappears and the problem only occurs 'silently'.
+   
+   sender.primaryHome.name is a string and does not behave as a string would.
+   
+   @Hans Knöchel: while your explanations around the UUID are what I would expect based on the documentation, the evidence is that console.log with uniqueIdentifier.uuidString prints 'undefined' whereas console.log with uniqueIdentifier prints the actual value.
+   </li>
+<li>Andreas Schräder 2018-01-10
+
+   @Sharif AbuDarda: I have attached a sample project 'HomeKitAccess' as you suggested.</li>
+<li>Hans Knöchel 2018-01-10
+
+   [~aschräder] The Obj-C usage (which Hyperloop is generated from) is <code>UUIDString</code>, not <code>uuidString</code> which is [documented](<a href="https://developer.apple.com/documentation/foundation/nsuuid/1416585-uuidstring?language=objc)" rel="nofollow" target="_blank">https://developer.apple.com/documentation/foundation/nsuuid/1416585-uuidstring?language=objc)</a> as well. And the reason why <code>sender.primaryHome.name</code> prints correctly is likely because it prints the description as the native world does as well. If Hyperloop really unwraps this correctly, you should still be able to receive it via <code>sender.primaryHome.name.description</code>. </li>
+<li>Andreas Schräder 2018-01-11
+
+   @Hans Knöchel Thanks for the prompt response. I had copied the <code><pre> uuidString </pre></code> from your prior post, but the result with  <code><pre>UUIDString </pre></code> is exactly the same.
+   
+   I've tested the your hypothesis with regards to the description. It turns out that Hyperloop apparently does not unwrap this as expected. With  <code><pre>sender.primaryHome.name.description </pre></code> it prints:
+   <code><pre>
+   [INFO] :   name: undefined
+   [INFO] :   {"name":"name"}
+   </pre></code>
+   
+   Interestingly, this is the same as result that I get with <code><pre>UUIDString </pre></code>. I could understand why the description of the <code><pre>name </pre></code> property prints <code><pre>name </pre></code> , but why would <code><pre>sender.primaryHome.uniqueIdentifier.UUIDString </pre></code> print <code><pre>name </pre></code> ?
+   
+   I take advantage and address another problem I encounter, which may be related: I seem to be unable to access an array (an <code><pre>NSArray </pre></code> ) with Hyperloop. If I define name as any of the three below properties:
+   <code><pre>
+   sender.homes[0].name
+   sender.homes.objectAtIndex(0).name
+   sender.homes.count
+   </pre></code>
+   it prints nothing at all. 
+   
+   I hope it's just me coding it incorrectly. Otherwise it would be hard to implement a HomeKit app without improvements in Hyperloop... 
+     </li>
+<li>Andreas Schräder 2018-01-24
+
+   @Shak Hossain: Can you please re-open this issue? This is neither invalid nor resolved! Thanks!</li>
+<li>Mostafizur Rahman 2018-04-09
+
+    Hello [~aschräder],
+    
+    Can you test the issue on latest SDK and let us know how it goes.</li>
+<li>Andreas Schräder 2018-04-10
+
+    I have just tested it with 7.1.0 - and the result is unchanged. The problem continues to exist and needs to be fixed.
+    Andreas</li>
+<li>Hans Knöchel 2018-04-12
+
+    Hey there! We will further investigate this and I have moved it to TIMOB. We will let you know once it's scheduled.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25960.json">JSON Source</a></p>

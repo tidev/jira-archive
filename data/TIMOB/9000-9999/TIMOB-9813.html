@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-9813] Android: Animation: An animated object,if clicked while animation,makes parent window transparent for the area of animation."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-18T11:38:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.2, Release 2.1.0, Release 2.0.1, Release 1.8.3</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-15 Core, Release 2.1.1, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core, qe-and060112, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Shyam Bhadauria</td></tr>
+<tr><th>Assignee</th><td>Bill Dawson</td></tr>
+<tr><th>Created</th><td>2012-06-27T03:28:56.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-11T09:41:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This is not a regression. It exists as far as 1.8.2.
+It works fine on android 3.2 and android 4.0.2.
+It the object is clicked again while animation, it makes the parent window transparent in the span of the area of its animation.
+
+Steps to reproduce
+1) Use the code below
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor:'green'
+});
+ 
+var box = Ti.UI.createView({
+            backgroundColor : 'red',
+            height : '150',
+            width : '100'
+        });
+ 
+        box.addEventListener('click', function() {
+            var matrix = Ti.UI.create2DMatrix()
+             
+            matrix = matrix.scale(2, 2);
+            var a = Ti.UI.createAnimation({
+                transform : matrix,
+                duration : 2000,
+                autoreverse : true,
+                repeat : 3
+            });
+            box.animate(a);
+        });
+        win.add(box);
+win.open();
+</pre></code>
+2) Run the app
+3) Click the red box and again click it while it is animating
+
+Actual result:
+2) After step 2,a green window with a red view is displayed.
+3) After step 3,the red box animates but makes the green window transparent and the splashscreen is partially visible (only in the area used by red box to animate).
+
+Expected result:
+2) After step 2,a green window with a red view is displayed.
+3) After step 3,the red box animates and the splashscreen should not be visible at all.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9813_29831/animate.zip">animate.zip</td></td><td>2012-07-17T11:43:20.000+0000</td><td>3134433</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bill Dawson 2012-07-12
+
+   This sudden transparency is particularly bad for **translate animations**, so the test case in TIMOB-9827 should also be used to validate any fix.</li>
+<li>Josh Roesslein 2012-07-17
+
+   It almost seems the invalidation/redraw of the parent is getting blocked
+   as the animation is restarted. I discovered [this](<a href="https://gist.github.com/134bbff296622dc92bc8)" rel="nofollow" target="_blank">https://gist.github.com/134bbff296622dc92bc8)</a> seems to "fix"
+   the issue. By scheduling an invalidation later, it seems to prevent that invalidated region from sticking around.
+   
+   There is some "flicker" between the two animations, so maybe there's some tweaking still.
+   Figured I'd share my findings and see if it gives some direction.</li>
+<li>Josh Roesslein 2012-07-17
+
+   Another interesting tidbit is if you change postInvalidate() -> invalidate(). You will see
+   what I mean by the redraw getting "blocked" until the animation completes. I am not sure if animations normally
+   block the main thread in this way or if there's a bug on our part.</li>
+<li>Bill Dawson 2012-07-17
+
+   Eeks, I should have done my pull request last night to save you time looking at this.  Indeed I'd switched to postInvalidate, and also to being much more picky about when to invalidate at all.  Additionally, use of the looper queue's idle timer to kick off the animation seems to improve the experience in pre-honeycomb. 
+   
+   I just pooped out before testing on every platform.  Hopefully you didn't spent too much time on it.  But definitely "thank you" as well!</li>
+<li>Josh Roesslein 2012-07-17
+
+   No worries I only spent a little bit looking at it. Probably was good to dig into this code anyway and learn a bit.</li>
+<li>Bill Dawson 2012-07-17
+
+   <h4>Testing Notes</h4>
+   
+   Use the attached animate.zip test app, since several older fixed animation bugs need to be re-tested now for regressions after these changes.
+   
+   Just import and run the app.  The tests timob-9813 and timob-9813_b, when tested with an **unfixed** branch, will show background anomalies (bleeding backgrounds) on devices < honeycomb.  That's the failcase for this particular ticket.
+   
+   Each test in the app has a description of what should happen.
+   
+   *MUST BE TESTED ON 2.2/2.3 (not necessarily both IMO), 3.x and 4.x!!*</li>
+<li>Bill Dawson 2012-07-17
+
+   Pull request ready
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/2585" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2585</a></li>
+<li>Satyam Sekhri 2012-07-24
+
+   Verified on:
+   Titanium Studio: 2.1.1.201207171343
+   Titanium SDK: 2.1.1.v20120723131610
+   Android Device: LG P970 (v2.2), Samsung tab (v3.2)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9813.json">JSON Source</a></p>

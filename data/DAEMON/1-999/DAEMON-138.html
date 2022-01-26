@@ -1,0 +1,143 @@
+---
+title: "[DAEMON-138] appcd-gulp: Coverage tests blow up when --trace-deprecation is set"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-05-07T14:44:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>appcd-gulp</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2017-11-14T17:25:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-05-07T14:44:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When trying to get a bit more info about unhandled rejections, Node.js has a flag that can be passed in called <code>\-\-trace\-deprecation</code>. The idea would be to add this to the <code>gulp test/coverage</code> task and then we'd see it in the CI logs.
+
+However, when this flag is set, for some reason <code>nyc</code> blows up because it can't load <code>mocha-jenkins-reporter</code>. But the rub is <code>nyc</code> is not supposed to load it. The <code>mocha-jenkins-reporter</code> is an argument to <code>mocha</code>, not <code>nyc</code>.
+
+When adding <code>\-\-trace\-deprecation</code> and running <code>gulp coverage</code>, we get the following error:
+
+<code><pre>
+Error: Cannot find module '/Users/chris/appc/appc-daemon/node_modules/nyc/node_modules/istanbul-reports/lib/Users/chris/appc/appc-daemon/node_modules/mocha-jenkins-reporter'
+    at Function.Module._resolveFilename (module.js:536:15)
+    at Function.Module._load (module.js:466:25)
+    at Module.require (module.js:579:17)
+    at require (internal/module.js:11:18)
+    at Object.create (/Users/chris/appc/appc-daemon/node_modules/nyc/node_modules/istanbul-reports/index.js:10:20)
+    at /Users/chris/appc/appc-daemon/node_modules/nyc/index.js:451:24
+    at Array.forEach (<anonymous>)
+    at NYC.report (/Users/chris/appc/appc-daemon/node_modules/nyc/index.js:450:17)
+    at report (/Users/chris/appc/appc-daemon/node_modules/nyc/bin/nyc.js:89:7)
+    at /Users/chris/appc/appc-daemon/node_modules/nyc/bin/nyc.js:76:25
+</pre></code>
+
+We can fix that by applying the following patch:
+
+<code><pre>
++++ b/packages/appcd-gulp/src/templates/standard.js
+@@ -159,6 +159,7 @@ module.exports = (opts) => {
+        function runTests(cover) {
+                const args = [];
+                let { execPath } = process;
++               let jenkinsReporter = resolveModule('mocha-jenkins-reporter');
+
+                // add nyc
+                if (cover) {
+@@ -178,7 +179,15 @@ module.exports = (opts) => {
+                                '--reporter=html',
+                                '--reporter=json',
+                                '--reporter=text',
+-                               '--reporter=text-summary',
++                               '--reporter=text-summary'
++                       );
++                       if (jenkinsReporter) {
++                               args.push('--reporter=' + path.relative(
++                                       resolveModule('istanbul-reports', resolveModule('nyc')),
++                                       jenkinsReporter
++                               ));
++                       }
++                       args.push(
+                                '--require', path.resolve(__dirname, '../test-transpile.js'),
+                                '--show-process-tree',
+                                process.execPath // need to specify node here so that spawn-wrap works
+@@ -188,6 +197,8 @@ module.exports = (opts) => {
+                        process.env.APPCD_COVERAGE = 1;
+                }
+
++               args.push('--trace-deprecation');
++
+                // add mocha
+                const mocha = resolveModule('mocha');
+                if (!mocha) {
+@@ -201,8 +212,7 @@ module.exports = (opts) => {
+                        args.push('--inspect-brk');
+                }
+
+-               const jenkinsReporter = resolveModule('mocha-jenkins-reporter');
+-               if (jenkinsReporter) {
++               if (!cover && jenkinsReporter) {
+                        args.push(<code>--reporter=${jenkinsReporter}</code>);
+                }
+
+@@ -241,13 +251,16 @@ module.exports = (opts) => {
+                }
+        }
+
+-       function resolveModule(name) {
++       function resolveModule(name, rel) {
+                let dir = path.join(appcdGulpNodeModulesPath, name);
+                if (fs.existsSync(dir)) {
+                        return dir;
+                }
+
+                try {
++                       if (rel) {
++                               return require.resolve(name, { paths: [ path.join(rel, 'node_modules') ] });
++                       }
+                        return path.dirname(require.resolve(name));
+                } catch (e) {
+                        return null;
+</pre></code>
+
+But then we run into a problem where <code>mocha-jenkins-reporter</code> is expecting a <code>mocha</code> runner object and <code>nyc</code> doesn't pass one in.
+
+<code><pre>
+/Users/chris/appc/appc-daemon/node_modules/mocha-jenkins-reporter/node_modules/mocha/lib/reporters/base.js:252
+  runner.on('start', function () {
+         ^
+
+TypeError: runner.on is not a function
+    at Jenkins.Base (/Users/chris/appc/appc-daemon/node_modules/mocha-jenkins-reporter/node_modules/mocha/lib/reporters/base.js:252:10)
+    at new Jenkins (/Users/chris/appc/appc-daemon/node_modules/mocha-jenkins-reporter/lib/jenkins.js:40:8)
+    at Object.create (/Users/chris/appc/appc-daemon/node_modules/nyc/node_modules/istanbul-reports/index.js:12:16)
+    at /Users/chris/appc/appc-daemon/node_modules/nyc/index.js:451:24
+    at Array.forEach (<anonymous>)
+    at NYC.report (/Users/chris/appc/appc-daemon/node_modules/nyc/index.js:450:17)
+    at report (/Users/chris/appc/appc-daemon/node_modules/nyc/bin/nyc.js:89:7)
+    at /Users/chris/appc/appc-daemon/node_modules/nyc/bin/nyc.js:76:25
+    at ChildProcess.<anonymous> (/Users/chris/appc/appc-daemon/node_modules/nyc/node_modules/foreground-child/index.js:52:5)
+    at emitTwo (events.js:126:13)
+</pre></code>
+
+I believe that <code>mocha-jenkins-reporter</code> should remain an argument to <code>mocha</code> and not <code>nyc</code> and that we need to figure out why <code>nyc</code> is sniping the <code>\-\-reporter</code> arg to mocha. Maybe it's doing a blind scrap on <code>process.argv</code>?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2020-05-07
+
+   Just tested this with Node 12.14.1 and despite <code>\-\-trace\-deprecation</code> being around for years, it still doesn't work with nyc/mocha. I still get the <code>runner.on</code> error.
+   
+   Furthermore, I don't think there's a ton of value in this feature. Calling the deprecated <code>util.isArray()</code> does not show any deprecation messages anyways. So, dropping this feature.</li>
+</ol>
+
+
+<p><a href="/DAEMON/DAEMON-138.json">JSON Source</a></p>

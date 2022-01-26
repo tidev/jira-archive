@@ -1,0 +1,96 @@
+---
+title: "[TIMOB-27108] Android: HTTPClient "responseData" blob returns 0 width/height for images over 512kb"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-09-30T14:21:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>HTTPClient, android, blob, engSchedule, mimetype</td></tr>
+<tr><th>Reporter</th><td>Rodolfo Perottoni</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-05-28T22:30:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-09-30T14:21:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27108_66701/NasaMars.png">NasaMars.png</td></td><td>2019-06-15T00:33:39.000+0000</td><td>811946</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Abir Mukherjee 2019-06-05
+
+   [~topener], were you able to repro this issue using the test case above? I was not able to repro it. This is my environment:
+   
+   Android 7.0 (Device) and 7.1.1 (Emulator)
+   MacOS 10.14.5
+   Studio 5.1.2.201903111843
+   Ti SDK 8.1.0.v20190524093319
+   Appc NPM 4.2.3
+   Appc CLI 7.0.12-4
+   Ti CLI 5.1.1
+   Node 8.11.4
+   Java 1.8.0_131
+   ti.imagefactory 4.0.0
+   
+   It prints the correct image size both times when I launch the app.
+   
+   EDIT: [~topener] Can you get the URL the user is using for the image? If he is using an image with an unrecognized extension (ie not jpg, png, etc) he might get this issue.</li>
+<li>Abir Mukherjee 2019-06-10
+
+   [~rdperottoni] thanks for creating this ticket. I just made my last comment viewable. Can you please provide more information about your environment/settings? I was not able to reproduce it. Does it return the image sizes with SDK 8.0.0/8.0.1?</li>
+<li>Abir Mukherjee 2019-06-10
+
+   I was able to reproduce it with the environment I listed in my previous comment. The size is returned correctly when the image extension is png or jpg. When the image extension is .jpeg, it shows 0,0 for the first console.log statement in the test case. The link to the external image I used was:
+   <a href="https://upload.wikimedia.org/wikipedia/en/f/f6/Sample_0.JPEG" rel="nofollow" target="_blank">https://upload.wikimedia.org/wikipedia/en/f/f6/Sample_0.JPEG</a>
+   </li>
+<li>Joshua Quick 2019-06-15
+
+   It turns out that this issue has nothing to do with the file extension.
+   
+   This issue only happens when downloading an image file is over 512 KB, which is Titanium's max buffer size. This can be reproduced by the "NasaMars.png" image attached to this ticket. A file that exceeds this size will downloaded to a temp file instead of in-memory instead. The reason this bug happens is because Titanium wraps this temp file via a "responseData" blob as it downloads, but will fail to fetch the image width/height initially since the image's header bytes have not been fully downloaded yet. The fix on our end is to re-read the image file's header once the download completes.
+   
+   Note that the max buffer size used by <code>HTTPClient</code> can be changed via the "tiapp.xml" property "ti.android.httpclient.maxbuffersize", but I don't recommend changing it.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/tiapp.xml_and_timodule.xml_Reference
+   
+   A simple work-around is to do the following instead. This takes the existing temp file blob (if written to file) and creates a new blob for it when you call the <code>read()</code> method. Note that this does not read all of the bytes in the file. It simply wraps the file reference, making this work-around the better solution from a performance standpoint.
+   <code><pre>
+   var imageBlob = httpClient.responseData;
+   if (imageBlob.file) {
+   	imageBlob = imageBlob.file.read();
+   }
+   Ti.API.info("@@@ onload() imageBlobSize: " + imageBlob.width + "x" + imageBlob.height);
+   </pre></code>
+   </li>
+<li>Joshua Quick 2019-06-15
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10964" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10964</a></li>
+<li>Christopher Williams 2019-09-09
+
+   merged to master. No need for "backport" as 8_3_X is going away</li>
+<li>Samir Mohammed 2019-09-30
+
+   Closing ticket, fix verified in SDK version <code>8.3.0.v20190927113609</code>.
+   
+   Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10964" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10964</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27108.json">JSON Source</a></p>

@@ -1,0 +1,244 @@
+{
+	"id": "62134",
+	"key": "TIMOB-1502",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "11229",
+				"name": "Release 1.5.0 M04",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2010-12-06"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2011-04-17T01:56:20.000+0000",
+		"created": "2011-04-15T02:54:30.000+0000",
+		"priority": {
+			"name": "Trivial",
+			"id": "5"
+		},
+		"labels": [
+			"getresponseheader",
+			"httpclient",
+			"ios",
+			"iphone",
+			"responsedata"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "rseagraves",
+			"key": "rseagraves",
+			"displayName": "Reggie Seagraves",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2011-04-17T01:56:20.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "{html}<div><p>Using SDK 1.4.0 release. I have a site that gives back a token\nin both the header (and as the body) of a HTTP 401 (auth required)\nresponse. For the life of me, I can't get HTTPClient to be able to\nget anything but NULL out of this.responseData/this.responseText.\nAlso, this.getResponseHeader() for my custom header always shows up\nas NULL. If I change the returned code to 200 (OK), then I can get\nthe responseText/responseData result no problem, but still can't\nparse my custom X-GUID response header.</p>\n<p>So what I'm trying to say is that I may be running into two\nseparate problems here:</p>\n<ol>\n<li>\n<p>getResponseHeader doesn't appear to work properly on error\n(4xx/5xx) OR valid (2xx) responses: One user in the Q&amp;A section\nthinks it's because only the first header is being retrieved:<br>\n<a href=\n\"http://developer.appcelerator.com/question/49401/cookies-problem\">http://developer.appcelerator.com/question/49401/cookies-problem</a></p>\n</li>\n<li>\n<p>responseData/responseText is not populated on error responses\n(onerror callback handler), even if there is data in the response\nbody. More info on this at: <a href=\n\"http://developer.appcelerator.com/question/50501/problem-getting-responsetextheaders-from-error-response\">\nhttp://developer.appcelerator.com/question/50501/problem-getting-re...</a></p>\n</li>\n<li>\n<p>having HTTP auth problems with basic HTTP (but that may be\nalready fixed going into 1.5.0, so I'll make another bug if that\nappears to be the case)</p>\n</li>\n</ol>\n<p>All in all, unless I'm being stupid here, it appears that\nHTTPClient is pretty broken for all but the most basic usecases in\nthis 1.4.0 release. :/</p></div>{html}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "HTTPClient: problems with header parsing and responseData in onerror handler",
+		"creator": {
+			"name": "robby",
+			"key": "robby",
+			"displayName": "Robby",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "robby",
+			"key": "robby",
+			"displayName": "Robby",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "125859",
+					"author": {
+						"name": "brionvibber",
+						"key": "brionvibber",
+						"displayName": "Brion Vibber",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>The getResponseHeader bit is covered in <a href=\n\"/projects/32238/tickets/519\" title=\"Ticket #519\">#519</a> but\nhasn't been fixed yet: <a href=\n\"https://appcelerator.lighthouseapp.com/projects/32238-titanium-mobile/tickets/519-problem-with-this-in-callbacks-for-xhr\">\nhttps://appcelerator.lighthouseapp.com/projects/32238-titanium-mobi...</a></p>\n<p>This is hitting us for StatusNet Mobile; we need to be able to\ncheck the content-type so we don't try to parse XML on non-XML\nfetches (and thus explode), and it's a bit frustrating for these\nbasic things to just not work.</p>\n<p>Sample code to reproduce:</p>\n<pre>\n<code>var client = Titanium.Network.createHTTPClient();\nclient.onload = function() {\n    Titanium.API.info(\"Loaded! Status: \" + this.status);\n\n    var contentType = this.getResponseHeader('Content-Type');\n    Titanium.API.info(\"Content-Type: \" + contentType);\n};\nclient.open(\"GET\", \"http://example.com/\");\nclient.send();</code>\n</pre>\n<p>got on iphone:<br>\n<a href=\"/projects/32238/changesets/INFO\" title=\n\"Changeset [INFO]\">[INFO]</a> Loaded! Status: 200 <a href=\n\"/projects/32238/changesets/INFO\" title=\n\"Changeset [INFO]\">[INFO]</a> Content-Type: null &lt;- BROKEN</p>\n<p>got on android:<br>\nI/TiAPI (11249): (kroll$1) [23,606] Loaded! Status: 200<br>\nI/TiAPI (11249): (kroll$1) [13,619] Content-Type: text/html;\ncharset=UTF-8 &lt;- fine</p>\n<p>Assigning to our support contact.</p></div>{html}",
+					"updateAuthor": {
+						"name": "brionvibber",
+						"key": "brionvibber",
+						"displayName": "Brion Vibber",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:31.000+0000",
+					"updated": "2011-04-15T02:54:31.000+0000"
+				},
+				{
+					"id": "125860",
+					"author": {
+						"name": "brionvibber",
+						"key": "brionvibber",
+						"displayName": "Brion Vibber",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Workaround: pull headers from an original reference instead of\nthe 'this' reference:</p>\n<pre>\n<code>var client = Titanium.Network.createHTTPClient();\nclient.onload = function() {\n    Titanium.API.info(\"Loaded! Status: \" + this.status);\n\n    var contentType = this.getResponseHeader('Content-Type');\n    Titanium.API.info(\"Content-Type (from this): \" + contentType);\n\n    var xcontentType = client.getResponseHeader('Content-Type');\n    Titanium.API.info(\"Content-Type (from client): \" + xcontentType);\n};\nclient.open(\"GET\", \"http://example.com/\");\nclient.send();</code>\n</pre>\n<p>which gives on iPhone:<br></p>\n<pre>\n<code>[INFO] Loaded! Status: 200\n[INFO] Content-Type (from this): null\n[INFO] Content-Type (from client): text/html; charset=UTF-8</code>\n</pre>\n<p>and on Android:<br></p>\n<pre>\n<code>I/TiAPI   (11302): (kroll$1) [29,639] Loaded! Status: 200\nI/TiAPI   (11302): (kroll$1) [4,643] Content-Type (from this): text/html; charset=UTF-8\nI/TiAPI   (11302): (kroll$1) [1,644] Content-Type (from client): text/html; charset=UTF-8</code>\n</pre></div>{html}",
+					"updateAuthor": {
+						"name": "brionvibber",
+						"key": "brionvibber",
+						"displayName": "Brion Vibber",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:31.000+0000",
+					"updated": "2011-04-15T02:54:31.000+0000"
+				},
+				{
+					"id": "125861",
+					"author": {
+						"name": "rpfeiffer",
+						"key": "rpfeiffer",
+						"displayName": "Ralf Pfeiffer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>to scrub.</p></div>{html}",
+					"updateAuthor": {
+						"name": "rpfeiffer",
+						"key": "rpfeiffer",
+						"displayName": "Ralf Pfeiffer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:32.000+0000",
+					"updated": "2011-04-15T02:54:32.000+0000"
+				},
+				{
+					"id": "125862",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Paring this down to 2. only. <a href=\n\"/projects/32238/tickets/519\" title=\"Ticket #519\">#519</a> has been\nresolved and auth issues are separate and being addressed.</p></div>{html}",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:32.000+0000",
+					"updated": "2011-04-15T02:54:32.000+0000"
+				},
+				{
+					"id": "125863",
+					"author": {
+						"name": "jhaynie",
+						"key": "jhaynie",
+						"displayName": "Jeff Haynie",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>(from <a href=\n\"/projects/32238/changesets/4a2acd75260b60f09a89b23c26856039ad7a4b75\"\ntitle=\n\"Changeset [4a2acd75260b60f09a89b23c26856039ad7a4b75]\">[4a2acd75260b60f09a89b23c26856039ad7a4b75]</a>)\n[<a href=\"/projects/32238/tickets/1502\" title=\n\"Ticket #1502\">#1502</a> state:fixed-in-qa] No longer erase\nresponse information on failures. Need to revisit this for XHR\ncompliance. <a href=\n\"https://github.com/appcelerator/titanium_mobile/commit/4a2acd75260b60f09a89b23c26856039ad7a4b75\">\nhttps://github.com/appcelerator/titanium_mobile/commit/4a2acd75260b...</a></p></div>{html}",
+					"updateAuthor": {
+						"name": "jhaynie",
+						"key": "jhaynie",
+						"displayName": "Jeff Haynie",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:32.000+0000",
+					"updated": "2011-04-15T02:54:32.000+0000"
+				},
+				{
+					"id": "125864",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Note that better XHR compliance is scheduled for a near-future\nrelease. If the XHR standard says that we MUST or SHOULD not\nprovide any response data on 401, etc. then we will not.</p></div>{html}",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:32.000+0000",
+					"updated": "2011-04-15T02:54:32.000+0000"
+				},
+				{
+					"id": "125865",
+					"author": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>test file exists in bug tests.<br>\nTested in iPhone 4 running 4.2 and Simulator 4.2<br>\nSDK 1.5 12/9/2010 - r43358e5f</p>\n<p>When testing on simulator, changed Titanium.API.info() to\nalert() to I could see the result</p>\n<p>Console:<br></p>\n<pre>\n<code>[INFO] Error! Status: 401\n[INFO] Response: &lt;html&gt;&lt;body&gt;YOU CAN'T HANDLE THE AUTHORIZATION&lt;/body&gt;&lt;/html&gt;</code>\n</pre></div>{html}",
+					"updateAuthor": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T02:54:33.000+0000",
+					"updated": "2011-04-15T02:54:33.000+0000"
+				}
+			],
+			"maxResults": 7,
+			"total": 7,
+			"startAt": 0
+		}
+	}
+}

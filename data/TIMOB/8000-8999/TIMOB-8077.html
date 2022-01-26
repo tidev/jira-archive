@@ -1,0 +1,233 @@
+---
+title: "[TIMOB-8077] iOS: TableView - setContentInsets not working correctly, values assigned are not always respected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-12T23:46:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-08</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TableView, api, iOS, module_tableview, qe-testadded, release-note</td></tr>
+<tr><th>Reporter</th><td>me@gmail.com</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-03-14T07:03:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-13T11:57:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When using many or complex rows in a table view, in connection with a pull to refresh UI, the table does not always stay stuck down (with things like a reloading message showing).
+
+To reproduce, do the following:
+- Run the following code on device (simulator works fine)
+- Scroll down the table a bit.
+- scroll back up and try to do a pull to refresh a few times.
+
+The result:
+The table will not always stay "pulled down" by 60. sometimes it will, but more often it will be around 5. If however you pull down and hold the table down for about a second before releasing, it seems to work correctly.
+
+The code to re-create this issue is in the kitchen sink, I just am having it run with more rows to make the issue more clear... the issue is also clear when using more complex row layouts.
+<code><pre>
+var win = Ti.UI.createWindow();
+
+function formatDate()
+{
+	var date = new Date();
+	var datestr = date.getMonth()+'/'+date.getDate()+'/'+date.getFullYear();
+	if (date.getHours()>=12)
+	{
+		datestr+=' '+(date.getHours()==12 ? date.getHours() : date.getHours()-12)+':'+date.getMinutes()+' PM';
+	}
+	else
+	{
+		datestr+=' '+date.getHours()+':'+date.getMinutes()+' AM';
+	}
+	return datestr;
+}
+
+var data = [];
+
+for(i=0; i<600; i++) {
+	data.push({title:"Row "+i});
+}
+
+var lastRow = 4;
+
+var tableView = Ti.UI.createTableView({
+	data: data
+});
+
+win.add(tableView);
+
+var border = Ti.UI.createView({
+	backgroundColor:"#576c89",
+	height:2,
+	bottom:0
+});
+
+var tableHeader = Ti.UI.createView({
+	backgroundColor:"#e2e7ed",
+	width:320,
+	height:60
+});
+
+// fake it til ya make it..  create a 2 pixel
+// bottom border
+tableHeader.add(border);
+
+var arrow = Ti.UI.createView({
+	backgroundImage:"../images/whiteArrow.png",
+	width:23,
+	height:60,
+	bottom:10,
+	left:20
+});
+
+var statusLabel = Ti.UI.createLabel({
+	text:"Pull to reload",
+	left:55,
+	width:200,
+	bottom:30,
+	height:"auto",
+	color:"#576c89",
+	textAlign:"center",
+	font:{fontSize:13,fontWeight:"bold"},
+	shadowColor:"#999",
+	shadowOffset:{x:0,y:1}
+});
+
+var lastUpdatedLabel = Ti.UI.createLabel({
+	text:"Last Updated: "+formatDate(),
+	left:55,
+	width:200,
+	bottom:15,
+	height:"auto",
+	color:"#576c89",
+	textAlign:"center",
+	font:{fontSize:12},
+	shadowColor:"#999",
+	shadowOffset:{x:0,y:1}
+});
+
+var actInd = Titanium.UI.createActivityIndicator({
+	left:20,
+	bottom:13,
+	width:30,
+	height:30
+});
+
+tableHeader.add(arrow);
+tableHeader.add(statusLabel);
+tableHeader.add(lastUpdatedLabel);
+tableHeader.add(actInd);
+
+tableView.headerPullView = tableHeader;
+
+
+var pulling = false;
+var reloading = false;
+
+function beginReloading()
+{
+	// just mock out the reload
+	setTimeout(endReloading,2000);
+}
+
+function endReloading()
+{
+	// simulate loading
+	for (var c=lastRow;c<lastRow+10;c++)
+	{
+		tableView.appendRow({title:"Row "+c});
+	}
+	lastRow += 10;
+
+	// when you're done, just reset
+	tableView.setContentInsets({top:0},{animated:true});
+	reloading = false;
+	lastUpdatedLabel.text = "Last Updated: "+formatDate();
+	statusLabel.text = "Pull down to refresh...";
+	actInd.hide();
+	arrow.show();
+}
+
+tableView.addEventListener('scroll',function(e)
+{
+	var offset = e.contentOffset.y;
+	if (offset <= -65.0 && !pulling)
+	{
+		var t = Ti.UI.create2DMatrix();
+		t = t.rotate(-180);
+		pulling = true;
+		arrow.animate({transform:t,duration:180});
+		statusLabel.text = "Release to refresh...";
+	}
+	else if (pulling && offset > -65.0 && offset < 0)
+	{
+		pulling = false;
+		var t = Ti.UI.create2DMatrix();
+		arrow.animate({transform:t,duration:180});
+		statusLabel.text = "Pull down to refresh...";
+	}
+});
+
+tableView.addEventListener('scrollEnd',function(e)
+{
+	if (pulling && !reloading && e.contentOffset.y <= -65.0)
+	{
+		reloading = true;
+		pulling = false;
+		arrow.hide();
+		actInd.show();
+		statusLabel.text = "Reloading...";
+		tableView.setContentInsets({top:60},{animated:true});
+		arrow.transform=Ti.UI.create2DMatrix();
+		beginReloading();
+	}
+});
+
+
+
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2012-04-16
+
+   updated the test case</li>
+<li>Sabil Rahim 2012-04-16
+
+   While closing out the ticket make sure to test the against [this code](<a href="https://gist.github.com/2402543)" rel="nofollow" target="_blank">https://gist.github.com/2402543)</a> to make sure that the scrollEnd is still being generated.
+   
+   Note that values returned by scrollEnd event has changed and is now being generated at the <code>end of scrolling</code> and <code>not at the end of dragging by the user</code>.</li>
+<li>Sabil Rahim 2012-04-16
+
+   PR [2017](<a href="https://github.com/appcelerator/titanium_mobile/pull/2017)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2017)</a> pending against 2.1.0</li>
+<li>Blain Hamon 2012-04-18
+
+   The good news is that this pull will fix the iOS behavior to match Android and the documentation. The bad news is that the JS needs fixing. Sabil has made the changes to the sample code, and the end developer's code will need similar changes.</li>
+<li>Blain Hamon 2012-04-19
+
+   PR merged</li>
+<li>Michael Pettiford 2012-06-23
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206211609
+   Ti Mobile SDK 2.1.0.v20120622174154 hash rdc9dfbe5
+   OSX Lion 10.7.3
+   iPhone 4S OS 5.1
+   
+   Verified expected behavior is shown</li>
+<li>Shyam Bhadauria 2012-07-12
+
+   Re-opening to edit label</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8077.json">JSON Source</a></p>

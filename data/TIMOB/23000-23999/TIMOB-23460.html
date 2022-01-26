@@ -1,0 +1,457 @@
+---
+title: "[TIMOB-23460] Android: Local Reference Table Overflow with Xml DocumentProxy"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-09-11T18:13:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Christopher Williams</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2016-05-31T18:53:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Our mocha unit tests suite is reliably causing a hard crash on Android with a local reference table overflow. It appears to be generating way too many DocumentProxy instances and holding onto them.
+
+In fact, looking at the crash output, it may be generating hundreds of references for the **same** underlying object:
+
+<code><pre>
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]   Summary:
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         3 of java.lang.String (3 unique instances)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.Class
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       253 of ti.modules.titanium.xml.DocumentProxy (1 unique instances)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.String[] (3 elements)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.Class
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       251 of ti.modules.titanium.xml.DocumentProxy (1 unique instances)
+
+</pre></code>
+
+About 16 tests into the suite, it barfs on the overflow. Attached is the log from the beginning of the suite until the crash.
+
+<code><pre>
+[INFO]  !TEST_START: parseString
+[INFO]  !TEST_END: {"state":"passed","duration":0,"suite":"Titanium.XML","title":"parseString"}
+[INFO]  !TEST_START: serializeToString
+[INFO]  !TEST_END: {"state":"passed","duration":10,"suite":"Titanium.XML","title":"serializeToString"}
+[INFO]  !TEST_START: getOrCreateAttributeNS
+[INFO]  !TEST_END: {"state":"passed","duration":0,"suite":"Titanium.XML","title":"getOrCreateAttributeNS"}
+[INFO]  !TEST_START: ownerDocumentproperty
+[INFO]  !TEST_END: {"state":"failed","duration":2010,"suite":"Titanium.XML","title":"ownerDocumentproperty","error":{}}
+[INFO]  !TEST_START: getElementsByTagName
+[INFO]  !TEST_END: {"state":"passed","duration":0,"suite":"Titanium.XML","title":"getElementsByTagName"}
+[INFO]  !TEST_START: documentParsing
+[ERROR] XMLModule: (main) [3940,384210] Error parsing XML
+[ERROR] XMLModule: org.xml.sax.SAXParseException: Unexpected end of document
+[ERROR] XMLModule: 	at org.apache.harmony.xml.parsers.DocumentBuilderImpl.parse(DocumentBuilderImpl.java:125)
+[ERROR] XMLModule: 	at javax.xml.parsers.DocumentBuilder.parse(DocumentBuilder.java:107)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:82)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:68)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parseString(XMLModule.java:62)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[ERROR] XMLModule: 	at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[ERROR] XMLModule: 	at android.os.Handler.handleCallback(Handler.java:739)
+[ERROR] XMLModule: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+[ERROR] XMLModule: 	at android.os.Looper.loop(Looper.java:135)
+[ERROR] XMLModule: 	at android.app.ActivityThread.main(ActivityThread.java:5221)
+[ERROR] XMLModule: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] XMLModule: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[ERROR] XMLModule: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[ERROR] XMLModule: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[WARN]  W/System.err: org.xml.sax.SAXParseException: Unexpected end of document
+[WARN]  W/System.err: 	at org.apache.harmony.xml.parsers.DocumentBuilderImpl.parse(DocumentBuilderImpl.java:125)
+[WARN]  W/System.err: 	at javax.xml.parsers.DocumentBuilder.parse(DocumentBuilder.java:107)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:82)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:68)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parseString(XMLModule.java:62)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[WARN]  W/System.err: 	at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[WARN]  W/System.err: 	at android.os.Handler.handleCallback(Handler.java:739)
+[WARN]  W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+[WARN]  W/System.err: 	at android.os.Looper.loop(Looper.java:135)
+[WARN]  W/System.err: 	at android.app.ActivityThread.main(ActivityThread.java:5221)
+[WARN]  W/System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+[WARN]  W/System.err: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[WARN]  W/System.err: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[WARN]  W/System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[ERROR] XMLModule: (main) [0,384210] Error parsing XML
+[ERROR] XMLModule: org.xml.sax.SAXParseException: expected: /nodes read: node (position:END_TAG </node>@9:9 in java.io.InputStreamReader@16cd5035)
+[ERROR] XMLModule: 	at org.apache.harmony.xml.parsers.DocumentBuilderImpl.parse(DocumentBuilderImpl.java:146)
+[ERROR] XMLModule: 	at javax.xml.parsers.DocumentBuilder.parse(DocumentBuilder.java:107)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:82)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:68)
+[ERROR] XMLModule: 	at ti.modules.titanium.xml.XMLModule.parseString(XMLModule.java:62)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[ERROR] XMLModule: 	at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[ERROR] XMLModule: 	at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[ERROR] XMLModule: 	at android.os.Handler.handleCallback(Handler.java:739)
+[ERROR] XMLModule: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+[ERROR] XMLModule: 	at android.os.Looper.loop(Looper.java:135)
+[ERROR] XMLModule: 	at android.app.ActivityThread.main(ActivityThread.java:5221)
+[ERROR] XMLModule: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] XMLModule: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[ERROR] XMLModule: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[ERROR] XMLModule: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[WARN]  W/System.err: org.xml.sax.SAXParseException: expected: /nodes read: node (position:END_TAG </node>@9:9 in java.io.InputStreamReader@16cd5035)
+[WARN]  W/System.err: 	at org.apache.harmony.xml.parsers.DocumentBuilderImpl.parse(DocumentBuilderImpl.java:146)
+[WARN]  W/System.err: 	at javax.xml.parsers.DocumentBuilder.parse(DocumentBuilder.java:107)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:82)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parse(XMLModule.java:68)
+[WARN]  W/System.err: 	at ti.modules.titanium.xml.XMLModule.parseString(XMLModule.java:62)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[WARN]  W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[WARN]  W/System.err: 	at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[WARN]  W/System.err: 	at android.os.Handler.handleCallback(Handler.java:739)
+[WARN]  W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+[WARN]  W/System.err: 	at android.os.Looper.loop(Looper.java:135)
+[WARN]  W/System.err: 	at android.app.ActivityThread.main(ActivityThread.java:5221)
+[WARN]  W/System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+[WARN]  W/System.err: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[WARN]  W/System.err: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[WARN]  W/System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[INFO]  !TEST_END: {"state":"passed","duration":0,"suite":"Titanium.XML","title":"documentParsing"}
+[INFO]  !TEST_END: {"state":"skipped","duration":0,"suite":"Titanium.XML","title":"invalidDocumentParsing"}
+[INFO]  !TEST_START: soap
+[INFO]  !TEST_END: {"state":"passed","duration":0,"suite":"Titanium.XML","title":"soap"}
+[INFO]  !TEST_END: {"state":"skipped","duration":0,"suite":"Titanium.XML","title":"xpath"}
+[INFO]  !TEST_START: xmlNodes
+[INFO]  !TEST_END: {"state":"failed","duration":0,"suite":"Titanium.XML","title":"xmlNodes","error":{"name":"AssertionError","expected":"xml","operator":"to equal","message":"expected undefined to equal 'xml'","generatedMessage":true,"showDiff":true}}
+[INFO]  !TEST_START: xmlNodeCount
+[INFO]  !TEST_END: {"state":"passed","duration":10,"suite":"Titanium.XML","title":"xmlCDataAndEntities"}
+[INFO]  !TEST_START: xmlSerialize
+[INFO]  !TEST_END: {"state":"passed","duration":10,"suite":"Titanium.XML","title":"xmlSerialize"}
+[INFO]  !TEST_END: {"state":"skipped","duration":10,"suite":"Titanium.XML","title":"apiXMLTextSplitText"}
+[INFO]  !TEST_END: {"state":"skipped","duration":10,"suite":"Titanium.XML","title":"apiXMLTextGetText"}
+[INFO]  !TEST_END: {"state":"skipped","duration":10,"suite":"Titanium.XML","title":"apiXmlDocumentProperties"}
+[INFO]  !TEST_END: {"state":"skipped","duration":10,"suite":"Titanium.XML","title":"apiXmlDocumentCreateAttribute"}
+[INFO]  !TEST_START: apiXmlDocumentCreateCDATASection
+[INFO]  art: art/runtime/indirect_reference_table.cc:113] JNI ERROR (app bug): local reference table overflow (max=512)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113] local reference table dump:
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]   Last 10 entries (of 511):
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       510: 0x1308b790 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       509: 0x1308bf10 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       508: 0x1308b790 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       507: 0x1308bf10 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       506: 0x1308b790 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       505: 0x1308bf10 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       504: 0x1308b790 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       503: 0x1308bf10 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       502: 0x1308b790 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       501: 0x1308bf10 ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]   Summary:
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         3 of java.lang.String (3 unique instances)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.Class
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       253 of ti.modules.titanium.xml.DocumentProxy (1 unique instances)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.String[] (3 elements)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of ti.modules.titanium.xml.DocumentProxy
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]         1 of java.lang.Class
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]       251 of ti.modules.titanium.xml.DocumentProxy (1 unique instances)
+[INFO]  art: art/runtime/indirect_reference_table.cc:113]
+[INFO]  art: art/runtime/runtime.cc:284] Runtime aborting...
+[INFO]  art: art/runtime/runtime.cc:284] Aborting thread:
+[INFO]  art: art/runtime/runtime.cc:284] "main" prio=9 tid=1 Runnable
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x73156970 self=0xf4606800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=3997 nice=-6 cgrp=apps sched=0/0 handle=0xf77ef160
+[INFO]  art: art/runtime/runtime.cc:284]   | state=R schedstat=( 0 0 0 ) utm=216 stm=27 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xff006000-0xff008000 stackSize=8MB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes= "abort lock" "mutator lock"(shared held)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00005ac3  /system/lib/libbacktrace_libc++.so (UnwindCurrent::Unwind(unsigned int, ucontext*)+83)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00002e91  /system/lib/libbacktrace_libc++.so (Backtrace::Unwind(unsigned int, ucontext*)+33)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 003c3f3a  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::mirror::ArtMethod*)+138)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0038e88c  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+284)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 00372fc4  /system/lib/libart.so (art::AbortState::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&)+644)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 0037353d  /system/lib/libart.so (art::Runtime::Abort()+125)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 000ec304  /system/lib/libart.so (art::LogMessage::~LogMessage()+1668)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #07 pc 0021cdb1  /system/lib/libart.so (art::IndirectReferenceTable::Add(unsigned int, art::mirror::Object*)+1201)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #08 pc 002c019e  /system/lib/libart.so (art::JNI::GetObjectField(_JNIEnv*, _jobject*, _jfieldID*)+398)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #09 pc 001187d1  /system/lib/libart.so (art::CheckJNI::GetObjectField(_JNIEnv*, _jobject*, _jfieldID*)+145)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #10 pc 0008bbb8  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (titanium::TypeConverter::javaObjectToJsValue(_JNIEnv*, _jobject*)+904)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #11 pc 00239d30  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (titanium::xml::NodeProxy::getter_ownerDocument(v8::Local<v8::String>, v8::AccessorInfo const&)+256)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #12 pc 00486324  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (???)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #13 pc 00000001  ???
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[INFO]  art: art/runtime/runtime.cc:284]   at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Handler.handleCallback(Handler.java:739)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Handler.dispatchMessage(Handler.java:95)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Looper.loop(Looper.java:135)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.app.ActivityThread.main(ActivityThread.java:5221)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.reflect.Method.invoke!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.reflect.Method.invoke(Method.java:372)
+[INFO]  art: art/runtime/runtime.cc:284]   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[INFO]  art: art/runtime/runtime.cc:284]   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[INFO]  art: art/runtime/runtime.cc:284] Dumping all threads without appropriate locks held: thread list lock
+[INFO]  art: art/runtime/runtime.cc:284] All threads:
+[INFO]  art: art/runtime/runtime.cc:284] DALVIK THREADS (34):
+[INFO]  art: art/runtime/runtime.cc:284] "main" prio=9 tid=1 Runnable
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x73156970 self=0xf4606800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=3997 nice=-6 cgrp=apps sched=0/0 handle=0xf77ef160
+[INFO]  art: art/runtime/runtime.cc:284]   | state=R schedstat=( 0 0 0 ) utm=216 stm=28 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xff006000-0xff008000 stackSize=8MB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes= "abort lock" "mutator lock"(shared held)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00005ac3  /system/lib/libbacktrace_libc++.so (UnwindCurrent::Unwind(unsigned int, ucontext*)+83)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00002e91  /system/lib/libbacktrace_libc++.so (Backtrace::Unwind(unsigned int, ucontext*)+33)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 003c3f3a  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::mirror::ArtMethod*)+138)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0038e88c  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+284)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 0039a3ae  /system/lib/libart.so (art::ThreadList::DumpLocked(std::__1::basic_ostream<char, std::__1::char_traits<char> >&)+478)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 00372f3c  /system/lib/libart.so (art::AbortState::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&)+508)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 0037353d  /system/lib/libart.so (art::Runtime::Abort()+125)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #07 pc 000ec304  /system/lib/libart.so (art::LogMessage::~LogMessage()+1668)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #08 pc 0021cdb1  /system/lib/libart.so (art::IndirectReferenceTable::Add(unsigned int, art::mirror::Object*)+1201)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #09 pc 002c019e  /system/lib/libart.so (art::JNI::GetObjectField(_JNIEnv*, _jobject*, _jfieldID*)+398)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #10 pc 001187d1  /system/lib/libart.so (art::CheckJNI::GetObjectField(_JNIEnv*, _jobject*, _jfieldID*)+145)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #11 pc 0008bbb8  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (titanium::TypeConverter::javaObjectToJsValue(_JNIEnv*, _jobject*)+904)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #12 pc 00239d30  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (titanium::xml::NodeProxy::getter_ownerDocument(v8::Local<v8::String>, v8::AccessorInfo const&)+256)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #13 pc 00486324  /data/app/com.appcelerator.testApp.testing-1/lib/x86/libkroll-v8.so (???)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #14 pc 00000001  ???
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[INFO]  art: art/runtime/runtime.cc:284]   at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[INFO]  art: art/runtime/runtime.cc:284]   at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:152)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Handler.handleCallback(Handler.java:739)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Handler.dispatchMessage(Handler.java:95)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.os.Looper.loop(Looper.java:135)
+[INFO]  art: art/runtime/runtime.cc:284]   at android.app.ActivityThread.main(ActivityThread.java:5221)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.reflect.Method.invoke!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.reflect.Method.invoke(Method.java:372)
+[INFO]  art: art/runtime/runtime.cc:284]   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:899)
+[INFO]  art: art/runtime/runtime.cc:284]   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:694)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "Signal Catcher" prio=9 tid=2 WaitingInMainSignalCatcherLoop
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c00080 self=0xee587400
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4003 nice=0 cgrp=apps sched=0/0 handle=0xf4656d00
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xf3c03000-0xf3c05000 stackSize=1012KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_sigtimedwait+0xea/0x1b7
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_rt_sigtimedwait+0x8f/0xd0
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00074dfb  /system/lib/libc.so (__rt_sigtimedwait+27)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00023ca7  /system/lib/libc.so (sigwait+71)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 0037b075  /system/lib/libart.so (art::SignalCatcher::WaitForSignal(art::Thread*, art::SignalSet&)+133)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0037bc92  /system/lib/libart.so (art::SignalCatcher::Run(void*)+306)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 00020b48  /system/lib/libc.so (__pthread_start(void*)+56)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 0001bfa9  /system/lib/libc.so (__start_thread+25)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 00012b96  /system/lib/libc.so (__bionic_clone+70)
+[INFO]  art: art/runtime/runtime.cc:284]   (no managed stack frames)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "JDWP" prio=9 tid=3 WaitingInMainDebuggerLoop
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c15080 self=0xedd7a800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4004 nice=0 cgrp=apps sched=0/0 handle=0xf4659f00
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xf3b05000-0xf3b07000 stackSize=1012KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: unix_stream_recvmsg+0x308/0x7da
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: sock_recvmsg+0xb0/0xcf
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ___sys_recvmsg+0x142/0x1f4
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: __sys_recvmsg+0x3d/0x5e
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_sys_recvmsg+0x13/0x1d
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_sys_socketcall+0x13f/0x178
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 000759c1  /system/lib/libc.so (recvmsg+17)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00433685  /system/lib/libart.so (art::JDWP::JdwpAdbState::Accept()+229)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 002897f6  /system/lib/libart.so (art::JDWP::JdwpState::Run()+326)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0028b940  /system/lib/libart.so (art::JDWP::StartJdwpThread(void*)+32)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 00020b48  /system/lib/libc.so (__pthread_start(void*)+56)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 0001bfa9  /system/lib/libc.so (__start_thread+25)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 00012b96  /system/lib/libc.so (__bionic_clone+70)
+[INFO]  art: art/runtime/runtime.cc:284]   (no managed stack frames)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "Binder_1" prio=9 tid=4 Native
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c3f080 self=0xedd8a800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4010 nice=0 cgrp=apps sched=0/0 handle=0xf465a180
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe6b56000-0xe6b58000 stackSize=1012KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: binder_thread_read+0x380/0xdbb
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: binder_ioctl+0x2de/0x766
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_sys_ioctl+0x1c2/0xf7f
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00075294  /system/lib/libc.so (__ioctl+20)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 000ad4da  /system/lib/libc.so (ioctl+42)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 0002bc7b  /system/lib/libbinder.so (android::IPCThreadState::talkWithDriver(bool)+251)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0002c675  /system/lib/libbinder.so (android::IPCThreadState::getAndExecuteCommand()+37)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 0002c739  /system/lib/libbinder.so (android::IPCThreadState::joinThreadPool(bool)+105)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 000352b8  /system/lib/libbinder.so (android::PoolThread::threadLoop()+40)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 000169de  /system/lib/libutils.so (android::Thread::_threadLoop(void*)+398)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #07 pc 0006fe92  /system/lib/libandroid_runtime.so (android::AndroidRuntime::javaThreadShell(void*)+98)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #08 pc 000160fa  /system/lib/libutils.so (thread_data_t::trampoline(thread_data_t const*)+122)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #09 pc 00020b48  /system/lib/libc.so (__pthread_start(void*)+56)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #10 pc 0001bfa9  /system/lib/libc.so (__start_thread+25)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #11 pc 00012b96  /system/lib/libc.so (__bionic_clone+70)
+[INFO]  art: art/runtime/runtime.cc:284]   (no managed stack frames)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "GCDaemon" prio=9 tid=5 Waiting
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c28200 self=0xee589800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4009 nice=0 cgrp=apps sched=0/0 handle=0xf4656f80
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=28 stm=5 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe6d52000-0xe6d54000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d50  /system/lib/libc.so (syscall+32)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00101907  [stack:4009] (???)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Object.wait!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   - waiting on <0x36286b70> (a java.lang.Daemons$GCDaemon)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$GCDaemon.run(Daemons.java:341)
+[INFO]  art: art/runtime/runtime.cc:284]   - locked <0x36286b70> (a java.lang.Daemons$GCDaemon)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.run(Thread.java:818)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "HeapTrimmerDaemon" prio=9 tid=6 Waiting
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c281a0 self=0xee588c00
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4008 nice=0 cgrp=apps sched=0/0 handle=0xf4656a80
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe6e56000-0xe6e58000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d50  /system/lib/libc.so (syscall+32)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00101907  [stack:4008] (???)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Object.wait!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   - waiting on <0x28920ee9> (a java.lang.Daemons$HeapTrimmerDaemon)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$HeapTrimmerDaemon.run(Daemons.java:310)
+[INFO]  art: art/runtime/runtime.cc:284]   - locked <0x28920ee9> (a java.lang.Daemons$HeapTrimmerDaemon)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.run(Thread.java:818)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "FinalizerWatchdogDaemon" prio=9 tid=7 Sleeping
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c28140 self=0xee588800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4007 nice=0 cgrp=apps sched=0/0 handle=0xf4656800
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe6f5a000-0xe6f5c000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d52  /system/lib/libc.so (syscall+34)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 001017a7  [stack:4007] (???)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.sleep!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   - sleeping on <0x37f1876e> (a java.lang.Object)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.sleep(Thread.java:1031)
+[INFO]  art: art/runtime/runtime.cc:284]   - locked <0x37f1876e> (a java.lang.Object)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.sleep(Thread.java:985)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$FinalizerWatchdogDaemon.sleepFor(Daemons.java:257)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$FinalizerWatchdogDaemon.waitForFinalization(Daemons.java:268)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$FinalizerWatchdogDaemon.run(Daemons.java:216)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.run(Thread.java:818)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "FinalizerDaemon" prio=9 tid=8 Waiting
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c280e0 self=0xee587c00
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4006 nice=0 cgrp=apps sched=0/0 handle=0xf4656580
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=2 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe705e000-0xe7060000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d50  /system/lib/libc.so (syscall+32)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 00101817  [stack:4006] (???)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Object.wait!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   - waiting on <0x162e5e0f> (a java.lang.ref.ReferenceQueue)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Object.wait(Object.java:422)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:101)
+[INFO]  art: art/runtime/runtime.cc:284]   - locked <0x162e5e0f> (a java.lang.ref.ReferenceQueue)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:72)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$FinalizerDaemon.run(Daemons.java:173)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.run(Thread.java:818)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "Binder_2" prio=9 tid=9 Native
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c43080 self=0xedd9a800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4011 nice=0 cgrp=apps sched=0/0 handle=0xf465a900
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe6a58000-0xe6a5a000 stackSize=1012KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: binder_thread_read+0x380/0xdbb
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: binder_ioctl+0x2de/0x766
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_sys_ioctl+0x1c2/0xf7f
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00075294  /system/lib/libc.so (__ioctl+20)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 000ad4da  /system/lib/libc.so (ioctl+42)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #02 pc 0002bc7b  /system/lib/libbinder.so (android::IPCThreadState::talkWithDriver(bool)+251)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #03 pc 0002c675  /system/lib/libbinder.so (android::IPCThreadState::getAndExecuteCommand()+37)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #04 pc 0002c739  /system/lib/libbinder.so (android::IPCThreadState::joinThreadPool(bool)+105)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #05 pc 000352b8  /system/lib/libbinder.so (android::PoolThread::threadLoop()+40)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #06 pc 000169de  /system/lib/libutils.so (android::Thread::_threadLoop(void*)+398)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #07 pc 0006fe92  /system/lib/libandroid_runtime.so (android::AndroidRuntime::javaThreadShell(void*)+98)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #08 pc 000160fa  /system/lib/libutils.so (thread_data_t::trampoline(thread_data_t const*)+122)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #09 pc 00020b48  /system/lib/libc.so (__pthread_start(void*)+56)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #10 pc 0001bfa9  /system/lib/libc.so (__start_thread+25)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #11 pc 00012b96  /system/lib/libc.so (__bionic_clone+70)
+[INFO]  art: art/runtime/runtime.cc:284]   (no managed stack frames)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "ReferenceQueueDaemon" prio=9 tid=10 Waiting
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12c28080 self=0xee587800
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4005 nice=0 cgrp=apps sched=0/0 handle=0xf465a400
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=1 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xf0887000-0xf0889000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d50  /system/lib/libc.so (syscall+32)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 001018f7  [stack:4005] (???)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Object.wait!(Native method)
+[INFO]  art: art/runtime/runtime.cc:284]   - waiting on <0x2100ce9c> (a java.lang.Class<java.lang.ref.ReferenceQueue>)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Daemons$ReferenceQueueDaemon.run(Daemons.java:133)
+[INFO]  art: art/runtime/runtime.cc:284]   - locked <0x2100ce9c> (a java.lang.Class<java.lang.ref.ReferenceQueue>)
+[INFO]  art: art/runtime/runtime.cc:284]   at java.lang.Thread.run(Thread.java:818)
+[INFO]  art: art/runtime/runtime.cc:284]
+[INFO]  art: art/runtime/runtime.cc:284] "pool-1-thread-1" prio=9 tid=11 TimedWaiting
+[INFO]  art: art/runtime/runtime.cc:284]   | group="" sCount=0 dsCount=0 obj=0x12d0ddc0 self=0xe695fc00
+[INFO]  art: art/runtime/runtime.cc:284]   | sysTid=4016 nice=0 cgrp=apps sched=0/0 handle=0xf079b080
+[INFO]  art: art/runtime/runtime.cc:284]   | state=S schedstat=( 0 0 0 ) utm=0 stm=0 core=0 HZ=100
+[INFO]  art: art/runtime/runtime.cc:284]   | stack=0xe54fe000-0xe5500000 stackSize=1036KB
+[INFO]  art: art/runtime/runtime.cc:284]   | held mutexes=
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait_queue_me+0xd6/0x117
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: futex_wait+0x111/0x258
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: do_futex+0xa6/0x929
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: compat_SyS_futex+0xb0/0x12a
+[INFO]  art: art/runtime/runtime.cc:284]   kernel: ia32_sysret+0x0/0x5
+[INFO]  art: art/runtime/runtime.cc:284]   native: #00 pc 00012d52  /system/lib/libc.so (syscall+34)
+[INFO]  art: art/runtime/runtime.cc:284]   native: #01 pc 001016a7  [stack:4016] (???)
+[INFO]  D/        ( 2376): HostConnection::get() New Host Connection established 0x7f763aa97400, tid 4114
+-- End application log -------------------------------------------------------
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-05-31
+
+   My first hunch is that NodeProxy.getNodeProxy may be the root cause of this, where it's basically casting/wrapping a node to a specific type. This appears to get called through a lot of the XML codebase and may be taking the same underlying Document object and rewrapping it in new DocumentProxy (and likely should be re-using the existing proxy for the same object?)</li>
+<li>Christopher Williams 2017-09-11
+
+   Same root cause as TIMOB-15765, this is now fixed and we can run the Ti.XML test suite on Android.</li>
+<li>Eric Merriman  2018-08-06
+
+   Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23460.json">JSON Source</a></p>

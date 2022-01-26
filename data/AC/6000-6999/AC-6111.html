@@ -1,0 +1,124 @@
+---
+title: "[AC-6111] onActivityResult method for KrollModule"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2019-01-24T20:14:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rainer Schleevoigt</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-01-21T09:18:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-24T20:14:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Some Third party SDK (i.e. paypal) opens a new activity and sends the result to onActivityResult. For this we can use this pattern:
+
+<code><pre>
+activitySupport.launchActivityForResult(intent,REQUEST_CODE, new ResultHandler());
+</pre></code>
+The intent contains the new activity.
+
+Some other SDKs exposes only the method for opening the new (private) activity (i.e. fidel.uk). In this case I have no access to the activity and I cannot use the pattern above.
+
+I can only use the open method and the result (aspected in onActivityResult) I cannot access. Krollmodule class expose lifecycle ecents (onPause etc,), but not onActivityResult.
+
+Hoe I can resolve this problem?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rainer Schleevoigt 2019-01-22
+
+   Now I have decompiled the SDK and now I know the name of new activity class and I can use:
+   
+   
+   <code><pre>
+   @Kroll.method
+   public void present() {
+   	TiActivitySupport support = (TiActivitySupport) TiApplication.getAppCurrentActivity();
+   	Fidel.FIDEL_LINK_CARD_REQUEST_CODE = support.getUniqueResultCode();
+   	support.launchActivityForResult(
+   			new Intent(TiApplication.getInstance().getApplicationContext(), EnterCardDetailsActivity.class),
+   			Fidel.FIDEL_LINK_CARD_REQUEST_CODE, new PaymentResultHandler());
+   }
+   </pre></code>
+   Ok in this project I could solve, but in common cases, how can I receive <code>onActivityResult</code>?</li>
+<li>Joshua Quick 2019-01-23
+
+   Have a look at our "ti.barcode" module as an example here...
+   <a href="https://github.com/appcelerator-modules/ti.barcode/blob/master/android/src/ti/barcode/BarcodeModule.java" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.barcode/blob/master/android/src/ti/barcode/BarcodeModule.java</a>
+   
+   Particularly the code here...
+   <a href="https://github.com/appcelerator-modules/ti.barcode/blob/master/android/src/ti/barcode/BarcodeModule.java#L321" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.barcode/blob/master/android/src/ti/barcode/BarcodeModule.java#L321</a>
+   
+   You'll first to acquire a unique result code from the <code>TiActivitySupport</code> Java class via its <code>getUniqueResultCode()</code> method. You should never hard code the result code on the library side to avoid collision with other libraries. This is standard practice on Android (it's up to the activity implementor to set the unique result codes, not the library).
+   
+   The 3rd argument you provide to the <code>TiActivitySupport.launchActivityForResult()</code> method is an instance of <code>TiActivityResultHandler</code>. You need to implement its <code>onResult()</code> and <code>onError()</code> methods on your end because they'll be called when a result has been received or if it failed to launch the child activity.
+   <a href="https://docs.appcelerator.com/module-apidoc/latest/android/org/appcelerator/titanium/util/TiActivityResultHandler.html" rel="nofollow" target="_blank">https://docs.appcelerator.com/module-apidoc/latest/android/org/appcelerator/titanium/util/TiActivityResultHandler.html</a>
+   
+   The above mentioned "ti.barcode" module's <code>BarcodeModule</code> class implements the <code>TiActivityResultHandler</code> itself. You can do it this way too or implement your own handler.
+   </li>
+<li>Rainer Schleevoigt 2019-01-23
+
+   Thanks for your quick answer. But in my use case I cannot start intent because the new activity is not documented. The only documented interface is a method <code>show(fooactivity)</code>.
+   
+   Now I have decompiled the SDK and I see the name of the activity and it is public. So I can use the common pattern.
+   
+   Unfortunately the result event will never fired and after closing the second activity ANR happens, if I don't start the module in the root activity (i.e.) after window opening.
+   Here the code: <a href="https://github.com/AppWerft/Ti.Fidel/blob/master/android/src/ti/fidel/TifidelModule.java#L124-L143" rel="nofollow" target="_blank">https://github.com/AppWerft/Ti.Fidel/blob/master/android/src/ti/fidel/TifidelModule.java#L124-L143</a>
+   
+   Do you have an idea?</li>
+<li>Joshua Quick 2019-01-23
+
+   Are you saying this 3rd party activity can't be shown via the native [startActivityForResult()](<a href="https://developer.android.com/reference/android/app/Activity.html#startActivityForResult(android.content.Intent" rel="nofollow" target="_blank">https://developer.android.com/reference/android/app/Activity.html#startActivityForResult(android.content.Intent</a>,%20int)) method?
+   
+   Let's forget about Titanium for the moment. In order to receive the activity's result natively, you need to feed the above mentioned method a <code>requestCode</code>, which is a unique integer ID that is set by the calling activity. Doing so will cause that same activity to have its <code>onActivityResult()</code> method called with the given request code. That's how it's supposed to be done natively.
+   
+   So, does the 3rd party library not allow you to do this? What is this <code>show(activity)</code> method that are you speaking of? It sounds like this 3rd party library might be doing something unusual. If so, then they would need to provide a code example on how to do this. If you can provide a link to this library's docs, then we might be able to help out.</li>
+<li>Rainer Schleevoigt 2019-01-24
+
+   The 3party SDK realise a billing interface for creditcards.Therefore there is only a method present() and the result will send to onActivityResult. This is the only interface. Now I have decompiled the aar (I know this is not permitted)and now I know the name of the activity class. Good news: it works:
+   
+   
+   <code><pre>
+   @Kroll.method
+   public void present() {
+   	_instance = this;
+   	final TiActivitySupport support = (TiActivitySupport) TiApplication.getAppCurrentActivity();
+   	final Intent intent = new Intent(TiApplication.getInstance().getApplicationContext(),
+   			EnterCardDetailsActivity.class);
+   	Fidel.FIDEL_LINK_CARD_REQUEST_CODE = support.getUniqueResultCode();
+   	if (TiApplication.isUIThread()) {
+   		support.launchActivityForResult(intent, Fidel.FIDEL_LINK_CARD_REQUEST_CODE, this);
+   	} else {
+   		TiMessenger.postOnMain(new Runnable() {
+   			@Override
+   			public void run() {
+   				support.launchActivityForResult(intent, Fidel.FIDEL_LINK_CARD_REQUEST_CODE, _instance);
+   			}
+   		});
+   	}
+   }
+   </pre></code>
+   
+   and the handling of result here: <a href="https://gist.github.com/AppWerft/d6f7571b04b28b62c1168dd85fc96f8d" rel="nofollow" target="_blank">https://gist.github.com/AppWerft/d6f7571b04b28b62c1168dd85fc96f8d</a>
+   
+   Many thanks for you help,you comment solves my issue! 
+   
+   
+   </li>
+<li>Joshua Quick 2019-01-24
+
+   Glad you got it working! Happy to help. :)</li>
+</ol>
+
+
+<p><a href="/AC/AC-6111.json">JSON Source</a></p>

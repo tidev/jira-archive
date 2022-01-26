@@ -1,0 +1,151 @@
+---
+title: "[TIMOB-24169] iOS: backgroundTopCap + backgroundLeftCap broken on Ti.UI.Button in 6.0.0.GA (Regression)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-11-30T10:34:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>backgroundtopcap, button, ios, regression</td></tr>
+<tr><th>Reporter</th><td>Gertjan Smits</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2016-11-23T18:59:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-12-16T16:14:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I just upgraded to Ti SDK *6.0.0.GA* coming from 5.4.0.GA and I noticed that using <code>backgroundLeftCap</code> and <code>backgroundTopCap</code> are broken on <code>Ti.UI.Button</code> but works fine on <code>Ti.UI.View</code>. It used to work both in 5.4.0.
+
+The issue is easy to reproduce with the following code, I supplied a background png in the attachment.
+
+<code><pre>
+var win = Ti.UI.createWindow();
+var container = Ti.UI.createView({
+	top:100,
+	layout:'vertical',
+	width:450
+});
+
+var button = Ti.UI.createButton({
+	top:0,
+	backgroundImage:'button_background.png',
+	backgroundTopCap:50,
+	backgroundLeftCap:50,
+	width:450,
+	height:100
+});
+
+var view = Ti.UI.createView({
+	top:50,
+	backgroundImage:'button_background.png',
+	backgroundTopCap:50,
+	backgroundLeftCap:50,
+	width:450,
+	height:100
+});
+
+container.add(button);
+container.add(view);
+win.add(container);
+win.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24169_60770/button_background.png">button_background.png</td></td><td>2016-11-23T18:58:09.000+0000</td><td>4182</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24169_60771/Simulator Screen Shot 23 Nov 2016, 20.35.09.png">Simulator Screen Shot 23 Nov 2016, 20.35.09.png</td></td><td>2016-11-23T19:35:19.000+0000</td><td>34995</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-11-23
+
+   Hey there, iOS or Android? We will then test if it's 5.5.x or 6.x that caused it. Thx! *EDIT*: I was able to reproduce it on iOS, and it works in 5.5.1, so it's a 6.0.0 regression. Moving for further investigation.</li>
+<li>Gertjan Smits 2016-11-23
+
+   Hi, as far as I know these properties are only supported on iOS :)
+   
+   If not, then I mean iOS.</li>
+<li>Hans Knöchel 2016-11-23
+
+   [~vijaysingh] This is a regression caused by [this change]<a href="https://github.com/appcelerator/titanium_mobile/commit/7ee97f46b21ab05434d3c588e1ae24450a6eb5f0" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/7ee97f46b21ab05434d3c588e1ae24450a6eb5f0</a>] in TIMOB-23666. I noticed three things:
+   <h4>We need to restore the <code>[self loadImage:value]</code>, since it handles much more than just loading (e.g. scaling and stretching)</h4>
+   <h4>We still need to support remote images, for example by something like this:</h4>
+   <code><pre>
+       if (!backgroundImageCache) {
+           NSURL *bgURL = [TiUtils toURL:value proxy:[self proxy]];
+           backgroundImageCache = [[ImageLoader sharedLoader] loadImmediateImage:bgURL];
+           if (backgroundImageCache == nil) {
+               backgroundImageCache = [[[ImageLoader sharedLoader] loadRemote:bgURL] retain];
+           } else {
+               [backgroundImageCache retain];
+           }
+       }
+   </pre></code>
+   <h4>The same applies for <code>setBackgroundSelectedImage_</code>, <code>setBackgroundDisabledImage_</code> and <code>setBackgroundFocusedImage_</code> which currently don't support remote images when they are not in the cache already.</h4>
+   
+   So we would need to come up with a solution that covers all those use-cases together.</li>
+<li>Vijay Singh 2016-11-25
+
+   This change will affect background image setting for TIUIiOSToolbar, TIUISearchbar, TIUITabGroup, TiUITextField and TIUIiOSStepper and TIUIButton's all state(selected , highlighted etc).
+    If images are not cached, it will download image from remote .
+   
+   PR : <a href="https://github.com/appcelerator/titanium_mobile/pull/8635" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8635</a>
+   
+   In above solution     [TiUtils loadBackgroundImage:image forProxy:[self proxy]];
+   already return image but we are not using it for capping . Rather we use
+   [[ImageLoader sharedLoader] loadImmediateStretchableImage:url withLeftCap:leftCap topCap:topCap]; [ImageCacheEntry stretchableImage] which internally call  for capped image which again get image from cache.
+   
+   Ideal solution is, 
+    -(UIImage *)stretchableImage should be available as extension of UIImage.
+   We should use image from   [TiUtils loadBackgroundImage:image forProxy:[self proxy]]; and call -[UIImage stretchableImage] ;
+   
+   [~hansknoechel] Let me know your comment .</li>
+<li>Gertjan Smits 2016-11-29
+
+   Can an estimate be given when this release will be done? We're getting close to our deadline and I have to make a decision if I will use 6.0.0.GA, because without this, I simply can not.</li>
+<li>Hans Knöchel 2016-11-29
+
+   [~gertjans] This ticket is in review for 6.0.1 which will be released in early December. In the meantime, you could either patch your SDK with the provided commit or rollback [this commit](<a href="https://github.com/appcelerator/titanium_mobile/commit/7ee97f46b21ab05434d3c588e1ae24450a6eb5f0)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/7ee97f46b21ab05434d3c588e1ae24450a6eb5f0).</a></li>
+<li>Vijay Singh 2016-11-30
+
+   Reverted changes of TIMOB-23666 for 6_0_x .
+   PR(6_0_x) : <a href="https://github.com/appcelerator/titanium_mobile/pull/8643" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8643</a></li>
+<li>Hans Knöchel 2016-11-30
+
+   Fixed by reverting the remote-images changes from TIMOB-23666 for now.</li>
+<li>Abir Mukherjee 2016-12-01
+
+   Verified with this environment:
+   NPM Version: 2.15.9
+   Node Version: 4.5.0
+   Mac OS: 10.12.1
+   Appc CLI: 6.0.0
+   Appc CLI NPM: 4.2.8
+   Titanium SDK version: 6.0.1.v20161130023500
+   Appcelerator Studio, build: 4.8.0.201611121409
+   Xcode 8.1 GM
+   Device: iOS 10.0
+   
+   I was able to reproduce the issue with SDK 6.0.0 GA. I tried the demo code with SDK 5.5.1 GA and did not see the issue; verifying that the regression is with 6.0.0 GA. I then tried the demo code on both Simulator and Device and verified that the bug is fixed with SDK 6.0.1.</li>
+<li>Gertjan Smits 2016-12-16
+
+    When does early december end ;) ?</li>
+<li>Hans Knöchel 2016-12-16
+
+    [~gertjans] Xcode 8.2 came along earlier than expected :-) A release before Christmas is still scheduled!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24169.json">JSON Source</a></p>

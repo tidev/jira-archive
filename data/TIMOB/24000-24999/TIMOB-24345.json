@@ -1,0 +1,205 @@
+{
+	"id": "165464",
+	"key": "TIMOB-24345",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "7",
+			"description": "",
+			"name": "Invalid"
+		},
+		"resolutiondate": "2017-01-26T22:59:03.000+0000",
+		"created": "2017-01-25T14:08:38.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "cbarber",
+			"key": "cbarber",
+			"displayName": "Chris Barber",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"updated": "2017-03-24T17:44:09.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "On trying to implement a Today Extension and share data, i have set up an App Group and tried using Ti.App.iOS.UserDefaults, Ti.Filesystem.directoryForSuite & Ti.Wormhole all of which failed.\r\n\r\nI setup an empty XCode project called {{Amy Today}} with a Today Extension target called {{Amy Reminders}}. Having changed the target capabilities for the App Group accordingly, a {{Amy Today.entitlements}} file was created.\r\n\r\nI included the extensions using the following in the {{TiApp.xml}}:\r\n\r\n\r\n{code:xml}\r\n<extensions>\r\n    <extension projectPath=\"extensions/Amy Today/Amy Today.xcodeproj\">\r\n        <target name=\"Amy Reminders\">\r\n            <provisioning-profiles>\r\n                <device/>\r\n                <dist-appstore/>\r\n                <dist-adhoc/>\r\n            </provisioning-profiles>\r\n        </target>\r\n    </extension>\r\n</extensions>\r\n{code}\r\n\r\nI ran the project and tested and discovered the data was being written to the appropriate App Group folder/plist correctly from the app but could not be read by the Today Extension.\r\n\r\nOn further investigation I realised that a new {{Amy Reminders.entitlements}} file was being created in a new folder within the build folder and this was being included in the built project not the actual entitlements file (see attached picture - red was the one included in the project, green is the one that should have been included.)\r\n\r\nI delved into the {{6.0.1.GA/iphone/cli/commands/_build.js}} file and discovered on line {{3434}} the variable {{entFile}} contained {{Amy Reminders/Amy Reminders.entitlement}} which meant the following lines that join {{entFile}} with {{targetName}} was creating this new file.\r\n\r\nThis new file did not contain the key {{com.apple.security.application-groups}} which meant the Today Extension did not have the appropriate security entitlements to read the shared data.\r\n\r\nI removed the targetName from the {{path.join}} as follows:\r\n{code:javascript}\r\nextBuildSettings.CODE_SIGN_ENTITLEMENTS = '\"' + path.join(ext.relPath, entFile) + '\"';\r\ntargetInfo.entitlementsFile = path.join(this.buildDir, ext.relPath, entFile);\r\n{code}\r\n\r\nand the Today Extension had the correct entitlements and could read the shared data. I'm not sure if the above fix is correct as I have not tested it with Watch Extensions.\r\n\r\nHope the above helps in the investigation on fixing this problem.\r\n\r\n",
+		"attachment": [
+			{
+				"id": "61320",
+				"filename": "Amy entitlements.png",
+				"author": {
+					"name": "lawrence.wilson@abannan.com",
+					"key": "lawrence.wilson@abannan.com",
+					"displayName": "Lawrence Wilson",
+					"active": true,
+					"timeZone": "Europe/London"
+				},
+				"created": "2017-01-25T14:00:04.000+0000",
+				"size": 147370,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: Today Extensions cannot access App Group UserDefaults or DirectoryForSuite",
+		"creator": {
+			"name": "lawrence.wilson@abannan.com",
+			"key": "lawrence.wilson@abannan.com",
+			"displayName": "Lawrence Wilson",
+			"active": true,
+			"timeZone": "Europe/London"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "lawrence.wilson@abannan.com",
+			"key": "lawrence.wilson@abannan.com",
+			"displayName": "Lawrence Wilson",
+			"active": true,
+			"timeZone": "Europe/London"
+		},
+		"environment": "{quote}\r\nOperating System\r\n  Name                        = Mac OS X\r\n  Version                     = 10.12.2\r\n  Architecture                = 64bit\r\n  CPUs                      = 4\r\n  Memory                      = 8589934592\r\nNode.js\r\n  Node.js Version             = 4.6.2\r\n  npm Version                 = 2.15.11\r\nTitanium CLI\r\n  CLI Version                 = 5.0.11\r\nTitanium SDK\r\n  SDK Version                 = 6.0.1.GA\r\n  SDK Path                    = /Users/xxx/Library/Application Support/Titanium/mobilesdk/osx/6.0.1.GA\r\n  Target Platform             = iphone\r\n{quote}\r\n",
+		"comment": {
+			"comments": [
+				{
+					"id": "405415",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Titanium supports defining App Groups in the {{tiapp.xml}}. You set them by adding them to the {{<ios>}} section of the tiapp.xml like the following.\r\n\r\n{code}\r\n<ios>\r\n    <capabilities>\r\n        <app-groups>\r\n            <group>group.com.appc.foo</group>\r\n            <group>group.com.appc.bar</group>\r\n        </app-groups>\r\n    </capabilities>\r\n</ios>\r\n{code}\r\n\r\nThese groups are baked into the {{Entitlements.plist}} files.\r\n\r\nIt's worth noting that App Groups are the only capability that is currently supported.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2017-01-26T20:12:47.000+0000",
+					"updated": "2017-01-26T20:12:47.000+0000"
+				},
+				{
+					"id": "405427",
+					"author": {
+						"name": "lawrence.wilson@abannan.com",
+						"key": "lawrence.wilson@abannan.com",
+						"displayName": "Lawrence Wilson",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "So that can be used instead of creating an Entitlements.plist file in the project?\r\n\r\nMight be an idea to update the documentation then as its not stated - http://docs.appcelerator.com/platform/latest/#!/guide/tiapp.xml_and_timodule.xml_Reference\r\n\r\nWould these entitlements be included in Today Extension projects?",
+					"updateAuthor": {
+						"name": "lawrence.wilson@abannan.com",
+						"key": "lawrence.wilson@abannan.com",
+						"displayName": "Lawrence Wilson",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2017-01-26T21:49:52.000+0000",
+					"updated": "2017-01-26T21:49:52.000+0000"
+				},
+				{
+					"id": "405434",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "[~lawrence.wilson@abannan.com] Correct, you don't need to muck with {{Entitlements.plist}} files, at least for app groups. Yes, the docs should be updated to include the {{<capabilities>}} section. Honestly, I thought it was.\r\n\r\nI'm not familiar with \"today extensions\", so I'm going to guess sure.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2017-01-26T22:50:49.000+0000",
+					"updated": "2017-01-26T22:50:49.000+0000"
+				},
+				{
+					"id": "405436",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "I created TIDOC-2732 to document the use of the {{<capabilities>}} section in the tiapp.xml.\r\n\r\nAs for this ticket, I'm going to resolve this ticket as invalid. If the {{<capabilities>}} doesn't solve the problem, then reopen this ticket with some details and I'd be happy to investigate.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2017-01-26T22:58:56.000+0000",
+					"updated": "2017-01-26T22:58:56.000+0000"
+				},
+				{
+					"id": "415576",
+					"author": {
+						"name": "lmorris",
+						"key": "lmorris",
+						"displayName": "Lee Morris",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket as invalid with reference to the above comments.",
+					"updateAuthor": {
+						"name": "lmorris",
+						"key": "lmorris",
+						"displayName": "Lee Morris",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-03-24T17:44:09.000+0000",
+					"updated": "2017-03-24T17:44:09.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

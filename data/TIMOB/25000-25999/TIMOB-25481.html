@@ -1,0 +1,190 @@
+---
+title: "[TIMOB-25481] Placing Hyperloop WebViews on ScrollableView crashes the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>AppDev</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-08-15T06:28:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If you place several single hyperloop WebViews (5 pages with 1 WebView each works well to provoke the crash) on an Titanium ScrollableView you get an app crash when navigating through the pages.
+
+The crash log:
+
+<code><pre>
+[ERROR] :  TiApplication: (main) [211276,212482] Sending event: exception on thread: main msg:java.lang.NullPointerException: Attempt to invoke virtual method 'boolean org.appcelerator.kroll.KrollDict.containsKey(java.lang.Object)' on a null object reference; Titanium 6.1.2,2017/07/27 16:09,undefined
+[ERROR] :  TiApplication: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean org.appcelerator.kroll.KrollDict.containsKey(java.lang.Object)' on a null object reference
+[ERROR] :  TiApplication: 	at org.appcelerator.kroll.KrollProxy.hasProperty(KrollProxy.java:531)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.setNativeView(TiUIView.java:338)
+[ERROR] :  TiApplication: 	at hyperloop.HyperloopView.<init>(HyperloopView.java:49)
+[ERROR] :  TiApplication: 	at hyperloop.InstanceProxy.createView(InstanceProxy.java:80)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:496)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:482)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:520)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:504)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:482)
+[ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.TiUIScrollableView$ViewPagerAdapter.instantiateItem(TiUIScrollableView.java:580)
+[ERROR] :  TiApplication: 	at android.support.v4.view.PagerAdapter.instantiateItem(PagerAdapter.java:111)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.addNewItem(ViewPager.java:943)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1125)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1025)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager$3.run(ViewPager.java:254)
+[ERROR] :  TiApplication: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:800)
+[ERROR] :  TiApplication: 	at android.view.Choreographer.doCallbacks(Choreographer.java:603)
+[ERROR] :  TiApplication: 	at android.view.Choreographer.doFrame(Choreographer.java:571)
+[ERROR] :  TiApplication: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:786)
+[ERROR] :  TiApplication: 	at android.os.Handler.handleCallback(Handler.java:815)
+[ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:104)
+[ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:194)
+[ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:5576)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:956)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:751)
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2017-08-17
+
+   Looking at the errors it looks like it wants to get the <code>touchEnabled</code> property in this line:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/220d265f74535bc2bc15a7a79362f5673591a8cf/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java#L338" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/220d265f74535bc2bc15a7a79362f5673591a8cf/android/titanium/src/java/org/appcelerator/titanium/view/TiUIView.java#L338</a>
+   which calls hasProperty here:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/titanium/src/java/org/appcelerator/kroll/KrollProxy.java#L531" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/6_1_X/android/titanium/src/java/org/appcelerator/kroll/KrollProxy.java#L531</a>
+   but  <code>properties</code> is null (released?).
+   
+   So what you could try as a workaround is to increase the <code>cacheSize</code> of the ScrollableView so it doesn't remove the Hyperloop views.</li>
+<li>AppDev 2017-08-18
+
+   Thank you for having a look! This is what we are ultimately doing and it indeed helped to migitate this issue, but now we need to do the cache management ourselves because it is impacting the ScrollableView's performance. It would be really nice if this could be fixed upstream (add a check for null there?).</li>
+<li>Sharif AbuDarda 2017-10-29
+
+   Hello [~AppDev], is your issue resolved?  Can you provide a update on the latest sdk build? Thanks. </li>
+<li>AppDev 2017-10-30
+
+   @Sharif AbuDarda Did you change anything relevant for this issue?</li>
+<li>Michael Gangolf 2017-11-01
+
+   </li>
+<li>AppDev 2017-11-02
+
+   Not fixed for us on SDK 6.3.0.GA:
+   
+   [ERROR] :  TiApplication: (main) [237037,263102] Sending event: exception on thread: main msg:java.lang.NullPointerException: Attempt to invoke virtual method 'boolean org.appcelerator.kroll.KrollDict.containsKey(java.lang.Object)' on a null object reference; Titanium 6.3.0,2017/10/31 18:13,undefined
+   [ERROR] :  TiApplication: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean org.appcelerator.kroll.KrollDict.containsKey(java.lang.Object)' on a null object reference
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.KrollProxy.hasProperty(KrollProxy.java:580)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.setNativeView(TiUIView.java:339)
+   [ERROR] :  TiApplication: 	at hyperloop.HyperloopView.<init>(HyperloopView.java:49)
+   [ERROR] :  TiApplication: 	at hyperloop.InstanceProxy.createView(InstanceProxy.java:80)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:499)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:485)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:523)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:507)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:485)
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.TiUIScrollableView$ViewPagerAdapter.instantiateItem(TiUIScrollableView.java:585)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.PagerAdapter.instantiateItem(PagerAdapter.java:111)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.addNewItem(ViewPager.java:1002)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1184)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1084)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager$3.run(ViewPager.java:267)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:829)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doCallbacks(Choreographer.java:606)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doFrame(Choreographer.java:575)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:815)
+   [ERROR] :  TiApplication: 	at android.os.Handler.handleCallback(Handler.java:739)
+   [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+   [ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:145)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:6939)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:372)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1404)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1199)
+   [ERROR] :  AndroidRuntime: FATAL EXCEPTION: main
+   [ERROR] :  AndroidRuntime: Process: de.omg.ozapp, PID: 15600
+   [ERROR] :  AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean org.appcelerator.kroll.KrollDict.containsKey(java.lang.Object)' on a null object reference
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.kroll.KrollProxy.hasProperty(KrollProxy.java:580)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.view.TiUIView.setNativeView(TiUIView.java:339)
+   [ERROR] :  AndroidRuntime: 	at hyperloop.HyperloopView.<init>(HyperloopView.java:49)
+   [ERROR] :  AndroidRuntime: 	at hyperloop.InstanceProxy.createView(InstanceProxy.java:80)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:499)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:485)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:523)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:507)
+   [ERROR] :  AndroidRuntime: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:485)
+   [ERROR] :  AndroidRuntime: 	at ti.modules.titanium.ui.widget.TiUIScrollableView$ViewPagerAdapter.instantiateItem(TiUIScrollableView.java:585)
+   [ERROR] :  AndroidRuntime: 	at android.support.v4.view.PagerAdapter.instantiateItem(PagerAdapter.java:111)
+   [ERROR] :  AndroidRuntime: 	at android.support.v4.view.ViewPager.addNewItem(ViewPager.java:1002)
+   [ERROR] :  AndroidRuntime: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1184)
+   [ERROR] :  AndroidRuntime: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1084)
+   [ERROR] :  AndroidRuntime: 	at android.support.v4.view.ViewPager$3.run(ViewPager.java:267)
+   [ERROR] :  AndroidRuntime: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:829)
+   [ERROR] :  AndroidRuntime: 	at android.view.Choreographer.doCallbacks(Choreographer.java:606)
+   [ERROR] :  AndroidRuntime: 	at android.view.Choreographer.doFrame(Choreographer.java:575)
+   [ERROR] :  AndroidRuntime: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:815)
+   [ERROR] :  AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:739)
+   [ERROR] :  AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+   [ERROR] :  AndroidRuntime: 	at android.os.Looper.loop(Looper.java:145)
+   [ERROR] :  AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:6939)
+   [ERROR] :  AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] :  AndroidRuntime: 	at java.lang.reflect.Method.invoke(Method.java:372)
+   [ERROR] :  AndroidRuntime: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1404)
+   [ERROR] :  AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1199)
+   </li>
+<li>Michael Gangolf 2017-11-02
+
+   The PR I've mentioned above is scheduled for 7.0.0 and not merged yet</li>
+<li>AppDev 2018-01-08
+
+   No change in SDK 7.0.1:
+   
+   [ERROR] :  TiApplication: (main) [30100,172427] Sending event: exception on thread: main msg:java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Object org.appcelerator.kroll.KrollDict.get(java.lang.Object)' on a null object reference; Titanium 7.0.1,2017/12/18 10:42,undefined
+   [ERROR] :  TiApplication: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Object org.appcelerator.kroll.KrollDict.get(java.lang.Object)' on a null object reference
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.composeContentDescription(TiUIView.java:2118)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.applyContentDescription(TiUIView.java:2092)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.applyAccessibilityProperties(TiUIView.java:2155)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiUIView.setNativeView(TiUIView.java:345)
+   [ERROR] :  TiApplication: 	at hyperloop.HyperloopView.<init>(HyperloopView.java:49)
+   [ERROR] :  TiApplication: 	at hyperloop.InstanceProxy.createView(InstanceProxy.java:81)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:506)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:492)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:530)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:514)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:492)
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.TiUIScrollableView$ViewPagerAdapter.instantiateItem(TiUIScrollableView.java:585)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.PagerAdapter.instantiateItem(PagerAdapter.java:111)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.addNewItem(ViewPager.java:1002)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1184)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.populate(ViewPager.java:1084)
+   [ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager$3.run(ViewPager.java:267)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:829)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doCallbacks(Choreographer.java:606)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doFrame(Choreographer.java:575)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:815)
+   [ERROR] :  TiApplication: 	at android.os.Handler.handleCallback(Handler.java:739)
+   [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:95)
+   [ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:145)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:6939)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:372)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1404)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1199)
+   
+   The app still crashes.
+   It would be really nice to see this fixed as the performance suffers heavily when this cache handling does not work and requires us to use a "cache" big enough to hold all data there might ever be…</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25481.json">JSON Source</a></p>

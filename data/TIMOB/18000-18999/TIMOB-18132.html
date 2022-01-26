@@ -1,0 +1,372 @@
+---
+title: "[TIMOB-18132] Android: App Crashes with CalledFromWrongThreadException opening DatePicker after typing in a tf"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-12-08T18:52:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0, Release 3.4.0, Release 3.4.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Android, Crash, DatePicker, TCSupportTriage</td></tr>
+<tr><th>Reporter</th><td>Bar Bruy</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2014-07-31T11:43:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-21T21:45:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+App crashes with CalledFromWrongThreadException when switching from textedit to datepicker
+
+<h4>Steps to reproduce</h4>
+1. Create a new mobile project classic titanium
+2. Add this code to app.js:
+<code><pre>
+var win = Ti.UI.createWindow({title:'test',layout:'vertical'});
+win.open();
+var label = Ti.UI.createTextField({value:'Hello world',top:50,bottom:50,height:Ti.UI.SIZE,width:Ti.UI.FILL});
+win.add(label);
+var picker = Ti.UI.createPicker({value : new Date(),type: Ti.UI.PICKER_TYPE_DATE});
+var pickDateButton = Ti.UI.createButton({title:'pick a date'});
+win.add(pickDateButton);
+pickDateButton.addEventListener('click',function(){
+    picker.showDatePickerDialog({
+        value:new Date(),
+        callback:function(e){
+            Ti.API.info('picked date: '+JSON.stringify(e));
+        }
+    });
+});
+</pre></code>
+3. Run the app in a Samsung S3 device (Please: make sure to use the S3 device, it's not easily reproducible in other devices). 
+4. Click in the Textfield
+5. Start type something
+6. Click on the button to open the date picker .
+7. The app should crash.
+
+<h4>Extra info</h4>
+I included the adb log of the errror
+
+{color:red}
+/dalvikvm(27883): threadid=10: thread exiting with uncaught exception (group=0x4174ee48)
+E/AndroidRuntime(27883): FATAL EXCEPTION: KrollRuntimeThread
+E/AndroidRuntime(27883): Process: com.debugging.test, PID: 27883
+E/AndroidRuntime(27883): android.view.ViewRootImpl$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views.
+E/AndroidRuntime(27883):    at android.view.ViewRootImpl.checkThread(ViewRootImpl.java:6347)
+E/AndroidRuntime(27883):    at android.view.ViewRootImpl.requestLayout(ViewRootImpl.java:871)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.widget.ScrollView.requestLayout(ScrollView.java:1481)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.view.View.requestLayout(View.java:16472)
+E/AndroidRuntime(27883):    at android.widget.TextView.checkForResize(TextView.java:6760)
+E/AndroidRuntime(27883):    at android.widget.TextView.updateAfterEdit(TextView.java:7681)
+E/AndroidRuntime(27883):    at android.widget.Editor.finishBatchEdit(Editor.java:1322)
+E/AndroidRuntime(27883):    at android.widget.Editor.endBatchEdit(Editor.java:1305)
+E/AndroidRuntime(27883):    at android.widget.TextView.endBatchEdit(TextView.java:6065)
+E/AndroidRuntime(27883):    at com.android.internal.widget.EditableInputConnection.endBatchEdit(EditableInputConnection.java:77)
+E/AndroidRuntime(27883):    at android.view.inputmethod.BaseInputConnection.finishComposingText(BaseInputConnection.java:288)
+E/AndroidRuntime(27883):    at android.view.inputmethod.InputMethodManager.checkFocusNoStartInput(InputMethodManager.java:1358)
+E/AndroidRuntime(27883):    at android.view.inputmethod.InputMethodManager.onWindowFocus(InputMethodManager.java:1402)
+E/AndroidRuntime(27883):    at android.view.ViewRootImpl$ViewRootHandler.handleMessage(ViewRootImpl.java:3198)
+E/AndroidRuntime(27883):    at android.os.Handler.dispatchMessage(Handler.java:102)
+E/AndroidRuntime(27883):    at android.os.Looper.loop(Looper.java:136)
+E/AndroidRuntime(27883):    at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+W/ActivityManager(  886):   Force finishing activity com.debugging.test/org.appcelerator.titanium.TiActivity
+V/ActivityManager(  886): Moving to PAUSING: ActivityRecord{422ff478 u0 com.debugging.test/org.appcelerator.titanium.TiActivity t1034 f}
+{color}
+
+<h3>Comments</h3>
+
+<ol>
+<li>Harish Mridha 2014-08-06
+
+   Hi,
+   
+   We tried to reproduce this issue with a sample test case. It’s working as expected with Titanium SDK 3.3.0.GA.
+    
+   <h4>TESTING ENVIRONMENT:</h4>
+   
+       Titanium SDK: 3.3.0.GA
+       Titanium CLI: 3.3.0
+       OS X Version: 10.9.3
+       Android API Level: 19
+   
+   <h4>TEST CODE:</h4>
+   
+   <code><pre> 
+   var win = Ti.UI.createWindow({
+   	backgroundColor:"#000"
+   });
+   
+   var txtFld = Ti.UI.createTextField({
+   	hintText:'Input Text',top:50,
+   	height:Ti.UI.SIZE,
+   	width:Ti.UI.FILL
+   });
+   
+   var picker = Ti.UI.createPicker({
+   	value : new Date(),
+   	type: Ti.UI.PICKER_TYPE_DATE
+   });
+   
+   var btn = Ti.UI.createButton({
+   	title:'Pick Date'
+   });
+   
+   btn.addEventListener('click',function(){
+       picker.showDatePickerDialog({
+           value:new Date(),
+           callback:function(e){
+               Ti.API.info('picked date: '+JSON.stringify(e));
+           }
+       });
+   });
+   
+   win.add(txtFld);
+   win.add(btn);
+   win.open();
+   </pre></code>
+    
+   <h4>STEPS TO TEST:</h4>
+   
+   - Create a simple project.
+   - Update app.js with test code
+   - Run on android tab
+     
+   <h4>EXPECTED RESULT:</h4>
+   
+   It’s working as expected.
+   
+   Thanks
+   </li>
+<li>Mauro Parra-Miranda 2014-08-26
+
+   Hello [~bar b] [~bar br], 
+   
+   We can't reproduce the issue. Which device did you use?
+   
+   Best regards! </li>
+<li>Mauro Parra-Miranda 2014-09-05
+
+   We can't reproduce so far with 3.3.0.GA</li>
+<li>Sergio Trevino 2014-10-10
+
+   I have tried the same on Genymotion and it seems to be ok. However, it happens all the time on Samsung Galaxy S4 with KitKat.
+   
+   As long as the textfield has focus and the keyboard is shown, it crashes immediately after showing the datePicker.
+   
+   Have to ask, did this happen when a non-stock keyboard (swiftkey, etc) is used to write on text field?</li>
+<li>Bar Bruy 2014-10-10
+
+   @Mauro parra-miranda : LG G TAB 8.3
+   (Not reproducable on genymotion simulator)
+   Sergio states it does not work on Galaxy S4
+   
+   please reopen this issue and try it on all the real devices you have.
+   Because it does still occur!
+   + first type in the text field -> then use the datepicker -> Then it occurs (!!! NOT IN SIMULATOR)
+   
+   </li>
+<li>Sergio Trevino 2014-10-10
+
+   Thanks for looking into this issue.
+   
+   I have noticed it happened on device with 3rd party keyboards. (Although unsure this is the exact cause). 
+   
+   A thing that reduced crashes considerably is to wait for a second before showing picker, after blurring all textfields.
+   
+   Something like this:
+   
+   
+   function showPicker() {
+   	Ti.API.info("ShowPicker");
+   	$.textField1.blur(); // make sure to blur ALL fields.
+   
+   	setTimeout(function(e) {
+   		picker.showDatePickerDialog({
+   			callback : function(e) {
+   				if (e.cancel) {
+   					Ti.API.info('User canceled dialog');
+   				} else {
+   					Ti.API.info('User selected date: ' + e.value);
+   					var value = e.value;
+   				
+   					
+   				}
+   			}
+   		});
+   	}, 1000);
+   
+   	Ti.API.info("ShowPicker=>clicked");
+   
+   }
+   </li>
+<li>Carl Levasseur 2014-11-25
+
+   I have the same issue on a nexus 5 with Lollipop. No issue in genymotion. The crash occurs even if the keyboard isn't visible.
+   It works fine if I don't type anything in the textfield. I am using the native keyboard. </li>
+<li>Mauro Parra-Miranda 2014-11-26
+
+   [~rtlechuga]:
+   
+   Tested with the testcase in the TC issue description, with: Mobile SDK 3.4.1, Nexus 5 with Lollipop. Works just fine following the steps:
+   
+   1. Open the app.
+   2. Click on the tf
+   3. Type 
+   4. Without minimizing the keyboard, click on the "pick a date" button.
+   5. Select one date.
+   6. Click on OK.
+   
+   Best Regards </li>
+<li>Arnaud Besnier 2014-12-02
+
+   We have the same issue on our production app.
+   The issue appears with SDK 3.3.0.GA, 3.4.0.GA and 3.4.1.GA.
+   This is really critical for us: our users cannot fill in their profile information.
+   
+   The app example above is very simple.
+   It should not crash but it does on some devices.
+   
+   We reproduced the crash using:
+   - a Samsung Galaxy S4 (Android 4.4.4)
+   - a Samsung Galaxy S3 (Android 4.3)
+   - a Nexus 5 (Android Lollipop)
+   - a Nexus 4 (Android Lollipop)
+   
+   It does not crash using:
+   - a Samsung Galaxy S5 mini (Android 4.4.2) 
+   - a Samsung Galaxy S2 (Android 4.0.3)
+   
+   Please take some time to dig into the issue.
+   Thank you</li>
+<li>Sergio Trevino 2014-12-02
+
+    I had to use another workaround for this, but it does feel VERY precarious.
+    
+    When the user taps on the button that prompts date picker to open, first we need to blur the text field AND wait for the text field to fire the "blur" event to actually show the datePicker.
+    
+    This however, would need many events for many fields, but seems to be working for the one example.
+    
+    Appcelerator, please fix this. It's a control used enough that is causing widespread crashes.</li>
+<li>Mauro Parra-Miranda 2014-12-02
+
+    Hello [~arnaud] and [~checotrevino]!
+    
+    We dig into this, as you can see in previous comment. We weren't able to reproduce the issue. Please, add a crashlog to all the mentioned platforms and attach the code that you are using, or even better, use the original testcase. 
+    
+    Best Regards</li>
+<li>Arnaud Besnier 2014-12-03
+
+    Thank you Sergio Trevino for the workaround, we will try this!
+    
+    Mauro Parra-Miranda, using the original testcase, the app craches on the Samsung Galaxy S4 (Android 4.4.4).
+    I think I have the same crash as described in the ticket.
+    
+    Here is the crash log :
+    <code><pre>
+    12-03 08:59:11.525: D/TiUIView(16132): (main) [5247,10026] TAP, TAP, TAP on ti.modules.titanium.ui.ButtonProxy@41942f60
+    12-03 08:59:11.525: E/AndroidRuntime(16132): FATAL EXCEPTION: KrollRuntimeThread
+    12-03 08:59:11.525: E/AndroidRuntime(16132): Process: com.XXXXXXXX.dev, PID: 16132
+    12-03 08:59:11.525: E/AndroidRuntime(16132): android.view.ViewRootImpl$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views.
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.ViewRootImpl.checkThread(ViewRootImpl.java:6024)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.ViewRootImpl.invalidateChildInParent(ViewRootImpl.java:853)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.ViewGroup.invalidateChild(ViewGroup.java:4320)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.View.invalidate(View.java:10942)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.View.invalidate(View.java:10897)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.widget.TextView.updateAfterEdit(TextView.java:7430)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.widget.Editor.finishBatchEdit(Editor.java:1101)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.widget.Editor.endBatchEdit(Editor.java:1084)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.widget.TextView.endBatchEdit(TextView.java:5867)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at com.android.internal.widget.EditableInputConnection.endBatchEdit(EditableInputConnection.java:77)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.inputmethod.BaseInputConnection.finishComposingText(BaseInputConnection.java:274)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.inputmethod.InputMethodManager.checkFocusNoStartInput(InputMethodManager.java:1332)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.inputmethod.InputMethodManager.onWindowFocus(InputMethodManager.java:1376)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.view.ViewRootImpl$ViewRootHandler.handleMessage(ViewRootImpl.java:3141)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.os.Handler.dispatchMessage(Handler.java:102)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at android.os.Looper.loop(Looper.java:136)
+    12-03 08:59:11.525: E/AndroidRuntime(16132): 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+    12-03 08:59:11.535: W/ActivityManager(704): Process com.XXXXXXXX.dev has crashed too many times: killing!
+    12-03 08:59:11.535: W/ActivityManager(704):   Force finishing activity com.XXXXXXXX.dev/org.appcelerator.titanium.TiActivity
+    12-03 08:59:11.535: D/TiBaseActivity(16132): (main) [14,10040] Activity org.appcelerator.titanium.TiActivity@4185e6c0 onPause
+    12-03 08:59:11.535: W/ActivityManager(704):   Force finishing activity com.XXXXXXXX.dev/.XXXXXXXXActivity
+    12-03 08:59:11.535: I/ActivityManager(704): Killing 16132:com.XXXXXXXX.dev/u0a276 (adj 0): crash
+    </pre></code></li>
+<li>Arnaud Besnier 2014-12-03
+
+    A simple test with Sergio workaround on the original testcase does not crashes.
+    Here is the code:
+    
+    <code><pre>
+    var win = Ti.UI.createWindow({title:'test',layout:'vertical'});
+    win.open();
+    var label = Ti.UI.createTextField({value:'Hello world',top:50,bottom:50,height:Ti.UI.SIZE,width:Ti.UI.FILL});
+    win.add(label);
+    var picker = Ti.UI.createPicker({value : new Date(),type: Ti.UI.PICKER_TYPE_DATE});
+    var pickDateButton = Ti.UI.createButton({title:'pick a date'});
+    win.add(pickDateButton);
+    pickDateButton.addEventListener('click',function(){
+        label.blur()
+    
+        label.addEventListener('blur', function() {
+          picker.showDatePickerDialog({
+              value:new Date(),
+              callback:function(e){
+                  Ti.API.info('picked date: '+JSON.stringify(e));
+              }
+          });
+        })
+    });
+    
+    </pre></code></li>
+<li>Bar Bruy 2015-03-05
+
+    I have found another easier workaround.
+    just call Ti.UI.Android.hideSoftKeyboard() before showing the datepicker
+    Thanks to [~Arnaud_Besnier] and [~checotrevino] for your workarounds</li>
+<li>Cyprian Kowalczyk 2015-09-17
+
+    It is still happening at least on Samsung Galaxy S3 with Android 4.3 on SDK 3.5.1.GA</li>
+<li>Hieu Pham 2015-12-03
+
+    master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7545" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7545</a></li>
+<li>Ashraf Abu 2015-12-09
+
+    PR merged.</li>
+<li>Lokesh Choudhary 2016-01-21
+
+    Verified the fix.
+    The app does not crash according to steps in the description.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio : 4.5.0.201601210853
+    Ti SDK :  5.2.0.v20160114021251
+    Ti CLI : 5.0.6
+    Alloy : 1.7.33
+    MAC Yosemite : 10.10.5
+    Appc NPM : 4.2.3-1
+    Appc CLI : 5.2.0-231
+    Node: v0.12.27
+    Nexus 6P - Android 6.0
+    Galaxy S3 - Android 4.4.2</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18132.json">JSON Source</a></p>

@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-23958] Remove deprecated Python and unused files"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-14T14:54:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Components</th><td>Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2016-09-28T16:15:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-12-07T18:40:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The Python files in the Titanium SDK are deprecated and no longer maintained. They must be removed!
+
+We will need to make sure that Jenkins and Studio are not broken.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2016-09-28
+
+   Ti SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8444" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8444</a>
+   Ti SDK 6_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8445" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8445</a>
+   
+   I checked Studio and the only remaining Python dependency is on <code>wait_for_device.py</code>. I created TISTUD-8605 for Studio to distribute this file itself.
+   
+   I tested building the SDK, creating Titanium apps, Titanium modules, and Apple Watch extensions. I tested building apps and modules for all platforms from the CLI.
+   
+   I did not touch <code>apidoc</code> (yet). I'm waiting for [~bimmel] to investigate whether <code>docgen.py</code> and <code>validate.py</code> can be removed.
+   
+   There are a few remaining Python dependencies. The Android scons build relies on <code>genBootstrap.py</code> which in turn relies on <code>simplejson</code>. Mobile Web's module build still uses <code>build.py</code> which relies on <code>markdown</code> and <code>simplejson</code>. The new module build system does not support Mobile Web modules, so we need to keep <code>build.py</code> working. On a side note, Mobile Web module build also relies on a Java CLI tool that I wrote a long time ago that wraps the Closure Compiler. These can be nuked when Mobile Web is removed.</li>
+<li>Chee Kiat Ng 2016-09-29
+
+   APPROVED.</li>
+<li>Chee Kiat Ng 2016-09-29
+
+   Reopened ticket. Was testing against a wrongly built SDK. see comments from [~hansknoechel] in git.</li>
+<li>Jan Vennemann 2016-09-29
+
+   The Hyperloop build fails due to missing build.xml file in the <code>module/android</code> directory after this PR was merged. Not sure which script causes this so hopefully the following list of files helps.
+   
+   Before PR:
+   <code><pre>
+   ~/Library/Application Support/Titanium/mobilesdk/osx/6.1.0.v20160928162545/module/android ❱❱❱ ll
+   total 600
+   drwxr-xr-x  8 jvennemann  staff     272 Sep 29 11:52 templates
+   -rw-r--r--  1 jvennemann  staff   10644 Sep 29 11:52 jsmin.py
+   -rwxr-xr-x  1 jvennemann  staff   10647 Sep 29 11:52 js2c.py
+   drwxr-xr-x  9 jvennemann  staff     306 Sep 29 11:52 generated
+   drwxr-xr-x  7 jvennemann  staff     238 Sep 29 11:52 documentation
+   -rw-r--r--  1 jvennemann  staff   19814 Sep 29 11:52 build.xml
+   -rwxr-xr-x  1 jvennemann  staff   11678 Sep 29 11:52 bootstrap.py
+   -rw-r--r--  1 jvennemann  staff   15108 Sep 29 11:52 ant-tasks.jar
+   -rw-r--r--  1 jvennemann  staff  224277 Sep 29 11:52 ant-contrib-1.0b3.jar
+   -rw-r--r--  1 jvennemann  staff    7570 Sep 29 11:52 android.py
+   </pre></code>
+   
+   After PR:
+   <code><pre>
+   ~/Library/Application Support/Titanium/mobilesdk/osx/6.1.0.v20160928232246/module/android ❱❱❱ ll
+   total 520
+   -rw-r--r--  1 jvennemann  staff   10644 Sep 29 11:55 jsmin.py
+   -rwxr-xr-x  1 jvennemann  staff   10647 Sep 29 11:55 js2c.py
+   -rw-r--r--  1 jvennemann  staff   15108 Sep 29 11:55 ant-tasks.jar
+   -rw-r--r--  1 jvennemann  staff  224277 Sep 29 11:55 ant-contrib-1.0b3.jar
+   </pre></code>
+   
+   Excerpt from the Hyperloop build log:
+   <code><pre>
+   01:28:40 [32mRunning build[39m
+   01:28:42 ✓  Current Titanium SDK is 6.1.0.v20160929000431
+   01:28:42 Building Android module...
+   01:28:43 Buildfile: /private/var/lib/jenkins/Library/Developer/org.jenkins-ci.slave.jnlp/workspace/hyperloop-next/android/build.xml
+   01:28:43 
+   01:28:43 BUILD FAILED
+   01:28:43 /private/var/lib/jenkins/Library/Developer/org.jenkins-ci.slave.jnlp/workspace/hyperloop-next/android/build.xml:86: Cannot find /private/var/lib/jenkins/Library/Application Support/Titanium/mobilesdk/osx/6.1.0.v20160929000431/module/android/build.xml imported from /private/var/lib/jenkins/Library/Developer/org.jenkins-ci.slave.jnlp/workspace/hyperloop-next/android/build.xml
+   </pre></code></li>
+<li>Chee Kiat Ng 2016-09-29
+
+   Reverting PRs for now. Sorry.</li>
+<li>Chris Barber 2016-09-29
+
+   Take two...
+   
+   Ti SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8453" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8453</a>
+   Ti SDK 6_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8454" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8454</a>
+   
+   I fixed the missing license file and iOS files. I commented out the locale and css compile from the Titanium Xcode project's pre-compile phase.
+   
+   I did NOT add back the supporting Android files for modules. Any Android module that depended on them must stop using ant and start using the new module build system.</li>
+<li>Hans Knöchel 2016-10-01
+
+   The build-error is fixed now. However, the sim-builds seem to not get the localized values of the i18n files anymore. Works on the device and 6_0_X / master though.</li>
+<li>Chris Barber 2016-10-11
+
+   [~hansknoechel] We will have to figure out a better setup for you and the rest of the iOS team. Relying on a pre-compile script is not ideal. The build system is more complicated these days with resource handling, Alloy, Hyperloop, and so on. Perhaps there's something we can do in the daemon to accommodate this? I need to think about this.
+   [~hknoechel] (corrected ID) ^^</li>
+<li>Abir Mukherjee 2017-12-07
+
+   Changes seen in SDK 7.0.0.v20171205132934.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23958.json">JSON Source</a></p>

@@ -1,0 +1,110 @@
+---
+title: "[AC-1941] Android fails to play sound from internal storage"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-10-05T23:27:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Johan Lundin</td></tr>
+<tr><th>Assignee</th><td>Varun Joshi</td></tr>
+<tr><th>Created</th><td>2012-09-06T16:44:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:40:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Same problem as TC-1228 is for video but this is for sound. Permissioning on Android prevents media player to play sound file through url and has to play through file descriptor.
+
+
+			if (URLUtil.isAssetUrl(url)) {
+				Context context = TiApplication.getInstance();
+				String path = url.substring(TiConvert.ASSET_URL.length());
+				
+				// Needed to handle native path urls
+				path = path.replace("Resources//", "Resources/");
+				
+				AssetFileDescriptor afd = null;
+				try {
+					afd = context.getAssets().openFd(path);
+					// Why mp.setDataSource(afd) doesn't work is a problem for another day.
+					// <a href="http://groups.google.com/group/android-developers/browse_thread/thread/225c4c150be92416" rel="nofollow" target="_blank">http://groups.google.com/group/android-developers/browse_thread/thread/225c4c150be92416</a>
+					mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+				} catch (IOException e) {
+					Log.e(LCAT, "Error setting file descriptor: ", e);
+				} finally {
+					if (afd != null) {
+						afd.close();
+					}
+				}
+			} else {
+
+
+should be
+
+
+			if (URLUtil.isAssetUrl(url)) {
+				Context context = TiApplication.getInstance();
+				String path = url.substring(TiConvert.ASSET_URL.length());
+				
+				// Needed to handle native path urls
+				path = path.replace("Resources//", "Resources/");
+				
+				AssetFileDescriptor afd = null;
+				try {
+					afd = context.getAssets().openFd(path);
+					// Why mp.setDataSource(afd) doesn't work is a problem for another day.
+					// <a href="http://groups.google.com/group/android-developers/browse_thread/thread/225c4c150be92416" rel="nofollow" target="_blank">http://groups.google.com/group/android-developers/browse_thread/thread/225c4c150be92416</a>
+					mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+				} catch (IOException e) {
+					Log.e(LCAT, "Error setting file descriptor: ", e);
+				} finally {
+					if (afd != null) {
+						afd.close();
+					}
+				}
+			} else if(url.toString().startsWith(("file://"))) {				
+					// Loading from internal storage using fil desc for media player to be able to read
+					FileInputStream fis = new FileInputStream(url.toString().substring("file://".length()));
+					mp.setDataSource(fis.getFD());				
+			} else {
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Varun Joshi 2012-09-11
+
+   Hi Johan,
+   
+   I see that you have provided a solution for this issue. I would suggest you to follow these guidelines (<a href="https://wiki.appcelerator.org/display/guides/How+to+Contribute+Code)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/How+to+Contribute+Code)</a> and make a pull request for the platform to look at so they can merge if its correct.
+   
+   Thanks,
+   Varun</li>
+<li>Varun Joshi 2012-09-24
+
+   Johan,
+   
+   Just wanted to know the update on this. Did you get time to look into the link I provided above?
+   
+   Thanks,
+   Varun</li>
+<li>Johan Lundin 2012-09-25
+
+   Hi Varun,
+   yes but I don't have the time for it. I solved all my submitted jiras by creating a module with the fixes in it. Feel free to close the jira if you don't think the bug is serious enough.
+   
+   Regards,
+   Johan</li>
+<li>Varun Joshi 2012-10-05
+
+   Fixed as per above comment.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1941.json">JSON Source</a></p>

@@ -1,0 +1,128 @@
+---
+title: "[AC-382] Photo Uploads Broken on Platform"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-21T18:48:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>arrowdb</td></tr>
+<tr><th>Reporter</th><td>Matthew Hewes</td></tr>
+<tr><th>Assignee</th><td>Sharif AbuDarda</td></tr>
+<tr><th>Created</th><td>2015-09-26T05:11:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-11-21T18:48:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I keep getting this error:
+Failed to upload photo: undefined method `destroy' for nil:NilClass
+
+Here's the full response/log from Appcelerator Platform:
+
+<code><pre>
+Content-Type: =#<ActionDispatch::Http::UploadedFile:0x0000000cffdc80>&custom_fields Content-Type: =#<ActionDispatch::Http::UploadedFile:0x0000000cffdc58>&photo=#<ActionDispatch::Http::UploadedFile:0x0000000cffdc30>&photo_sizes=[object Object]&key={REDACTED}&_session_id={REDACTED}
+
+{ "photo_sync_sizes": [ { "\r": { "original_filename": null, "content_type": "; charset=UTF-8", "headers": "Content-Disposition: form-data; name=\"photo_sync_sizes[]\r\nContent-Type: ; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n", "tempfile": [ null ] } } ], "suppress_response_codes\r\nContent-Type: ": "#<ActionDispatch::Http::UploadedFile:0x0000000cffdc80>", "custom_fields\r\nContent-Type: ": "#<ActionDispatch::Http::UploadedFile:0x0000000cffdc58>", "photo": "#<ActionDispatch::Http::UploadedFile:0x0000000cffdc30>", "photo_sizes": { "preview": { "\r\nContent-Type: ": { "original_filename": null, "content_type": "; charset=UTF-8", "headers": "Content-Disposition: form-data; name=\"photo_sizes[preview]\r\nContent-Type: ; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n", "tempfile": [ null ] } } }, "key": "7Wwhj6FVnEBaEESoH5V56f8Fj6Y4fyEh", "_session_id": "gP_kNthCebYMjDhRfSMHfmjbkog" }
+
+</pre></code>
+I have been able to verify that it is in fact a TiBlob object that's being uploaded and it seems that maybe it's something happening on the server?
+
+I did some research and it appears to be a Ruby issue?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Matthew Hewes 2015-09-26
+
+   Harish,
+   
+   That is not the problem. I am sending custom sizing through the API and it was previously returning the correct sizes and uploading the images. Something has happened since. My instance has somehow populated over 1.5gb of space while only 20 images have been uploaded, then photos broke entirely, giving me this error: Failed to upload photo: undefined method `destroy' for nil:NilClass. 
+   
+   This is happening on dev and production instances and currently happening in a live app.
+   
+   Thank you!,
+   Matthew</li>
+<li>Matthew Hewes 2015-09-26
+
+   I also get the same error when uploading an image without any sizes specified.</li>
+<li>Matthew Hewes 2015-09-26
+
+   Another update: It's happening in the platform backend form as well. When I try to upload a photo to a user's profile it gives the same error: Failed to upload photo: undefined method `destroy' for nil:NilClass</li>
+<li>Sharif AbuDarda 2015-11-16
+
+   We have tested the below code to upload photo in the platform. It's working as expected in Android and iOS.
+   
+   <code><pre>
+   var win2 = Ti.UI.createWindow({
+       backgroundColor : 'white'
+   });
+   var Cloud = require('ti.cloud');
+   Cloud.Users.create({
+       email : 'xyz@gmail.com',
+       first_name : 'shajib',
+       last_name : 'darda',
+       password : '123456',
+       password_confirmation : '123456'
+   }, function(e) {
+       if (e.success) {
+           var user = e.users[0];
+           alert('Success:\n' + 'id: ' + user.id + '\n' + 'sessionId: ' + Cloud.sessionId + '\n' + 'first name: ' + user.first_name + '\n' + 'last name: ' + user.last_name);
+       } else {
+           alert('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+       }
+   });
+   var button1 = Titanium.UI.createButton({
+       title : 'Login',
+       top : 10,
+       width : 100,
+       height : 50
+   });
+   button1.addEventListener('click', function(e) {
+       Titanium.API.info("You clicked the button1");
+       Cloud.Users.login({
+           login : 'xyz@gmail.com',
+           password : '123456'
+       }, function(e) {
+           if (e.success) {
+               var user = e.users[0];
+               alert('Success:\n' + 'id: ' + user.id + '\n' + 'sessionId: ' + Cloud.sessionId + '\n' + 'first name: ' + user.first_name + '\n' + 'last name: ' + user.last_name);
+           } else {
+               alert('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   });
+   var button2 = Titanium.UI.createButton({
+       title : 'Upload',
+       top : 80,
+       width : 100,
+       height : 50
+   });
+   button2.addEventListener('click', function(e) {
+       Cloud.Photos.create({
+           photo : Titanium.Filesystem.getFile('index1.jpg')
+       }, function(e) {
+           if (e.success) {
+               var photo = e.photos[0];
+               alert('Success:\n' + 'id: ' + photo.id + '\n' + 'filename: ' + photo.filename + '\n' + 'size: ' + photo.size, 'updated_at: ' + photo.updated_at);
+           } else {
+               alert('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   });
+   win2.add(button1);
+   win2.add(button2);
+   win2.open();
+   </pre></code>
+   
+   We tested with SDK 5.1.0.v20151023172822,5.0.2.GA. CLI 5.0.4. iOS 9.1, Android 5.1.1.
+   
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-382.json">JSON Source</a></p>

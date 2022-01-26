@@ -1,0 +1,169 @@
+---
+title: "[AC-2978] height / width / size , stooped working on v2.0+"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-17T09:19:17.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>api, ios</td></tr>
+<tr><th>Reporter</th><td>Yoram</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2012-06-27T02:19:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+height / width / size for any view stopped working when it's 'auto','100%',Ti.UI.SIZE.
+My project created and published to AppStore on version - 1.8.0.1.  Now I decided to move on to the latest version of 2.0 - 2.1.
+I found out that all my animation in my project stopped working.
+
+If I set for example:
+win.setHeight('100%')
+getting: win.getHeight() was giving me the exact number (in pixels).  Now it returns me '100%'.  I can do nothing with this value.  I need the number (like it worked before).
+I tried to get the size of the device, reducing the status-bar calculation... but it is really a bad idea to support all platforms and devices.
+
+I guess the idea of getHeight() now is to get the original value set, but before it gave the calculated number, is there a new property to have it now on 2.0? I searched and I didn't find... that's why I think it's a bug.
+
+Btw, I also tried to check the width/height/size after the window opened and nothing helps.
+
+Is there a way to fix that bug?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Betty Tran 2012-07-06
+
+   To get the height and width of the view if 'auto', '100%', Ti.UI.SIZE or Ti.UI.FILL has been specified, use the size.height and size.width property. Using the postlayout event listener is recommended as the actual height/width is returned after it has been rendered. For example:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   var view = Ti.UI.createView({
+   	height: Ti.UI.FILL,
+   	width: Ti.UI.FILL
+   });
+   
+   win.add(view);
+   win.open();
+   
+   view.addEventListener('postlayout', function(e){
+   	Ti.API.info('Height: ' + view.size.height);
+   });
+   
+   </pre></code>
+   
+   The use of 'auto' is not advised as it will eventually be deprecated. Using Ti.UI.SIZE and Ti.UI.FILL is recommended. For more information on size behavior, please refer to this guide: <a href="https://wiki.appcelerator.org/display/guides/Titanium+2.0+Layout+Changes#Titanium2.0LayoutChanges-ViewTypesandDefaultLayoutBehavior." rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/Titanium+2.0+Layout+Changes#Titanium2.0LayoutChanges-ViewTypesandDefaultLayoutBehavior.</a> </li>
+<li>Yoram 2012-07-08
+
+   
+   If I need to make animation calculation, I can't do them all in this 'postlayout' event!  I'm willing to wait until the window is ready for getting the correct width/height of views, but it's impossible to deal all the needs from this event, it must be accessible anytime from everywhere (like before).
+   
+   And how come from 'postlayout' the xxx.height will be 234px (for example) and from other area of code it will show the init state '77%'?  It's wrong.  Why not changing it to a fact that if the layout is ready, anytime I call to Height/Width properties I get it's value and not the init value (100% or whatever)?
+   I'm sorry but I can't write all my code from 'postlayout' function with lots of "if" statements :-(
+   
+   Another thing is that I have a feeling that 'postlayout' event is not fired on time, sometimes it's not firing at all and sometimes it's firing more that once.  Strange and not constant behavior.
+   </li>
+<li>Yoram 2012-07-10
+
+   Betty Tran. your solution is not working if you set the height to (still no values in 'postlayout' event function):
+   
+   height: '30%' // <-- AS I NEED IT
+   
+   (instead of what you did --> height: Ti.UI.FILL)</li>
+<li>Betty Tran 2012-07-17
+
+   Setting the height to '30%' still yields the correct actual size.height value in the postlayout event. The height and width properties return the dimensions in platform units, which are the initial values declared. The size.height and size.width properties return the dimensions in system units. This is expected behavior as outlined in the documentation (<a href="http://docs.appcelerator.com/titanium/2.0/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.0/index.html#</a>!/api/Titanium.UI.View-property-size).</li>
+<li>Yoram 2012-08-07
+
+   
+   I played a lot with this new "postlayout" event... and I can tell you one thing I noticed:
+   IT IS NOT GOOD ENOUGH !!!
+   
+   It has many problems, impossible to code inside, too many tweaks knowing if it's the first time because it fires sometimes too much... and the most important: NO SUPPORT FOR WINDOW !!!!!!!!!
+   I attach a handler to the main window (because I want the window sizes - excluding the "statusbar" for example) and I get millions of events for each view on the page!
+   
+   I just want to know the width/height of my window, before I show the window, I want to draw/place views on this window regarding it's sizes!!!
+   IT WORKED ON 1.8, WHY DID IT STOPPED ???  I am stack on version 1.8 and can not move forward to 2.1 only because there are too many things that simply STOPPED working :-(
+   </li>
+<li>Betty Tran 2012-08-13
+
+   A workaround to obtain the window size without the status bar is to get the size property on window open. For example:
+   
+   <code><pre>
+   win.addEventListener('open', function(e){
+   	alert("Height: " + win.size.height + " Width: " + win.size.width);
+   });
+   </pre></code>
+   
+   
+   It was removed after 1.8 for performance reasons.
+   </li>
+<li>Mostafizur Rahman 2013-12-30
+
+   Hello,
+   
+   I tested this issue with the test code bellow. It’s working good in android/iOS. Device size, view height and width are getting perfectly.
+    
+    
+   <h4>Testing Environment:</h4>
+   
+   Titanium SDK: 3.2.0,
+   Titanium CLI: 3.2.0,
+   Android SDK: 4.2.2
+    
+    
+   <h4>Steps to Reproduce:</h4>
+   <h4>Create a sample project.</h4>
+   <h4>Paste this code in app.js file.</h4>
+   <h4>Run this code with testing environment.</h4>
+    
+    h5. Test Code
+   <code><pre>
+    
+   var win = Ti.UI.createWindow();
+    
+   var view = Ti.UI.createView({
+       height: '60%',
+       width: Ti.UI.FILL
+   });
+   win.add(view);
+    
+   win.addEventListener('open', function(e) {
+   	alert("Height: " + view.size.height + " Width: " + view.size.width);
+   });
+    
+   var a = Ti.Platform.displayCaps.platformHeight;
+   var b = Ti.Platform.displayCaps.platformWidth;
+    
+   var sizeWin = Titanium.UI.createLabel({
+   	text : 'display width-x-height:' + b + 'x' + a,
+   	top : 2,
+   	left : 10,
+   	width : 300,
+   	height : 'auto',
+   	font : {
+   		fontSize : 20
+   	},
+   	color : '#777'
+   });
+   view.add(sizeWin);
+   win.open();
+   
+   </pre></code>
+   
+   
+   Thanks 
+   
+   </li>
+<li>Shak Hossain 2013-12-30
+
+   Marking this closed since we can't reproduce it in our latest versions of the TISDK. We posted a sample to validate our test results.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2978.json">JSON Source</a></p>

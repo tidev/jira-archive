@@ -1,0 +1,296 @@
+---
+title: "[TIMOB-18098] Android: JavaScript Service calling the notify method throws an error if the application is backed out"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-07-28T22:37:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Benjamin Hatfield</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2014-11-25T22:40:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-08-18T15:19:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+REPRODUCTION:
+Build the application using a master version of the Titanium SDK and run in the Genymotion emulator.
+Click the 'Add Notification' button.
+Back out of the application till it closes.
+Wait 30s for the notification to trigger.
+
+RESULTS:
+When the service tries to call the Android.NotificationManager.notify() method it throws an exception.
+
+{noformat}
+[WARN] :   W/System.err java.lang.NullPointerException
+[WARN] :   W/System.err 	at android.app.Notification$Builder.applyStandardTemplate(Notification.java:1630)
+[WARN] :   W/System.err 	at android.app.Notification$Builder.makeContentView(Notification.java:1752)
+[WARN] :   W/System.err 	at android.app.Notification$Builder.buildUnstyled(Notification.java:1800)
+[WARN] :   W/System.err 	at android.app.Notification$Builder.build(Notification.java:1872)
+[WARN] :   W/System.err 	at android.support.v4.app.NotificationCompatKitKat$Builder.build(NotificationCompatKitKat.java:114)
+[WARN] :   W/System.err 	at android.support.v4.app.NotificationCompat$NotificationCompatImplKitKat.build(NotificationCompat.java:633)
+[WARN] :   W/System.err 	at android.support.v4.app.NotificationCompat$Builder.build(NotificationCompat.java:1503)
+[WARN] :   W/System.err 	at ti.modules.titanium.android.notificationmanager.NotificationProxy.buildNotification(NotificationProxy.java:315)
+[WARN] :   W/System.err 	at ti.modules.titanium.android.notificationmanager.NotificationManagerModule.notify(NotificationManagerModule.java:78)
+[WARN] :   W/System.err 	at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+[WARN] :   W/System.err 	at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:177)
+[WARN] :   W/System.err 	at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:299)
+[WARN] :   W/System.err 	at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:203)
+[WARN] :   W/System.err 	at android.os.Handler.dispatchMessage(Handler.java:98)
+[WARN] :   W/System.err 	at android.os.Looper.loop(Looper.java:136)
+[WARN] :   W/System.err 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+[WARN] :   TiExceptionHandler (main) [5002,552687] Activity is null or already finishing, skipping dialog.
+[ERROR] :  V8Exception Exception occurred at ExampleService.js:47 Uncaught Error Java Exception occurred
+{noformat}
+
+OTHER INFO:
+If you hit the home button instead to close the application, the notification works.
+
+If you remove the notify call from the service, the service runs OK.
+
+This works fine with 3.4.0.GA and 3.4.1.GA.
+
+
+
+
+*./Resources/app.js*
+<code><pre>
+var win = Ti.UI.createWindow();
+var btn = Ti.UI.createButton({
+    title : 'Add Notification'
+});
+btn.addEventListener('click', function(e) {
+    var intent = Ti.Android.createServiceIntent({
+        url : 'ExampleService.js'
+    });
+    intent.putExtra('title' , 'Richard III');
+    intent.putExtra('message' , 'Now is the winter of our discontent...');
+    intent.putExtra('timestamp', new Date(new Date().getTime() + 30 * 1000));
+    intent.putExtra('interval', 5000);
+    Ti.Android.startService(intent);
+    Ti.App.Properties.setBool('bind', false);
+});
+win.add(btn);
+win.open();
+</pre></code>
+
+*./Resources/ExampleService.js*
+<code><pre>
+var service = Ti.Android.currentService;
+var serviceIntent = service.getIntent();
+var timestamp = new Date(serviceIntent.getStringExtra('timestamp'));
+
+Ti.API.info(service.serviceInstanceId);
+
+if (!Ti.App.Properties.getBool('bind')) {
+		
+	service.addEventListener("taskremoved", function(){
+	    Ti.API.info("**************************** taskremoved fired");   
+	});
+	service.addEventListener("pause", function(){
+	    Ti.API.info("**************************** pause fired");   
+	});
+	service.addEventListener("resume", function(){
+	    Ti.API.info("**************************** resume fired");   
+	});
+	
+	Ti.App.Properties.setBool('bind', true);
+}
+
+if (new Date() > timestamp) {
+
+    // Grab extra data sent with the intent
+    var title = serviceIntent.getStringExtra('title');
+    var message = serviceIntent.getStringExtra('message');
+     
+    // Create an intent that launches the application
+    var intent = Ti.Android.createIntent({
+        action : Ti.Android.ACTION_MAIN,
+        className: 'com.appcelerator.testapns.ActionnewsActivity',
+        packageName: 'com.appcelerator.testapns',
+        flags : Ti.Android.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Ti.Android.FLAG_ACTIVITY_SINGLE_TOP
+    });
+    intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+
+     
+    // Create notification
+    var notification = Ti.Android.createNotification({
+        contentIntent : Ti.Android.createPendingIntent({intent : intent}),
+        contentTitle : title,
+        contentText : message
+    });
+        
+    // Send the notification
+    Ti.Android.NotificationManager.notify(service.serviceInstanceId, notification);
+  
+    // Stop the service once the notification is sent
+    Ti.Android.stopService(serviceIntent);
+} 
+</pre></code>
+
+*Replace android element with the following in tiapp.xml*
+<code><pre>
+    <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+        <services>
+            <service url="ExampleService.js" type="interval"/>
+        </services>
+    </android>
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>ardy wongso 2015-06-08
+
+   any update on this one? because it was working fine in 3.5.1 but no longer working in 4.0.0 
+   
+   [WARN] :   W/System.err: java.lang.NullPointerException
+   [WARN] :   W/System.err:    at android.app.Notification$Builder.applyStandardTemplate(Notification.java:2039)
+   [WARN] :   W/System.err:    at android.app.Notification$Builder.makeContentView(Notification.java:2181)
+   [WARN] :   W/System.err:    at android.app.Notification$Builder.buildUnstyled(Notification.java:2229)
+   [WARN] :   W/System.err:    at android.app.Notification$Builder.build(Notification.java:2310)
+   [WARN] :   W/System.err:    at android.support.v4.app.NotificationCompatKitKat$Builder.build(NotificationCompatKitKat.java:114)
+   [WARN] :   W/System.err:    at android.support.v4.app.NotificationCompat$NotificationCompatImplKitKat.build(NotificationCompat.java:649)
+   [WARN] :   W/System.err:    at android.support.v4.app.NotificationCompat$Builder.build(NotificationCompat.java:1532)
+   [WARN] :   W/System.err:    at ti.modules.titanium.android.notificationmanager.NotificationProxy.buildNotification(NotificationProxy.java:315)
+   [WARN] :   W/System.err:    at ti.modules.titanium.android.notificationmanager.NotificationManagerModule.notify(NotificationManagerModule.java:78)
+   [WARN] :   W/System.err:    at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+   [WARN] :   W/System.err:    at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:177)
+   [WARN] :   W/System.err:    at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:299)
+   [WARN] :   W/System.err:    at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:203)
+   [WARN] :   W/System.err:    at android.os.Handler.dispatchMessage(Handler.java:98)
+   [WARN] :   W/System.err:    at android.os.Looper.loop(Looper.java:136)
+   [WARN] :   W/System.err:    at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+   [WARN] :   TiExceptionHandler: (main) [272,259562] Activity is null or already finishing, skipping dialog.</li>
+<li>jordi domenech 2015-06-15
+
+   there's a bug, indeed:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/17dc8754653daaff170ea0c18f74218168a5633e/android/modules/android/src/java/ti/modules/titanium/android/notificationmanager/NotificationProxy.java#L46" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/17dc8754653daaff170ea0c18f74218168a5633e/android/modules/android/src/java/ti/modules/titanium/android/notificationmanager/NotificationProxy.java#L46</a>
+   
+   they're passing current activity to the notification (compat) builder. if there's no activity, will be null. makes a lot of sense it only happens from a service.</li>
+<li>Tim Poulsen 2015-06-15
+
+   This issue is causing our app to crash when the it's woken from the background by the user tapping a push notification. It is a blocker for us moving to 4.0, as the crash happens very frequently using that SDK. Though we're also seeing crashes with 3.5.0 and 3.5.1 as well. 
+   
+   We are using the <a href="http://iamyellow.net/post/40100981563/gcm-appcelerator-titanium-module" rel="nofollow" target="_blank">http://iamyellow.net/post/40100981563/gcm-appcelerator-titanium-module</a> GCM module. Error messages are like the following, and looking at the gcm.js code, it appears that Jordi's comment above is correct in that the activity reference is null.
+   
+   <code><pre>
+   [ERROR] TiExceptionHandler: (main) [6202,11607] ----- Titanium Javascript Runtime Error -----
+   [ERROR] TiExceptionHandler: (main) [0,11607] - In gcm.js:1,69
+   [ERROR] TiExceptionHandler: (main) [1,11608] - Message: Uncaught Error: Attempt to invoke virtual method 'java.lang.Class java.lang.Object.getClass()' on a null object reference
+   [ERROR] TiExceptionHandler: (main) [0,11608] - Source: a.addCategory(Ti.Android.CATEGORY_LAUNCHER),a.putExtra("ntfId",s),a.putExtra("
+   </pre></code></li>
+<li>Tim Poulsen 2015-06-30
+
+   For reasons I don't understand, this issue has become worse for me. Our app is pretty much unable to handle push notifications because the intent fails to start every time. 
+   
+   <code><pre>
+   06-30 14:06:51.234: W/System.err(19120): java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.Class java.lang.Object.getClass()' on a null object reference
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.titanium.proxy.IntentProxy.putExtra(IntentProxy.java:198)
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:177)
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:299)
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:203)
+   06-30 14:06:51.234: W/System.err(19120): 	at android.os.Handler.dispatchMessage(Handler.java:98)
+   06-30 14:06:51.234: W/System.err(19120): 	at android.os.Looper.loop(Looper.java:145)
+   06-30 14:06:51.234: W/System.err(19120): 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+   </pre></code>
+   
+   If the app is open when the message arrives, it is received and handled fine. If the app is in the background, we see the above in the adb logs. I have tried with 3.5.0.GA, 3.5.1.GA, 4.0.0.GA, and a nightly I built myself (don't recall the date of that build, but post GA). Tested on both Android 5.0 and 4.2.2 devices. </li>
+<li>Tim Poulsen 2015-07-02
+
+   My last comment above might not be related to the original bug after all. If a null value is passed to putExtra, then the line at <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L198" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L198</a> fails with the above error message. I added a simple check and have worked around the issue above. I'm unsure why code that worked before would now be passing null to putExtra.
+   
+   <code><pre>
+   @Kroll.method
+   public void putExtra(String key, Object value)
+   {
+   	if (value == null) {
+   		return;
+   	}
+   ...
+   </pre></code>
+   </li>
+<li>Tim Poulsen 2015-07-06
+
+   PRs for the change I noted in my previous comment:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/6958" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6958</a> (master)
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/6957" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6957</a> (3_5_X)</li>
+<li>Ashraf Abu 2015-07-27
+
+   PR for review: <a href="https://github.com/appcelerator/titanium_mobile/pull/6986" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6986</a> Use testing steps as above</li>
+<li>Ashraf Abu 2015-07-27
+
+   [~timpoulsen] The PR that you did, how exactly is that bug reproduced? 
+   
+   And it it's possible, if it's another issue, could you create a new ticket for that and put the PR there with testing steps or how to reproduce the bug? I'll take a look at it once the information is provided.</li>
+<li>Ashraf Abu 2015-07-28
+
+   PR has been merged for JavaScript Service calling the notify method throws an error if the application is backed out.</li>
+<li>Nuno Costa 2015-08-02
+
+    @Ashraf Abu this PR is to be merged  in 4.1_x branch ?  Is only  in the master at moment. 
+    
+    Thanks</li>
+<li>Allan Brazute 2015-08-02
+
+    It seems not resolved within SDK 4.1.0.GA on Android 5.0.1 emulator:
+    
+    Output from service trying to create a CATEGORY_LAUNCHER Notification when app is closed (back key):
+    
+    {panel:title=Trace}
+    [INFO] :   Service start...
+    [WARN] :   W/System.err: java.lang.NullPointerException: Attempt to invoke virtual method 'android.content.pm.ApplicationInfo android.content.Context.getApplicationInfo()' on a null object reference
+    [WARN] :   W/System.err: 	at android.app.Notification$Builder.<init>(Notification.java:1951)
+    [WARN] :   W/System.err: 	at android.support.v4.app.NotificationCompatApi21$Builder.<init>(NotificationCompatApi21.java:68)
+    [WARN] :   W/System.err: 	at android.support.v4.app.NotificationCompat$NotificationCompatImplApi21.build(NotificationCompat.java:746)
+    [WARN] :   W/System.err: 	at android.support.v4.app.NotificationCompat$Builder.build(NotificationCompat.java:1532)
+    [WARN] :   W/System.err: 	at ti.modules.titanium.android.notificationmanager.NotificationProxy.buildNotification(NotificationProxy.java:314)
+    [WARN] :   W/System.err: 	at ti.modules.titanium.android.notificationmanager.NotificationManagerModule.notify(NotificationManagerModule.java:79)
+    [WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Object.nativeCallProperty(Native Method)
+    [WARN] :   W/System.err: 	at org.appcelerator.kroll.runtime.v8.V8Object.callProperty(V8Object.java:73)
+    [WARN] :   W/System.err: 	at org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1145)
+    [WARN] :   W/System.err: 	at android.os.Handler.dispatchMessage(Handler.java:98)
+    [WARN] :   W/System.err: 	at android.os.Looper.loop(Looper.java:135)
+    [WARN] :   W/System.err: 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+    [WARN] :   TiExceptionHandler: (main) [12,729023] Activity is null or already finishing, skipping dialog.
+    [ERROR] :  V8Exception: Exception occurred at undefined:60: Uncaught Error: Attempt to invoke virtual method 'android.content.pm.ApplicationInfo android.content.Context.getApplicationInfo()' on a null object reference
+    {panel}</li>
+<li>Ashraf Abu 2015-08-03
+
+    [~nunocostapt], [~ethraza@gmail.com] Hi. The fix should be in the next release which should be 5.0</li>
+<li>Lokesh Choudhary 2015-08-12
+
+    Verified the fix.
+    
+    The notify method does not throw an error if the application is backed out.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio :  4.2.0.201508062204
+    Ti SDK :  4.2.0.v20150812103137 (going to be 5.0 later)
+    Ti CLI : 4.1.4
+    Alloy : 1.6.2
+    MAC Yosemite : 10.10.4
+    Appc NPM : 4.1.0
+    Appc CLI : 4.2.0-44
+    Node: v0.10.37
+    Genymotion Emulator : Nexus 5 - Android 4.4.4
+    Node : v0.10.37
+    Environment : preproduction</li>
+<li>Tim Poulsen 2015-08-18
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18098.json">JSON Source</a></p>

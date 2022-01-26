@@ -1,0 +1,100 @@
+---
+title: "[TIMOB-23721] iOS: Invalid method (createTabGroup) passed to UIModule"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-10-03T19:54:03.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Harry Bryant</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-08-03T19:09:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-16T01:06:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The following error is thrown when calling the createTabGroup method without specifying any tabs:
+<code><pre>
+[WARN] :   Attempted to load TiUITabGroupProxy: Could not find class definition.
+[ERROR] :  Script Error {
+[ERROR] :      column = 49;
+[ERROR] :      line = 1;
+[ERROR] :      message = "invalid method (createTabGroup) passed to UIModule";
+[ERROR] :      sourceURL = "file:///var/containers/Bundle/Application/4971331A-066C-4C17-BA2D-3DC44E634884/ShamWise.app/app.js";
+[ERROR] :      stack = "[native code]\nfile:///var/containers/Bundle/Application/4971331A-066C-4C17-BA2D-3DC44E634884/ShamWise.app/app.js:1:49";
+[ERROR] :  }
+</pre></code>
+
+The issue is resolved when specifying at least one tab as follows:
+<code><pre>
+	 var tabGroup = Ti.UI.createTabGroup();
+	 
+	 var tab1 = Ti.UI.createTab({
+	 	title: "Tab1"
+	 });
+	 
+	 tabGroup.add(tab1); 
+	 tabGroup.open();
+</pre></code>
+
+*This occurs only on the iOS platform, the demo code launches without issue on the Android platform.*
+
+<h4>TEST CODE:</h4>
+<code><pre>
+	 var tabGroup = Ti.UI.createTabGroup();
+	 tabGroup.open();
+</pre></code>
+
+<h4>Steps to Reproduce</h4>
+1. Create a classic mobile project
+2. Include the test code above in the app.js
+3. Build to sim / device
+4. Launch the app
+
+<h4>Actual Result</h4>
+
+Error is thrown upon launch.
+
+<h4>Expected Result</h4>
+
+App should launch an empty tabGroup view without issue.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-03
+
+   Wait a second, you are trying to add a tab to the tabgroup that does not hold a window in it. Without it, the tabgroup has no context and could break. Check if that could be the reason.
+   
+   *EDIT*: In addition, it is <code>addTab</code> and not <code>add</code>.
+   *EDIT2*: Ok, here is the thing why it doesn't work for you but me / iOS devs:
+   The above code does not have a tab in it. After some research I found out that our implementation is the following (simplified):
+   <code><pre>
+   #ifdef USE_TI_UITAB
+   ...
+   @implementation TiUITabGroup
+   ...
+   @end
+   #endif
+   </pre></code>
+   What that does is, that it only compiles the <code>TiUITabGroup</code> class if a <code>TiUITab</code> is defined. Since all compiler-macros are pre-defined in the Xcode source-project, [~cng] and me didn't see the error before. For the compiled SDK, those macros are generically generated as soon as you do <code>Ti.UI.createTab()</code> at least once, we also call it "symbols". 
+   
+   So long story short: That is how it is done since forever, since we don't want users to create empty tabgroups. If we want now, we can make it an improvement-ticket, otherwise, that's it.</li>
+<li>Hans Knöchel 2016-10-03
+
+   [~htbryant] Resolving for now, since I didn't hear anything back since a while. If you think we need an improvement ticket, I'd be fine with that!</li>
+<li>Lee Morris 2017-08-16
+
+   Closing with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23721.json">JSON Source</a></p>

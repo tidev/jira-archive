@@ -1,0 +1,96 @@
+---
+title: "[TIMOB-28418] Android: Setting tab property after creation and before open causes crash as of 10.0.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-04-13T18:47:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 10.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>TabGroup, android, regression, tab</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-04-12T22:14:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-04-13T18:47:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+As of Titanium 10.0.0, setting a tab property such as "title", "icon", "badge", etc. will cause a crash if set after TabGroup creation and before the TabGroup's open event has been fired.
+
+This bug was caught before release.
+
+*Steps to reproduce:*
+<h4>Build and run  [^TabGroupChangeBeforeOpenTest.js] on Android.</h4>
+<h4>Notice it crashes on app startup.</h4>
+
+*Result:*
+<code><pre>
+[ERROR] TiExceptionHandler: tabGroup.tabs[0].title="Tab 1",
+[ERROR] TiExceptionHandler:                       ^
+[ERROR] TiExceptionHandler: Error: Windows are created during open
+[ERROR] TiExceptionHandler:     at /TabGroupChangeBeforeOpenTest.js:16:23
+[ERROR] TiExceptionHandler:     at Module._runScript (ti:/kroll.js:1351:15)
+[ERROR] TiExceptionHandler:     at Module.load (ti:/kroll.js:831:13)
+[ERROR] TiExceptionHandler:     at Module.loadJavascriptText (ti:/kroll.js:1197:15)
+[ERROR] TiExceptionHandler:     at Module.loadAsFile (ti:/kroll.js:1249:22)
+[ERROR] TiExceptionHandler:     at Module.loadAsFileOrDirectory (ti:/kroll.js:1168:26)
+[ERROR] TiExceptionHandler:     at Module.require (ti:/kroll.js:1037:24)
+[ERROR] TiExceptionHandler:     at Module.global.Module.require (<embedded>:5086:32)
+[ERROR] TiExceptionHandler:     at require (ti:/kroll.js:1315:22)
+[ERROR] TiExceptionHandler:     at /app.js:293:1
+[ERROR] TiExceptionHandler:
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.proxy.TiWindowProxy.createView(TiWindowProxy.java:100)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:467)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:434)
+[ERROR] TiExceptionHandler:     ti.modules.titanium.ui.TabProxy.onPropertyChanged(TabProxy.java:248)
+[ERROR] TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+[ERROR] TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:172)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiApplication.launch(TiApplication.java:854)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.loadScript(TiLaunchActivity.java:96)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.loadScript(TiRootActivity.java:497)
+[ERROR] TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.onResume(TiLaunchActivity.java:177)
+[ERROR] V8Exception: Exception occurred at /TabGroupChangeBeforeOpenTest.js:16: Uncaught Error: Windows are created during open
+</pre></code>
+
+*Reason:*
+Our Java <code>TabGroupProxy</code> class does not support the <code>createView()</code>. Calling it will cause the above exception to be thrown via its <code>TiWindowProxy</code> class here...
+<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/proxy/TiWindowProxy.java#L100" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/proxy/TiWindowProxy.java#L100</a>
+
+The <code>createView()</code> method is getting called because our <code>TabProxy.onPropertyChanged()</code> method calls <code>getOrCreateView()</code> methods (see link below). I'm not sure why it didn't crash before, but the correct solution is to call <code>tabGroupProxy.peekView()</code> and if it returns <code>null</code> then return out.
+<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/TabProxy.java#L236-L263" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/TabProxy.java#L236-L263</a>
+
+*Work-Around:*
+Set all tab properties upon creation or after the "open" event has fired.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28418_67866/TabGroupChangeBeforeOpenTest.js">TabGroupChangeBeforeOpenTest.js</td></td><td>2021-04-12T22:07:51.000+0000</td><td>631</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2021-04-13
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12717" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12717</a></li>
+<li>Samir Mohammed 2021-04-13
+
+   FR Passed, waiting on Jenkins build</li>
+<li>Christopher Williams 2021-04-13
+
+   merged to master and 10_0_X branches for 10.0.0 target</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28418.json">JSON Source</a></p>

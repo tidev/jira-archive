@@ -1,0 +1,180 @@
+---
+title: "[TIMOB-7826] iOS: Change the mail's dialogue language  dynamically"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 1.8.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Shannon Hicks</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2012-02-23T11:40:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-06T18:57:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+Currently, the i18n support allows the customer to change the language of the app when running, except for the mail dialogs, that stick to the default settings of CFBundleDevelopmentRegion in Info.plist. 
+
+<h4>Actual results</h4>
+Even if you changed the phone's language to a new one, you will be seeing the default language from CFBundleDevelopmentRegion.
+
+<h4>Expected Results.</h4>
+When you change the language in the phone's settings, it should reflect in the mail dialog. 
+
+<h4>Steps to reproduce</h4>
+1. Create a mobile App
+2. Add the code
+3. Change the phone's language in the main settings
+4. Start the app and start the dialogue
+4. You won't see the i18n change in the mail dialogue language.
+
+
+<code><pre>
+
+var win = Ti.UI.createWindow();
+
+// initialize to all modes
+win.orientationModes = [
+	Titanium.UI.PORTRAIT,
+	Titanium.UI.LANDSCAPE_LEFT,
+	Titanium.UI.LANDSCAPE_RIGHT
+];
+
+
+Titanium.Media.openPhotoGallery({
+	allowEditing:true,
+
+	success: function(event)
+	{
+		var emailDialog = Titanium.UI.createEmailDialog();
+		if (!emailDialog.isSupported()) {
+		Ti.UI.createAlertDialog({
+			title:'Error',
+			message:'Email not available'
+		}).show();
+		return;
+		}
+		emailDialog.setSubject('Hello from Titanium!');
+		emailDialog.setToRecipients(['foo@yahoo.com']);
+		emailDialog.setCcRecipients(['bar@yahoo.com']);
+		emailDialog.setBccRecipients(['blah@yahoo.com']);
+		
+		if (Ti.Platform.name == 'iPhone OS') {
+			emailDialog.setMessageBody('<b>Appcelerator Titanium Rocks!</b>å');
+			emailDialog.setHtml(true);
+			emailDialog.setBarColor('#336699');
+		} else {
+			emailDialog.setMessageBody('Appcelerator Titanium Rocks!');
+		}
+
+		// attach a blob
+		emailDialog.addAttachment(event.media);
+		
+		// attach a file
+		var f = Ti.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'cricket.wav');
+		emailDialog.addAttachment(f);
+		
+		emailDialog.addEventListener('complete',function(e)
+		{
+			if (e.result == emailDialog.SENT)
+			{
+				if (Ti.Platform.osname != 'android') {
+					// android doesn't give us useful result codes.
+					// it anyway shows a toast.
+					alert("message was sent");
+				}
+			}
+			else
+			{
+				alert("message was not sent. result = " + e.result);
+			}
+		});
+		emailDialog.open();
+	},
+
+	error: function(error)
+	{
+
+	},
+
+	cancel: function()
+	{
+
+	}
+});
+
+win.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-7826_56740/iOS Simulator Screen Shot 17 sep. 2015 10.41.03.png">iOS Simulator Screen Shot 17 sep. 2015 10.41.03.png</td></td><td>2015-09-17T09:42:33.000+0000</td><td>291627</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2012-02-27
+
+   Short version: Apple didn't see the use case of changing a language mid-app.
+   
+   Longer version: Their intended use case was to have the user change it deep within settings, and within an app, this locale is read-only. Apple provides no localization controls over MFMailComposeViewController, the native class we wrapper.
+   
+   Suggestion: What we should document is Apple's behavior with localization. We've seen this also within a web view, video player, etc, anyplace where Apple provides text buttons for us. For consistency's sake, Apple will use the system's device localization *only* when the application has been localized for it. Otherwise it will, indeed, fall back to CFBundleDevelopmentRegion.
+   
+   So in this case, I would suggest using the traditional l18n techniques to localize the App display name, so that it would show up with a localized name in Springboard (home) as well as signalling to iOS to localize the mail dialog to the device localization.
+   
+   It won't be dynamic on-the-fly localization using your techniques, but it will be better than always reverting to DevelopmentRegion.</li>
+<li>Mauro Parra-Miranda 2012-02-29
+
+   Hello,
+   
+   for the customer: here is the info about how to localize the app name: <a href="http://developer.appcelerator.com/blog/2012/02/internationalization-of-app-names.html" rel="nofollow" target="_blank">http://developer.appcelerator.com/blog/2012/02/internationalization-of-app-names.html</a>
+   
+   The only localization here would be the app name, changing here the mail lang as well, in sync with the phone's locale. 
+   
+   Best,
+   
+   Mauro</li>
+<li>Blain Hamon 2012-03-06
+
+   Due to the confluence of Apple's design and what appears to be a fix on the customer's side, resolving ticket. Closest resolution match is 'invalid' since there is no code nor documentation changes to be made.</li>
+<li>Fokke Zandbergen 2015-09-17
+
+   [~ingo] I'd like to reopen this. The problem is not just changing the language while the app is open.
+   
+   See:
+   <a href="http://fokkezb.nl/2013/05/24/app-store-locality/" rel="nofollow" target="_blank">http://fokkezb.nl/2013/05/24/app-store-locality/</a>
+   
+   And attached image showing the same for permission dialogs.</li>
+<li>Raymond Verbruggen 2015-09-17
+
+   Fokke, thank you for reopening this ticket.
+   The screenshot you provide is exactly what happens.
+   When opening a Ti.map instance, iOS asks for user permission to use the actual location.
+   The "internationalized" strings are shown in the dialog below some english default message or so.
+   
+   Could somebody please provide a fix?
+   This is an update of a production app.
+   
+   Thanks a lot!
+   Raymond</li>
+<li>Fokke Zandbergen 2015-09-21
+
+   [~ray@raymondverbruggen.nl] can you confirm what the system language of the iPhone you tested on is? Could you attach a screenshot of the language & regional settings screen?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7826.json">JSON Source</a></p>

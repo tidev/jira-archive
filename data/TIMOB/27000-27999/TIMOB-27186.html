@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-27186] Android: Getting  error when calling the getDeviceList() using hyperloop "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fazlul Haque</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2019-06-26T14:01:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-28T17:12:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+One of our customer is using android.hardware.usb.UsbManager.getDeviceList() to get a list of connected us devices.
+The code calls this OK, but the log shows the following error.
+
+<code><pre>ERROR] JNIUtil: !!! Unable to convert unknown Java object class 'android.hardware.usb.UsbDevice' to JS value !!!</pre></code>
+
+*The test code is:*
+<code><pre>var AndroidAppPkg = require('android.app.*');
+var Activity = AndroidAppPkg.Activity;
+var Context = require('android.content.Context');
+
+var Usb = require('android.hardware.usb.*');
+var UsbManager = Usb.UsbManager;
+var UsbDevice = require('android.hardware.usb.UsbDevice');
+
+function init() {
+Ti.API.info("actionRS232.init");
+var activity = new Activity(Titanium.App.Android.getTopActivity());
+var appContext = activity.getApplicationContext();
+var obj = appContext.getSystemService(Context.USB_SERVICE);
+var mgr = UsbManager.cast(obj);
+var list = mgr.getDeviceList();
+
+var devices = {};
+for (var k in list) {
+Ti.API.info(k + ": " + typeof list[k]);
+}
+}</pre></code>
+
+init() being called from the Window onOpen event.
+
+*The output is:*
+<code><pre>[INFO]  /dev/bus/usb/002/003: undefined</pre></code>
+
+*Test Environment:*
+SDK: 8.0.2.GA
+Hyperloop: 4.0.2 (Android) 
+Testing on Tablet Android 7
+
+Please let us know if you need any more information. Thanks
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Andy Bingham 2019-06-28
+
+   Worth pointing out here that the error only occurs if you have a USB slave device attached to the android unit.  
+   I have replicated this on two tablets, 
+   one using an OTG cable from the single mini-usb port, 
+   the other has a separate full USB 2 port.
+   The connected devices used were a USB gamepad and a USB to serial convertor (which is my actual use case here)
+   
+   If you need any more, do let me know
+   
+   Andy</li>
+<li>Andy Bingham 2019-08-13
+
+   Is there any update on this issue?  It has been a few weeks and is holding up a customer project, so is a priority for me.  If nothing is likely to be done to help me, then I will have to look for another solution for the customer. </li>
+<li>Michael Gangolf 2019-08-13
+
+   [~andybingham] do you need to use Hyperloop for this? You can always write a normal Android module and pass the date to your app e.g. using an event:
+   
+   <code><pre>
+   	// Methods
+   	@Kroll.method
+   	public void getDeviceList()
+   	{
+   		manager = (UsbManager) activity.getSystemService(activity.USB_SERVICE);
+   		deviceList = manager.getDeviceList();
+   		Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
+   		
+   		HashMap listDevices = new HashMap();
+   		
+   		while (deviceIterator.hasNext()) {
+   		   UsbDevice device = deviceIterator.next();
+   		   listDevices.put("deviceId", device.getDeviceId());
+   		   listDevices.put("name", device.getDeviceName());
+   		   listDevices.put("class", device.getDeviceClass());
+   		   listDevices.put("subclass", device.getDeviceSubclass());
+   		   listDevices.put("vendorId", device.getVendorId());
+   		   listDevices.put("productId", device.getProductId());
+   		}
+   		KrollDict kd = new KrollDict();
+   		kd.put("devices", listDevices);
+   		fireEvent("complete", kd);
+   	}
+   </pre></code>
+   
+   </li>
+<li>Andy Bingham 2019-08-13
+
+   Michael, thanks for this, 
+   
+   I guess you idea might work, but I have no experience with native code or module development, so had turned to hyperloop as it seemed to be a way to access the native library from titanium without having to do a module.
+   
+   If they cannot fix this issue, then I guess I will have to start to teach myself how to do this in a native module?
+   
+   Andy
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27186.json">JSON Source</a></p>

@@ -1,0 +1,261 @@
+---
+title: "[TIMOB-15649] Android: x & y positions of "touchmove" event are incorrect and erratic"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-11-17T01:25:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam</td></tr>
+<tr><th>Reporter</th><td>Andrew Greenstreet</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-11-01T21:06:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-17T01:25:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+A simple draggable view, using the "touchmove" event, results in incorrect or erratic values in the event object x and y positions. When setting the view to the new position, based of the finger movement, it will appear to "jump" as the values are not sequential in nature. For example, dragging and item to the right might return x values of 1, 2, 5, 4, 6, 7, 9, 8, 11, 10, etc. C
+
+<h4>Steps to reproduce</h4>
+1. Create a new mobile project
+2. Paste this code into app.js:
+<code><pre>
+var index = Ti.UI.createWindow({backgroundColor:'black'});
+var view = Ti.UI.createView({backgroundColor:'white'});
+index.add(view);
+
+index.addEventListener('postlayout', onWindowReady);
+
+var baseHeight; //Original Height of View
+var baseWidth;// Original Width of View
+
+var startX; //1st touch x
+var startY; //1st touch y
+var lastX; //last touch x
+var lastY; //last touch y
+var imageX; //x position of view at start
+var imageY; //y position of view at start
+
+function onViewPinch(e) {
+    view.height = baseHeight * e.scale;
+    view.width = baseWidth * e.scale;
+}
+
+function onViewTouchStart(e) {
+
+	baseHeight = view.height;
+	baseWidth = view.width;
+
+	var rect = view.rect;
+	imageX = rect.x;
+	imageY = rect.y;
+	
+	lastX = startX = e.x;
+	lastY = startY = e.y;
+
+	Ti.API.log("onImageTouchStart => "  + startX + ", " + startY);
+}
+
+function onViewTouchMove(e) {
+	Ti.API.log("onImageMove Delta Last=> "  + (e.x - lastX) + ", " + (e.y - lastY));
+	Ti.API.log("onImageMove E Values => "  + (e.x) + ", " + (e.y));
+	
+	lastX = e.x;
+	lastY = e.y;
+	var deltaX = e.x - startX;
+	var deltaY = e.y - startY;
+    view.left = imageX + deltaX;
+    view.top = imageY + deltaY;
+}
+
+function onViewTouchEnd(e) {
+	Ti.API.log("onViewTouchEnd Delta Last=> "  + (e.x - lastX) + ", " + (e.y - lastY));
+	Ti.API.log("onViewTouchEnd E Values => "  + (e.x) + ", " + (e.y));
+	var deltaX = e.x - startX;
+	var deltaY = e.y - startY;
+    view.left = imageX + deltaX;
+    view.top = imageY + deltaY;
+}
+
+function onWindowReady(e) {
+	Ti.API.log("onWindowReady");
+	index.removeEventListener('postlayout', onWindowReady);
+	view.addEventListener('pinch', onViewPinch);
+	view.addEventListener('touchstart', onViewTouchStart);
+	view.addEventListener('touchmove', onViewTouchMove);
+	view.addEventListener('touchend', onViewTouchEnd);
+}
+
+index.open();
+</pre></code>
+3. Run into device
+4. Go with your finger moving to the upper left corner or the device, or down to the right lower corner. 
+5. You will see the jumping black square, even if that should happen softly. 
+
+
+
+ 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15649_43616/DragProblems.zip">DragProblems.zip</td></td><td>2013-11-01T22:19:41.000+0000</td><td>10331159</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-11-01
+
+   Hello,
+   
+   please provide a testcase and logs, then we can reopen this. 
+   
+   Best,
+   
+   Mauro </li>
+<li>Andrew Greenstreet 2013-11-01
+
+   Test project attached. You'll notice the blue square will bounce while dragging. </li>
+<li>Andrew Greenstreet 2013-11-01
+
+   I'm not sure what I can provide in the way of logs, so please let me know. </li>
+<li>Andrew Greenstreet 2013-11-01
+
+   Produces the same result in baseline emulator (WVGA854), so not a device related issue.</li>
+<li>Mauro Parra-Miranda 2013-11-01
+
+   Hello,
+   
+   I see exactly the same results in Android and iOS. 
+   
+   Test case: 
+   
+   <code><pre>
+   var index = Ti.UI.createWindow({backgroundColor:'white'});
+   var view = Ti.UI.createView();
+   index.add(view);
+   
+   index.addEventListener('postlayout', onWindowReady);
+   
+   var baseHeight; //Original Height of View
+   var baseWidth;// Original Width of View
+   
+   var startX; //1st touch x
+   var startY; //1st touch y
+   var lastX; //last touch x
+   var lastY; //last touch y
+   var imageX; //x position of view at start
+   var imageY; //y position of view at start
+   
+   function onViewPinch(e) {
+       view.height = baseHeight * e.scale;
+       view.width = baseWidth * e.scale;
+   }
+   
+   function onViewTouchStart(e) {
+   
+   	baseHeight = view.height;
+   	baseWidth = view.width;
+   
+   	var rect = view.rect;
+   	imageX = rect.x;
+   	imageY = rect.y;
+   	
+   	lastX = startX = e.x;
+   	lastY = startY = e.y;
+   
+   	Ti.API.log("onImageTouchStart => "  + startX + ", " + startY);
+   }
+   
+   function onViewTouchMove(e) {
+   	Ti.API.log("onImageMove Delta Last=> "  + (e.x - lastX) + ", " + (e.y - lastY));
+   	Ti.API.log("onImageMove E Values => "  + (e.x) + ", " + (e.y));
+   	
+   	lastX = e.x;
+   	lastY = e.y;
+   	var deltaX = e.x - startX;
+   	var deltaY = e.y - startY;
+       view.left = imageX + deltaX;
+       view.top = imageY + deltaY;
+   }
+   
+   function onViewTouchEnd(e) {
+   	Ti.API.log("onViewTouchEnd Delta Last=> "  + (e.x - lastX) + ", " + (e.y - lastY));
+   	Ti.API.log("onViewTouchEnd E Values => "  + (e.x) + ", " + (e.y));
+   	var deltaX = e.x - startX;
+   	var deltaY = e.y - startY;
+       view.left = imageX + deltaX;
+       view.top = imageY + deltaY;
+   }
+   
+   function onWindowReady(e) {
+   	Ti.API.log("onWindowReady");
+   	index.removeEventListener('postlayout', onWindowReady);
+   	view.addEventListener('pinch', onViewPinch);
+   	view.addEventListener('touchstart', onViewTouchStart);
+   	view.addEventListener('touchmove', onViewTouchMove);
+   	view.addEventListener('touchend', onViewTouchEnd);
+   }
+   
+   index.open();
+   
+   
+   
+   </pre></code>
+   
+   My question: what do you expect as output of the testcase? 
+   
+   Best,
+   
+   Mauro</li>
+<li>Andrew Greenstreet 2013-11-01
+
+   A correct result for this test case would be:
+   
+   1. The rectangle (view, image, other view type) would smoothly follow your finger on the device (or mouse on emulators)
+   2. The rectangle would stay in the same position relative to your finger. Currently the rectangle will start to lag increasingly behind where you touch initially. For example, if you start with your finger in the center of the rectangle, the farther you drag, the more the rectangle will not be centered under your finger.
+   
+   The trace output, when dragging directly down, produces the results below. The 2nd value (which is event.y), should be linear (or mostly) from 120 to 155. However, you will see as you go down the list, that the value goes up and then back, up then back, up then back. The 1st four values (120, 118, 129, 123) should probably be something more like 120, 121, 122, 123. This is what induces the "jump" or "flicker" as the element is dragged. 
+   
+   E Values => 191.5156707763672, 120.71463012695312
+   E Values => 190.5156707763672, 118.70878601074219 
+   E Values => 191.5156707763672, 129.6982421875 
+   E Values => 189.51358032226562, 123.69241333007812
+   E Values => 190.51148986816406, 134.68655395507812
+   E Values => 190.51148986816406, 136.6842041015625
+   E Values => 189.51148986816406, 130.67837524414062
+   E Values => 188.5093994140625, 134.67135620117188
+   E Values => 188.50730895996094, 144.66668701171875
+   E Values => 189.50730895996094, 145.66082763671875
+   E Values => 188.50523376464844, 140.65496826171875
+   E Values => 186.50314331054688, 144.64913940429688
+   E Values => 187.50314331054688, 152.6456298828125
+   E Values => 190.50314331054688, 151.64212036132812
+   E Values => 189.50314331054688, 145.6397705078125
+   </li>
+<li>Andrew Greenstreet 2013-11-04
+
+   I just checked MobileWeb and the problem exists there also.
+   
+   Overall, it seems like the issue is how global coordinates are converted to local coordinates. I'm searching through the mobileweb code to see if I can determine where this is happening. Perhaps this will shed some light on why it happening in iOS and Android as well.</li>
+<li>Mauro Parra-Miranda 2013-11-04
+
+   Got a test case clearly showing the issue. </li>
+<li>Joshua Quick 2018-11-17
+
+   This issue will be resolved by: [TIMOB-25839]</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15649.json">JSON Source</a></p>

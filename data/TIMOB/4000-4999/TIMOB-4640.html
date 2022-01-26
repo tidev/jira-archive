@@ -1,0 +1,251 @@
+---
+title: "[TIMOB-4640] Android: UI unresponsive when populating Table Views"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-08-05T15:24:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-31, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Opie Cyrus</td></tr>
+<tr><th>Created</th><td>2011-07-11T12:44:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem:</h4>
+Populating a table view with complex rows makes the entire Android UI very unresponsive until the rows are all loaded making the app unusable
+
+<h4>Tests</h4>
+1. *Test 1* One tab will load the first 10 rows in an array and populate the table view. After that, the nex 400+ rows will load on the table one by one. At this point the device is almost locked and nothing can be done.
+2. *Test 2* On this other tab, I download the JSON, create an array of rows, and after, populate the table view with the array.
+
+Test 2 would work, but populating the table view with so many rows, it takes too long.
+
+<h4>To reproduce:</h4>
+1. Run the app. On tab1 hit the menu button and click on "Start Downloading" A loading indicator will appear and disappear after the download is completed. Then, the first 10 rows will appear and the next 400+ rows will start populating the table view. At this point the UI is almost locked up, everything is very slow.
+2. Click on tab2 and hit the menu button and then on "Start Downloading" This one takes longer for the rows to appear, so test1 would be a better solution from a user stand-point.
+
+<h4>The Code:</h4>
+<code><pre>
+
+var tabGroup = Ti.UI.createTabGroup();
+
+var win1 = Ti.UI.createWindow({
+	url:'win1.js'
+});
+var win2 = Ti.UI.createWindow({
+	url:'win2.js'
+});
+
+var tab1 = Ti.UI.createTab({
+	window:win1,
+	title:'Test 1'
+});
+var tab2 = Ti.UI.createTab({
+	window:win2,
+	title:'test 2'
+});
+
+tabGroup.addTab(tab1);
+tabGroup.addTab(tab2);
+
+tabGroup.open();
+</pre></code>
+<code><pre>
+
+var win = Ti.UI.currentWindow;
+win.backgroundColor='#fff';
+var xhr = Ti.Network.createHTTPClient();
+
+var tableView = Ti.UI.createTableView();
+win.add(tableView);
+
+var act = Ti.UI.createActivityIndicator({
+	message:'Downloading...'
+});
+
+function customRow(a){
+	a = a || {};
+	a.image = a.pic_square || '';
+	a.name = a.name || '';
+	a.id = a.uid || '';
+	
+	var img = Ti.UI.createImageView({
+		image:a.image,
+		width:80,
+		left:10
+	});
+	var label = Ti.UI.createLabel({
+		left:100,
+		top:10,
+		bottom:10,
+		text:a.name
+	});
+	var row = Ti.UI.createTableViewRow({
+		rowId:a.id,
+		className:'custom_row'
+	});
+	row.add(img);
+	row.add(label);
+	
+	return row;
+}
+
+xhr.onload = function(){
+	act.hide();
+	Ti.API.info('loading......');
+	var startTime = new Date().getTime();
+	var json = JSON.parse(this.responseText);
+	
+	var initData = [];
+	for(var i = 0; i < 9;i++){
+		initData.push(
+			customRow(json[i])
+		);
+	}
+	tableView.data = initData;
+	
+	// this is how long it too for the rows to be displayed
+	alert(new Date().getTime()-startTime);
+	for(var i = 9; i < json.length;i++){
+		tableView.appendRow(customRow(json[i]));
+	}
+}
+
+xhr.open('GET', '<a href="http://jwtdigital.co.il/tools/tmp/json_data.php" rel="nofollow" target="_blank">http://jwtdigital.co.il/tools/tmp/json_data.php</a>');
+
+win.activity.onCreateOptionsMenu = function(e) {
+	var menu = e.menu;
+
+	var m1 = menu.add({ title : 'Start Download' });
+	m1.addEventListener('click', function(e) {
+		act.show();
+		xhr.send();
+	});
+};
+</pre></code>
+<code><pre>
+var win = Ti.UI.currentWindow;
+win.backgroundColor='#fff';
+
+var xhr = Ti.Network.createHTTPClient();
+
+var tableView = Ti.UI.createTableView();
+win.add(tableView);
+
+var act = Ti.UI.createActivityIndicator({
+	message:'Downloading...'
+});
+
+function customRow(a){
+	a = a || {};
+	a.image = a.pic_square || '';
+	a.name = a.name || '';
+	a.id = a.uid || '';
+	var img = Ti.UI.createImageView({
+		image:a.image,
+		width:80,
+		left:10
+	});
+	var label = Ti.UI.createLabel({
+		left:100,
+		top:10,
+		bottom:10,
+		text:a.name
+	});
+	var row = Ti.UI.createTableViewRow({
+		rowId:a.id
+	});
+	row.add(img);
+	row.add(label);
+	
+	return row;
+}
+
+xhr.onload = function(){
+	act.hide();
+	Ti.API.info('loading......');
+	var startTime = new Date().getTime();
+	var json = JSON.parse(this.responseText);
+	
+	var initData = [];
+	for(var i = 0; i < json.length;i++){
+		initData.push(
+			customRow(json[i])
+		);
+		Ti.API.info(i);
+	}
+	tableView.data = initData;
+	
+	// this is how long it too for the rows to be displayed
+	alert(new Date().getTime()-startTime);
+}
+
+xhr.open('GET', '<a href="http://jwtdigital.co.il/tools/tmp/json_data.php" rel="nofollow" target="_blank">http://jwtdigital.co.il/tools/tmp/json_data.php</a>');
+
+win.activity.onCreateOptionsMenu = function(e) {
+	var menu = e.menu;
+
+	var m1 = menu.add({ title : 'Start Download' });
+	m1.addEventListener('click', function(e) {
+		act.show();
+		xhr.send();
+	});
+};
+</pre></code>
+<h4>Associated Helpdesk Ticket:</h4>
+AGM-15481-948
+
+Attached is a zip with the files.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4640_22246/app.zip">app.zip</td></td><td>2011-08-05T14:25:29.000+0000</td><td>1637</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4640_22616/builder.js">builder.js</td></td><td>2011-08-19T23:19:07.000+0000</td><td>1180</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4640_21785/Resources.zip">Resources.zip</td></td><td>2011-07-11T12:44:55.000+0000</td><td>35761</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Don Thorp 2011-07-18
+
+   Triage and try to have appendRow accept an array of items to see if the performance boost is significant.</li>
+<li>Opie Cyrus 2011-08-05
+
+   In the future, there will be a new list view style implementation that will make dealing with these issues much easier.  It is also planned that 1.8 will include worker threads which will allow further options in increasing performance for operations like this.  In the mean time, I have attached a working example that shows a way of handling the loading in the background for the most part without affecting the UI responsiveness.  The tab 2 example, shows the new approach.</li>
+<li>Opie Cyrus 2011-08-05
+
+   work around for loading table data in the background</li>
+<li>Opie Cyrus 2011-08-05
+
+   create new tickets to support appendRow being allowed to take an array of rows rather than just a single row / row data
+   Android: 4916
+   iOS: 4917</li>
+<li>Opie Cyrus 2011-08-19
+
+   Attaching missing builder.js file required by test in the previously attached app.zip</li>
+<li>Opie Cyrus 2011-08-19
+
+   To run test, follow the above instructions but first grab the attached builder.js and drop it in the resources directory along with app.js</li>
+<li>Natalie Huynh 2011-08-25
+
+   Tested with 1.8.0.v20110819142548
+   Motorola Xoom 3.2
+   Nexus One 2.2.2</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4640.json">JSON Source</a></p>

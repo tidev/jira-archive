@@ -1,0 +1,201 @@
+---
+title: "[AC-1572] iOS: ScrollableView: cacheSize does not work if page views have children..."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2014-06-16T20:59:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>cacheSize, ios, scrollableview</td></tr>
+<tr><th>Reporter</th><td>Ed</td></tr>
+<tr><th>Assignee</th><td>Shuo Liang</td></tr>
+<tr><th>Created</th><td>2014-06-11T23:09:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:38:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The "[cacheSize](<a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.ScrollableView-property-cacheSize)" property of the ScrollableView allows the developer to define how many "pages" are to be pre-rendered when the ScrollableView is loaded. As the user scrolls, additional pages are pre-redendered as needed. This is useful for complex scrollable views with many items as it increases performance and reduces memory use.
+
+Problem: 
+
+If the pages (views) contains child views, the cacheSize property does not work and all pages are pre-rendered at once.  When loading hundreds of complex pages, this results on the ScrollableView becoming very slow as it is not taking advantage of the cache logic.
+
+Test case:
+
+The code below shows this problem. You can set the TEST_CASE variable between 1 and 4 to test the four different cases.  
+
+The first two cases load only a single view control (a view, and an imageview). These two cases work, and as can be seen from the console log, only 3 pages are pre-rendered initially, and as you scroll additional pages are pre-rendered as needed. Remote images are loaded as needed as well.
+
+The last two cases load views with children (3 = a view with a child imageview, and 4 = a view with a child view). As can be seen from the console, these two cases fail, as cacheSize is ignored and the ScrollableView pre-renders all 100 pages at once.
+
+app.js
+<code><pre>
+// window
+var win = Ti.UI.createWindow({
+	title: 'TEST',
+	backgroundColor: '#ffffff'
+});
+
+
+// returns array of remote images (from kitchensink)
+function getPhotos() {
+	var data = [];
+	var baseUrl = '<a href="http://placehold.it/" rel="nofollow" target="_blank">http://placehold.it/</a>';
+	var imageUrl;
+	for (i=30;i<40;i++){
+		for (j=30;j<40;j++){
+			imageUrl = baseUrl+i+'x'+j;
+			data.push(imageUrl);
+		}
+	}	
+	return data;
+}
+
+
+// load event for remote image
+function img_load(e) {
+	Ti.API.info('Loaded remote image ' + e.source.id + ': ' +e.source.image);
+}
+
+
+// postlayout event for view
+function view_postlayout(e) {
+	Ti.API.info('Post-layout ' + e.source.id);
+}
+
+
+// scrollable view with set cache size set to 3
+var pager = Ti.UI.createScrollableView({
+	cacheSize: 3
+});
+
+
+// assemble and open
+win.add(pager);
+win.open();
+
+
+//
+// TEST CASE SELECTOR (1, 2, 3 or 4)
+//
+var TEST_CASE = 1;
+
+
+// simulate 2s delayed xhr call to bind scrollable view with data
+setTimeout(function() {
+	
+	var photos = getPhotos(),
+		pages = [];	
+	
+	// TEST CASE BRANCH
+	if (TEST_CASE == 1)
+	{
+		// CACHESIZE WORKS HERE: ONLY 3 VIEWS ARE LOADED
+		
+		// load empty container views
+		for (var i = 0; i < photos.length; i++)
+		{	
+			// container view
+			var cont = Ti.UI.createView({ id: i, width: 300, height: 300, backgroundColor: 'red' });
+			cont.addEventListener('postlayout', view_postlayout);
+			
+			// add container views to list
+			pages.push(cont);
+		}		
+	}
+	else if (TEST_CASE == 2)
+	{
+		// CACHESIZE WORKS HERE: ONLY 3 IMAGES ARE LOADED
+		
+		// load imageviews directly (no container view)
+		for (var i = 0; i < photos.length; i++)
+		{	
+			// image
+			var img = Ti.UI.createImageView({ id: i, image: photos[i], width: 200, height: 200 });
+			img.addEventListener('load', img_load);
+			
+			// add imageview to list
+			pages.push(img);
+		}			
+	}
+	else if (TEST_CASE == 3)
+	{
+		// CACHESIZE DOES NOT WORK HERE: ALL CONTAINERS AND CHILD REMOTE IMAGES ARE LOADED AT ONCE
+		
+		// load imageviews inside a container view
+		for (var i = 0; i < photos.length; i++)
+		{	
+			// image view
+			var img = Ti.UI.createImageView({ id: i, image: photos[i], width: 200, height: 200 });
+			img.addEventListener('load', img_load);
+			
+			// container view
+			var cont = Ti.UI.createView({ id: 'container '+i, width: 300, height: 300, backgroundColor: 'blue' });
+			cont.addEventListener('postlayout', view_postlayout);
+			cont.add(img);
+			
+			// add container to list
+			pages.push(cont);
+		}		
+	}
+	else if (TEST_CASE == 4)
+	{
+		// CACHESIZE DOES NOT WORK HERE: ALL CONTAINERS AND CHILD VIEWS ARE LOADED AT ONCE
+		
+		// load view inside a container view
+		for (var i = 0; i < photos.length; i++)
+		{	
+			// child view
+			var child = Ti.UI.createView({ id: 'child '+i, width: 200, height: 200, backgroundColor: 'red' });
+			child.addEventListener('postlayout', view_postlayout);
+			
+			// container view
+			var cont = Ti.UI.createView({ id: 'container '+i, width: 300, height: 300, backgroundColor: 'blue' });
+			cont.addEventListener('postlayout', view_postlayout);
+			cont.add(child);
+			
+			// add container to list
+			pages.push(cont);
+		}		
+	}
+	
+	// bind pages to scrollable view
+	pager.applyProperties({
+		views: pages,
+		currentPage: 0
+	});
+	
+	
+}, 2000);
+</pre></code>
+
+Expected result:
+
+cacheSize should work regardless if the pages are single controls or composite controls.  
+
+
+Note: I experienced this problem on an Alloy app, but it can be reproduced in classic Ti as shown by the code above.  My app loads up to 500 pages with child views and remote images. I noticed cacheSize was having no effect and it was taking a very long time and consuming a lot of memory to load the scrollable view.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2014-06-12
+
+   Hi，
+   
+   Thank you for your ticket. It is a actual bug. I will file a ticket to engineer team to get this fixed.
+   
+   Regard,
+   Shuo</li>
+<li>Radamantis Torres-Lechuga 2014-06-16
+
+   duplicate of [TIMOB-17147](<a href="https://jira.appcelerator.com/browse/TIMOB-17147)" rel="nofollow" target="_blank">https://jira.appcelerator.com/browse/TIMOB-17147)</a></li>
+</ol>
+
+
+<p><a href="/AC/AC-1572.json">JSON Source</a></p>

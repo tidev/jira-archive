@@ -1,0 +1,236 @@
+---
+title: "[TIMOB-23477] iOS: ScrollableView with embedded ScrollView freezes after zooming the scrollview"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-19T14:17:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Tim Poulsen (ACV)</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-06-03T19:52:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-01-19T14:36:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Seen on iOS only
+
+We're attempting to replicate the photo-viewing experience of the native photos app. We use a ScrollableView, with embedded ScrollViews, each with an image so that the user can swipe between photos, then pinch-to-zoom on the photos. We reset the zoom scale to 1 if the user swipes to the next/previous photo.
+
+However, we have found the ScrollableView freezes randomly. Using the sample code below, you can reproduce with the following steps:
+
+<h4>Swipe forward a photo or two</h4>
+<h4>Pinch to zoom in</h4>
+<h4>Swipe back to the previous photos (aka, to the left)</h4>
+<h4>Swipe forward / right</h4>
+<h4>Not every time, but frequently the ScrollableView is now stuck. You can't swipe to the next or previous image in the set. The view bounces a bit, but won't scroll. No log output or errors are seen in the console. It's as if the ScrollableView no longer receives the swipe gesture. Zooming in then out "un-sticks" it, which is not reasonable to expect our users to discover.</h4>
+<h4>If it doesn't freeze, repeat the steps above. It sometimes freezes if you swipe forward (to the right) after zooming a photo also. </h4>
+
+<code><pre>
+var currentPage = 0,
+  deviceWidth = Ti.Platform.displayCaps.platformWidth;
+
+var win = Titanium.UI.createWindow({
+  title: 'Tab 1',
+  backgroundColor: '#000',
+  navBarHidden: true,
+  fullscreen: true
+});
+var sav = Ti.UI.createScrollableView();
+win.add(sav);
+
+var photos = [
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/AL1VP9Ng5N.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/AL1VP9Ng5N.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/4xdHX5gCpF.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/4xdHX5gCpF.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/3T0ZeAED7m.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/3T0ZeAED7m.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/D6imFFILV8.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/D6imFFILV8.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/hn5Ia8Zvof.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/hn5Ia8Zvof.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/6BcuYSToU9.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/6BcuYSToU9.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/DpQlIzHfE1.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/DpQlIzHfE1.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/l0TndCtDnf.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/l0TndCtDnf.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/tVq0HjMPBh.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/tVq0HjMPBh.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/9CKlRimn_G.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/9CKlRimn_G.jpg</a>",
+  "<a href="https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/auekHpHf1Z.jpg" rel="nofollow" target="_blank">https://s3.amazonaws.com/static-uat.acvauctions.com/vehicle_photos/auekHpHf1Z.jpg</a>"
+];
+
+photos.forEach(function (picURL) {
+  var zoomView = Ti.UI.createScrollView({
+    height: Ti.UI.FILL,
+    width: Ti.UI.FILL,
+    zoomScale: 1,
+    maxZoomScale: 5,
+    minZoomScale: 1,
+    contentHeight: Ti.UI.SIZE,
+    contentWidth: Ti.UI.SIZE,
+    top: 0,
+    left: 0,
+    disableBounce: false,
+    backgroundColor: 'black'
+  });
+  zoomView.add(Ti.UI.createImageView({
+    image: picURL,
+    width: deviceWidth,
+    height: deviceWidth,
+    left: 0
+  }));
+  sav.addView(zoomView);
+});
+
+function onScroll(event) {
+  if (!event || isNaN(event.currentPage)) {
+    console.log('no event / currentPage');
+    return;
+  }
+  currentPage = event.currentPage;
+  if (sav.views[currentPage - 1]) {
+    resetZoom(currentPage - 1);
+  }
+  if (sav.views[currentPage + 1]) {
+    resetZoom(currentPage + 1);
+  }
+}
+sav.addEventListener("scrollend", onScroll);
+
+sav.addEventListener("doubletap", function () {
+  resetZoom(currentPage);
+});
+
+function resetZoom(pageNum) {
+  if (sav.views[pageNum].apiName === "Ti.UI.ScrollView" && sav.views[pageNum].zoomScale !== 1) {
+    sav.views[pageNum].zoomScale = 1;
+  }
+}
+
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-06-10
+
+   So the following code does work and does not crash:
+   <code><pre>
+   // Does not crash
+   
+   var win = Ti.UI.createWindow({
+       backgroundColor: "white"
+   });
+   
+   var scroll = Ti.UI.createScrollView({
+       backgroundColor: "#f00",
+       maxZoomScale: 10.0,
+       minZoomScale: 0.1,
+       animated: true
+   });
+   
+   scroll.add(Ti.UI.createImageView({
+       image: "default_app_logo.png"
+   }))
+   
+   var dummyView = Ti.UI.createView({
+       backgroundColor: "yellow"
+   });
+   
+   var scrollableView = Ti.UI.createScrollableView({
+       views: [dummyView, scroll]
+   });
+    
+   win.add(scrollableView);
+   win.open();
+   </pre></code>
+   
+   Will check yours</li>
+<li>Ajith Rohini 2016-07-01
+
+   Hi [~hansknoechel] Is this still an issue or is it resolved? 
+   Thx !</li>
+<li>Tim Poulsen (ACV) 2016-07-01
+
+   The test code from Hans above does not match the scenario I posted in the original ticket & example. It does _not_ resolve this ticket nor show that the issue is invalid.</li>
+<li>Hans Knöchel 2016-08-21
+
+   Hey Tim, sorry for the delay. Just re-tested your example as well (using 5.4.0 and 6.0.0) and cannot reproduce it at all. Please see [this video](<a href="https://www.dropbox.com/s/u0fwxtd3nxl0sco/TIMOB-23477.mov?dl=0)" rel="nofollow" target="_blank">https://www.dropbox.com/s/u0fwxtd3nxl0sco/TIMOB-23477.mov?dl=0)</a> for some visual interaction. I'd like ask you to recheck with the above SDK's and ensure that it's not something at your end. I will try to get the QE to test it as well, but currently it does not look like an SDK-issue. Thanks!</li>
+<li>Tim Poulsen (ACV) 2016-08-22
+
+   Hans, using the code posted above, I'm still able to reproduce. Using SDK 5.2.2.GA and 5.4.0.GA with Alloy 1.9.0 on an iPhone 5 running iOS 9.3.4. Steps are: cold launch app, swipe forward one pic, zoom in, don't zoom back out and swipe backward, swipe forward, try to swipe again but the app will be frozen. The app doesn't freeze every time, but does a lot of the times I've tested.</li>
+<li>Hans Knöchel 2016-09-24
+
+   Hey Tim, can you provide the tiapp you use? (especially if you have <code>use-autolayout</code> and/or <code>run-on-main-thread</code> enabled.</li>
+<li>Tim Poulsen (ACV) 2016-09-25
+
+   [~hansknoechel] we do not use either <code>use-autolayout</code> or <code>run-on-main-thread</code>. Is there a way to send you the tiapp securely? I don't want to release keys or guids that would compromise our app. Maybe something through the Axway support portal or PM me your email on TiSlack or something (I'm there as skypanther). ? Here's the ios section if it helps:
+   
+   <code><pre>
+   <ios>
+   <enable-launch-screen-storyboard>true</enable-launch-screen-storyboard>
+   <default-background-color>#ffffff</default-background-color>
+   <plist>
+     <dict>
+       <key>NSLocationWhenInUseUsageDescription</key>
+       <string>We need this to search for auctions near you.</string>
+       <key>UISupportedInterfaceOrientations~iphone</key>
+       <array>
+         <string>UIInterfaceOrientationPortrait</string>
+       </array>
+       <key>UISupportedInterfaceOrientations~ipad</key>
+       <array>
+         <string>UIInterfaceOrientationPortrait</string>
+         <string>UIInterfaceOrientationPortraitUpsideDown</string>
+         <string>UIInterfaceOrientationLandscapeLeft</string>
+         <string>UIInterfaceOrientationLandscapeRight</string>
+       </array>
+       <key>UIRequiresPersistentWiFi</key>
+       <false/>
+       <key>UIPrerenderedIcon</key>
+       <false/>
+       <key>UIStatusBarHidden</key>
+       <false/>
+       <key>UIStatusBarStyle</key>
+       <string>UIStatusBarStyleDefault</string>
+       <key>CFBundleURLTypes</key>
+       <array>
+         <dict>
+           <key>CFBundleTypeRole</key>
+           <string>Editor</string>
+           <key>CFBundleURLName</key>
+           <string>our_bundle_name</string>
+         </dict>
+       </array>
+     </dict>
+   </plist>
+   </ios>
+   </pre></code></li>
+<li>Neeraj Mishra 2016-09-26
+
+   Hi [~timpoulsen]: You can send tiapp to us over support portal. The current ticket is INC0379874. I will send you an email from our support portal and you can send the app then as attachment which i can share it with [~hansknoechel].</li>
+<li>Abir Mukherjee 2017-01-10
+
+   I tested with this environment:
+   NPM Version: 2.15.9
+   Node Version: 4.5.0
+   Mac OS: 10.12.1
+   Appc CLI: 6.1.0
+   Appc CLI NPM: 4.2.8
+   Titanium SDK version: 6.0.1.GA
+   Appcelerator Studio, build: 4.8.1.201612050850
+   Xcode 8.2
+   iOS Device: 10.0
+   
+   I was not able to reproduce the issue with SDK 6.0.1 GA. I used the demo code provided in the description. When I zoomed in, I was able to scroll either left or right consistently. To see if I could reproduce it with an older build, I tried it with SDK 5.5.0 GA, and was able to reproduce the issue. When I zoomed in, ScrollView would get "stuck", and the only way to scroll to a different picture was to zoom back out. However, as I first stated, with the latest SDK 6.0.1 and CLI 6.1.0, I am not able to reproduce the issue.</li>
+<li>Hans Knöchel 2017-01-19
+
+    Based on [~amukherjee]s finding, I'm resolving this ticket for now. Tim, please let me know if it still persists for you, then we may need to update our test-cases in revisit it again. Thanks everyone!</li>
+<li>Tim Poulsen (ACV) 2017-01-19
+
+    Thanks and sorry for the slow follow-up. We removed this feature from our app because of the bug. Users are pretty accustomed to the current functionality so I haven't made it a priority to add this back in. Other fish to fry, as the saying goes. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23477.json">JSON Source</a></p>

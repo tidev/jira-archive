@@ -1,0 +1,91 @@
+---
+title: "[ALOY-271] Get message, line, column, and position from all AST parsing errors"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-09-19T19:51:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>2012 Sprint 19</td></tr>
+<tr><th>Fix Version/s</th><td>2012 Sprint 19, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>XML</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2012-09-14T13:35:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Right now we are allowing the default behavior for uglifyjs exceptions, which is an unfortunately massive and not terribly useful stack dump. What we really need is to catch the exceptions and pull out the message, line, column, and position to let developers know exactly where the errors are occurring. Essentially, we need to turn this:
+
+<code><pre>
+[INFO] Now parsing view index.xml...
+[ERROR] Unexpected token string, expected punc
+[ERROR] Error
+[INFO] at new JS_Parse_Error (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:263:22)
+[INFO] at js_error (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:271:15)
+[INFO] at croak (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:732:17)
+[INFO] at token_error (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:739:17)
+[INFO] at expect_token (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:752:17)
+[INFO] at expect (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:755:40)
+[INFO] at object_ (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1148:56)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1109:51
+[INFO] at maybe_unary (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1208:27)
+[INFO] at expr_ops (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1235:32)
+[INFO] at maybe_conditional (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1239:28)
+[INFO] at maybe_assign (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1263:28)
+[INFO] at maybe_assign (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1267:76)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1277:28
+[INFO] at prog1 (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1311:23)
+[INFO] at simple_statement (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:905:35)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:813:35
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1296:32
+[INFO] at Object.parse (/usr/local/lib/node_modules/alloy/Alloy/uglify-js/lib/parse-js.js:1298:10)
+[INFO] at processTssFile (/usr/local/lib/node_modules/alloy/Alloy/commands/compile/compilerUtils.js:787:20)
+[INFO] at Object.loadStyle (/usr/local/lib/node_modules/alloy/Alloy/commands/compile/compilerUtils.js:492:15)
+[INFO] at Object.loadAndSortStyle (/usr/local/lib/node_modules/alloy/Alloy/commands/compile/compilerUtils.js:502:28)
+[INFO] at parseAlloyComponent (/usr/local/lib/node_modules/alloy/Alloy/commands/compile/index.js:219:22)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/commands/compile/index.js:124:5
+[INFO] at Array.forEach (native)
+[INFO] at Function.<anonymous> (/usr/local/lib/node_modules/alloy/Alloy/lib/alloy/underscore.js:11:39)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/commands/compile/index.js:122:5
+[INFO] at Array.forEach (native)
+[INFO] at Function.<anonymous> (/usr/local/lib/node_modules/alloy/Alloy/lib/alloy/underscore.js:11:39)
+[INFO] at /usr/local/lib/node_modules/alloy/Alloy/commands/compile/index.js:120:4
+[INFO] at Object.<anonymous> (/usr/local/lib/node_modules/alloy/Alloy/alloy.js:101:44)
+[INFO] at Module._compile (module.js:441:26)
+[INFO] at Object..js (module.js:459:10)
+[INFO] at Module.load (module.js:348:31)
+[INFO] at Function._load (module.js:308:12)
+[INFO] at Module.require (module.js:354:17)
+[INFO] at require (module.js:370:17)
+[INFO] at Object.<anonymous> (/usr/local/lib/node_modules/alloy/bin/alloy:3:1)
+[INFO] at Module._compile (module.js:441:26)
+[INFO] at Object..js (module.js:459:10)
+[INFO] at Module.load (module.js:348:31)
+[INFO] at Function._load (module.js:308:12)
+[INFO] at Array.0 (module.js:479:10)
+[INFO] at EventEmitter._tickCallback (node.js:192:40)
+</pre></code>
+
+into this:
+
+<code><pre>
+[ERROR] Error processing style for view "index.xml" in "index.xml.tss"
+[ERROR] Unexpected token string, expected punc
+[ERROR] line 9, column 1, position 150
+</pre></code> 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2012-09-19
+
+   Future refactoring should be done to simplify the handling of uglify-js AST parsing errors. For now though, all AST operations should be accounted for in terms of proper error handling.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-271.json">JSON Source</a></p>

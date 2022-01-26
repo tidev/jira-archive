@@ -1,0 +1,93 @@
+---
+title: "[AC-762] Unhanded exception 'NSRangeException' when Undo key is pressed on iOS numeric keyboard"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2014-04-06T05:57:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Goran Krstevski</td></tr>
+<tr><th>Assignee</th><td>Ritu Agrawal</td></tr>
+<tr><th>Created</th><td>2014-03-21T12:47:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:37:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have TextArea control which accept only decimal numeric values. Inserted value is validate on 'change' event and if it is not valid then value of TextArea is set to last valid string.
+
+In case when not valid character is inserted and then UNDO key is pressed on numeric iOS keyboard, application crashed with following message:
+
+[ERROR] The application has crashed with an uncaught exception 'NSRangeException'.(check attachment for more info)
+
+Steps to reproduce on Test case :
+1. Press on Text area in the middle of the screen in order to change focus on it 
+2. When keyboard is opened press on some symbol(e.g. "@" ), text area should be empty
+3. Press on "Undo" key on keyboard => Application will crash
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-762_46808/app.js">app.js</td></td><td>2014-03-24T09:50:00.000+0000</td><td>760</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-762_46789/log">log</td></td><td>2014-03-21T12:47:58.000+0000</td><td>4299</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-762_46886/Screen Shot 2014-03-26 at 9.11.58 AM.png">Screen Shot 2014-03-26 at 9.11.58 AM.png</td></td><td>2014-03-26T08:20:09.000+0000</td><td>67339</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-03-21
+
+   Thanks for attaching the log file but to evaluate further we need a simple runnable test case. Can you please attach the same?</li>
+<li>Goran Krstevski 2014-03-24
+
+   Test case attached.</li>
+<li>Ritu Agrawal 2014-03-25
+
+   This appears to be a test case issue. You are using a keyboard that supports only numeric characters. If you type in numeric characters and then undo, everything works fine and there is no crash. If you type in a symbol using your computer as numeric keyboard does not support this character, you are stripping this symbol in test case and setting the numeric value so undo becomes invalid at this point and causes program to malfunction.
+   
+   <code><pre>
+           var val = textArea.value;
+           Ti.API.info("val = " + val);
+           val = val.replace(/[^\d\.\,]/g, "");
+           val = val.replace(/,/g, '.');
+           Ti.API.info("Modified val = " + val);
+           textArea.setValue(val);
+   
+   Output:
+   [INFO] :   val = 1
+   [INFO] :   Modified val = 1
+   [INFO] :   val = 12
+   [INFO] :   Modified val = 12
+   [INFO] :   val = 123
+   [INFO] :   Modified val = 123
+   [INFO] :   val = 123@
+   [INFO] :   Modified val = 123
+   [INFO] :   val = 123@
+   [INFO] :   Modified val = 123
+   </pre></code></li>
+<li>Goran Krstevski 2014-03-25
+
+   But it is not expect application to crash when user accidentally press on a valid buttons on the keyboard.</li>
+<li>Ritu Agrawal 2014-03-26
+
+   Can you please explain how the user is going to type a symbol on a numeric keypad?</li>
+<li>Goran Krstevski 2014-03-26
+
+   Please check screenshot in attachment.</li>
+<li>Ritu Agrawal 2014-03-27
+
+   Thanks. The issue here is that you are modifying the user entered value dynamically. For example, if a user types "123@" then you are replacing it with "123" and that string is shorter than the user typed string. Undo Manager tries to undo 4 characters and finds only 3 characters and throws out of range exception. You should either not modify the string or replace an undesired character with space.</li>
+</ol>
+
+
+<p><a href="/AC/AC-762.json">JSON Source</a></p>

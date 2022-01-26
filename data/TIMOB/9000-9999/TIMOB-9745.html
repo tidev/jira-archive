@@ -1,0 +1,282 @@
+---
+title: "[TIMOB-9745] Android: Searchbar crashes in tableView when adding and removing views"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-12-21T05:34:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.2, Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 API, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, module_searchbar, qe-review, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Soumya Kanti Kar</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-06-15T02:51:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-06T19:22:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
++Test Code+:
+
+//FirstView Component Constructor
+
+var flag = false;
+
+function FirstView(win) {
+    
+    
+    // Create a Button.
+    var showHideButton = Ti.UI.createButton({
+        title : 'Show / Hide',
+        height : 75,
+        width : '100%',
+        top : 0,
+        left : 0
+    });
+    
+    // Listen for click events.
+    showHideButton.addEventListener('click', function() {
+        
+        if(true == flag) {
+            win.add(self);
+            flag = false;
+        } else {
+            win.remove(self);
+            flag = true;
+        }
+    });
+    
+    // Add to the parent view.
+    win.add(showHideButton);
+    
+
+	var self = Ti.UI.createView({
+	    top : 100,
+	    left : 0
+	});
+	win.add(self);
+	
+	
+	var sb = Titanium.UI.createSearchBar({
+        barColor : '#122a6f',
+        showCancel : false,
+        height : 44,      
+    });
+	
+	// Create a TableView.
+	var aTableView = Ti.UI.createTableView({
+	    height : 600,
+	    width : '100%',
+	    search : sb,
+	    top : 0,
+	    left : 0
+	});
+	
+	// Populate the TableView data.
+	var data = [
+		{title:'Row 1', hasChild:true, color:'red', header:'First'},
+		{title:'Row 2', hasDetail:true, color:'green'},
+		{title:'Row 3', hasCheck:true, color:'blue', header:'Second'},
+		{title:'Row 4', color:'orange'}
+	];
+	aTableView.setData(data);
+	
+	// Listen for click events.
+	aTableView.addEventListener('click', function(e) {
+		alert('title: \'' + e.row.title + '\', section: \'' + e.section.headerTitle + '\', index: ' + e.index);
+	});
+	
+	// Add to the parent view.
+	self.add(aTableView);
+	
+	return self;
+}
+
+module.exports = FirstView;
+
+
+
++Test Case+:
+1. Launch the application
+2. Press the hide / show button to hide the table.
+3. Press it again to show the table.
+
++Expected behavior+:
+The table should get displayed again.
+
++Actual Behavior+:
+The application crashes with the following ADB log:
+
+D/AndroidRuntime( 3890): Shutting down VM
+W/dalvikvm( 3890): threadid=1: thread exiting with uncaught exception (group=0x40c451f8)
+E/TiApplication( 3890): (main) [6288,6382] Sending event: exception on thread: main msg:java.lang.IllegalStateException: The specified child already has a p
+t. You must call removeView() on the child's parent first.; Titanium 1.8.2,2012/02/23 17:46,59b3a90
+E/TiApplication( 3890): java.lang.IllegalStateException: The specified child already has a parent. You must call removeView() on the child's parent first.
+E/TiApplication( 3890):         at android.view.ViewGroup.addViewInner(ViewGroup.java:3337)
+E/TiApplication( 3890):         at android.view.ViewGroup.addView(ViewGroup.java:3208)
+E/TiApplication( 3890):         at android.view.ViewGroup.addView(ViewGroup.java:3188)
+E/TiApplication( 3890):         at ti.modules.titanium.ui.widget.TiUITableView.processProperties(TiUITableView.java:131)
+E/TiApplication( 3890):         at org.appcelerator.kroll.KrollProxy.setModelListener(KrollProxy.java:641)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:464)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:456)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:434)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:471)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:456)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:434)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.handleAdd(TiViewProxy.java:538)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:271)
+E/TiApplication( 3890):         at org.appcelerator.titanium.proxy.TiWindowProxy.handleMessage(TiWindowProxy.java:109)
+E/TiApplication( 3890):         at ti.modules.titanium.ui.ActivityWindowProxy.handleMessage(ActivityWindowProxy.java:94)
+E/TiApplication( 3890):         at android.os.Handler.dispatchMessage(Handler.java:95)
+E/TiApplication( 3890):         at android.os.Looper.loop(Looper.java:137)
+E/TiApplication( 3890):         at android.app.ActivityThread.main(ActivityThread.java:4507)
+E/TiApplication( 3890):         at java.lang.reflect.Method.invokeNative(Native Method)
+E/TiApplication( 3890):         at java.lang.reflect.Method.invoke(Method.java:511)
+E/TiApplication( 3890):         at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:790)
+E/TiApplication( 3890):         at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:557)
+E/TiApplication( 3890):         at dalvik.system.NativeStart.main(Native Method)
+E/AndroidRuntime( 3890): FATAL EXCEPTION: main
+E/AndroidRuntime( 3890): java.lang.IllegalStateException: The specified child already has a parent. You must call removeView() on the child's parent first.
+E/AndroidRuntime( 3890):        at android.view.ViewGroup.addViewInner(ViewGroup.java:3337)
+E/AndroidRuntime( 3890):        at android.view.ViewGroup.addView(ViewGroup.java:3208)
+E/AndroidRuntime( 3890):        at android.view.ViewGroup.addView(ViewGroup.java:3188)
+E/AndroidRuntime( 3890):        at ti.modules.titanium.ui.widget.TiUITableView.processProperties(TiUITableView.java:131)
+E/AndroidRuntime( 3890):        at org.appcelerator.kroll.KrollProxy.setModelListener(KrollProxy.java:641)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:464)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:456)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:434)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:471)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:456)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:434)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.handleAdd(TiViewProxy.java:538)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:271)
+E/AndroidRuntime( 3890):        at org.appcelerator.titanium.proxy.TiWindowProxy.handleMessage(TiWindowProxy.java:109)
+E/AndroidRuntime( 3890):        at ti.modules.titanium.ui.ActivityWindowProxy.handleMessage(ActivityWindowProxy.java:94)
+E/AndroidRuntime( 3890):        at android.os.Handler.dispatchMessage(Handler.java:95)
+E/AndroidRuntime( 3890):        at android.os.Looper.loop(Looper.java:137)
+E/AndroidRuntime( 3890):        at android.app.ActivityThread.main(ActivityThread.java:4507)
+E/AndroidRuntime( 3890):        at java.lang.reflect.Method.invokeNative(Native Method)
+E/AndroidRuntime( 3890):        at java.lang.reflect.Method.invoke(Method.java:511)
+E/AndroidRuntime( 3890):        at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:790)
+E/AndroidRuntime( 3890):        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:557)
+E/AndroidRuntime( 3890):        at dalvik.system.NativeStart.main(Native Method)
+W/ActivityManager( 1985):   Force finishing activity r.intent.getComponent().flattenToShortString()
+
++Others+:
+The above code works fine if the search bar is removed.
+
++Attachments+:
+The source code has been attached.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9745_28385/FirstView.js">FirstView.js</td></td><td>2012-06-15T02:51:17.000+0000</td><td>1587</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Betty Tran 2012-06-25
+
+   The bug was reproduced using Titanium SDKs 1.8.2, 2.0.1 and 2.0.2GA.
+   
+   <h4>Code used to reproduce the issue</h4>
+   
+   <code><pre>
+   var flag =false;
+   
+   var win = Ti.UI.createWindow({
+   	backgroundColor : 'white'
+   });
+   
+   var data = [{
+   	title : 'Row 1',
+   	hasChild : true,
+   	color : 'red',
+   	header : 'First'
+   }, {
+   	title : 'Row 2',
+   	hasDetail : true,
+   	color : 'green'
+   }, {
+   	title : 'Row 3',
+   	hasCheck : true,
+   	color : 'blue',
+   	header : 'Second'
+   }, {
+   	title : 'Row 4',
+   	color : 'orange'
+   }];
+   
+   var sb = Titanium.UI.createSearchBar({
+   	barColor : '#122a6f',
+   	showCancel : false,
+   	height : 44,
+   });
+   
+   // Create a TableView.
+   var table = Ti.UI.createTableView({
+   	height : 600,
+   	width : '100%',
+   	search : sb,
+   	top : 75,
+   	left : 0,
+   	data : data
+   });
+   
+   win.add(table);
+   
+   var button = Ti.UI.createButton({
+   	title : 'Show / Hide',
+   	height : 75,
+   	width : '100%',
+   	top : 0,
+   	left : 0
+   });
+   
+   win.add(button);
+   
+   button.addEventListener('click', function() {
+   
+   		if (true == flag) {
+   			win.add(table);
+   			flag = false;
+   		} else {
+   			win.remove(table);
+   			flag = true;
+   		}
+   	});
+   
+   win.open();
+   </pre></code></li>
+<li>Soumya Kanti Kar 2012-06-27
+
+   Wanted to provide in additional details. If instead of adding and removing the view, the view is made to show and hide, then the crash issue is not observed.</li>
+<li>Tamila Smolich 2012-08-13
+
+   Closing as fixed.
+   Tested and verified on:
+   Titanium Studio, build: 2.1.1.201208091713
+   Titanium SDK, build: 2.2.0.v20120810194112
+   Devices: Nexus 7 tab (4.1), HTC Evo (4.0.3), Android Emulator (2.2)</li>
+<li>Shyam Bhadauria 2012-09-07
+
+   Re-opening to edit label</li>
+<li>Shameer Jan 2013-11-06
+
+   Anvil testcase PR
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4758" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4758</a>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9745.json">JSON Source</a></p>

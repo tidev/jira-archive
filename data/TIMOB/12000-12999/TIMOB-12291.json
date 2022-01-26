@@ -1,0 +1,200 @@
+{
+	"id": "107904",
+	"key": "TIMOB-12291",
+	"fields": {
+		"issuetype": {
+			"id": "2",
+			"description": "A new feature of the product, which has yet to be developed.",
+			"name": "New Feature",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2013-01-15T15:26:21.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2018-02-28T20:03:34.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "When looping through the result set of an SQLite query, we need to cross the bridge every time to get the results, this can be slow and painful for big databases. It would be nice to get all the results in a JS object and then work from there.\r\n\r\nThis would be ideal:\r\n{code}\r\n    var rows = db.execute('SELECT * FROM people');\r\n\r\n    var results = rows.asJSON();\r\n{code}\r\n\r\nThis would need to be added to TiDatabaseResultSetProxy.m\r\n{code}\r\n-(NSDictionary *)dictionaryFromCurrentField\r\n{\r\n    NSMutableDictionary *dict = [NSMutableDictionary dictionary];\r\n    for(NSString *field in [results fieldNames])\r\n    {\r\n        [dict setObject:[results objectForColumn:field] forKey:field];\r\n    }\r\n    return dict;\r\n}\r\n\r\n-(id)asJSON:(id)args\r\n{\r\n    NSMutableArray *ar = [NSMutableArray array];\r\n    if (results != nil && validRow)\r\n    {\r\n        [ar addObject:[self dictionaryFromCurrentField]];\r\n        while([results next])\r\n        {\r\n            [ar addObject:[self dictionaryFromField]];\r\n        }\r\n    }\r\n    return ar;\r\n}\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Return SQLite query result set as Javascript Object",
+		"creator": {
+			"name": "penrique",
+			"key": "penrique",
+			"displayName": "Pedro Enrique",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "penrique",
+			"key": "penrique",
+			"displayName": "Pedro Enrique",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "261052",
+					"author": {
+						"name": "darknos",
+						"key": "darknos",
+						"displayName": "Sergey Nosenko",
+						"active": true,
+						"timeZone": "Europe/Helsinki"
+					},
+					"body": "+1 for this.\r\n\r\nFor example you need to do this at js side. In general you should do FOUR \"over board\" proxy calls for each record.\r\n\r\nisValidRow\r\ngetFieldName\r\ngetField\r\nnext\r\n\r\nso if each call is about 1-10ms at iPhone3GS for just 1000 records it will take about 3-4 SECONDS :( :( :(\r\n\r\nUPDATE: just tested code above with 1000 records on iPhone 4. \r\ncase 1: with default style isValidRow, then getFieldName, getField, next (then create backboneModel object for each) - 3200 miliseconds\r\ncase 2: as asJSON (then create backboneModel object for each) - 800 miliseconds\r\n\r\namazing performance improvement!",
+					"updateAuthor": {
+						"name": "darknos",
+						"key": "darknos",
+						"displayName": "Sergey Nosenko",
+						"active": true,
+						"timeZone": "Europe/Helsinki"
+					},
+					"created": "2013-07-09T10:38:00.000+0000",
+					"updated": "2013-07-09T10:52:47.000+0000"
+				},
+				{
+					"id": "261117",
+					"author": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This looks fine but we should also allow for \"chunking\" the data. For example, we should also allow for this use case:\n\n{code}\n    var rows = db.execute('SELECT * FROM people');\n    var count = rows.count;\n\n    // Ger first half of results.\n    var results = rows.asJSON(count / 2);\n    // process first half of results\n\n    // Get remaining rows.\n    results = rows.asJSON();\n{code}",
+					"updateAuthor": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-07-09T19:31:29.000+0000",
+					"updated": "2013-07-09T19:31:29.000+0000"
+				},
+				{
+					"id": "261162",
+					"author": {
+						"name": "darknos",
+						"key": "darknos",
+						"displayName": "Sergey Nosenko",
+						"active": true,
+						"timeZone": "Europe/Helsinki"
+					},
+					"body": "Nice idea. \r\n\r\nbtw, I'm going to create modules (iOS and Android) with this feature, because I can't wait and need it for my applications. (3-4 seconds for 1000 records it's very slow). \r\n\r\nUPDATE: I published module for IOS here: https://github.com/darknos/TiAdvancedDatabase and I hope I didn't break any licenses agreements. ",
+					"updateAuthor": {
+						"name": "darknos",
+						"key": "darknos",
+						"displayName": "Sergey Nosenko",
+						"active": true,
+						"timeZone": "Europe/Helsinki"
+					},
+					"created": "2013-07-09T22:01:16.000+0000",
+					"updated": "2013-07-09T23:16:58.000+0000"
+				},
+				{
+					"id": "291951",
+					"author": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Brilliant!\r\nI would prefer if this would be officially included in the SDK, but for now I am definitely including and using this in my app.\r\n\r\nThanks!",
+					"updateAuthor": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2014-02-07T20:00:47.000+0000",
+					"updated": "2014-02-07T20:00:47.000+0000"
+				},
+				{
+					"id": "291983",
+					"author": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "The code needs a small addition to take care of the BLOB data type as well.\r\n\r\n{code}\r\n-(NSDictionary *)dictionaryFromCurrentField\r\n{\r\n    NSMutableDictionary *dict = [NSMutableDictionary dictionary];\r\n    for(NSString *field in [results fieldNames])\r\n    {\r\n\t    id result = [results objectForColumn:field];\r\n\t\tif ([result isKindOfClass:[NSData class]]) {\r\n\t\t\tresult = [[[TiBlob alloc] initWithData:result mimetype:@\"application/octet-stream\"] autorelease];\r\n\t\t}\r\n        [dict setObject:result forKey:field];\r\n    }\r\n    return dict;\r\n}\r\n{code}",
+					"updateAuthor": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2014-02-07T22:41:52.000+0000",
+					"updated": "2014-02-07T22:41:52.000+0000"
+				},
+				{
+					"id": "333145",
+					"author": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Any update on this? I would really prefer just having this included in the default SDK instead of modifying it myself...\r\n\r\nAnd a new problem arises as I do also want to start supporting Android, which I can't if I have completely different methods of retrieving data...\r\nThis issue should  not only target iOS.\r\n\r\n1. Please include the suggested modification in the SDK.\r\n2. Please also implement for Android.",
+					"updateAuthor": {
+						"name": "martijnkooij",
+						"key": "martijnkooij",
+						"displayName": "Martijn Kooij",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2014-11-20T21:36:53.000+0000",
+					"updated": "2014-11-20T21:36:53.000+0000"
+				}
+			],
+			"maxResults": 7,
+			"total": 7,
+			"startAt": 0
+		}
+	}
+}

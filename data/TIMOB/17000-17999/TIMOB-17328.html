@@ -1,0 +1,111 @@
+---
+title: "[TIMOB-17328] Android: Add support for file property to HTTPClient"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-08-18T21:18:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_network, qe-automation, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2014-07-15T04:18:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-13T13:02:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In Titanium, we use temporary files when we are dealing with data that can not be kept in memory to avoid OOM errors. One case is in networking calls when the response length is above a threshold. The default is 500K.
+
+The blob representing the response (<code>responseData</code> in Ti.Network.HTTPClient) will clearly indicate if the blob represents a file (Titanium.Blob.file will return a valid Titanium.Filesystem.File object). Users are free to delete the file once they have processed the data.
+
+We should allow the users to pass in a file themselves.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ping Wang 2014-07-23
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5927" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5927</a>
+   <code><pre>
+   function createButton(title, filename, url) {
+   	var b = Ti.UI.createButton({
+   		title : title
+   	});
+   
+   	b.addEventListener("click", function() {
+   		var xhr = Titanium.Network.createHTTPClient();
+   		if (filename != null) {
+   			xhr.file = filename;
+   		}
+   		xhr.onload = function() {
+   			var responseFilePath = this.responseData.nativePath;
+   			alert("responseData.nativePath = " + responseFilePath);
+   			if (responseFilePath != null) {
+   				imageView.image = responseFilePath;
+   			} else {
+   				imageView.image = this.responseData;
+   			}
+   		};
+   		xhr.open('GET', url);
+   		xhr.send();
+   	});
+   	
+   	return b;
+   }
+   
+   
+   var win = Titanium.UI.createWindow({
+   	title: "The 'file' property for HTTPClient",
+   	layout: "vertical"
+   });
+   
+   var imageView = Titanium.UI.createImageView({
+   	top : 5,
+   	height : 200,
+   	width : 300
+   });
+   
+   win.add(createButton("Not setting 'file' (download a small image)", null, "<a href="http://developer.appcelerator.com/blog/wp-content/themes/newapp/images/appcelerator_avatar.png?s=48" rel="nofollow" target="_blank">http://developer.appcelerator.com/blog/wp-content/themes/newapp/images/appcelerator_avatar.png?s=48</a>"));
+   win.add(createButton("Not setting 'file' (download a large image)", null, "<a href="http://2.bp.blogspot.com/-z-cZ7JirojQ/Tc8OMAAqbLI/AAAAAAAAAfc/slhGE764cyY/s1600/Cars+2.jpg" rel="nofollow" target="_blank">http://2.bp.blogspot.com/-z-cZ7JirojQ/Tc8OMAAqbLI/AAAAAAAAAfc/slhGE764cyY/s1600/Cars+2.jpg</a>"));
+   win.add(createButton("'file' is in tempDirectory", Ti.Filesystem.tempDirectory + "/sky.jpg", "<a href="http://www.forestwander.com/wp-content/original/2009_01/Sky-View.JPG" rel="nofollow" target="_blank">http://www.forestwander.com/wp-content/original/2009_01/Sky-View.JPG</a>"));
+   win.add(createButton("'file' is in applicationDataDirectory", Ti.Filesystem.applicationDataDirectory + "/flower.jpg", "<a href="http://flowerdeliverygo.com/wp-content/uploads/2014/05/flower-delivery.jpg" rel="nofollow" target="_blank">http://flowerdeliverygo.com/wp-content/uploads/2014/05/flower-delivery.jpg</a>"));
+   win.add(createButton("'file' is in externalStorageDirectory", Ti.Filesystem.externalStorageDirectory + "/fruit.jpg", "<a href="http://southernbite.com/wp-content/uploads/2012/05/SouthernBiteFruitSalad-2.jpg" rel="nofollow" target="_blank">http://southernbite.com/wp-content/uploads/2012/05/SouthernBiteFruitSalad-2.jpg</a>"));
+   
+   win.add(imageView);
+   
+   win.open();
+   </pre></code>
+   
+   For FR: 
+   1. Run the above test case.
+   2. Click each button. Should see an alert with "responseData.nativePath=..." and an image in the imageview. *Note:* when clicking the first button ("file" is not set and the responseData is less than 500k), the responseData is kept in memory so the alert shows "responseData.nativePath = null".
+   3. Should see the response files in tempDirectory and externalStorageDirectory. *Note:* if the output file is in applicationDataDirectory, we are unable to see it using any File Manager app.</li>
+<li>Ping Wang 2014-07-25
+
+   3_3_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5936" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5936</a></li>
+<li>Lokesh Choudhary 2014-08-18
+
+   Verified by using the test case by [~pwang] & it is working as expected.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio : 3.4.0.201408051600
+   Ti SDK :  3.4.0.v20140815142514
+   Mac OSX : 10.8.5
+   Alloy : 1.4.1
+   CLI - 3.3.0
+   Code Processor: 1.1.1
+   Nexus 5 - android 4.4.4</li>
+<li>grebulon 2014-10-30
+
+   You should make this work also with Titanium.Filesystem.File, like it does in iOS.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17328.json">JSON Source</a></p>

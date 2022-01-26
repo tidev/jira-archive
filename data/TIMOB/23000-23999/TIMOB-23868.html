@@ -1,0 +1,194 @@
+---
+title: "[TIMOB-23868] iOS: Possible memory leak on TiUIViewProxy when use-jscore-framework is true"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-17T13:19:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Dirlei Dionísio</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-09-06T01:33:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:37:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After releasing all the references to Ti.UI.View objects, Instruments shows TiUIView objects moving from Persistent to Transient correctly.
+
+But it shows TiUIViewProxy objects keeping at Persistent column. As far as I know it could be due to a memory leak.
+
+When I set *use-jscore-framework* to false, all TiUIViewProxy goes to Transient as expected.
+
+*app.js*
+
+<code><pre>
+var w = Ti.UI.createWindow({  
+    backgroundColor:'#fff'
+});
+
+var s = Ti.UI.createScrollView({
+	top: 30,
+	bottom: 0,
+	layout: 'vertical'  
+});
+w.add(s);
+
+var a,
+	i, l,
+	SIZE = 500;
+
+var b1 = Ti.UI.createButton({
+	height: 45,
+	width: '50%',
+	color: 'blue',
+	title:'create'
+});
+b1.addEventListener('click', function () {
+	console.log('#creating ' + SIZE + ' views...');
+	a = [];
+	a.length = SIZE;
+
+	for (i=0, l=SIZE; i<l; i++) {
+		a[i] = Ti.UI.createView({width: 1, height: 1, backgroundColor: 'green'});
+		s.add(a[i]);
+	}
+	console.log('#done!');
+});
+s.add(b1);
+
+var b2 = Ti.UI.createButton({
+	height: 45,
+	width: '50%',
+	color: 'red',
+	title:'release'
+});
+b2.addEventListener('click', function () {
+	console.log('#releasing ' + SIZE + ' views...');
+	for (i=SIZE-1; i>=0; i--) {
+		s.remove(a[i]);
+	}
+	a = null;
+	console.log('#done!');
+});
+s.add(b2);
+
+w.open();
+</pre></code>
+
+*tiapp.xml*
+
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+    <id>net.mqbc.leak</id>
+    <name>Leak</name>
+    <version>1.0</version>
+    <publisher>dirlei</publisher>
+    <url/>
+    <description/>
+    <copyright>2016 by dirlei</copyright>
+    <icon>appicon.png</icon>
+    <fullscreen>false</fullscreen>
+    <guid>MY_GUID</guid>
+    <property name="ti.ui.defaultunit" type="string">dp</property>
+    <property name="run-on-main-thread" type="bool">false</property>
+    <ios>
+    	<!-- true === leak / false === no leak -->
+        <use-jscore-framework>true</use-jscore-framework>
+        <plist>
+            <dict>
+                <key>UISupportedInterfaceOrientations~iphone</key>
+                <array>
+                    <string>UIInterfaceOrientationPortrait</string>
+                </array>
+            </dict>
+        </plist>
+    </ios>
+    <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<manifest>
+			<application android:debuggable="true"/>
+		</manifest>    	
+    </android>
+    <modules/>
+    <deployment-targets>
+        <target device="android">true</target>
+        <target device="iphone">true</target>
+        <target device="windows">false</target>
+    </deployment-targets>
+    <sdk-version>5.4.0.GA</sdk-version>
+    <property name="appc-app-id" type="string">MY_APPC_ID</property>
+</ti:app>
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23868_62633/Leak-1.png">Leak-1.png</td></td><td>2017-06-11T12:16:35.000+0000</td><td>766615</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23868_62634/Leak-2.png">Leak-2.png</td></td><td>2017-06-11T12:16:34.000+0000</td><td>609554</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23868_62635/No-Leak.png">No-Leak.png</td></td><td>2017-06-11T12:16:33.000+0000</td><td>510494</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dirlei Dionísio 2016-09-06
+
+   [link Instruments video](<a href="https://www.dropbox.com/s/clenkvm635jxur3/instruments.m4v?dl=0)" rel="nofollow" target="_blank">https://www.dropbox.com/s/clenkvm635jxur3/instruments.m4v?dl=0)</a></li>
+<li>Nuno Costa 2016-10-03
+
+   The issue that I found is, when I passed  big payload to the detail window for example, and that detail window is ScrollableView.
+   The UI is blocked for a few secs (min 3 sec) so after the details window is open.
+   
+   </li>
+<li>Michael Gangolf 2017-05-10
+
+   In 6.0.4.GA I see this too: TiUIView is release but the TiUIViewProxy add up and are not moved to Transient</li>
+<li>Brenton House 2017-06-07
+
+   [~hansknoechel] -- Any chance this might get fixed in a patch release before 6.2.0?   Because we are updating more apps to use Hyperloop, the workaround of setting use-jscore-framework to false will no longer work for us.</li>
+<li>Hans Knöchel 2017-06-11
+
+   I've spend some time on this issue and tracked it down to the <code>createProxy:forName:</code> method which returns an auto-released object (<code>\[\[\[resultClass alloc] _initWithPageContext:context args:args] autorelease]</code>). It stays in the <code>Persistent</code> column but deallocates after about 1:40 minutes - which makes sense to me because it's an autoreleased object that is garbage-collected after a while not being used. 
+   
+   So unless there is a reproducible case where the app actually crashes after some usage time, I cannot see something we should change at this point, although I still want to dig into this a bit more.</li>
+<li>Brenton House 2017-06-12
+
+   Thanks [~hansknoechel]!  Is there a recommended way of cleaning up controllers/views when using <code>popToRootWindow</code>?
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.iOS.NavigationWindow-method-popToRootWindow
+   
+   I can use the <code>close</code> event as a workaround with the iOS native back button but <code>popToRootWindow</code> seems to only fire the close event for the most recently opened window.</li>
+<li>Hans Knöchel 2017-06-12
+
+   Not sure how it's related (it may if you use the specific method, not then it would probably leak with jscore/no-jscore). 
+   
+   Regardless of that, from what I tested during implementing the <code>popToRootWindow</code> method was that it was cleaned up properly, but there is a good chance that the proxies are still internally registered, which could be solved by looping through the child-controllers and nuke them down manually - which would also fire the <code>close</code> event of all windows. 
+   
+   I see that we could do a ticket about that, but for now, I'd rather want to ensure we have <code>no leak</code> here and fix it otherwise. Can you see that the memory gets deallocated after a few minutes as well or does it stay?</li>
+<li>Brenton House 2017-06-12
+
+   The popToRootWindow was just part of the test case I was using.  When I remove that as part of the test, everything seems to reset back to original values after a min or so.   When the popToRootWindow is used, everything but the controls on the intermediate windows (between root and the last window open) are cleaned up.  I will create a separate test case for popToRootWindow and see if it needs further looking into.   Thanks for your help!!
+   
+   </li>
+<li>Hans Knöchel 2017-06-12
+
+   Ok, will investigate that one in a separate one (feel free to raise one, I'd create it tomorrow otherwise). [~michael], how about your test-case, did it (auto-)release it or did it stay in the persistent-state?</li>
+<li>Hans Knöchel 2017-06-17
+
+    Removing 6.1.1 milestone for now, based on the above findings. For the <code>popToRootWindow</code> method, I have created TIMOB-24843 to take a look into. Both changes described there are related and can be implemented together. I scheduled that one for 6.2.0 for now, but it will likely move up to 6.1.1 or 6.1.2 depending on the ticket-load.</li>
+<li>Eric Merriman  2018-08-06
+
+    Closing as invalid. If incorrect, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23868.json">JSON Source</a></p>

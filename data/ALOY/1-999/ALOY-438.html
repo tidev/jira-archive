@@ -1,0 +1,162 @@
+---
+title: "[ALOY-438] Proxy off() function from Backbone is not working"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-08-06T20:41:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 0.3.4, 2012 Sprint 26</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>qe-automatedtest, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2012-12-19T23:54:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-06T20:41:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In ALOY-370, a fix was put in place so that developers would be able to define functions for markup event handlers with either function declarations or expressions. 
+
+<code><pre>
+// function declaration
+function doClick() {}
+
+// function expression
+var doClick = function() {}
+</pre></code>
+
+Expressions did not work before ALOY-370 as the event handlers were created before the function assignment, causing the event handler callback function to be undefined. To get around this, the reference to the event handler function was deferred inside of an anonymous caller. So:
+
+<code><pre>
+$.someProxy.on('click', myFunction);
+
+// became
+
+$.someProxy.on('click', function() {
+    myFunction.apply(this, Array.prototype.slice.apply(arguments));
+});
+</pre></code>
+
+In this way, it didn't matter how the event handler function was defined or where, it would be in scope and defined by the time the event handler was actually fired. The problem is that now when you attempt to remove the event handler from the above code, it doesn't work because the functions won't match. The developer will be passing 'myFunction', but the eventing system has the anonymous function as its callback.
+
+<code><pre>
+// won't work since we wrapped myFunction in an anonymous function
+$.someProxy.off('click', myFunction);
+</pre></code>
+
+So the problem is how do we maintain the ability to reference both function declarations and expressions, but still be able to have developers simply remove these functions without having to worry about an anonymous wrapper?
+
+<h4>possible options</h4>
+
+<h4>We go back to not supporting function expressions. This might not be so bad as all alloy examples use function declarations, and it remained like that up til version 0.3.2 before 1 person mentioned it. A small bit of documentation in the guides would make this easy to convey.</h4>
+<h4>We move the event handler declaration code after the controller code. This seems like a logical, simple solution, but there is a distinct drawback. A developer will not be able to manually trigger these events if they want from the controller during its initial execution. For example:</h4>
+<code><pre>
+// this would still work
+$.win.on('open', function() {
+    $.someProxy.trigger('click');
+});
+
+// but this would not, but it also wouldn't throw an exception. It just wouldn't fire
+// any event since the event handler would not have been defined yet.
+$.someProxy.trigger('click');
+</pre></code>
+This may not be a very common use case with UI components, but it is with <Model> and <Collection> elements, which use the same method for tying markup eventing to code. For example, devs often call model.fetch() in their controllers, which wouldn't fire any event handlers if we push the event handler code to the end.
+<h4>Use AST manipulation to either move the function expressions to the top of the code, or convert them to function expressions. I always prefer to make AST manipulation for this sort of thing a last resort. This would likely also be shot to hell if the developer employs any kind of inheritance in their controller, as the function I'm looking for may reside in another file.</h4>
+<h4>Something I haven't thought of yet.</h4>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2012-12-20
+
+   Brain dump before I go to bed. A possible solution to cover all bases would be using minimal runtime logic to determine whether or not the setting of an event handler should be done before the controller code, or deferred until after the controller code (if function expressions are used). Here's a rough idea of how it would go:
+   
+   <code><pre>
+   // "defer" represent some flag or variable that would indicate
+   // whether or not an event handler needs to be deferred until
+   // after the controller code. If implemented, there would 
+   // obviously be a collection of some sort to manage which 
+   // event handlers need to be deferred and which don't.
+   var defer = true;
+   
+   // UI code
+   var win = Ti.UI.createWindow({
+   	backgroundColor: "#fff"
+   });
+   
+   // new event generation code, which defers the setting of 
+   // the event handler if the function is not yet defined, like
+   // in the case of a function expression.
+   if (myFunc) {
+   	win.addEventListener("click", myFunc);
+   	defer = false;	
+   } 
+   
+   // controller code
+   var myFunc = function(e) {
+   	alert(e.source);	
+   }
+   win.open();
+   
+   // new auto-code, afte controller code, for handling 
+   // deferred events
+   if(defer) win.addEventListener("click", myFunc);
+   </pre></code>
+   
+   I tested this with plain old titanium development, hence the use of addEventListener for testing, rather than the Backbone on() and off().</li>
+<li>Tony Lukasavage 2012-12-20
+
+   Additional revision for final implementation, showing how this will be handled for an arbitrary number of handlers:
+   
+   <code><pre>
+   // "defer" represent some flag or variable that would indicate
+   // whether or not an event handler needs to be deferred until
+   // after the controller code. If implemented, there would 
+   // obviously be a collection of some sort to manage which 
+   // event handlers need to be deferred and which don't.
+   var __defers = {};
+   
+   // UI code
+   var win = Ti.UI.createWindow({
+   	backgroundColor: "#fff"
+   });
+   
+   // new event generation code, which defers the setting of 
+   // the event handler if the function is not yet defined, like
+   // in the case of a function expression.
+   myFunc ? win.addEventListener("click", myFunc) : 
+            (__defers["win!click!myFunc"] = true);
+   
+   // controller code
+   function myFunc(e) {
+   	alert(e.source);	
+   	e.source.removeEventListener("click", myFunc);
+   }
+   win.open();
+   
+   // new auto-code, afte controller code, for handling 
+   // deferred events
+   __defers["win!click!myFunc"] && win.addEventListener("click", myFunc);
+   </pre></code></li>
+<li>Tony Lukasavage 2012-12-20
+
+   The bulk of this issue has been resolved and off() now works again. There is a specific scenario in which a small bit of functionality might not work, and this is covered in ALOY-441.</li>
+<li>Federico Casali 2013-01-29
+
+   Proxy off() function sample is present in test/apps/basics/controller_events
+   
+   Verified fixed on 1_0_X master branch
+   android device: 4.2
+   iPhone devices: iPhone 6 and iPad 4.3.5
+   TiSDK: 3.0.2.v20130128161704
+   CLI: 3.0.23
+   
+   Closing.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-438.json">JSON Source</a></p>

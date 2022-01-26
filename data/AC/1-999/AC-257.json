@@ -1,0 +1,126 @@
+{
+	"id": "149883",
+	"key": "AC-257",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "10000",
+			"description": "",
+			"name": "Done"
+		},
+		"resolutiondate": "2015-12-09T11:59:25.000+0000",
+		"created": "2015-07-24T11:06:13.000+0000",
+		"labels": [
+			"arrowdb"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "mrahman",
+			"key": "mrahman",
+			"displayName": "Mostafizur Rahman",
+			"active": true,
+			"timeZone": "Asia/Dhaka"
+		},
+		"updated": "2015-12-09T11:59:25.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "14558",
+				"name": "Arrow Cloud"
+			}
+		],
+		"description": "Hi.\r\n\r\nCurrently, on ACS (the old), the way we have to make modifications to other objects not owned by the current user is (controlling the session by the \"Manual Session Management\"):\r\n\r\n1. Login as an admin user\r\n2. Get the admin user id\r\n3. Make modifications on the object with that session id\r\n4. Forget about it and continue using the current user session in the other calls.\r\n\r\nThis is something like:\r\n\r\n{code}\r\n// NOTE: Only a user with ACS ADMIN privileges can update another user data, so access as an admin user and make the changes.\r\nACS.Users.login({\r\n    login : \"admin\",\r\n    password : adminpass\r\n}, function(e) {\r\n    if (e.success) {            \r\n        ACS.Users.update({\r\n            session_id: e.meta.session_id,  // the session id of the manager admin\r\n            user_id: id,  // the user id to modify\r\n            first_name: first_name,\r\n            last_name: last_name\r\n        }, function(data) {\r\n            if (data.success) {\r\n                console.log('User \"' + username + '\" edited');\r\n                res.redirect('/admin/users');\r\n            } else {\r\n                console.log('Error: ' + ((data.error && data.message) || JSON.stringify(data)));\r\n                // Render again the page, with the error\r\n                res.redirect('error');\r\n            }\r\n        });\r\n\r\n    } else {\r\n        console.log('Error login as manager: ' + ((e.error && e.message) || JSON.stringify(e)));\r\n        // Render again the page, with the error\r\n        res.redirect('error');\r\n    }\r\n});\r\n{code}\r\n\r\nBut now I'm not able to do the same in ArrowDB. If I login as admin to do the changes, the next saved/modified objects are owned by the new admin logged user, even if I use the stored non-admin session with `session_id: req.session.session_id` in the calls.\r\n\r\nAcordly with info on http://docs.appcelerator.com/arrowdb/latest/#!/guide/nodejs, the only thing I need to do is deactivate the Cookie-Based Session Management (instantiating arrowDB in form {{arrowDBApp = new ArrowDB('<App Key>', {autoSessionManagement:false});}} and add the session manually after the login with {{arrowDBApp.sessionCookieString = result.cookieString;}} (if I do not the last step, I get user not logged in on every query I do).\r\n\r\nBut the code does not work as expected, when I login as admin user, the login remains for the rest of the session.\r\n\r\n{code}\r\n// NOTE: Only a user with ACS ADMIN privileges can update another user data, so access as an admin user\r\narrowDBApp.usersLogin({\r\n    login : \"admin\",\r\n    password : adminpass\r\n}, function(err, result) {\r\n    if (err) {\r\n        console.log('Error login as manager: ' + err.message);\r\n    } else {\r\n        arrowDBApp.customObjectsUpdate({\r\n            classname: 'Topics',\r\n            session_id: result.body.meta.session_id,\r\n            fields: {\r\n                name: name\r\n            }\r\n        }, function(err, result) {\r\n            if (err) {\r\n                console.log('Error: ' + err.message);\r\n            } else {\r\n                res.redirect('/admin/topics');\r\n            }\r\n        });\r\n    }\r\n});\r\n{code}\r\n\r\nThe expected behaviour is to save the object as the current user, but is saved as owned by the admin user.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Manual session management in ArrowDB",
+		"creator": {
+			"name": "mcvendrell",
+			"key": "mcvendrell",
+			"displayName": "Manuel Conde Vendrell",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "mcvendrell",
+			"key": "mcvendrell",
+			"displayName": "Manuel Conde Vendrell",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"environment": "arrowDB: 1.0.6",
+		"comment": {
+			"comments": [
+				{
+					"id": "372522",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "An ArrowDB user login session is identified by a session_id parameter in the request or response data. When logging in to a user account or creating a new user, the session_id is returned in the response data of the API calls. It can be retrieved from the response data by using the body.meta.session_id property of the callback's result object. For example:\r\n\r\n{code}\r\nfunction loginUser(req, res) {\r\n    arrowDBApp.usersLogin({\r\n        login: 'test',\r\n        password: 'test'\r\n    }, function(err, result) {\r\n        console.log('Login session is: ' + result.body.meta.session_id);\r\n    });\r\n}\r\n{code}\r\n\r\nShouldn't your \"session_id:\" be \"session_id:result.body.meta.session_id\" ? \r\n\r\n",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2015-12-09T10:35:54.000+0000",
+					"updated": "2015-12-09T10:35:54.000+0000"
+				},
+				{
+					"id": "372523",
+					"author": {
+						"name": "mcvendrell",
+						"key": "mcvendrell",
+						"displayName": "Manuel Conde Vendrell",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Hi Sharif. You are right, I did a typo there (fixed now) but the behaviour remains the same.\r\n\r\nThe idea here is to \"update\" an object as an admin but continue the session as the previous non-admin user. Width ACS that worked and with ArrowDB don't.\r\n\r\nAnyway I decide to use another approach and now I'm using ACLs to do the same, giving all users write permisions on the \"Topics\" object in the example, so now it's not needed to log as admin and do the update.\r\n\r\nYou can close this issue. I can understand that the ACS behaviour was not intended and the right is the ArrowDB.",
+					"updateAuthor": {
+						"name": "mcvendrell",
+						"key": "mcvendrell",
+						"displayName": "Manuel Conde Vendrell",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2015-12-09T10:54:55.000+0000",
+					"updated": "2015-12-09T10:54:55.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

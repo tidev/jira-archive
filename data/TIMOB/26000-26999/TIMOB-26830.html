@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-26830] Hyperloop: Android - Can not read java class from the symlink directory folder"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Hyperloop 4.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 4.0.2</td></tr>
+<tr><th>Components</th><td>Android, Hyperloop</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Motiur Rahman</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2019-02-15T14:41:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-22T15:48:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm experiencing what I believe is a bug in the Hyperloop in Android only. We have multiple apps that share a similar codebase. We have a lot of this code in one directory and we 
+symlink it to all of the other projects. If I use Hyperloop in a file that lives inside this symlinked directory to require a class it throws an error during build. If I run the project that contains the actual directory, not just a symlink, it works just fine. 
+
+The error I'm seeing. 
+
+<code><pre>
+[ERROR] :  TiExceptionHandler: (main) [228,228] ti:/module.js:303
+[ERROR] :  TiExceptionHandler: 	throw new Error('Requested module not found: ' + request); // TODO Set 'code' property to 'MODULE_NOT_FOUND' to match Node?
+[ERROR] :  TiExceptionHandler:  ^
+[ERROR] :  TiExceptionHandler: Error: Requested module not found: android.view.View
+[ERROR] :  TiExceptionHandler:     at Module.require (ti:/module.js:303:8)
+[ERROR] :  TiExceptionHandler:     at Module.global.Module.require (/ti.internal/extensions/binding.js:33:34)
+[ERROR] :  TiExceptionHandler:     at require (ti:/module.js:570:15)
+[ERROR] :  TiExceptionHandler:     at /shared/Example.js:1:102
+[ERROR] :  TiExceptionHandler:     at Module._runScript (ti:/module.js:612:9)
+[ERROR] :  TiExceptionHandler:     at Module.load (ti:/module.js:108:7)
+[ERROR] :  TiExceptionHandler:     at Module.loadJavascriptText (ti:/module.js:457:9)
+[ERROR] :  TiExceptionHandler:     at Module.loadAsFile (ti:/module.js:512:15)
+[ERROR] :  TiExceptionHandler:     at Module.loadAsFileOrDirectory (ti:/module.js:429:20)
+[ERROR] :  TiExceptionHandler:     at Module.require (ti:/module.js:262:17)
+[ERROR] :  TiExceptionHandler:
+[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:162)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:207)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.loadScript(TiLaunchActivity.java:97)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.loadScript(TiRootActivity.java:414)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunchActivity.java:174)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActivity.java:283)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.java:767)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActivity.java:167)
+[ERROR] :  TiExceptionHandler:     org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.java:260)
+[ERROR] :  V8Exception: Exception occurred at ti:/module.js:303: Uncaught Error: Requested module not found: android.view.View
+</pre></code>
+
+The class I'm requiring in the call stack is a third-party AAR that is in my platform/android directory, but it still throws an error when requiring a default android class like android.view.View. 
+
+I also noticed that in build/hyperloop/android/js, it builds a corresponding js file for every needed android class, but when the require is inside a symlinked directory the necessary file doesn't get generated. I figured as a workaround I could require the 
+class in a file that is not symlinked so it would generate the bindings needed and then I would be able to require it again in the symlinked directory, but this was not the case and it still threw an error. 
+
+Here's roughly what our directory structure looks like: 
+
+App1 
+/Resources 
+/app1code 
+/shared 
+
+App2 
+/Resources 
+/app2code 
+/shared <- this is a symlink to App1/shared, requiring an android class in here causes an error 
+
+*Steps To Reproduce:*
+1. Just create two new projects manually. 
+2. Pase this code in app.js file for both App.
+<code><pre>
+var tabGroup = Ti.UI.createTabGroup();
+var Example = require('/shared/Example');
+</pre></code>
+
+3. Then create a directory called "shared" in one app and take the attached "Example.js" file
+and put it in the "shared" directory. 
+4. Then symlink that directory in the
+other project using 'ln -s /path/to/shared /path/to/symlink'. That's all I
+did. 
+5. Now run those Apps.
+6. First App is working perfectly.
+7. Second App is throwing an error.
+
+
+Again, this does not seem to be an issue on iOS, only Android.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26830_66166/Example.js">Example.js</td></td><td>2019-02-15T14:42:51.000+0000</td><td>94</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2019-02-26
+
+   PR: <a href="https://github.com/appcelerator/hyperloop.next/pull/319" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/319</a></li>
+<li>Jan Vennemann 2019-03-14
+
+   They can already get the latest Hyperloop build which contains the fix here: <a href="https://github.com/appcelerator-modules/hyperloop-builds/releases" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/hyperloop-builds/releases</a>
+   
+   It will be shipped with SDK 8.0.0.</li>
+<li>Motiur Rahman 2019-03-14
+
+   Thanks for your great effort.</li>
+<li>Abir Mukherjee 2019-04-22
+
+   The ticket is already merged. QE to test before closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26830.json">JSON Source</a></p>

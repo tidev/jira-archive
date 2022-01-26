@@ -1,0 +1,137 @@
+---
+title: "[TIMOB-7233] Android: evalJS and evalFile methods deprecated in TiContext"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-03-05T09:29:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-05, Release 2.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_module, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Marshall Culpepper</td></tr>
+<tr><th>Created</th><td>2012-01-16T15:35:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-05T10:30:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue</h4>
+One of the General changes while porting modules to our current SDK 1.8.0.1 was remove TiContext.
+
+<h4>Customer's remarks</h4>
+Inside my Android module, I have to execute some JavaScript statements in the current context. I was using TiContext to do that in pre-1.8.0.1 versions of SDK. Since TiContext is deprecated where in 1.8.0.1 Android module SDK can I find evalJS() and evalFile() methods?
+
+<h4>General changes</h4>
+{noformat}
+    TiContext is being replaced, and any implementation utilizing TiContext will take a performance / stability hit compared to using the desired API's directly.
+    In most of the places where TiContext is used as an argument, the TiContext argument can be removed entirely or replaced with an Activity reference.
+{noformat}
+
+<h4>evalJS and evalFile methods migrated</h4>
+<code><pre>
+	public Object evalFile(String filename)
+		throws IOException
+	{
+		return evalFile(filename, null, -1);
+	}
+
+	public Object evalJS(String src)
+	{
+		if (krollBridge == null)
+		{
+			Log.e(LCAT,"on evalJS, evaluator is null and shouldn't be");
+		}
+		return krollBridge.evalJS(src);
+	}
+</pre></code>
+
+<h4>References</h4>
+<a href="https://wiki.appcelerator.org/display/guides/Android+Module+Porting+Guide+for+1.8.0.1" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/Android+Module+Porting+Guide+for+1.8.0.1</a>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-7233_25941/com.arcaner.testmodule2-android-0.1.zip">com.arcaner.testmodule2-android-0.1.zip</td></td><td>2012-02-29T10:38:54.000+0000</td><td>46708</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Neeraj Gupta 2012-02-10
+
+   We need to get some insight into how TiContext evalJS / evalFile are being currently used, as it makes a significant impact on the amount of time it will take us to re-introduce this functionality.</li>
+<li>Marshall Culpepper 2012-02-29
+
+   Make sure to run this test for both V8 and Rhino:
+   
+   * Copy the attached module zip into a project and add this to your tiapp.xml:
+   <code><pre>
+   <modules>
+       <module>com.arcaner.testModule2</module>
+   </modules>
+   </pre></code>
+   
+   * Use this code inside the app:
+   <code><pre>
+   var test = require("com.arcaner.testModule2");
+   test.evalJS("Ti.API.debug('Hello World'); 100+1");
+   test.evalJSWithContext("Ti.API.debug('Hello from TiContext'); 1.1+100;");
+   test.evalFileWithContext("test.js");
+   </pre></code>
+   
+   * In the console, you should see these messages printed when the application runs:
+   <code><pre>
+   D/TiAPI   ( 6489): Hello World
+   D/Testmodule2Module( 6489): (KrollRuntimeThread) [100,465] Result = 101.0
+   D/TiAPI   ( 6489): Hello from TiContext
+   D/Testmodule2Module( 6489): (KrollRuntimeThread) [1,466] TiContext Result = 101.1
+   D/TiAPI   ( 6489): Hello world from a file
+   D/Testmodule2Module( 6489): (KrollRuntimeThread) [1,467] TiContext File Result = 102.0
+   </pre></code>
+   
+   Note:
+   
+   This is the java snippet that was used to expose these APIs for the module:
+   <code><pre>
+   	@Kroll.method
+   	public void evalJS(String code) {
+   		Object result = KrollRuntime.getInstance().evalString(code);
+   		Log.d(LCAT, "Result = " + result);
+   	}
+   
+   	@Kroll.method
+   	public void evalJSWithContext(String code) {
+   		Object result = getTiContext().evalJS(code);
+   		Log.d(LCAT, "TiContext Result = " + result);
+   	}
+   
+   	@Kroll.method
+   	public void evalFileWithContext(String path) {
+   		try {
+   			Object result = getTiContext().evalFile(path);
+   			Log.d(LCAT, "TiContext File Result = " + result);
+   		} catch (Exception e) {
+   			Log.e(LCAT, "Error", e);
+   		}
+   	}
+   </pre></code></li>
+<li>Marshall Culpepper 2012-02-29
+
+   Pull request is ready:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/1538" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/1538</a></li>
+<li>Natalie Huynh 2012-03-19
+
+   Tested with 2.0.0.v20120319003254 v8/rhino on Droid 2.2.2 and Emulator 2.3.3. Getting the correct console output</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7233.json">JSON Source</a></p>

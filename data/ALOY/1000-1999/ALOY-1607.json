@@ -1,0 +1,203 @@
+{
+	"id": "171222",
+	"key": "ALOY-1607",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20064",
+				"name": "CLI Release 7.0.3",
+				"archived": false,
+				"released": true
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-03-05T18:23:23.000+0000",
+		"created": "2018-03-01T13:36:55.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "fmiao",
+			"key": "fmiao",
+			"displayName": "Feon Sua Xin Miao",
+			"active": true,
+			"timeZone": "America/Vancouver"
+		},
+		"updated": "2018-04-11T21:33:01.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "13604",
+				"name": "Tooling",
+				"description": "Items related to Alloy tooling and workflow"
+			}
+		],
+		"description": "Latest underscore version (1.8.3) used in Alloy 1.11.0 causes an error using *$.removeListener* method.\r\n\r\nhttps://github.com/appcelerator/alloy/blob/2a25b1d50fe22d3f5c4f423a6027e1c1d7748b88/Alloy/lib/alloy/controllers/BaseController.js#L496\r\n\r\nI don't know why Appc Team use underscore inside BaseController.js instead use built in prototype functions like 'forEach'. In fact bump to latest underscore version is breaking the normal usage of `$.removeListener`method and this is why:\r\n\r\nBaseController.js\r\n\r\n{code:java}\r\n\r\nremoveListener: function(proxy, type, callback) {\r\n  _.each(this.__events, function(event, index) {\r\n    if ((!proxy || proxy.id === event.id) &&\r\n      (!type || type === event.type) &&\r\n      (!callback || callback === event.handler)) {\r\n      event.view.removeEventListener(event.type, event.handler);\r\n\r\n      //This line is removing a item from __events array but a undefined value is placed in the removed index\r\n      //self.__events.splice(index, 1); removes the item with no undefined value instead\r\n      delete self.__events[index];\r\n    }\r\n  });\r\n  return this;\r\n}\r\n{code}\r\n\r\n\r\nWhat happens in the underscore 1.8.3 version *_.each* method?\r\nWell, it iterates in the array using a *for*, `undefined` values included.\r\nIf *event* is undefined when *event.view.removeEventListener(event.type, event.handler);* it fails because *view* isn't in event\r\n\r\n{color:red}[ERROR] Error catched: Cannot read property 'view' of undefined{color}\r\n\r\n{code:java}\r\n_.each = _.forEach = function(obj, iteratee, context) {\r\n  iteratee = optimizeCb(iteratee, context);\r\n  var i, length;\r\n  if (isArrayLike(obj)) {\r\n    for (i = 0, length = obj.length; i < length; i++) {\r\n      iteratee(obj[i], i, obj);\r\n    }\r\n  } else {\r\n    var keys = _.keys(obj);\r\n    for (i = 0, length = keys.length; i < length; i++) {\r\n      iteratee(obj[keys[i]], keys[i], obj);\r\n    }\r\n  }\r\n  return obj;\r\n};\r\n{code}\r\n\r\nWhat happens in the oldest underscore 1.6.0 version *_.each* method?\r\nWell, it checks if *forEach* method is present in `Array.prototype` and uses it. This method skipes `undefined`values.\r\n\r\n\r\n{code:java}\r\nvar ArrayProto = Array.prototype;\r\nvar nativeForEach      = ArrayProto.forEach;\r\n\r\nvar each = _.each = _.forEach = function(obj, iterator, context) {\r\n    if (obj == null) return obj;\r\n    if (nativeForEach && obj.forEach === nativeForEach) {\r\n      obj.forEach(iterator, context);\r\n    } else if (obj.length === +obj.length) {\r\n      for (var i = 0, length = obj.length; i < length; i++) {\r\n        if (iterator.call(context, obj[i], i, obj) === breaker) return;\r\n      }\r\n    } else {\r\n      var keys = _.keys(obj);\r\n      for (var i = 0, length = keys.length; i < length; i++) {\r\n        if (iterator.call(context, obj[keys[i]], keys[i], obj) === breaker) return;\r\n      }\r\n    }\r\n    return obj;\r\n  };\r\n{code}\r\n\r\nUse case in Titanium:\r\n\r\n\r\n\r\n{code:java}\r\n    $.addListener($.win, 'open', disableClick);\r\n    $.addListener($.win, 'close', clean);\r\n    $.addListener($.disable, 'click', disableClick);\r\n    $.addListener($.label, 'click', close);\r\n\r\nfunction disableClick() {\r\n    //Removes listener but undefined value is placed\r\n    $.removeListener($.disable, 'click', disableClick);\r\n  }\r\n\r\n  function close(e) {\r\n    Ti.API.info('Closing window');\r\n    $.win.close();\r\n  }\r\n\r\n  function clean(e) {\r\n    Ti.API.info('Cleaning window');\r\n    try {\r\n      Ti.API.info('Call $.removeListener()');\r\n      $.removeListener();\r\n    } catch (err) {\r\n      //It tries to remove event to undefined value\r\n      //[ERROR] Error catched: Cannot read property 'view' of undefined\r\n      Ti.API.error('Error catched: ' + err.message);\r\n    }\r\n  }\r\n{code}\r\n\r\n\r\nHow to solve:\r\n\r\nHow you can solve this? So easy...\r\n\r\nFirst way:\r\n\r\nChange _.each for forEach\r\n\r\n{code:java}\r\nremoveListener: function(proxy, type, callback) {\r\n  this.__events.forEach(function(event, index) {\r\n    if ((!proxy || proxy.id === event.id) &&\r\n      (!type || type === event.type) &&\r\n      (!callback || callback === event.handler)) {\r\n      event.view.removeEventListener(event.type, event.handler);\r\n      delete self.__events[index];\r\n    }\r\n  });\r\n  return this;\r\n}\r\n{code}\r\n\r\n\r\nSecond way:\r\n\r\nAdding a simple check in the if...\r\n\r\n{code:java}\r\nremoveListener: function(proxy, type, callback) {\r\n  _.each(this.__events, function(event, index) {\r\n    if (event && (!proxy || proxy.id === event.id) &&\r\n      (!type || type === event.type) &&\r\n      (!callback || callback === event.handler)) {\r\n      event.view.removeEventListener(event.type, event.handler);\r\n      delete self.__events[index];\r\n    }\r\n  });\r\n  return this;\r\n}\r\n{code}\r\n\r\nAs Konstantin Bueschel commented a way to avoid this undefined holes inside arrays is using *splice* instead *delete*\r\n\r\n*self.__events.splice(index, 1);*",
+		"attachment": [
+			{
+				"id": "64914",
+				"filename": "app-removelistener.zip",
+				"author": {
+					"name": "jormagar",
+					"key": "jormagar",
+					"displayName": "Jorge Macias Garcia",
+					"active": true,
+					"timeZone": "Europe/Brussels"
+				},
+				"created": "2018-03-01T13:43:07.000+0000",
+				"size": 9206826,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "Latest underscore version is breaking removeListener method in BaseController.js",
+		"creator": {
+			"name": "jormagar",
+			"key": "jormagar",
+			"displayName": "Jorge Macias Garcia",
+			"active": true,
+			"timeZone": "Europe/Brussels"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jormagar",
+			"key": "jormagar",
+			"displayName": "Jorge Macias Garcia",
+			"active": true,
+			"timeZone": "Europe/Brussels"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1007,
+				"state": "closed",
+				"name": "2018 Sprint 05 Tooling",
+				"startDate": "2018-02-25T17:48:46.503Z",
+				"endDate": "2018-03-11T16:48:00.000Z",
+				"completeDate": "2018-03-11T22:21:44.972Z",
+				"originBoardId": 219
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "435055",
+					"author": {
+						"name": "kbueschel",
+						"key": "kbueschel",
+						"displayName": "Konstantin Bueschel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hei,\r\n\r\nin my opinion the root cause, is the \r\n\r\n{code:javascript}\r\ndelete self.__events[index];\r\n{code}\r\n\r\nstatement, cause it places a _null_ value at the given index. Therefore it should be replaced with the \r\n\r\n{code:javascript}\r\nself.__events.splice(index, 1);\r\n{code}\r\n\r\nBesides that, I agree with Jorge, that there's not need for the underscore __.each_ usage. It would also remove the dependency on underscore and the undefined check of the iteration item.\r\n\r\nThanx Jorge for filing this issue.",
+					"updateAuthor": {
+						"name": "kbueschel",
+						"key": "kbueschel",
+						"displayName": "Konstantin Bueschel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-03-01T14:56:44.000+0000",
+					"updated": "2018-03-01T14:57:12.000+0000"
+				},
+				{
+					"id": "435056",
+					"author": {
+						"name": "jormagar",
+						"key": "jormagar",
+						"displayName": "Jorge Macias Garcia",
+						"active": true,
+						"timeZone": "Europe/Brussels"
+					},
+					"body": "Yes, you are right splice removes a item in the array and not fills its position with undefined value.\r\n\r\nThe solution could be both use prototype forEach and splice instead delete.",
+					"updateAuthor": {
+						"name": "jormagar",
+						"key": "jormagar",
+						"displayName": "Jorge Macias Garcia",
+						"active": true,
+						"timeZone": "Europe/Brussels"
+					},
+					"created": "2018-03-01T15:00:56.000+0000",
+					"updated": "2018-03-01T15:00:56.000+0000"
+				},
+				{
+					"id": "435089",
+					"author": {
+						"name": "jormagar",
+						"key": "jormagar",
+						"displayName": "Jorge Macias Garcia",
+						"active": true,
+						"timeZone": "Europe/Brussels"
+					},
+					"body": "PR - [https://github.com/appcelerator/alloy/pull/881|https://github.com/appcelerator/alloy/pull/881]",
+					"updateAuthor": {
+						"name": "jormagar",
+						"key": "jormagar",
+						"displayName": "Jorge Macias Garcia",
+						"active": true,
+						"timeZone": "Europe/Brussels"
+					},
+					"created": "2018-03-02T09:08:43.000+0000",
+					"updated": "2018-03-02T09:08:43.000+0000"
+				},
+				{
+					"id": "436810",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix in alloy 1.12.0 in core 7.0.3-master.36.\r\n\r\nClosing.\r\n\r\n",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-04-11T21:32:55.000+0000",
+					"updated": "2018-04-11T21:32:55.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

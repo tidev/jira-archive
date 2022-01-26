@@ -1,0 +1,866 @@
+---
+title: "[AC-2633] Alloy collection.get returning undefined"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2013-05-14T22:53:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy</td></tr>
+<tr><th>Labels</th><td>Alloy, Backbone, Get, collection, model</td></tr>
+<tr><th>Reporter</th><td>Joe Moretti</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2013-05-14T14:32:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If I have a collection called catalogs and I want to get a model (id 1234) from that collection by id, based off of the documentation for backbone.js, I believe I should be able to:
+<code><pre>
+var selectedCatalogID = '1234'
+var catalog = null; 
+catalog = catalogs.get(selectedCatalogID);
+</pre></code>
+but when I introspect catalog after this runs, its value is undefined;
+
+A work around I have been using is:
+<code><pre>
+var selectedCatalogID = '1234'
+var catalog = null; 
+for (var i = 0, l = catalogs.models.length; i < l; i++){
+	if (catalogs.models[i].id == selectedCatalogID){
+ 		catalog = catalogs.models[i];
+		break;
+ 	}
+}
+</pre></code>
+which does work as expected, but isn't as clean as using backbone's collection.get();
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-05-14
+
+   This would be better suited as a Q&A question as it is not clear to me that this is an issue with Alloy and/or Backbone versus perhaps an issue with your code. Please start with a Q&A question next time before escalating to a ticket.
+   
+   I'm guessing you are incorrectly using a string when you should be using an integer for the get() call. Though I am guessing because the code for your model has not been provided. I'll explain inline in the code you did provide:
+   
+   <code><pre>
+   // you are using a string for the ID here, which is fine, as long as 
+   // your ID is also a string field. If it is an integer, this will not 
+   // work in the subsequent get call. If it is an integer, you should be
+   // using 1234 as the value, not '1234'.
+   var selectedCatalogID = '1234';
+   var catalog = null; 
+   
+   // get() will do an === to get the appropriate model for you. This 
+   // means it will not be converting strings to integers for you, nor
+   // vice versa, nor should it. 
+   catalog = catalogs.get(selectedCatalogID);
+   </pre></code>
+   
+   <code><pre>
+   var selectedCatalogID = '1234'
+   var catalog = null; 
+   for (var i = 0, l = catalogs.models.length; i < l; i++){
+       // this condition will match because you are using an == instead
+       // of the === that catalogs.get() would use. It is casting the types
+       // to allow comparison to occur between your given string and the
+       // integer ID contained in the model. I'm assuming that if you changed
+       // the == to === this would no longer work.
+       if (catalogs.models[i].id == selectedCatalogID){
+           catalog = catalogs.models[i];
+           break;
+       }
+   }
+   </pre></code></li>
+<li>Joe Moretti 2013-05-14
+
+   I am sorry for not posting in the Q&A prior to creating an issue.  I felt pretty confident this was a bug and that is why I started here.  I tested with a === operator and the workaround continued to function properly.  Additionally, I verified that catalogs.models[i].id is a string type.  If you do not feel this is an issue, we can close it and I will repost to the Q&A.</li>
+<li>Tony Lukasavage 2013-05-14
+
+   Did you set the idAttribute of the model? It would help to see your model code.</li>
+<li>Joe Moretti 2013-05-14
+
+   I am using a modified version of TiTouchDB (<a href="https://github.com/jmoretti/ti_touchdb/tree/attachmentFilePath)" rel="nofollow" target="_blank">https://github.com/jmoretti/ti_touchdb/tree/attachmentFilePath)</a> as the persistance adapter for my model.
+   
+   <code><pre>
+   exports.definition = {
+   
+     config: {
+       adapter: {
+         type: "titouchdb-catalog",
+         dbname: "catalogs",
+         collection_name: "catalogs",
+         views: [
+         //listing only general catalogs for testing
+         	{ name: "by_name", map: "function(doc) { if (doc.name) { emit(doc.name, null); } }" }
+         ],
+         view_options: {
+           prefetch: true
+         },
+         modelname: 'catalog'
+       }
+     },
+   
+     extendModel: function(Model) {
+       _.extend(Model.prototype, {
+       	map_doc: function(model, doc) {
+         	var result = model;
+         	var conflicts = doc.getConflictingRevisions(),
+         		numConflicts = conflicts.length;
+         	if (numConflicts >1) {
+         		//list conflicts for diagnostics purposes
+         		for(var i=0; i < numConflicts; i++){
+         			Ti.API.info('document (model) conflicts: [' + i + '] ' + JSON.stringify(conflicts[i].properties));
+         		}
+         		alert('There was a conflict.  Resolving with: ' + JSON.stringify(conflicts[numConflicts-1].properties));
+         		//resolve conflict with last version in array
+         		doc.resolveConflictingRevisions(conflicts, conflicts[numConflicts-1]);
+         	}
+         	var attnames = (_.isUndefined(doc.currentRevision.attachmentNames)) ? [] : doc.currentRevision.attachmentNames;
+    		for (var i = 0, l = attnames.length; i < l; i++){
+   			var filePath = encodeURI('file://localhost'+doc.properties._attachments[attnames[i]].file_path);
+   			result.set(attnames[i], filePath);
+   		}
+        	return result;
+         }
+       });
+       return Model;
+     },
+   
+     extendCollection: function(Collection) {
+       _.extend(Collection.prototype, {
+         map_row: function(Model, row) {
+         	var result = new Model(row.document.properties); 
+         	var conflicts = row.document.getConflictingRevisions(),
+         		numConflicts = conflicts.length;
+         	if (numConflicts >1) {
+         		//list conflicts for diagnostics purposes
+         		for(var i=0; i < numConflicts; i++){
+         			Ti.API.info('document (collection) conflicts: [' + i + '] ' + JSON.stringify(conflicts[i].properties));
+         		}
+         		alert('There was a conflict.  Resolving with: ' + JSON.stringify(conflicts[numConflicts-1].properties));
+         		//resolve conflict with last version in array
+         		row.document.resolveConflictingRevisions(conflicts, conflicts[numConflicts-1]);
+         	}
+         	var attnames = (_.isUndefined(row.document.currentRevision.attachmentNames)) ? [] : row.document.currentRevision.attachmentNames;
+   		for (var i = 0, l = attnames.length; i < l; i++){
+   			var filePath = encodeURI('file://localhost'+row.document.properties._attachments[attnames[i]].file_path);
+   			result.set(attnames[i], filePath);
+   		}
+   		return result;
+         }
+       });
+       return Collection;
+     }
+   };
+   </pre></code>
+   
+   The value of the catalogs collection right before the problem code is:
+   <code><pre>
+   [
+       {
+           "catalogType": "Hotspot",
+           "publishDate": "2012-12-27T23:00:00",
+           "creationDate": "2012-12-15T23:00:00",
+           "type": "catalog",
+           "sections": [
+               "22a32b56-c1da-46f6-9e94-d7dea16b285e",
+               "2a91e2fa-f1c9-4d88-9ec4-e507b18576ea",
+               "4df27958-811e-415d-9b30-4d332b064579",
+               "5c8f4a6c-d8c2-4930-bc4f-6c973642e1ba",
+               "6d16258a-0c77-42b8-97cc-95db732ff58e",
+               "7365fa92-0799-4179-b6f4-31d683828208",
+               "8ace06aa-664d-4d9d-add8-5b5233bf5347",
+               "92707359-189e-479e-8691-2855ffbfc93c",
+               "a8fcee2c-091d-4f6a-8ece-98554eec04e8",
+               "d340cac6-081f-48d2-a990-e304bc8db898",
+               "d3a1db51-b128-487b-91ea-4cb827a0ac6d",
+               "ebd2ab11-35b9-4542-a034-755a3543e7df",
+               "f6c090cf-c7fc-4085-ab45-afb54a0fcd56"
+           ],
+           "_id": "f8142ebf-fa96-4707-9a81-d89eedced4c0",
+           "creator": "Christina",
+           "_rev": "4-78fa2c11f58b9eba5c52f19fb1f881c3",
+           "expirationDate": "9998-11-30T23:00:00",
+           "darkbackground": true,
+           "name": "A. Two's Main 2013",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/DA15CA95F8EB5F74DEA06B9A3813C3D2BEBF2387.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 119792,
+                   "digest": "sha1-2hXKlfjrX3TeoGuaOBPD0r6/I4c="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/A2A93049663A9F750E557F01DF0F0781D06236CC.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 97665,
+                   "digest": "sha1-oqkwSWY6n3UOVX8B3w8HgdBiNsw="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/5299B0F73C527D359D7C62AF21AC14C70DCEB878.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 25416,
+                   "digest": "sha1-Upmw9zxSfTWdfGKvIawUxw3OuHg="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/DA15CA95F8EB5F74DEA06B9A3813C3D2BEBF2387.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/A2A93049663A9F750E557F01DF0F0781D06236CC.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/5299B0F73C527D359D7C62AF21AC14C70DCEB878.blob"
+       },
+       {
+           "_id": "298ecb2f-4bcc-4980-828b-5a80df46720c",
+           "type": "catalog",
+           "name": "Accents",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/04FAC68D52A881C22A8742E7FDD28CFBC1F7FBAF.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 222833,
+                   "digest": "sha1-BPrGjVKogcIqh0Ln/dKM+8H3+68="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/6331B2765CD00F38DF911681BEC1D2FD284DB6BC.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 61893,
+                   "digest": "sha1-YzGydlzQDzjfkRaBvsHS/ShNtrw="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/B015619A9633535E9BBC30B467FC218AB6275EC9.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 18716,
+                   "digest": "sha1-sBVhmpYzU16bvDC0Z/whirYnXsk="
+               }
+           },
+           "_rev": "4-03a35b8cfa34513eeed1454c3c85cfe2",
+           "publishDate": "2012-12-13T23:00:00",
+           "catalogType": "General",
+           "expirationDate": "9998-11-30T23:00:00",
+           "creationDate": "2012-12-13T23:00:00",
+           "sections": [
+               "00c738b9-925a-4308-a570-8a7845677319",
+               "387f01fe-4738-4e2c-857a-97f6f287e72d",
+               "4cfdb330-c202-41b1-9a03-2c659b1f2d2c",
+               "5cc11859-83ca-4662-b77b-97268dd9dd45",
+               "6021e408-4900-4e84-bffe-b8fe33ad63d5",
+               "86f254db-8ff7-458a-90e6-f8e5752b804c",
+               "8d8653f2-15c6-42ae-9d44-681cb4a67454",
+               "92a78eff-c190-4d98-999f-b59b6572b09f",
+               "9d8e4a85-38b7-4225-b0b4-0c6b3e6bed07",
+               "a89e4bef-7d1a-49a0-8820-dd49631c26d7",
+               "a9c3bc3e-c624-42a7-8012-dc2a95282bdd",
+               "e17755ae-2180-4388-a276-a0c8bc770e78",
+               "e9c4bb39-aae3-459c-a0de-dfbe52471aaa"
+           ],
+           "creator": "admin",
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/04FAC68D52A881C22A8742E7FDD28CFBC1F7FBAF.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/6331B2765CD00F38DF911681BEC1D2FD284DB6BC.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/B015619A9633535E9BBC30B467FC218AB6275EC9.blob"
+       },
+       {
+           "catalogType": "General",
+           "publishDate": "2012-07-20T00:00:00",
+           "creationDate": "2012-07-20T15:38:07.167",
+           "type": "catalog",
+           "sections": [
+               "3b424529-4c42-407a-947b-bb5b95cec985"
+           ],
+           "_id": "f68b18db-e0dd-44db-a514-2db9037bc3e9",
+           "creator": "tomg",
+           "_rev": "2-339d5584594efacafc340ea330b05a65",
+           "expirationDate": "9998-12-01T00:00:00",
+           "darkbackground": true,
+           "name": "atest2",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 0,
+                   "digest": "sha1-2jmj7l5rSw0yVb/vlWAYkK/YBwk="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob"
+       },
+       {
+           "catalogType": "Hotspot",
+           "publishDate": "2012-12-27T23:00:00",
+           "creationDate": "2012-12-17T23:00:00",
+           "type": "catalog",
+           "sections": [
+               "59290806-55e4-4aa2-bba8-108420be193e",
+               "6b02893f-6ad9-460c-bc0b-98f597fcf818",
+               "b6c9d05a-18f7-453e-8750-1ff7973707bf",
+               "b85de0ed-ce00-4312-a1bf-88bf700f18f5",
+               "de75d20e-0f98-4c42-ad45-7c6d3a043373",
+               "f0f8fdf9-c9bf-4da1-a5ff-486af862d9d5",
+               "f1d69895-215c-4d5b-93ea-1e4eef878ac0",
+               "f489640f-9fa4-4822-8968-f92de9df9b0c",
+               "14622f9a-d609-46aa-855b-0b7ac68a6b32",
+               "252233b6-a599-4cc5-ae19-8a70ad8d9e3b",
+               "388dd707-5ec8-48f7-af20-b675864a0541",
+               "3da850b1-56fd-424e-a047-163792cc3d51",
+               "4c951fa0-aff2-4eab-8cbd-3a8ee0159a53"
+           ],
+           "_id": "a442d8c1-a950-405f-9ec0-d171f13e3573",
+           "creator": "Christina",
+           "_rev": "4-20e4ce76b84d61bc3b5cc1dd94272cd4",
+           "expirationDate": "9998-11-30T23:00:00",
+           "darkbackground": true,
+           "name": "B. 2 Chic Spring Fashion 2013",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/B3D02541F1C29EEB176FC097EDCB93FA88EDAD5E.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 94038,
+                   "digest": "sha1-s9AlQfHCnusXb8CX7cuT+ojtrV4="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/83CB7D94DE9125292992F38D1239B1DD5F44CA2B.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 67571,
+                   "digest": "sha1-g8t9lN6RJSkpkvONEjmx3V9Eyis="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/0ADCDC72F6608F5C35A4EB7EDAE95DB9FAB4935E.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 21323,
+                   "digest": "sha1-CtzccvZgj1w1pOt+2uldufq0k14="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/B3D02541F1C29EEB176FC097EDCB93FA88EDAD5E.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/83CB7D94DE9125292992F38D1239B1DD5F44CA2B.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/0ADCDC72F6608F5C35A4EB7EDAE95DB9FAB4935E.blob"
+       },
+       {
+           "catalogType": "Hotspot",
+           "publishDate": "2012-12-27T23:00:00",
+           "creationDate": "2012-12-17T23:00:00",
+           "type": "catalog",
+           "sections": [
+               "32a573a7-d940-4c6b-be5b-2bc3b95a1fbe",
+               "41cdf654-e4dd-4241-9cac-1c90925843c7",
+               "589cc0a8-396a-4f15-9dc1-06d4a955d72a",
+               "9abdc12e-5dda-473c-bdf3-62d424f1c733",
+               "9cc4bd62-06d3-4760-9b5e-275e4178a8f4",
+               "9e0ee3c7-a1e1-4346-aa8b-321ea6a0d15a",
+               "a99636ca-d60b-41ea-8d1a-4044f0039f9f",
+               "c6a79351-e393-470d-b40b-9cc6605b92db",
+               "e98036a8-e5ed-44d1-a723-2e3797c1d798"
+           ],
+           "_id": "06d30348-1561-4e98-884c-db6cf275d8ad",
+           "creator": "Christina",
+           "_rev": "4-808e0847db332fbb8ca3793dba2d1a8e",
+           "expirationDate": "9998-11-30T23:00:00",
+           "darkbackground": true,
+           "name": "C. Cupcakes Main 2013",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/83026ADD22FA71E5F5AC114DFEE7C140313C7427.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 87793,
+                   "digest": "sha1-gwJq3SL6ceX1rBFN/ufBQDE8dCc="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/7676E3A28291BA476B672BBF9DFFCF6997F8C285.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 71977,
+                   "digest": "sha1-dnbjooKRukdrZyu/nf/PaZf4woU="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/BBFB884070309F67F8CC0F6A5CC8D203569EFF74.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 23448,
+                   "digest": "sha1-u/uIQHAwn2f4zA9qXMjSA1ae/3Q="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/83026ADD22FA71E5F5AC114DFEE7C140313C7427.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/7676E3A28291BA476B672BBF9DFFCF6997F8C285.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/BBFB884070309F67F8CC0F6A5CC8D203569EFF74.blob"
+       },
+       {
+           "catalogType": "Hotspot",
+           "publishDate": "2012-05-23T23:00:00",
+           "creationDate": "2012-05-17T23:00:00",
+           "type": "catalog",
+           "sections": [
+               "cc84e463-d9d8-42be-a97a-2b035d7e01f2",
+               "efb3dea4-e024-491c-83ee-fe86bda4e716",
+               "f2d4379a-0412-456e-974f-25605a6b1f3b",
+               "19009458-b1eb-4bc1-9c57-9d189dc61457",
+               "3c8379f1-cd1c-42e7-9fb4-529323220f03",
+               "4ce44fd4-d1fe-4305-a542-1dc72e909de3",
+               "510ba0f0-536e-43fa-afb6-4d40630ba6f4",
+               "6c6cfa79-71bd-4e86-b6c1-f780e1f06a44",
+               "7c97e7b9-194f-43cd-8a26-cefa03c791c0",
+               "803c4293-0c3f-46e8-ba02-a204774c1b6c",
+               "86627474-d252-4c79-a334-de5e027d8ce0",
+               "95e11abc-ce11-42af-a233-8ef590b826a8",
+               "ad6d2b10-6fee-4f26-bb0d-cbcfdea370c7",
+               "b8e9e67f-c352-476d-86a9-3112341897b6",
+               "bde0947e-a13e-43d5-aa55-752775edad8c"
+           ],
+           "_id": "818218ff-1dc2-4a6f-81df-c612574b3622",
+           "creator": "Christina",
+           "_rev": "4-582ae6c352586e987c9a06fcb73b7bec",
+           "expirationDate": "9998-11-30T23:00:00",
+           "darkbackground": true,
+           "name": "D. Tozai Home 2012-2013",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/4F4C3B0B179D61E212CA5BE4F4BEB09B4B7C5E11.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 407961,
+                   "digest": "sha1-T0w7CxedYeISylvk9L6wm0t8XhE="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/D161F6375E001A0678A50DBAEEEB3DF66DA88BA5.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 67104,
+                   "digest": "sha1-0WH2N14AGgZ4pQ267us99m2oi6U="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/213CBA3128ED7F1E7A86D99882DAD3CAE1974C18.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 21211,
+                   "digest": "sha1-ITy6MSjtfx56htmYgtrTyuGXTBg="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/4F4C3B0B179D61E212CA5BE4F4BEB09B4B7C5E11.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/D161F6375E001A0678A50DBAEEEB3DF66DA88BA5.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/213CBA3128ED7F1E7A86D99882DAD3CAE1974C18.blob"
+       },
+       {
+           "_id": "59131cad-d18a-490b-867d-d96eab32d3d9",
+           "type": "catalog",
+           "name": "Entertainment & Living Room",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/86BFC55780E833B7FC2DCF33AB7E7FD323C5E481.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 206399,
+                   "digest": "sha1-hr/FV4DoM7f8Lc8zq35/0yPF5IE="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/AFFA90431E5CFEBAAAE7E2DA24901F0E39B3A165.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 59400,
+                   "digest": "sha1-r/qQQx5c/rqq5+LaJJAfDjmzoWU="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/9303BE494C2AD06698D3D340F032F3EA5800485F.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 19193,
+                   "digest": "sha1-kwO+SUwq0GaY09NA8DLz6lgASF8="
+               }
+           },
+           "_rev": "4-bfef06c7534d9abf177bc196c85392f4",
+           "publishDate": "2012-12-10T23:00:00",
+           "catalogType": "General",
+           "expirationDate": "9998-11-30T23:00:00",
+           "creationDate": "2012-12-10T23:00:00",
+           "sections": [
+               "07d6ce51-cd4c-4746-af94-2438b9789d54",
+               "13333eba-b28c-44d4-a98b-afe3ca8562fa",
+               "3b1bd3a4-8aef-4795-b87a-8619842e0525",
+               "4eead07a-63a4-4c08-9fcc-cfb6a6d0f88e",
+               "5b225121-6def-4125-970b-8517d70ffedd",
+               "6db4df69-eb4e-4d2d-a60c-3e0111c26b79",
+               "7e8345f3-6d07-44e1-8349-10092d90487a",
+               "7f380582-b6cb-40f3-b146-e8e74e7aeba7",
+               "878c32d2-6fec-477d-8e8a-d9f0f17acf46",
+               "9f436e68-6df6-42dd-a3b8-021e7e434cb7",
+               "c03d8926-9942-44ad-aefe-7d099213d150",
+               "e087ac3d-83c3-498b-9d21-09013f64706e",
+               "ee4fd7d1-812f-47b0-93f9-28a6d80d2185"
+           ],
+           "creator": "admin",
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/86BFC55780E833B7FC2DCF33AB7E7FD323C5E481.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/AFFA90431E5CFEBAAAE7E2DA24901F0E39B3A165.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/9303BE494C2AD06698D3D340F032F3EA5800485F.blob"
+       },
+       {
+           "_id": "861320f5-71ab-4a51-9454-cf96b6a02605",
+           "type": "catalog",
+           "name": "Home Office",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/3AA43EA4411F5431775B0B1222F05EBE796A916B.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 317038,
+                   "digest": "sha1-OqQ+pEEfVDF3WwsSIvBevnlqkWs="
+               },
+               "cover_large": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/67CAF17693E8F55D67379FA3DD6D9107BEC04DF1.blob",
+                   "stub": true,
+                   "revpos": 4,
+                   "length": 82130,
+                   "digest": "sha1-Z8rxdpPo9V1nN5+j3W2RB77ATfE="
+               },
+               "cover_thumb": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/3C2110A3705D6EF81E9919C49A2061E85E4F0696.blob",
+                   "stub": true,
+                   "revpos": 3,
+                   "length": 24599,
+                   "digest": "sha1-PCEQo3BdbvgemRnEmiBh6F5PBpY="
+               }
+           },
+           "_rev": "4-fc6b4865c139959c80f9224469a8f355",
+           "publishDate": "2013-01-23T23:00:00",
+           "catalogType": "General",
+           "expirationDate": "9998-11-30T23:00:00",
+           "creationDate": "2013-01-23T23:00:00",
+           "sections": [
+               "0c5656f1-dd94-4884-88e9-7eff97eb7bcf",
+               "3a97c5e6-7113-4152-ba7d-2808809d9d79",
+               "44f5646a-4219-47be-bcde-470be9b727d1",
+               "56bbdb2c-bb71-4980-b2e0-244b568498a3",
+               "6535a941-e95e-40aa-b02c-ab960cf827ef",
+               "7960ada5-c997-45b6-bd5e-ac3035d2f776",
+               "8a060e07-1bee-40be-85a2-b28e00753c25",
+               "9166e442-8e0c-4724-87c3-771121801ae2",
+               "ab6f025c-c149-457e-af62-191a0dce1c07",
+               "bd2527cc-1123-4c97-8098-e9625efff3d8",
+               "c63fe61c-c2a2-4f24-acfd-dafed3c545ed",
+               "d9970a88-9480-444e-bd0a-9e7a224c00d6"
+           ],
+           "creator": "admin",
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/3AA43EA4411F5431775B0B1222F05EBE796A916B.blob",
+           "cover_large": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/67CAF17693E8F55D67379FA3DD6D9107BEC04DF1.blob",
+           "cover_thumb": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/3C2110A3705D6EF81E9919C49A2061E85E4F0696.blob"
+       },
+       {
+           "catalogType": "General",
+           "publishDate": "2012-07-20T00:00:00",
+           "creationDate": "2012-07-20T15:36:51.557",
+           "type": "catalog",
+           "sections": [
+               "75ef4ab4-20d3-4f21-9538-bcbea6778d87"
+           ],
+           "_id": "9fd8f423-cd30-4a32-92b7-cc2c3f3457ea",
+           "creator": "tomg",
+           "_rev": "2-089e1f137b94047bb28b73465137cce6",
+           "expirationDate": "9998-01-12T00:00:00",
+           "darkbackground": true,
+           "name": "test",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 0,
+                   "digest": "sha1-2jmj7l5rSw0yVb/vlWAYkK/YBwk="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob"
+       },
+       {
+           "catalogType": "General",
+           "publishDate": "2012-03-09T00:00:00",
+           "creationDate": "2012-03-09T08:50:51.37",
+           "type": "catalog",
+           "sections": [
+               "ebe8fc6c-8edc-45ee-b0f2-4e675932ddb5"
+           ],
+           "_id": "c119dc0a-93d7-4b69-800e-c4ff9fa8b8b2",
+           "creator": "00157",
+           "_rev": "2-0cf16353fbcfd7aeef6aea994eb77a0f",
+           "expirationDate": "9998-12-01T00:00:00",
+           "darkbackground": true,
+           "name": "test",
+           "_attachments": {
+               "cover": {
+                   "content_type": "image/jpeg",
+                   "file_path": "/Users/jmoretti/Library/Application Support/iPhone Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application Support/TouchDB/catalogs attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob",
+                   "stub": true,
+                   "revpos": 2,
+                   "length": 0,
+                   "digest": "sha1-2jmj7l5rSw0yVb/vlWAYkK/YBwk="
+               }
+           },
+           "cover": "file://localhost/Users/jmoretti/Library/Application%20Support/iPhone%20Simulator/6.1/Applications/720BE27B-11D8-44F7-8895-1A2A2266FF2E/Library/Application%20Support/TouchDB/catalogs%20attachments/DA39A3EE5E6B4B0D3255BFEF95601890AFD80709.blob"
+       }
+   ]
+   </pre></code></li>
+<li>Joe Moretti 2013-05-14
+
+   Reviewing the persistance adapter in use (code below), I do see that idAttribute appears to be set in the module.exports.afterModelCreate function.
+   
+   <code><pre>
+   /**
+    * Persistence adapter for TiTouchDB
+    */
+   
+   var _ = require('alloy/underscore'),
+       server = require('com.obscure.titouchdb'),
+       db,
+       modelname;
+   
+   
+   /**
+    * Run arbitrary views from this model's design document
+    * @param {Object} name
+    * @param {Object} options
+    */
+   function query_view(db, design_doc, name, options) {
+     var opts = options || {};
+     
+     if (OS_IOS) {
+     	// temporary fix to get the lastest version on IOS
+     	db.clearDocumentCache();
+     }
+     
+     var ddoc = db.designDocumentWithName(design_doc);
+     var query = ddoc.queryViewNamed(name);
+     if (!query) {
+       var err = String.format('invalid view name: %s/%s', design_doc, name);
+       Ti.API.log(err);
+       if (opts.error) {
+         opts.error(null, err);
+       }
+       return null;
+     }
+     
+     if (_.isBoolean(opts.prefetch)) { query.prefetch = opts.prefetch; }
+     if (_.isFinite(opts.limit)) { query.limit = opts.limit; }
+     if (_.isFinite(opts.skip)) { query.skip = opts.skip; }
+     if (_.isBoolean(opts.descending)) { query.descending = opts.descending; }
+     if (_.isFinite(opts.groupLevel)) { query.groupLevel = opts.groupLevel; }
+     
+     return query;
+   }
+   
+   
+   function InitAdapter(config) {
+   	Ti.API.info('titouchdb InitAdapter:config: ' + JSON.stringify(config));
+     if (!config || !config.adapter) {
+       Ti.API.error('missing adapter configuration');
+       return;
+     }
+     
+     if (!_.isString(config.adapter.dbname) || config.adapter.dbname.length < 1) {
+       Ti.API.error('Missing required adapter configuration property: dbname');
+     }
+     
+     if (!_.isString(config.adapter.collection_name) || config.adapter.collection_name.length < 1) {
+       Ti.API.error('Missing required adapter configuration property: collection_name');
+     }
+     
+     db = server.databaseNamed(config.adapter.dbname);
+     db.ensureCreated();
+   
+     // register views
+     var ddoc = db.designDocumentWithName(config.adapter.collection_name);
+     _.each(config.adapter.views, function(view) {
+       ddoc.defineView(view.name, view.map, view.reduce);
+       Ti.API.info("defined "+view.name);
+     });
+   
+     ddoc.saveChanges();
+   
+     return {};
+   }
+   
+   
+   function Sync(method, model, options) {
+     var opts = options || {};
+     Ti.API.info('titouchdb Sync:');
+     Ti.API.info('  method: ' + method);
+     Ti.API.info('  options: ' + JSON.stringify(options));
+     
+     switch (method) {
+       case 'create':
+   	   var attachments = {};
+   	   for (var key in model.attributes){
+         	  // if (Object.prototype.toString.call(model.attributes[key]) == '[object Object]' && model.attributes[key].toString() == '[object TiBlob]'){
+         	   if (model.attributes[key].toString() == '[object TiBlob]'){
+         	   	   attachments[key] = model.attributes[key];
+   			   delete model.attributes[key];
+         	   }
+            }
+           var props = model.toJSON();
+           props.modelname = model.config.adapter.modelname;
+           var doc = db.untitledDocument();
+           doc.putProperties(props);
+           for (var key in attachments){
+         	   Ti.API.info('adding attachment ' + key + ' with mime type ' + attachments[key].getMimeType());
+         	   attachment = doc.currentRevision.createAttachment(key, attachments[key].getMimeType());
+   		   attachment.body = attachments[key];
+   	    }
+           model.trigger('create');
+           break;
+   
+       case 'read':
+         if (opts.parse) {
+           var collection = model; // just to clear things up 
+           
+           // collection
+           var ddoc = collection.config.adapter.collection_name;
+           var view = opts.view || collection.config.adapter.views[0];
+           
+           // add default view options from model
+           opts = _.defaults(opts, collection.config.adapter.view_options);
+           var query = query_view(db, ddoc, view, opts);
+           if (!query) {
+             break;
+           }
+           
+           var rows = query.rows();
+   
+           // do not use Collection methods!
+           var len = 0;
+           if (!opts.add) {
+             collection.models = [];
+           }
+           while (row = rows.nextRow()) {
+             var m = collection.map_row(collection.model, row);
+             if (m) {
+               collection.models.push(m);
+               ++len;
+             }
+           }
+           Ti.API.info('inside sync, after query, collection: ' + JSON.stringify(collection));
+           collection.view = view;
+           collection.length = len;
+           collection.trigger('fetch');
+         }
+         else {
+           // object
+           var doc = db.documentWithID(model.id)
+           model.set(doc.properties);
+           model = model.map_doc(model, doc);
+           model.id = doc.documentID;
+           model.trigger('fetch');
+           Ti.API.info('inside sync, read, model: ' + JSON.stringify(model));
+         }
+         break;
+   
+       case 'update':
+         var attachments = {};
+         var doc = db.documentWithID(model.id);
+         for (var key in model.attributes){
+         	// if (Object.prototype.toString.call(model.attributes[key]) == '[object Object]' && model.attributes[key].toString() == '[object TiBlob]'){
+         	if (model.attributes[key].toString() == '[object TiBlob]'){
+         		attachments[key] = model.attributes[key];
+   			delete model.attributes[key];
+         	}
+         }
+         doc.putProperties(model.toJSON());
+         for (var key in attachments){
+         	Ti.API.info('adding attachment ' + key + ' with mime type ' + attachments[key].getMimeType());
+         	attachment = doc.currentRevision.createAttachment(key, attachments[key].getMimeType());
+   		attachment.body = attachments[key];
+   	  }
+         model.trigger('update');
+         break;
+       
+       case 'delete':
+         if (model.id) {
+           var doc = db.documentWithID(model.id);
+           doc.deleteDocument();
+           model.id = null;
+           model.trigger('destroy');
+         }
+         break;
+     }  
+   }
+   
+   module.exports.sync = Sync;
+   
+   module.exports.beforeModelCreate = function(config) {
+     config = config || {};
+     
+     InitAdapter(config);
+   
+     return config;
+   };
+   
+   module.exports.afterModelCreate = function(Model) {
+     Model = Model || {};
+     
+     Model.prototype.idAttribute = '_id'; // true for all TouchDB documents
+     Model.prototype.config.Model = Model; // needed for fetch operations to initialize the collection from persistent store
+     
+     return Model;
+   };
+   </pre></code></li>
+<li>Tony Lukasavage 2013-05-14
+
+   right, Backbone.Collection.get() relies on the idAttribute, in this case <code>_id</code>. You are storing your ids in the wrong field, since you are referencing <code>id</code>. So in any case in your model where you are directly referencing <code>model.id</code> you should probably be using <code>model._id</code>. The safest way actually would be to use the model's own idAttribute as the key, so perhaps you should change those direct references to <code>model.id</code> to be <code>model[model.idAttribute]</code>.</li>
+<li>Joe Moretti 2013-05-14
+
+   That did not correct my issue; however, it seems that Backbone was not adding the models to the _byId hash table which is used by the Backbone.Collection.get() method.  I was able to work around it in my sync adopter by adding a line of code to the snippet below from the sync adapter:
+   <code><pre>
+   var len = 0;
+   if (!opts.add) {
+   	collection.models = [];
+   }
+   while (row = rows.nextRow()) {
+   	var m = collection.map_row(collection.model, row);
+   	if (m) {
+   		collection._byId[m.id] = m; // <-- this adds the the model to the collection's byId hash table
+   		collection.models.push(m);
+   		++len;
+   	}
+   }
+   </pre></code>
+   
+   I would haves suspected that Backbone.js and ergo Alloy would have handled this (it looks like it is handeld in the Backbone.Collection.add() method).  It appearsBackbone is using idAttribute to set Model.id appropriately.</li>
+<li>Joe Moretti 2013-05-14
+
+   Ok, forgive me, I didn't write this sync adapter, so I am reverse engineering it as I dig into this.  It appears that models were being added to the collection by the array.push() method directly into the Collection.models array.  Looking at this previously (the same snippet from my previous comment), I had always read this as collection.push(m);  After correcting this code to use the Backbone.Collection.push() method, all is working as expected.
+   
+   I apologize again for posting this in the wrong forum and appreciate your help.  I will make certain to get a pull request in with this change to the owner of the sync adapter github repo.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2633.json">JSON Source</a></p>

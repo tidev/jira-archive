@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-20260] Android 6: CameraView with overlay crash with message "AppName is not responding""
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-02-04T22:03:18.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.2, Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Android6.0, camera, module_media, qe-testadded</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2016-01-20T23:56:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-07-10T11:04:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description</h4>
+Android 6.0 camera view with overlay sometimes hangs after taking a picture. The hang resumes for about 45 seconds to a minute after which the app crashes with message "AppName is not responding". After closing the app camera issue persist. Even native camera app is not working as the result of this crash. The only way to restore both apps to working state is to restart users device.
+
+This was tested on on Nexus 9 tablet and Nexus 5X devices running Marshmallow 6.0.1
+
+<h4>Steps to replicate: </h4>
+<h4>Create a new Alloy Default Project</h4>
+<h4>Open the app folder and replace the existing folders with the attached files</h4>
+<h4>Run</h4>
+<h4>Press "Open Camera" button; you should be presented with camera screen with an </h4>
+overlay. 
+<h4>Press "Take" button </h4>
+<h4>If the app does not crash a preview screen will appear with captured picture. If that </h4>
+happens either press "Keep" button to return to main page or press "Retake" button 
+to come back to camera screen. 
+<h4>Keep taking pictured until crash is reproduced (it sometimes takes a few tries to </h4>
+reproduce). 
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20260_58034/cameraTest.zip">cameraTest.zip</td></td><td>2016-01-20T23:55:48.000+0000</td><td>7213</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li> Ricardo Ramirez 2016-02-02
+
+   I'm sorry ! please download the full test-case here: 
+   
+   <a href="https://drive.google.com/file/d/0BwTWo-c2a0b9OFhTZzVtR0IzMDQ/view?usp=sharing" rel="nofollow" target="_blank">https://drive.google.com/file/d/0BwTWo-c2a0b9OFhTZzVtR0IzMDQ/view?usp=sharing</a>
+   
+   </li>
+<li>Ashraf Abu 2016-02-04
+
+   5_2_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7679" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7679</a>
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7680" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7680</a></li>
+<li>Lokesh Choudhary 2016-02-04
+
+   Verified the fix.
+   
+   There is no ANR & issue if camera not being released due to it.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio : 4.5.0.201601262138
+   Ti SDK :  5.2.0.v20160204140025
+   Ti CLI : 5.0.6
+   Alloy : 1.7.33
+   MAC Yosemite : 10.10.5
+   Appc NPM : 4.2.3-2
+   Appc CLI : 5.2.0-242
+   Node: 4.2.2
+   Nexus 6P - Android 6.0</li>
+<li>Mike Fogg 2016-08-12
+
+   </li>
+<li>Ashraf Abu 2016-08-16
+
+   [~mfogg] So you are getting multiple success? Which is caused by <a href="https://github.com/appcelerator/titanium_mobile/pull/7679/files?" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7679/files?</a>
+   
+   Could you provide the a sample app if you can and the log.</li>
+<li>Mike Fogg 2016-08-16
+
+   </li>
+<li>Mike Fogg 2016-08-25
+
+   For anyone who's running into this issue (and feels like hacking in a solution like we did), the solution we came up with was to only allow the "onAutoFocus" callback to be fired once.
+   
+   We modified that function to include:
+   
+   <code><pre>
+   // Globally add this
+   ...
+   private static boolean blockAutoFocus = false;
+   ...
+   </pre></code>
+   
+   And then replace the takePicture() function with:
+   
+   <code><pre>
+   static public void takePicture()
+   	{
+   	    try {
+   	        String focusMode = camera.getParameters().getFocusMode();
+   	        if (!(focusMode.equals(Parameters.FOCUS_MODE_EDOF)
+   	                || focusMode.equals(Parameters.FOCUS_MODE_FIXED) || focusMode
+   	                .equals(Parameters.FOCUS_MODE_INFINITY))) {
+   
+   	            AutoFocusCallback focusCallback = new AutoFocusCallback()
+   	            {
+   	                public void onAutoFocus(boolean success, Camera camera)
+   	                {
+                               if(blockAutoFocus) return;
+                               blockAutoFocus = true;
+   
+   	                    camera.takePicture(shutterCallback, null, jpegCallback);
+   
+   	                    if (!success) {
+   	                         Log.w(TAG, "Unable to focus.");
+   	                    }
+                           
+                           if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+   							camera.cancelAutoFocus();
+   	                    }
+   	                }
+   	            };
+                       
+                       blockAutoFocus = false;
+   	            camera.autoFocus(focusCallback);
+   	        } else {
+   	            camera.takePicture(shutterCallback, null, jpegCallback);
+   	        }
+   	    } catch (Exception e) {
+   	        if (camera != null) {
+   	            camera.release();
+   	        }
+   	    }
+   	}
+   </pre></code>
+   
+   This has "solved" the problem for us in the short term. Definitely not a long term solution.</li>
+<li>Zakhar Zhuravlev 2017-07-10
+
+   I'm also caught this error in 6.1.1.GA, but I don' t understand is it fixed or I should do something?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20260.json">JSON Source</a></p>

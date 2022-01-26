@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-13425] Ti.UI.create(): An applyProperties-like way to create a whole view hierarchy at once"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-10-19T14:14:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Core</td></tr>
+<tr><th>Labels</th><td>Carbon, SDK, applyProperties, create, js, native, proxy, speed</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2012-12-01T09:25:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-29T17:51:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Following a discussion on Twitter and the Alloy Google Group, I've put together a test project to see how [Carbon](<a href="http://carbon.appersonlabs.com)" rel="nofollow" target="_blank">http://carbon.appersonlabs.com)</a>'s way of batching UI creation in a single <code>create()</code> or via JSON, could work for Titanium and it's new MVC Alloy.
+
+The test project and it's documentation can be found at:
+<a href="https://github.com/FokkeZB/nl.fokkezb.alloyCarbonized" rel="nofollow" target="_blank">https://github.com/FokkeZB/nl.fokkezb.alloyCarbonized</a>
+
+My conclusions can be found in a blog post at:
+<a href="http://fokkezb.nl/post/36942105712/alloycarbonized" rel="nofollow" target="_blank">http://fokkezb.nl/post/36942105712/alloycarbonized</a>
+
+The tests show that passing a whole view-hierarchy to <code>Carbon.UI.create()</code> in one dictionary speeds up UI creation up to 200%.
+
+I guess this is exactly why in 3.x the <code>applyProperties()</code> methods are being introduced, to also minimize the number of trips from JS- to native-land.
+
+So my request is to continue on this path and add a <code>Carbon.UI.create()</code> like <code>Ti.UI.create()</code> to the SDK.
+
+Having done so, it would be just a small step to have Alloy make heavy use of this new method in the code it generates based on the XML and TSS files.
+
+Some ideas of how this would work:
+
+<code><pre>
+// Ti.UI.create returns some kind of view-collection object
+var views = Ti.UI.create({
+  'Window': {
+    fullscreen: false,
+    backgroundColor: '#fff',
+
+    // Non-hierarchy views can also be added like:
+    titleControl: {
+      'Label': {
+        text: 'My title',
+        font: { fontWeight: 'bold' }
+      }
+    },
+    
+    // Child views are added through a 'children' property
+    children: [
+      {
+        'View': {
+
+          // Only views that have an 'id' can be referenced in JS-land through a proxy object
+          id: 'red',
+          
+          top: 100, left: 50,
+          width: 200, height: 200,
+          backgroundColor: '#f00',
+          
+          children: [
+            'Label': {
+              id: 'platform',
+
+              // In Alloy this wouldn't be needed since platform branching is done at built-time,
+              // but for usage without Alloy this would be really nice to have.
+              platform: ['android'],
+            
+              top: 25, right: 25, bottom: 25, left: 25,
+              backgroundColor: '#0f0',
+              
+              text: 'I am green Android'
+            },
+            'Label': {
+              id: 'platform',
+              platform: ['ios'],
+              
+              top: 25, right: 25, bottom: 25, left: 25,
+              backgroundColor: '#00f',
+              
+              text: 'I am blue iOS'
+            },
+
+            // You could also include an existing Ti.UI object like this:
+            someExistingView
+          ]
+        }
+      },
+      {
+        'Label': {
+          top: 400, left: 0, right: 0,
+          height: Ti.UI.SIZE,
+          
+          text: 'I want Ti.UI.create()',
+
+          // Events could also be added like this, but
+          // it would compromise clear controller-view-separation
+          onClick: myCallback,
+
+          // Just like platform-branching, formFactor would be like:
+          formFactor: ['tablet']
+        }
+      }
+    ]
+  }
+});
+
+// Views that have an 'id' can be referenced from JS-land
+var redView = views.get('redView');
+
+// Views you won't need anymore can be destroyed, including children
+views.release('platform');
+
+// Or just release all
+views.release();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2012-12-02
+
+   Added example for using existing views in Ti.UI.create() and including non-hierarchy views like a window's titleControl (or rightNavButton etc.)</li>
+<li>Fokke Zandbergen 2012-12-02
+
+   Added example for formFactor and event support, so it now included pretty much everything Alloy could need from generating a single <code>Ti.UI.create()</code> call from it's XML and TSS file.</li>
+<li>Hans Knöchel 2016-10-19
+
+   Some thought from my side:
+   * At the time this ticket ticket was created, we didn't have a GA version of Alloy (released in 08/2013 along with Titanium 3.0.2), so the ability to create custom view-structures made more sense at that time
+   * The design proposal does not include the handling custom namespaces e.g. <code>Ti.UI.iOS</code> or <code>Ti.UI.Android</code>
+   * This structure could be created on the JavaScript side, without the need to change the core. You could just iterate through the data structure and call the namespaces from there, since they are usual objects (e.g. <code>Ti.UI.ImageView</code> = <code>Ti.UI["Label"]</code>).
+   * The [Carbon library](<a href="https://github.com/iamyellow/Carbon)" rel="nofollow" target="_blank">https://github.com/iamyellow/Carbon)</a> already has parts of this implemented and could be extended for those who really need this feature
+   
+   Considering that and the priority of other tickets that should be addresses instead, I will resolve this ticket for now, thanks!</li>
+<li>Lee Morris 2017-03-29
+
+   Closing ticket with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13425.json">JSON Source</a></p>

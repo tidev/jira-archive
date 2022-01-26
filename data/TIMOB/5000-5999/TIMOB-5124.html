@@ -1,0 +1,242 @@
+---
+title: "[TIMOB-5124] iPad: Popover to not forget its state after hide()"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-05T23:30:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, look1</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2011-08-26T13:41:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T21:07:34.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+When there's a navigation group that has 2 or more windows, when popover.show() or has been created a new popover within the navigationGroup is the Window1 shown, not window 2 or 3 depending which was showing in the popover before popover.hide() was called.
+
+This is possible on native iOS. If you navigate to the  "iPad -> App Store -> Top Charts -> All Categories (left nav button)" you can see the popover with its state being remembered every time. 
+
+<h4>Expected behaviour</h4>
+Latest window shown in navgroup
+
+<h4>Current behaviour</h4>
+Goes back to the first-level of the navgroup
+
+<h4>Tested on</h4>
+Simulator iOS 4.3
+iPad 1 device
+
+<h4>Repro sequence</h4>
+<code><pre>
+
+var window = Titanium.UI.createWindow({
+});
+
+var popOver_button = Titanium.UI.createButton({
+	title : "PopOver Button",
+	width : 150,
+	height : 35
+})
+
+window.add(popOver_button);
+
+// add navigationGroup to popOver
+var navigationGroup = createPopOverNavigationGroup(window.popover);
+
+popOver_button.addEventListener('click', function() {
+
+	// appreciate code review by @pecdev where he indicated in earlier posting
+	// i was creating the pop over every time, i have addressed the issue
+	if(window.popover == null) {
+		Ti.API.debug("Creating window.popover");
+		window.popover = Ti.UI.iPad.createPopover({
+			width : 400,
+			height : 300,
+			arrowDirection : Ti.UI.iPad.POPOVER_ARROW_DIRECTION_ANY,
+			navBarHidden : true,
+		});
+
+		window.popover.add(navigationGroup);
+	} else {
+		Ti.API.debug("using existing window.popover");
+	}
+
+	window.popover.show({
+		view : popOver_button,
+		animated : true
+	});
+
+});
+window.open();
+
+//create the popover window when the user clicks the button
+
+function createPopOverNavigationGroup(popover) {
+
+	// add close button to close the popover
+	var close_button = Ti.UI.createButton({
+		title : 'Close'
+	});
+	close_button.addEventListener('click', function() {
+		window.popover.hide({
+			animated : true
+		});
+		Ti.API.info('CloseButton called');
+	});
+	var win1 = Titanium.UI.createWindow({
+		title : "NavGroup In Popover",
+		backgroundColor : '#fff',
+		barColor : 'black'
+	});
+	win1.rightNavButton = close_button;
+
+	// create a table with some rows to click, a pretty common use of navGroup
+	var tableView = Titanium.UI.createTableView({
+		width : '100%',
+		height : '100%',
+		rowHeight : 'auto',
+		barColor : 'black',
+		data : [{
+			title : "Row1"
+		}, {
+			title : "Row2"
+		}]
+	});
+	win1.add(tableView);
+
+	// create the navigationGroup
+	var navGroup = Ti.UI.iPhone.createNavigationGroup({
+		window : win1
+	});
+
+	// event listener for  the clicks
+	tableView.addEventListener('click', function(e) {
+
+		// create window when row is clicked and show title of row
+		var detailWindow = Ti.UI.createWindow({
+			barColor : 'black',
+			title : "Detail Window",
+			backButtonTitle : "Back",
+		});
+
+		// label to show the title
+		var label = Titanium.UI.createLabel({
+			text : "Clicked " + e.row.title,
+			width : '100%',
+			color : 'white',
+			height : 35,
+			textAlign : 'center'
+		})
+		detailWindow.add(label);
+
+		// open the window using the navGroup
+		navGroup.open(detailWindow);
+
+		///////////////////////////////////////////////////////////////////////////////
+		var overImage = Titanium.UI.createView({
+			width : 320,
+			height : 480,
+			backgroundImage : 'KS_nav_ui.png.png',
+			top : 0,
+			left : 0
+		});
+
+		var overlay = Titanium.UI.createView({
+			width : 320,
+			height : 480,
+			top : 0,
+			left : 0
+		});
+		overlay.add(overImage);
+
+		Titanium.Media.showCamera({
+
+			success : function(event) {
+				var cameraView = Ti.UI.createImageView({
+					width : 320,
+					height : 480,
+					top : 0,
+					left : 0,
+					image : event.media
+				});
+				cameraView.add(overImage);
+				var imageNew = cameraView.toImage(function(e) {
+					// Save Image
+					var filename1 = Titanium.Filesystem.applicationDataDirectory + "/NAMEOFTHEPICTURE.png";
+					f = Titanium.Filesystem.getFile(filename1);
+					f.write(e.blob);
+					Titanium.Media.saveToPhotoGallery(f);
+					Titanium.Media.hideCamera();
+					//alert('my media' + event.media.width);
+				});
+				var thumbCameraView = Ti.UI.createImageView({
+					width : 150,
+					height : 225,
+					top : 0,
+					left : 0,
+					image : event.media
+				});
+				thumbCameraView.add(thumbOverImage);
+				win.add(thumbCameraView);
+			},
+			cancel : function() {
+			},
+			error : function(error) {
+				var a = Titanium.UI.createAlertDialog({
+					title : 'Camera'
+				});
+				if(error.code == Titanium.Media.NO_CAMERA) {
+					a.setMessage('Camera Error');
+				} else {
+					a.setMessage('Errore: ' + error.code);
+				}
+				a.show();
+			},
+			overlay : overImage,
+			showControls : true,
+			mediaTypes : Ti.Media.MEDIA_TYPE_PHOTO,
+			saveToPhotoGallery : false,
+			allowEditing : true,
+			allowImageEditing : true
+			//autohide:false   // tell the system not to auto-hide and we'll do it our self
+		});
+
+	});
+	return navGroup;
+}
+</pre></code>
+
+<h4>Associated HD ticket</h4>
+#APP-924145
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Henderson 2011-08-26
+
+   I did notice that an orientation change appears to hide and re-show the policed and the navigationGroup will be displaying window2 or 3 not back to the first window.</li>
+<li>Sabil Rahim 2012-11-16
+
+   The default behavior for popover is to be destroyed once the popover is hidden and recreated again when shown. This is the intended behavior of popOvers. For example take the native iOS photos app. Touch on the slideshow button to reveal the popover, navigate into the transitions, click outside the popover to hide . Click on Slideshow again, it would recreate the popover and clearing any previous stat you where in.  
+   
+   While hiding and re-showing popover during orientation change is a different scenario, we do that intentionally so that the bounds of the popover a properly changed and layout properly after orientation change animation is over. 
+   
+   Marking ticket as invalid. </li>
+<li>Ingo Muschenetz 2014-02-05
+
+   Re-resolving.</li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5124.json">JSON Source</a></p>

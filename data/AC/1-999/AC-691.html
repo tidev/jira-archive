@@ -1,0 +1,247 @@
+---
+title: "[AC-691] New Apple Push notification certificates not delivering Push Notifications"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-29T14:50:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Appcelerator Studio 4.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Arrow Push, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Anx</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2016-02-29T14:17:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-29T16:09:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Apple no longer provides separate Push Notification SSL certificates for Production and Development Apps.
+
+Which may be causing Push Notification failures to newly submitted apps on the app store using the Appcelerator Platform
+
+Instead Apple now provide the following 2 certificates:
+
+* *"Apple Push Notification service SSL (Sandbox)" *
+* *"Apple Push Notification service SSL (Sandbox & Production)" *
+
+Please see the certificates selection on the Apple Developer center
+
+The Certificate's are no longer listed as:
+
+*APNs Developement iOS* or *APNs Production iOS*
+
+but NOW instead simply as *Apple Push Notification*
+
+<h4>*+In Development+*</h4>
+Device registers to Push, receives a device token and subscribes to a channel
+
+<h4>*+In Production (ad Hoc or App Store Submissions)+*</h4>
+Device registers to Push, receives a device token and subscribes to a channel
+
+This is confirmed in the Appcelerator Platform
+
+* Devices show the device
+* Devices shows the channel subscribed
+
+This is also confirmed on the device's APSD logs which are observed by downloading and installing PersistentConnectionLogging.mobileconfig on the device
+
+This shows:
+
+* The device is enabled to receive Push from my bundle ID
+* The Device receives a device Token
+* The Push service is enabled topics
+
+<h4>*Steps to reproduce*</h4>
+
+<h4>Create a APP ID in Apple Developer Center and enable for Push notifications</h4>
+<h4>Create and Download both Sandbox and Sandbox & Production Push notification certificates.</h4>
+<h4>Download and export certificates in .p12 format</h4>
+<h4>Download both Development and Ad Hoc Provisioning Profiles for this App ID</h4>
+<h4>Login to Appcelerator Platform upload certificates in development and production</h4>
+<h4>Build Sample code App (below) on an iOS device and or install as a Ad Hoc build on a registered device using Provisioning Profiles Downloaded.</h4>
+<h4>Launch App on device.</h4>
+<h4>Check it is subscribed, and appears under Devices in Appcelerator Platform.</h4>
+<h4>Send Push notification using Appcelerator Platform *"Send Push Notification"* Button</h4>
+<h4>Check Device</h4>
+ 
+*Sample basic Push notification:*
+
+<code><pre>
+{
+  "alert": "try this3",
+  "sound": "none",
+  "vibrate": false
+}
+</pre></code>
+
+*The Push Logs Shows:*
+
+* *Success* for the iOS device shown under devices
+
+However, no push notification is seen on the device (multiple devices tested).
+
+The Simple sample code used for Push:
+
+
+<code><pre>
+
+Titanium.UI.setBackgroundColor('#000');
+
+
+var win1 = Titanium.UI.createWindow({  
+    title:'Window 1',
+    backgroundColor:'#fff'
+});
+
+var label1 = Titanium.UI.createLabel({
+	color:'#999',
+	text:'Push Notification App',
+	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+	textAlign:'center',
+	width:'auto'
+});
+
+win1.add(label1);
+
+
+
+var deviceToken = null;
+Ti.Cloud = require('ti.cloud');
+
+if (Ti.Platform.name == "iPhone OS"){
+    
+if (parseInt(Ti.Platform.version.split(".")[0]) >= 8) {
+ 
+ // Wait for user settings to be registered before registering for push notifications
+    Ti.App.iOS.addEventListener('usernotificationsettings', function registerForPush() {
+ 
+ // Remove event listener once registered for push notifications
+        Ti.App.iOS.removeEventListener('usernotificationsettings', registerForPush); 
+ 
+        Ti.Network.registerForPushNotifications({
+            success: deviceTokenSuccess,
+            error: deviceTokenError,
+            callback: receivePush
+        });
+    });
+ 
+ // Register notification types to use
+    Ti.App.iOS.registerUserNotificationSettings({
+        types: [
+            Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT,
+            Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND,
+            Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE
+        ]
+    });
+}
+ 
+// For iOS 7 and earlier
+else {
+    Ti.Network.registerForPushNotifications({
+ // Specifies which notifications to receive
+        types: [
+            Ti.Network.NOTIFICATION_TYPE_BADGE,
+            Ti.Network.NOTIFICATION_TYPE_ALERT,
+            Ti.Network.NOTIFICATION_TYPE_SOUND
+        ],
+        success: deviceTokenSuccess,
+        error: deviceTokenError,
+        callback: receivePush
+    });
+}
+
+// Process incoming push notifications
+function receivePush(e) {
+    alert('Received push: ' + JSON.stringify(e));     
+}
+
+// Save the device token for subsequent API calls
+function deviceTokenSuccess(e) {
+    deviceToken = e.deviceToken;
+ alert('Device Token' + deviceToken);
+ subscribeToChannel();
+ }
+function deviceTokenError(e) {
+ alert('Failed to register for push notifications! ' + e.error);
+}
+}
+
+
+
+function subscribeToChannel(){
+ // Subscribe the user and device to athe 'test' channel
+ // Specify the push type as either 'android' for Android or 'ios' for iOS
+ // Check if logged in:
+ Ti.Cloud.PushNotifications.subscribeToken({
+        device_token: deviceToken,
+        channel: 'test',
+        type: Ti.Platform.name == 'android' ? 'android' : 'ios'
+    }, function (e) {
+        if (e.success) {
+            alert('Subscribed');
+        } else {
+            alert('Error:\n' + ((e.error && e.message) || JSON.stringify(e)));
+        }
+    });
+}
+
+win1.open();
+
+</pre></code>
+
+For security purposes, the Apple Push Notification certificates have not been included, although can be provided.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sean MacLachlan 2016-03-22
+
+   I am also having the same issue with iPhone 6
+   /Users/Sean/Desktop/Push Log.png
+   Logs show success in pushing globally and individual channel but nothing appears on the device.</li>
+<li>AppDev 2016-03-24
+
+   Also affected by this on iOS. Android works, one of three iOS apps works too. Regenerating the Provisioning Profile does not help.
+   </li>
+<li>Sharif AbuDarda 2016-03-26
+
+   Hello, I have tested the iOS push notification issue in production mode. Push notification is working as expected. Here is the steps I followed 
+   
+   1. I downloaded the new wwdr certificate from here <a href="http://www.appcelerator.com/blog/2016/02/experiencing-ios-certification-issues-check-your-wwdr-intermediate-certificate/" rel="nofollow" target="_blank">http://www.appcelerator.com/blog/2016/02/experiencing-ios-certification-issues-check-your-wwdr-intermediate-certificate/</a>
+   
+   2. I already had an appid generated.
+   
+   3. *Generated an Apple Push Notification Certificate for production build. In where my new wwdr certificate was used for Certificate Signing Request (CSR).*
+   
+   4. Export the Certificate.
+   
+   5. Upload certificate to Arrow.
+   
+   6. Send push notification.
+   
+   Notification was received in the device for production build. I would suggest to make sure you have the new wwdr certificate installed in your system for performing the Certificate Signing Request (CSR). 
+   
+   Thanks.
+   </li>
+<li>Sean MacLachlan 2016-03-28
+
+   It turned out I had both a current and expired WWDR certificate. Once I deleted the expired certificate and re exported then things worked for me.</li>
+<li>Sharif AbuDarda 2016-03-29
+
+   Thanks for your reply and letting us know. Closing this ticket. </li>
+<li>Anx 2016-03-29
+
+   Sharif, quick question please.  the issue I had was that the I created a App Store Distribution provisioning profiles BEFORE the new WWDR certificate was needed.  and the PN certificates after the new WWDR was installed.
+   
+   Do i need to republish my app to the app store with a new provisioning profile?</li>
+<li>Sharif AbuDarda 2016-03-29
+
+   Hello, Yes, You will need to create and install a new distribution certificate with the new WWDR certificate that is installed in your system. After that, you need to Create and install a new distribution provisioning profile pointing to the new distribution certificate. Build your app, embedding the distribution provisioning profile. Upload the app to iTunes Connect and kick-off the Apple review process OR distribute your application package. More info <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Distributing_iOS_apps. Thanks.</li>
+</ol>
+
+
+<p><a href="/AC/AC-691.json">JSON Source</a></p>

@@ -1,0 +1,101 @@
+---
+title: "[TIMOB-25522] iOS: Expose navigation-window instance property to Ti.UI.Window"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-21T12:14:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>demo_app</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-11-16T13:05:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-12T17:28:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In a production app, there are many cases where the developer would like to know the navigation-window context he/she is currently in. For example, when going through a set of windows to select a configuration, the developer calls "openWindow(nextWindow)) to open the next window ("push it") into the current context.
+
+Right now, developers either store a global reference, e.g. 
+<code><pre>
+Alloy.Globals.navWindow = nav;
+</pre></code>
+-> [BAD] 
+or pass the navigation-window to each new window being created, e.g. 
+<code><pre>
+Alloy.createController('nextWindow', {  
+  navigationWindow: nav 
+});
+</pre></code>
+-> [BAD]
+
+I am proposing a solution where the developer can reference the current navigation-window using the "navigationWindow" instance property. See the following test-case for an example:
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor: '#fff'
+});
+
+var nav = Ti.UI.iOS.createNavigationWindow({
+  window: win
+});
+
+var btn = Ti.UI.createButton({
+    title: 'Open next window'
+});
+
+btn.addEventListener('click', function() {
+    win.navigationWindow.openWindow(Ti.UI.createWindow({
+      title: 'Next Window!',
+      backgroundColor: 'green'
+    }));
+});
+
+win.add(btn);
+nav.open();
+</pre></code>
+While the developer could still just use the "nav" property, it will get more complex when using a multi-level application which scope changes during the navigation-flow. Ideally, once we move the navigation-window to the universal <code>Ti.UI.NavigationWindow</code> namespace, we could expose the same for Android (cc [~jquick]) and Windows (cc [~kiguchi]).
+
+Requirements of this API:
+* Return existing references only, no copies
+* Make the property read-only
+* Only return a navigation-window if one exists, error else
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2017-11-16
+
+   I would think we could leverage <code>Ti.UI.iOS</code> namespace or <code>Ti.UI.iOS.NavigationWindow</code> namespace for now when considering it is iOS specific component and there's no equivalent on Android/Windows. Maybe <code>Ti.UI.iOS.currentNavigationWindow</code> or <code>Ti.UI.iOS.NavigationWindow.current</code> property sounds better for me. 
+   
+   Or in case we want to make it cross-platform <code>Ti.UI.currentNavigationWindow</code> property like we are doing in <code>Ti.UI.currentWindow</code> and <code>Ti.UI.currentTab</code> in this case?
+   
+   </li>
+<li>Hans Knöchel 2017-11-17
+
+   Actually, [Ti.UI.currentWindow](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI-property-currentWindow) should be removed from the docs, since it requires the "url" property of the window to be set, which was deprecated in 2.x and removed in 6. For [Ti.UI.currentTab](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI-property-currentTab), it's different, because there can only be one TabGroup opened at the same time, so the value is consistent. For the navigation-window, there can be more navigation-windows that hold different window instances in different contexts (e.g. home-screen und settings that are presented modally, like in my sample-app [studentenfutter-app](<a href="https://github.com/hansemannn/studentenfutter-app))." rel="nofollow" target="_blank">https://github.com/hansemannn/studentenfutter-app)).</a> 
+   
+   That's why I choose "navigationWindow" to be consistent with the native naming-conventions (self.navigationController) and it could easily be adapted to other platforms as well once we support navigation-flows on those. If Windows does not support that natively (I'd wonder why these days), we could do Android first to have a (partial 2/3) parity. That effort is tracked in TIMOB-24582.</li>
+<li>Hans Knöchel 2017-11-20
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9608" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9608</a>
+   PR (7_1_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9848" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9848</a>
+   
+   To be reviewed after we have some more time post 7.0.0.</li>
+<li>Samir Mohammed 2018-05-17
+
+   FR Passed: Waiting For Jenkins build to pass.</li>
+<li>Samir Mohammed 2018-06-12
+
+   Closing ticket. Fix can be seen in SDK Version: 7.3.0.v20180607210411
+   
+   Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9608" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9608</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25522.json">JSON Source</a></p>

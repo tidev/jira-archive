@@ -1,0 +1,179 @@
+---
+title: "[TIMOB-3291] iOS: Popover Crash when Navigating Back in Tab Group"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-11-05T15:39:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0, Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-38, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>branch-5062</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:41:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-11-05T15:39:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+If you click a button to display a popover from a UI Tab Bar item, but navigate away from the tab's page before the popover has a chance to display, the app will crash with the following error:
+
+"Popovers cannot be presented from a UIBarButtonItem that is not in a toolbar or navigation bar already."
+
+<h4>Steps to Reproduce</h4>
+Drop the following in an app.js. It will open a window in the tab group, close the window, try to display a popover, and then crash. No intervention is required by you.
+<code><pre>
+var tab, win;
+var tabs = Ti.UI.createTabGroup();
+tabs.addTab(tab = Ti.UI.createTab({
+    window: win = Ti.UI.createWindow()
+}));
+tabs.open();
+
+win.addEventListener('open', cycle);
+
+function cycle() {
+    var action = Ti.UI.createButton({
+        title: 'Show Popover'
+    });
+    action.addEventListener('click', function(e) {
+        Ti.UI.iPad.createPopover({
+            width: 250, height: 100,
+            title: 'Test Popover Crash'
+        }).show({ view: action });
+    });
+
+    var child = Ti.UI.createWindow({
+        rightNavButton: action
+    });
+    child.addEventListener('close', function() {
+    	setTimeout(cycle, 1000);
+    });
+    tab.open(child);
+
+    setTimeout(function() {
+        action.fireEvent('click');
+    }, 1000);
+    setTimeout(function() {
+        child.close();
+        child.rightNavButton = null;
+    }, 500);
+}
+</pre></code>
+
+<h4>Error</h4>
+<code><pre>
+2011-09-22 08:34:30.394 play[6948:207] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: 'Popovers cannot be presented from a UIBarButtonItem that is not in a toolbar or navigation bar already.'
+
+*** Call stack at first throw:
+(
+	0   CoreFoundation                      0x024cbbe9 __exceptionPreprocess + 185
+	1   libobjc.A.dylib                     0x026205c2 objc_exception_throw + 47
+	2   CoreFoundation                      0x02484628 +[NSException raise:format:arguments:] + 136
+	3   CoreFoundation                      0x0248459a +[NSException raise:format:] + 58
+	4   UIKit                               0x00c467df -[UIPopoverController presentPopoverFromBarButtonItem:permittedArrowDirections:animated:] + 194
+	5   play                                0x0018a7d7 -[TiUIiPadPopoverProxy updatePopoverNow] + 263
+	6   play                                0x0018a600 -[TiUIiPadPopoverProxy show:] + 1824
+	7   Foundation                          0x006829a6 __NSThreadPerformPerform + 251
+	8   CoreFoundation                      0x024ad01f __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 15
+	9   CoreFoundation                      0x0240b28b __CFRunLoopDoSources0 + 571
+	10  CoreFoundation                      0x0240a786 __CFRunLoopRun + 470
+	11  CoreFoundation                      0x0240a240 CFRunLoopRunSpecific + 208
+	12  CoreFoundation                      0x0240a161 CFRunLoopRunInMode + 97
+	13  GraphicsServices                    0x0408b268 GSEventRunModal + 217
+	14  GraphicsServices                    0x0408b32d GSEventRun + 115
+	15  UIKit                               0x0091242e UIApplicationMain + 1160
+	16  play                                0x0000396a main + 410
+	17  play                                0x00002235 start + 53
+	18  ???                                 0x00000001 0x0 + 1
+
+)
+
+terminate called after throwing an instance of 'NSException'
+
+[DEBUG] Session did end with error (null)
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-3291_23021/timob3291.rtf">timob3291.rtf</td></td><td>2011-09-22T10:11:23.000+0000</td><td>3131</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/1df642e2a3852b1d2035743be51cbfb64e1331cd"
+   title=
+   "Changeset [1df642e2a3852b1d2035743be51cbfb64e1331cd]">[1df642e2a3852b1d2035743be51cbfb64e1331cd]</a>)
+   [<a href="/projects/32238/tickets/3291" title=
+   "Ticket #3291">#3291</a> state:fixed-in-qa] Display a warning and
+   short-circuit popover display when the presenting view isn't in the
+   current window. <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/1df642e2a3852b1d2035743be51cbfb64e1331cd" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/1df642e2a3852b1d2035743be51cbfb64e1331cd</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/1df642e2a385..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/1df642e2a385...</a></a></p></div></li>
+<li>Natalie Huynh 2011-04-15
+
+   <div><p>Tested with Titanium SDK version: 1.7.0 (03/08/11 09:53 1df642e)
+   on<br>
+   iPad 3.2<br>
+   iPad 4.3</p></div></li>
+<li>Rick Blalock 2011-04-15
+
+   <div><p>This still happens in some contexts.<br></p>
+   <p>Steps to reproduce: Add a popover to the rightNavButton -&gt;
+   Click to open -&gt; click somewhere to close -&gt; click to open,
+   etc.. If you do it fast enough on device it will crash with the
+   following stack trace: <a href=
+   "<a href="http://pastie.org/1704513" rel="nofollow" target="_blank">http://pastie.org/1704513</a>"><a href="http://pastie.org/1704513" rel="nofollow" target="_blank">http://pastie.org/1704513</a></a></p>
+   <p>It is important to note that it only happens if you are really
+   fast or an app is doing some background processing so the popover
+   doesn't disappear right away. It's difficult to reproduce.</p></div></li>
+<li>Stephen Tramer 2011-09-21
+
+   See Rick's comment above about why this is getting reopened.</li>
+<li>Dawson Toth 2011-09-21
+
+   I updated the example to not require any interaction to reproduce the crash.</li>
+<li>Stephen Tramer 2011-09-22
+
+   Updated sample app.js to continuously open/close window, to make sure that the right nav button is always properly set even after being cleaned up.</li>
+<li>Eric Merriman  2011-09-22
+
+   Checked this against SDK in pull 486. On device, the sample code cycles and does not crash. Each cycle, the following appears in the log:
+   Sep 22 09:56:25 unknown UIKitApplication:com.appcelerator.timob3291[0x60e8][3368] <Notice>: [WARN] Unable to display popover; view is not attached to the current window
+   
+   On Simulator, the app and simulator terminate. Please see attached file for details.</li>
+<li>Stephen Tramer 2011-09-22
+
+   Must be a timing issue. Doesn't crash for me on simulator, meaning there's still a race/scheduling issue in here somewhere. Probably going to have to throw in a lock.</li>
+<li>Stephen Tramer 2011-09-22
+
+   Testing indicated that there's still a timing issue. Testing on device in a different app confirmed this. Reopening.</li>
+<li>Dawson Toth 2011-09-22
+
+    These two tickets are both about popovers crashing in tab groups. A fix for this may fix the other, although the exceptions are different.</li>
+<li>Stephen Tramer 2011-09-23
+
+    Confirmed fixed by TIMOB-5337.</li>
+<li>Eric Merriman  2011-09-23
+
+    Verified fixed with iPad (4.3.5) and iPad 2 (4.3.5).</li>
+<li>Don Thorp 2011-11-05
+
+    Standardizing summary and labels.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3291.json">JSON Source</a></p>

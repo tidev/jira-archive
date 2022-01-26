@@ -1,0 +1,813 @@
+---
+title: "[TIMOB-25573] CLI: iOS compiler breaks and compiles incorrectly when building to device - 6.3.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-12-08T18:31:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>cli, ios, merge-7.0.1, sdk</td></tr>
+<tr><th>Reporter</th><td>David van de Meer</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2017-11-30T11:55:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-19T12:54:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi, I am having some issues with the compiler for iOS on Titanium 6.3.0 - when it compiles to the simulator it works fine but Device compiler breaks things.
+
+I have gotten the error down to standalone code on blank appcelerator classic app it build to ios device:
+
+Add this code to the app.js and build
+<code><pre>
+var virtualScroller = {
+        getView: function(i) {
+            
+            var web_view = Ti.UI.createWebView({
+                    
+                });        
+            
+            web_view.addEventListener('click', function(){            
+                
+            });
+            
+            return web_view;
+        },
+        start: 1,
+        infinite: false,
+        itemCount: 12,
+    };
+</pre></code>
+
+check the build version of app_js
+
+<code><pre>
+var virtualScroller={getView:function(){var a=Ti.UI.createWebView({});return a.addEventListener('click',function(){}),a},start:1,infinite:!1,itemCount:12};
+</pre></code>
+
+notice that the ``<code>return</code>` is before the eventlisteners and other values, this causes the code to return out and not function as it should
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-11-30
+
+   May be a duplicate of TIMOB-25328, although the return statement looks correctly. It adds the event-listener on return to save one line, but it still adds it.</li>
+<li>Hans Knöchel 2017-11-30
+
+   As a workaround, try to replace the file located i  <code>~/Library/Application Support/Titanium/mobilesdk/osx/6.3.0.GA/node_modules/node-titanium-sdk/lib/jsanalyze.js</code> with [this file](<a href="https://raw.githubusercontent.com/feons/node-titanium-sdk/92a02476596bbda5257d624b1ea9a29b39a5174e/lib/jsanalyze.js)." rel="nofollow" target="_blank">https://raw.githubusercontent.com/feons/node-titanium-sdk/92a02476596bbda5257d624b1ea9a29b39a5174e/lib/jsanalyze.js).</a></li>
+<li>David van de Meer 2017-11-30
+
+   With the jsanalyze.js replace this is the compiled file
+   
+   <code><pre>
+   var virtualScroller={getView:function(){var web_view=Ti.UI.createWebView({});return web_view.addEventListener('click',function(){}),web_view},start:1,infinite:!1,itemCount:12};
+   </pre></code>
+   
+   I apologize if I am wrong but I dont think this is valid code, but I might be wrong
+   
+   <code><pre>
+   return web_view.addEventListener('click',function(){}),web_view
+   </pre></code>
+   
+   The new jsanalyze.js does seem to allow the code to work now but js miniy has now cause another issue with one of the modules, when I disable js minification all my code works fine...ill try to track it down</li>
+<li>David van de Meer 2017-11-30
+
+   Here is what is happening now 
+   
+   My code:
+   
+   
+   <code><pre>
+   // Set Args passed from other windows as args
+   var args = arguments[0] || {};
+   
+   // use args to set functions to run webViewClick and webViewScrollStart functions as passed from TextView
+   args.webViewClick = function(){webViewClick();};
+   args.webViewScrollStart = function(){webViewScrollStart();};
+   
+   //////////////////////////////////////////////////////////////////////////////////////////////////////
+   // 					START IF - iPhone Remote Control Module and Functions							//
+   
+   // START IF IOS ELSE ANDROID
+   if (OS_IOS) {
+   	
+   	// require Control to get functions from IOS REMOTE
+   	var Control = require('net.hoyohoyo.tiremotecontrol');
+   	
+   	// START Function - to setControlInfo with audioInfo
+   	function setControlInfo(currentChapter){
+   		
+   		// START - addEventListener to listen for events from Control - IOS Remote
+   		Control.addEventListener('remotecontrol', remoteControlFunctions);
+   
+   		// set chapterName as bookDataArray[currentChapter].chapterName
+   		var chapterName = getSetDatabaseData("getChapterName",currentChapter);
+   		var chapterNumber = getSetDatabaseData("getChapterNumber",currentChapter);
+   
+   		Ti.API.info(chapterName + " " + chapterNumber);
+   		 
+   		// setNowPlayingInfo	
+   		Control.setNowPlayingInfo({
+   			artist: L("appName"),
+   			title: chapterName + " " + chapterNumber,
+   			albumTitle: chapterName,
+   			albumArtworkLocal: true,
+   			albumArtwork: "iTunesArtwork",
+   		});
+   		
+   		// Log Now Playing info
+   	 	Ti.API.info("Now Playing" + L("appName") + chapterName + " " + chapterNumber);
+   		
+   	};
+   	// END Function - to setControlInfo with audioInfo
+   	
+   	// START Function - remoteControlFunctions
+   	function remoteControlFunctions(e) {
+   		  switch (e.subtype) {
+   		    case Control.REMOTE_CONTROL_PLAY:
+   		    		Ti.API.info('Remote control Play');
+   		    		Ti.App.fireEvent("app:remoteAudioStartPause");
+   		      break;
+   		    case Control.REMOTE_CONTROL_PAUSE:
+   		    		Ti.API.info('Remote control Pause');
+   		    		Ti.App.fireEvent("app:remoteAudioStartPause");
+   		      break;
+   		    case Control.REMOTE_CONTROL_STOP:
+   		    		Ti.API.info('Remote control Stop');
+   		      break;
+   		    case Control.REMOTE_CONTROL_PLAY_PAUSE:
+   		    		Ti.API.info('Remote control Play/Pause');
+   		    		Ti.App.fireEvent("app:remoteAudioStartPause");
+   		      break;
+   		    case Control.REMOTE_CONTROL_PREV:
+   		   			Ti.API.info('Remote control Prev');
+   		   			
+   		   			// run callback function goToPage
+   		   			args.goToPage({
+   	            		direction: "prev",
+   	           			auto: "auto",          	
+   	           		}); 
+   	           		      		
+   		      break;
+   		    case Control.REMOTE_CONTROL_NEXT:
+   		    		Ti.API.info('Remote control Next');
+   		    		
+   		    		// run callback function goToPage
+   		   			args.goToPage({
+   	            		direction: "next",
+   	           			auto: "auto",          	
+   	           		});
+   	           		
+   		      break;
+   		  }
+   	};
+   	// END Function - remoteControlFunctions
+   
+   };
+   // END IF IOS ELSE ANDROID
+   
+   // 					START IF - iPhone Remote Control Module and Functions							//
+   //////////////////////////////////////////////////////////////////////////////////////////////////////
+   
+   // START Function - webViewScrollerStart - to removeAudioView
+   function webViewScrollStart(){	
+   	Ti.API.info("Scrolling Started");
+   	
+   	// removeAudiView
+   	removeAudioView();
+   };
+   // END Function - webViewScrollerStart - to removeAudioView
+   
+   // START Function - webViewClick - to addAudioView
+   function webViewClick(){
+   	Ti.API.info("WebviewClicked");
+   	
+   	// addAudioView
+   	addAudioView();
+   };
+   // END Function - webViewClick - to addAudioView
+   
+   // START Function to - removeAudioView
+   function removeAudioView(){
+   	
+   	// get Alloy Built In Animation
+   	var animation = require('alloy/animation');
+   	// get audioVoew visibleValue
+   	var audioViewVisible = $.audioView.visibleValue;
+   	
+   	// START IF - audioViewVisble true - hide $.audioView
+   	if (audioViewVisible){	
+   		Ti.API.info("Remove Audio View");
+   		
+   		// use animation.fadeOut to hide view
+   		animation.fadeOut($.audioView, 500);
+   		// set $.audioView.visibleValue as false
+   		$.audioView.visibleValue = false;
+   		
+   	};
+   	// END IF - audioViewVisble true - hide $.audioView
+   		
+   };
+   // END Function to - removeAudioView
+   
+   // START Function to - addAudioView
+   function addAudioView(){
+   	
+   	// set audioView.visible as true
+   	$.audioView.visible = true;
+   	
+   	// get Alloy Built In Animation
+   	var animation = require('alloy/animation');
+   	// get audioVoew visibleValue
+   	var audioViewVisible = $.audioView.visibleValue;
+   	
+   	// START IF - audioViewVisible false
+   	if (audioViewVisible == false){		
+   		Ti.API.info("Add Audio View");
+   		
+   		// use animation.fadeIn to show view
+   		animation.fadeIn($.audioView, 500);
+   		
+   		// set $.audioView.visibleValue as true
+   		$.audioView.visibleValue = true;
+   		
+   	};
+   	// END IF - audioViewVisible false	
+   	
+   };
+   // END Function to - addAudioView
+   
+   // set function to run when args.createAudioPlayer function is run from TextView
+   args.createAudioPlayer = function (createAudioPlayerData){
+   	
+   	// run createAudioPlayer
+   	createAudioPlayer(createAudioPlayerData);
+   	
+   };
+   
+   var audioPlayerFunctions = { removeAudioPlayer: function(){},	
+   };
+   
+   // START Function - to createAudioPlayer
+   function createAudioPlayer(e){
+   	
+   	// Include the model in app/lib/
+   	var audioPrepare = require('audioPrepare');
+   	
+   	// set autoPlay as e.autoPlay
+   	var autoPlay = e.autoPlay;
+   	
+   	// START IF - check if has audioPlayer then remove before adding new
+   	if ($.audioPlayer.children[0]){	
+   		Ti.API.info("Remove old AudioPlayer");
+   		
+   		// run hideAudioPlayer
+   		hideAudioPlayer();
+   	};
+   	// END IF - check if has audioPlayer then remove before adding new
+   	
+   	// show audioView container
+    	$.audioView.bottom = 0;
+    	
+   	// set currentChapter as e.pageIndex
+   	var currentChapter = e.pageIndex;
+   	
+   	// prepare audioPlayerView using audioPrepare model
+   	Ti.API.info("creataAudioPlayer for Chapter:" + currentChapter);
+   	var audioPlayerData = {
+   		createClean:"create",
+   		currentChapter:currentChapter,
+   		autoPlay:autoPlay,
+   		goToPage: function(goToPageData){
+   			// run callback function goToPage in TextView with data goToPageData from callback function in audiPrepare
+   			args.goToPage(goToPageData);
+   		},
+   		audioPlayerFunctions: audioPlayerFunctions,	
+   	};
+   	var audioPlayerView = audioPrepare(audioPlayerData);
+   	
+   	// add audioPlayerView to $.audioPlayer
+   	$.audioPlayer.add(audioPlayerView);	
+   	
+   	// START IF - IOS - set Audio info in iOS Remote
+   	if (OS_IOS) {
+   		setControlInfo(currentChapter);
+   	};
+   	// END IF - IOS - set Audio info in iOS Remote
+   	
+   	// fireEvent app.webViewClick to make sure audioView is shown
+   	webViewClick();
+   	
+   };
+   // END Function - to createAudioPlayer
+   
+   // set function to run when args.createAudioPlayer function is run from TextView
+   args.hideAudioPlayer = function (e){
+   	
+   	// run createAudioPlayer
+   	hideAudioPlayer();
+   	
+   };
+   
+   // START Function - to hideAudioPlayer
+   function hideAudioPlayer(e){
+   
+   	// START IF - check if has audioPlayer then remove
+   	if ($.audioPlayer.children[0]){	
+   		Ti.API.info("hideAudioPlayer: Remove old AudioPlayer");
+   		
+   		// START IF - OS_IOS removeEventListener remotecontrol
+   		if(OS_IOS){
+   			
+   			// Remove Control EventListener
+   			Control.removeEventListener('remotecontrol', remoteControlFunctions);
+   			
+   		};
+   		// END IF - OS_IOS removeEventListener remotecontrol
+   
+   		// FireEvent to Remove old App.eventListeners set in audioPrepare.js
+   		audioPlayerFunctions.removeAudioPlayer();
+   		
+   		// removeAllChildren from audioPlayer		
+   		$.audioPlayer.removeAllChildren();
+   		// set audioPlayerView as null
+   		audioPlayerView = null;		
+   	};
+   	// END IF - check if has audioPlayer then remove
+   	
+   	// Hide audioView container
+    	$.audioView.bottom = "-60dp";
+    	
+   };
+   // END Function - to hideAudioPlayer
+   
+   </pre></code>
+   
+   not minified result:
+   
+   
+   <code><pre>
+   var Alloy = require('/alloy'),
+       Backbone = Alloy.Backbone,
+       _ = Alloy._;
+   
+   function __processArg(obj, key) {
+     var arg = null;
+     if (obj) {
+       arg = obj[key] || null;
+       delete obj[key];
+     }
+     return arg;
+   }
+   
+   function Controller() {
+   
+     require('/alloy/controllers/' + 'BaseController').apply(this, Array.prototype.slice.call(arguments));
+     this.__controllerPath = 'audioPlayer';
+     this.args = arguments[0] || {};
+   
+     if (arguments[0]) {
+       var __parentSymbol = __processArg(arguments[0], '__parentSymbol');
+       var $model = __processArg(arguments[0], '$model');
+       var __itemTemplate = __processArg(arguments[0], '__itemTemplate');
+     }
+     var $ = this;
+     var exports = {};
+     var __defers = {};
+   
+     $.__views.audioView = Ti.UI.createView({ bottom: 0, left: 0, width: Ti.UI.FILL, height: "60dp", backgroundImage: "/images/audio_back_trans.png", backgroundRepeat: true, visibleValue: false, visible: false, id: "audioView" });
+     $.__views.audioView && $.addTopLevelView($.__views.audioView);
+     $.__views.audioPlayer = Ti.UI.createView({ id: "audioPlayer" });
+     $.__views.audioView.add($.__views.audioPlayer);
+     exports.destroy = function () {};
+   
+     _.extend($, $.__views);
+   
+     var args = arguments[0] || {};
+   
+     args.webViewClick = function () {
+       webViewClick();
+     };
+     args.webViewScrollStart = function () {
+       webViewScrollStart();
+     };
+   
+     if (true) {
+       var Control = require('net.hoyohoyo.tiremotecontrol');
+   
+       function setControlInfo(currentChapter) {
+         Control.addEventListener('remotecontrol', remoteControlFunctions);
+   
+         var chapterName = getSetDatabaseData("getChapterName", currentChapter);
+         var chapterNumber = getSetDatabaseData("getChapterNumber", currentChapter);
+   
+         Ti.API.info(chapterName + " " + chapterNumber);
+   
+         Control.setNowPlayingInfo({
+           artist: L("appName"),
+           title: chapterName + " " + chapterNumber,
+           albumTitle: chapterName,
+           albumArtworkLocal: true,
+           albumArtwork: "iTunesArtwork"
+         });
+   
+         Ti.API.info("Now Playing" + L("appName") + chapterName + " " + chapterNumber);
+       };
+   
+       function remoteControlFunctions(e) {
+         switch (e.subtype) {
+           case Control.REMOTE_CONTROL_PLAY:
+             Ti.API.info('Remote control Play');
+             Ti.App.fireEvent("app:remoteAudioStartPause");
+             break;
+           case Control.REMOTE_CONTROL_PAUSE:
+             Ti.API.info('Remote control Pause');
+             Ti.App.fireEvent("app:remoteAudioStartPause");
+             break;
+           case Control.REMOTE_CONTROL_STOP:
+             Ti.API.info('Remote control Stop');
+             break;
+           case Control.REMOTE_CONTROL_PLAY_PAUSE:
+             Ti.API.info('Remote control Play/Pause');
+             Ti.App.fireEvent("app:remoteAudioStartPause");
+             break;
+           case Control.REMOTE_CONTROL_PREV:
+             Ti.API.info('Remote control Prev');
+   
+             args.goToPage({
+               direction: "prev",
+               auto: "auto"
+             });
+   
+             break;
+           case Control.REMOTE_CONTROL_NEXT:
+             Ti.API.info('Remote control Next');
+   
+             args.goToPage({
+               direction: "next",
+               auto: "auto"
+             });
+   
+             break;
+         }
+       };
+     };
+   
+     function webViewScrollStart() {
+       Ti.API.info("Scrolling Started");
+   
+       removeAudioView();
+     };
+   
+     function webViewClick() {
+       Ti.API.info("WebviewClicked");
+   
+       addAudioView();
+     };
+   
+     function removeAudioView() {
+       var animation = require('alloy/animation');
+   
+       var audioViewVisible = $.audioView.visibleValue;
+   
+       if (audioViewVisible) {
+         Ti.API.info("Remove Audio View");
+   
+         animation.fadeOut($.audioView, 500);
+   
+         $.audioView.visibleValue = false;
+       };
+     };
+   
+     function addAudioView() {
+       $.audioView.visible = true;
+   
+       var animation = require('alloy/animation');
+   
+       var audioViewVisible = $.audioView.visibleValue;
+   
+       if (audioViewVisible == false) {
+         Ti.API.info("Add Audio View");
+   
+         animation.fadeIn($.audioView, 500);
+   
+         $.audioView.visibleValue = true;
+       };
+     };
+   
+     args.createAudioPlayer = function (createAudioPlayerData) {
+       createAudioPlayer(createAudioPlayerData);
+     };
+   
+     var audioPlayerFunctions = { removeAudioPlayer: function () {}
+     };
+   
+     function createAudioPlayer(e) {
+       var audioPrepare = require('audioPrepare');
+   
+       var autoPlay = e.autoPlay;
+   
+       if ($.audioPlayer.children[0]) {
+         Ti.API.info("Remove old AudioPlayer");
+   
+         hideAudioPlayer();
+       };
+   
+       $.audioView.bottom = 0;
+   
+       var currentChapter = e.pageIndex;
+   
+       Ti.API.info("creataAudioPlayer for Chapter:" + currentChapter);
+       var audioPlayerData = {
+         createClean: "create",
+         currentChapter: currentChapter,
+         autoPlay: autoPlay,
+         goToPage: function (goToPageData) {
+           args.goToPage(goToPageData);
+         },
+         audioPlayerFunctions: audioPlayerFunctions
+       };
+       var audioPlayerView = audioPrepare(audioPlayerData);
+   
+       $.audioPlayer.add(audioPlayerView);
+   
+       if (true) {
+         setControlInfo(currentChapter);
+       };
+   
+       webViewClick();
+     };
+   
+     args.hideAudioPlayer = function (e) {
+       hideAudioPlayer();
+     };
+   
+     function hideAudioPlayer(e) {
+       if ($.audioPlayer.children[0]) {
+         Ti.API.info("hideAudioPlayer: Remove old AudioPlayer");
+   
+         if (true) {
+           Control.removeEventListener('remotecontrol', remoteControlFunctions);
+         };
+   
+         audioPlayerFunctions.removeAudioPlayer();
+   
+         $.audioPlayer.removeAllChildren();
+   
+         audioPlayerView = null;
+       };
+   
+       $.audioView.bottom = "-60dp";
+     };
+   
+     _.extend($, exports);
+   }
+   
+   module.exports = Controller;
+   </pre></code>
+   
+   minified result
+   <code><pre>
+   var Alloy=require('/alloy'),Backbone=Alloy.Backbone,_=Alloy._;function __processArg(obj,key){var arg=null;return obj&&(arg=obj[key]||null,delete obj[key]),arg}function Controller(){function webViewScrollStart(){Ti.API.info('Scrolling Started'),removeAudioView()}function webViewClick(){Ti.API.info('WebviewClicked'),addAudioView()}function removeAudioView(){var animation=require('alloy/animation'),audioViewVisible=$.audioView.visibleValue;audioViewVisible&&(Ti.API.info('Remove Audio View'),animation.fadeOut($.audioView,500),$.audioView.visibleValue=!1)}function addAudioView(){$.audioView.visible=!0;var animation=require('alloy/animation'),audioViewVisible=$.audioView.visibleValue;!1==audioViewVisible&&(Ti.API.info('Add Audio View'),animation.fadeIn($.audioView,500),$.audioView.visibleValue=!0)}function createAudioPlayer(e){var audioPrepare=require('audioPrepare'),autoPlay=e.autoPlay;$.audioPlayer.children[0]&&(Ti.API.info('Remove old AudioPlayer'),hideAudioPlayer()),$.audioView.bottom=0;var currentChapter=e.pageIndex;Ti.API.info('creataAudioPlayer for Chapter:'+currentChapter);var audioPlayerView=audioPrepare({createClean:'create',currentChapter:currentChapter,autoPlay:autoPlay,goToPage:function(goToPageData){args.goToPage(goToPageData)},audioPlayerFunctions:audioPlayerFunctions});$.audioPlayer.add(audioPlayerView),setControlInfo(currentChapter),webViewClick()}function hideAudioPlayer(){$.audioPlayer.children[0]&&(Ti.API.info('hideAudioPlayer: Remove old AudioPlayer'),Control.removeEventListener('remotecontrol',remoteControlFunctions),audioPlayerFunctions.removeAudioPlayer(),$.audioPlayer.removeAllChildren(),audioPlayerView=null),$.audioView.bottom='-60dp'}if(require('/alloy/controllers/BaseController').apply(this,Array.prototype.slice.call(arguments)),this.__controllerPath='audioPlayer',this.args=arguments[0]||{},arguments[0])var __parentSymbol=__processArg(arguments[0],'__parentSymbol'),$model=__processArg(arguments[0],'$model'),__itemTemplate=__processArg(arguments[0],'__itemTemplate');var $=this,exports={};$.__views.audioView=Ti.UI.createView({bottom:0,left:0,width:Ti.UI.FILL,height:'60dp',backgroundImage:'/images/audio_back_trans.png',backgroundRepeat:!0,visibleValue:!1,visible:!1,id:'audioView'}),$.__views.audioView&&$.addTopLevelView($.__views.audioView),$.__views.audioPlayer=Ti.UI.createView({id:'audioPlayer'}),$.__views.audioView.add($.__views.audioPlayer),exports.destroy=function(){},_.extend($,$.__views);var args=arguments[0]||{};args.webViewClick=function(){webViewClick()},args.webViewScrollStart=function(){webViewScrollStart()};{var Control=require('net.hoyohoyo.tiremotecontrol')}args.createAudioPlayer=function(createAudioPlayerData){createAudioPlayer(createAudioPlayerData)};var audioPlayerFunctions={removeAudioPlayer:function(){}};args.hideAudioPlayer=function(){hideAudioPlayer()},_.extend($,exports)}module.exports=Controller;
+   </pre></code>
+   
+   Tons of missing code.....for example where is 
+   
+   
+   <code><pre>
+   function setControlInfo(currentChapter)
+   </pre></code>
+   
+   </li>
+<li>David van de Meer 2017-12-01
+
+   I have found more instances where code gets stripped out even though it should not, it seems like its happening when the OS_IOS tag is used - this is really super frustrating as how are we supposed to be able to build and distribute apps if the cli is so bug ridden....I am not sure how I can be the only one finding these bugs, do most appcelerator users not actually have much code?
+   
+   This code
+   <code><pre>
+                           if (bookID == 100){
+                               var convertedChapterName = L("booktitle");
+                           }else{
+                               var convertedChapterName = L("booktitle2");    
+                           }       
+   
+   
+   // START IF ANDROID > 4.0 ELSE
+                           var versionRequired = "4.0";
+                           if (OS_IOS || Ti.Platform.name == 'android' && versionCompare(Ti.Platform.version,versionRequired) == true) {
+                           	 var chapterNumberValue = chapterNumber;
+                           }else{
+                           	var chapterNumberValue = JSON.stringify(+chapterNumber).split("").reverse().join("");
+                           };	
+                           // END IF ANDROID > 4.0 ELSE
+                          
+                          	// set converted chapterName
+   						var convertedBookName = Alloy.Globals.textConverter(bookName);
+   
+   // set message String and convert
+                           var message = convertedBookName + " \u200F" + chapterNumberValue + convertedChapterName + " " + L("chapterDownloadComplete");
+   </pre></code>
+   
+   gets minified:
+   
+   <code><pre>
+   var chapterNumberValue,versionRequired="4.0",convertedBookName=Alloy.Globals.textConverter(bookName),message=void 0+" \u200F"+chapterNumber+void 0+" "+L("chapterDownloadComplete");
+   </pre></code>
+   
+   notice the void void
+   
+   </li>
+<li>Ewan Harris 2017-12-01
+
+   [~dieskim] As this occurs with all SDK versions since you upgraded could you try downgrading the appc cli using <code>appc use 6.2.4</code> and rebuilding to see if the issue still occurs?</li>
+<li>David van de Meer 2017-12-01
+
+   CLI ad 6.2.4:
+   
+   <code><pre>
+   var chapterNumberValue,convertedBookName=Alloy.Globals.textConverter(bookName),message=void 0+" \u200F"+chapterNumber+void 0+" "+L("chapterDownloadComplete");
+   </pre></code>
+   
+   I also just did a search on all my build code for "void" tons and tons of them scattered throughout my codebase, will take many many hours to fix all of them with adding a log in front of each!</li>
+<li>David van de Meer 2017-12-01
+
+   so one way we have found to fix this is to actually just log out the var 
+   
+   In the example below adding <code>Ti.API.info(convertedBookName);</code> allows the value to not minify as "void" 
+   
+   <code><pre>
+   	// set converted chapterName
+   						var convertedBookName = Alloy.Globals.textConverter(bookName); 
+   						
+   						Ti.API.info(convertedBookName);
+   						
+                           // set message String and convert
+                           var message = convertedBookName + " \u200F" + chapterNumber + convertedChapterName + " " + L("chapterDownloadComplete");
+   </pre></code>
+   
+   this compiles as 
+   
+   
+   <code><pre>
+   var convertedBookName=Alloy.Globals.textConverter(bookName);Ti.API.info(convertedBookName);var message=convertedBookName+" \u200F"+chapterNumber+convertedChapterName+" "+L("chapterDownloadComplete");
+   </pre></code>
+   </li>
+<li>Feon Sua Xin Miao 2017-12-01
+
+   Looks like babel minify removes all <code>function declarations</code> in <code>if statements</code>.  
+   But I'm not able to reproduce the <code>void 0</code> case yet.</li>
+<li>David van de Meer 2017-12-02
+
+    Here is a complete test example to recreate the void 0 errors
+    
+    Build the following in new blank alloy app - simply add this function only to the alloy.js - this code does seem to compile correctly on classic app. I believe its an issues with babel minify not understanding some alloy tags / code
+    
+    <code><pre>
+    // START FUNCTION - downloadChapter
+    function downloadChapter(chapterID){
+                       
+                    // START - use checkDownloadURL and check for working URL                            
+                    checkDownloadURL.checkDownloadURL({
+                        method: 'GET',
+                        audioFileName: audioFileName,
+                        urlArrayString: urlArrayString,
+                        success: function (success) {                                                               // on Success
+                            Ti.API.info("Download Complete");
+                                               
+                            // set convertedChapterName
+                            //var convertedChapterName;                   
+                            if (bookID == 100){
+                                var convertedChapterName = L("book1");
+                            }else{
+                                var convertedChapterName = L("book2");    
+                            };        
+                            //Ti.API.info(convertedChapterName);     
+                                                               
+                           	// set converted chapterName
+    						var convertedBookName = Alloy.Globals.textConverter(bookName); 					
+    						//Ti.API.info(convertedBookName);
+    						
+                            // set message String and convert
+                            var message = convertedBookName + chapterNumber + convertedChapterName + " " + L("chapterDownloadComplete");
+                            
+                            // fire app:showAlertMessage with message
+                            Ti.App.fireEvent("app:showAlertMessage",{
+                                message: message,              
+                            });                 
+                                    
+                            if (OS_ANDROID){
+                                    
+                                // set converted bookName
+                                var convertedBookName = Alloy.Globals.textConverter(bookName); 
+                                    
+                                // START IF - Add Catagory
+                                if (bookID == 100){                                
+                                        var convertedChapterName = L("book2");                                                  
+                                }else{                                    
+                                        var convertedChapterName = L("book4");                                  
+                                };
+                                // END IF - Add Catagory
+                                                
+                            };
+                                                                  
+                        },
+                        datastream: function(datastream) {                                                          // on Datastream
+                            Ti.API.info('Download - Progress: ' + datastream.progress);                           
+                        },      
+                        error: function (error) {                                                                   // on Error
+                            Ti.API.info('Download Error' + error);
+                        },
+                    });
+                    // END - use checkDownloadURL and check for working URL
+        
+    };
+    // END FUNCTION - downloadChapter
+    </pre></code>
+     
+    Builds as:
+    
+    
+    <code><pre>
+    var Alloy=require('/alloy'),_=Alloy._,Backbone=Alloy.Backbone;function downloadChapter(){checkDownloadURL.checkDownloadURL({method:'GET',audioFileName:audioFileName,urlArrayString:urlArrayString,success:function(){if(Ti.API.info('Download Complete'),100==bookID)var convertedChapterName=L('book1');else var convertedChapterName=L('book2');var convertedBookName=Alloy.Globals.textConverter(bookName),message=void 0+chapterNumber+void 0+' '+L('chapterDownloadComplete');Ti.App.fireEvent('app:showAlertMessage',{message:message});var convertedChapterName},datastream:function(datastream){Ti.API.info('Download - Progress: '+datastream.progress)},error:function(error){Ti.API.info('Download Error'+error)}})}Alloy.createController('index');
+    </pre></code>
+    
+    removing the OS_ANDROID part 
+    
+    <code><pre>
+    if (OS_ANDROID){
+                                    
+                                // set converted bookName
+                                var convertedBookName = Alloy.Globals.textConverter(bookName); 
+                                    
+                                // START IF - Add Catagory
+                                if (bookID == 100){                                
+                                        var convertedChapterName = L("book2");                                                  
+                                }else{                                    
+                                        var convertedChapterName = L("book4");                                  
+                                };
+                                // END IF - Add Catagory
+                                                
+                            };
+    </pre></code>
+    
+    allows the void 0 mistakes to disappear, but thats not really a solution - just shows the cause of the problem is related to OS_ANDROID and OS_IOS
+    
+    Simply adding logs 
+    
+    <code><pre>
+    Ti.API.info(convertedChapterName);
+    </pre></code>
+    
+    and 
+    
+    <code><pre>
+    Ti.API.info(convertedBookName);
+    </pre></code>
+    
+    fixes the with both void 0 errors
+    </li>
+<li>joachim.haglund 2017-12-04
+
+    I also had alot of issues with minification removing function declarations in if statements, along with other wierd bugs due to minification. I found that assigning the function declaration to a var would solve issues with functions being removed. Additionally variables randomly become null or wierd values, logging them just before using htem worked.
+    
+    Sometimes functions declared normally, outisde if statements, also bugged in diffrent ways. When this happend i found that declaring a new function as an identical copy with a new name, just below the bugged function, solved the problem.
+    
+    The code becomes very ugly when making these workarounds, so i really hope this is fixed soon.</li>
+<li>Feon Sua Xin Miao 2017-12-04
+
+    PR: <a href="https://github.com/appcelerator/node-titanium-sdk/pull/19" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/19</a></li>
+<li>David van de Meer 2017-12-05
+
+    Thanks for the PR! So basically just turn off more and more minification? Did you guys recently switch to a different minification tool or why are things breaking now?</li>
+<li>Feon Sua Xin Miao 2017-12-05
+
+    [~dieskim], Yes, we replaced UglifyJS with Babili so that we can support ES2015 and newer in the tooling. It's minification and dead code removal seems pretty aggressive, there are also some known issues (i.e <a href="https://github.com/babel/minify/issues/404)." rel="nofollow" target="_blank">https://github.com/babel/minify/issues/404).</a> 
+    </li>
+<li>David van de Meer 2017-12-05
+
+    Yes I did notice those issues on the repo, does not seem like they are being handled... turning off minification functions is not ideal as it almost defies the whole point, but I guess at this stage its the best we can do?</li>
+<li>Feon Sua Xin Miao 2017-12-05
+
+    For best practice, use function expressions for conditional creation instead.</li>
+<li>Samir Mohammed 2017-12-20
+
+    Verified Fix in SDK version <code>7.0.1.v20171218104141</code> and <code>7.1.0.v20171220095337</code> with test case mentioned in the description; device compiler no longer broke.
+    
+    *Test Environment*
+    Appcelerator Command-Line Interface, version 7.0.0
+    iphone 5s (11.0.3)
+    Operating System Name: Mac OS High Sierra 
+    Operating System Version: 10.13
+    Node.js Version: 8.9.1
+    Xcode: 9.0.1
+    Appcelerator Studio: 5.0.0.201711280737</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25573.json">JSON Source</a></p>

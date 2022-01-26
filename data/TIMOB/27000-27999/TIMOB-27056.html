@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-27056] iOS: WebView HTML JS code can no longer access "Titanium." API (but "Ti." exists) as of 8.0.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-06-04T22:27:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>WebView, engSchedule, html, ios, regression</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-05-02T18:36:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-04T22:27:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The <code>Titanium</code> object is undefined within a <code>WebView</code>'s HTML <code><script/></code> as of 8.0.0.
+Only the <code>Ti</code> object is defined.
+
+*Steps to reproduce:*
+<h4>Set up a Classic Titanium "app.js" with the below code.</h4>
+<h4>Build and run on iOS with Titanium 8.0.0 or 8.0.1.</h4>
+<h4>Observe the log.</h4>
+
+<code><pre>
+var htmlText =
+		'<!DOCTYPE html>\n' +
+		'<html>\n' +
+		'	<head>\n' +
+		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+		'	</head>\n' +
+		'	<body>\n' +
+		'		<p>HTML JavaScript Titanium API Test</p>\n' +
+		'	</body>\n' +
+		'	<script>\n' +
+		'		document.addEventListener("DOMContentLoaded", function(e) {\n' +
+		'			Ti.API.info("@@@ Logging via Ti.API.info() method.");\n' +
+		'			Titanium.API.info("@@@ Logging via Titanium.API.info() method.");\n' +
+		'			Ti.App.fireEvent("app:requestLogMessage", {\n' +
+		'				message: "@@@ Fired event via Ti.App.fireEvent() method",\n' +
+		'			});\n' +
+		'			Titanium.App.fireEvent("app:requestLogMessage", {\n' +
+		'				message: "@@@ Fired event via Titanium.App.fireEvent() method",\n' +
+		'			});\n' +
+		'			Ti.App.addEventListener("app:signalHtml", function eventHandler() {\n' +
+		'				Ti.API.info("@@@ Received event via Ti.App.addEventListener() method.");\n' +
+		'				Ti.App.removeEventListener("app:signalHtml", eventHandler);\n' +
+		'			});\n' +
+		'			Titanium.App.addEventListener("app:signalHtml", function eventHandler() {\n' +
+		'				Titanium.API.info("@@@ Received event via Titanium.App.addEventListener() method.");\n' +
+		'				Titanium.App.removeEventListener("app:signalHtml", eventHandler);\n' +
+		'			});\n' +
+		'			Ti.App.fireEvent("app:webViewReady", {})\n' +
+		'		});\n' +
+		'	</script>\n' +
+		'</html>\n';
+
+Ti.App.addEventListener("app:requestLogMessage", function(e) {
+	Ti.API.info(e.message);
+});
+Ti.App.addEventListener("app:webViewReady", function(e) {
+	Ti.App.fireEvent("app:signalHtml", {});
+});
+
+var window = Ti.UI.createWindow();
+var webView = Ti.UI.createWebView({
+	html: htmlText,
+});
+window.add(webView);
+window.open();
+</pre></code>
+
+*Expected Result:*
+The following should be logged. (You'll get the below with a 7.5.1 built app.)
+<code><pre>
+[INFO]  @@@ Logging via Ti.API.info() method.
+[INFO]  @@@ Logging via Titanium.API.info() method.
+[INFO]  @@@ Fired event via Ti.App.fireEvent() method
+[INFO]  @@@ Fired event via Titanium.App.fireEvent() method
+[INFO]  @@@ Received event via Ti.App.addEventListener() method.
+[INFO]  @@@ Received event via Titanium.App.addEventListener() method.
+</pre></code>
+
+*Actual Result:*
+Only the 1st message gets logged in Titanium 8.0.0 or 8.0.1 because the script errors out when using the <code>Titanium</code> object. _(This is the bug.)_
+<code><pre>
+[INFO]  @@@ Logging via Ti.API.info() method.
+</pre></code>
+
+*Recommended Solution:*
+Add a <code>var Titanium = Ti;</code> to the code that gets injected into the WKWebView here...
+[TiUIWebView.m](<a href="https://github.com/appcelerator/titanium_mobile/blob/3d1569dededb35387b197a71317ffa3e7fb42ea8/iphone/Classes/TiUIWebView.m#L390)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/3d1569dededb35387b197a71317ffa3e7fb42ea8/iphone/Classes/TiUIWebView.m#L390)</a>
+
+*Work-Around:*
+Use the <code>Ti</code> object instead of the <code>Titanium</code> object within the HTML's script.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vijay Singh 2019-05-03
+
+   PR(master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10877" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10877</a>
+   Note- Above PR is same as of ticket TIMOB-27055. Fixed both issue in same ticket in master.
+   
+   PR(8_0_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10923" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10923</a></li>
+<li>Keerthi Mahalingam 2019-06-01
+
+   FR Passed. Waiting on jenkins</li>
+<li>Keerthi Mahalingam 2019-06-03
+
+   PR not merged for master. only merged on 8_0_X. waiting for resolving jenkin's failure</li>
+<li>Christopher Williams 2019-06-03
+
+   merged to master, 8_0_X, 8_1_X</li>
+<li>Keerthi Mahalingam 2019-06-04
+
+   Verified the fix on  master SDK 8.2.0.v20190603133455, SDK 8.1.0.v20190603133458 and SDK 8.0.2.v20190603133031.  logs shown in the console correctly.Closing
+   {CODE}
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Memory                      = 17179869184
+   Node.js
+     Node.js Version             = 8.9.1
+     npm Version                 = 5.5.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Titanium SDK
+     SDK Version                 = 8.1.0.v20190603133458 ,8.2.0.v20190603133455 and 8.0.2.v20190603133031
+    Device =Iphone 6s plus ios 12
+   Simulator . = iphone xR ios 12
+   {CODE}</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27056.json">JSON Source</a></p>

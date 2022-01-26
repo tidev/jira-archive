@@ -1,0 +1,174 @@
+---
+title: "[TIMOB-23858] iOS: getItems() on cleared Pasteboard errors and crashes"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-05T03:38:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.5.0</td></tr>
+<tr><th>Reporter</th><td>Eric Wieber</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-09-01T21:16:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-09-06T21:47:20.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The getItems() method is throwing an error after data has been cleared or items in the Pasteboard are invalid:
+<code><pre>
+[ERROR] :  2016-09-01 06:35:19.000 PasteboardCheck[12358:22821338] -[_NSZeroData boundBridge:withKrollObject:]: unrecognized selector sent to instance 0x79e63d80
+[ERROR] :  Script Error {
+[ERROR] :      column = 39;
+[ERROR] :      line = 58;
+[ERROR] :      message = "-[_NSZeroData boundBridge:withKrollObject:]: unrecognized selector sent to instance 0x79e63d80";
+[ERROR] :      stack = "[native code]\n";
+[ERROR] :  }
+</pre></code>
+
+*Steps to reproduce issue*
+1. Create a new project
+2. Add the below lines to the code, preferably on a button press:
+<code><pre>
+Ti.UI.Clipboard.clearData();
+alert(Ti.UI.Clipboard.getItems());
+</pre></code>
+3. Run the project and press the button or call the methods
+
+*Expected results*
+<code>getItems()</code> returns an empty array, without error
+
+*Actual results*
+The above error is thrown
+
+*Notes*
+This is stated in the docs for setItems(), but is there a way we can handle it better? Perhaps checking numberOfItems and using that to make sure the Pasteboard is not empty first?
+Although a runtime error is thrown, you can see an empty array returned from getItems() if you dismiss the error and call it again. However, If you clear the data with clearData() and then call getItems() too many times (sometimes 2), then the app will crash with the below error:
+<code><pre>
+[ERROR] :  The application has crashed with an uncaught exception 'NSInvalidArgumentException'.
+[ERROR] :  Reason:
+[ERROR] :  -[_NSZeroData unboundBridge:]: unrecognized selector sent to instance 0x79191700
+[ERROR] :  Stack trace:
+[ERROR] :  
+[ERROR] :  0   CoreFoundation                      0x06f851f0 __exceptionPreprocess + 160
+[ERROR] :  1   libobjc.A.dylib                     0x065fae66 objc_exception_throw + 52
+[ERROR] :  2   CoreFoundation                      0x06ffe3dc -[NSObject(NSObject) doesNotRecognizeSelector:] + 172
+[ERROR] :  3   CoreFoundation                      0x06f0434c ___forwarding___ + 1052
+[ERROR] :  4   CoreFoundation                      0x06f03f0e _CF_forwarding_prep_0 + 14
+[ERROR] :  5   PasteboardCheck                     0x00061d6e -[KrollBridge unregisterProxy:] + 158
+[ERROR] :  6   PasteboardCheck                     0x00070839 KrollFinalizer + 489
+[ERROR] :  7   PasteboardCheck                     0x0042c42c _ZN2TI20JSCallbackObjectData8finalizeENS_6HandleINS_7UnknownEEEPv + 108
+[ERROR] :  8   PasteboardCheck                     0x005fb4ae _ZN2TI9WeakBlock5sweepEv + 110
+[ERROR] :  9   PasteboardCheck                     0x005fd358 _ZN2TI7WeakSet5sweepEv + 40
+[ERROR] :  10  PasteboardCheck                     0x004eedbc _ZN2TI11MarkedBlock5sweepENS0_9SweepModeE + 28
+[ERROR] :  11  PasteboardCheck                     0x003c08fa _ZN2TI18IncrementalSweeper7doSweepEd + 154
+[ERROR] :  12  PasteboardCheck                     0x003c084b _ZN2TI18IncrementalSweeper6doWorkEv + 27
+[ERROR] :  13  PasteboardCheck                     0x003bf566 _ZN2TI9HeapTimer12timerDidFireEP16__CFRunLoopTimerPv + 166
+[ERROR] :  14  CoreFoundation                      0x06f115d6 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 22
+[ERROR] :  15  CoreFoundation                      0x06f110ed __CFRunLoopDoTimer + 1213
+[ERROR] :  16  CoreFoundation                      0x06f10bff __CFRunLoopDoTimers + 255
+[ERROR] :  17  CoreFoundation                      0x06f086c0 __CFRunLoopRun + 2208
+[ERROR] :  18  CoreFoundation                      0x06f07bab CFRunLoopRunSpecific + 395
+[ERROR] :  19  CoreFoundation                      0x06f07a0b CFRunLoopRunInMode + 123
+[ERROR] :  20  GraphicsServices                    0x08241b4c GSEventRunModal + 177
+[ERROR] :  21  GraphicsServices                    0x082419c7 GSEventRun + 80
+[ERROR] :  22  UIKit                               0x025480eb UIApplicationMain + 148
+[ERROR] :  23  PasteboardCheck                     0x000462e8 main + 408
+[ERROR] :  24  libdyld.dylib                       0x07d96799 start + 1
+[ERROR] :  25  ???                                 0x00000001 0x0 + 1
+[ERROR] :  
+[ERROR] :  2016-09-01 06:37:27.651 PasteboardCheck[12715:22825481] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[_NSZeroData unboundBridge:]: unrecognized selector sent to instance 0x79191700'
+[ERROR] :  *** First throw call stack:
+[ERROR] :  (
+[ERROR] :  	0   CoreFoundation                      0x06f85212 __exceptionPreprocess + 194
+[ERROR] :  	1   libobjc.A.dylib                     0x065fae66 objc_exception_throw + 52
+[ERROR] :  	2   CoreFoundation                      0x06ffe3dc -[NSObject(NSObject) doesNotRecognizeSelector:] + 172
+[ERROR] :  	3   CoreFoundation                      0x06f0434c ___forwarding___ + 1052
+[ERROR] :  	4   CoreFoundation                      0x06f03f0e _CF_forwarding_prep_0 + 14
+[ERROR] :  	5   PasteboardCheck                     0x00061d6e -[KrollBridge unregisterProxy:] + 158
+[ERROR] :  	6   PasteboardCheck                     0x00070839 KrollFinalizer + 489
+[ERROR] :  	7   PasteboardCheck                     0x0042c42c _ZN2TI20JSCallbackObjectData8finalizeENS_6HandleINS_7UnknownEEEPv + 108
+[ERROR] :  	8   PasteboardCheck                     0x005fb4ae _ZN2TI9WeakBlock5sweepEv + 110
+[ERROR] :  	9   PasteboardCheck                     0x005fd358 _ZN2TI7WeakSet5sweepEv + 40
+[ERROR] :  	10  PasteboardCheck                     0x004eedbc _ZN2TI11MarkedBlock5sweepENS0_9SweepModeE + 28
+[ERROR] :  	11  PasteboardCheck                     0x003c08fa _ZN2TI18IncrementalSweeper7doSweepEd + 154
+[ERROR] :  	12  PasteboardCheck                     0x003c084b _ZN2TI18IncrementalSweeper6doWorkEv + 27
+[ERROR] :  	13  PasteboardCheck                     0x003bf566 _ZN2TI9HeapTimer12timerDidFireEP16__CFRunLoopTimerPv + 166
+[ERROR] :  	14  CoreFoundation                      0x06f115d6 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 22
+[ERROR] :  	15  CoreFoundation                      0x06f110ed __CFRunLoopDoTimer + 1213
+[ERROR] :  	16  CoreFoundation                      0x06f10bff __CFRunLoopDoTimers + 255
+[ERROR] :  	17  CoreFoundation                      0x06f086c0 __CFRunLoopRun + 2208
+[ERROR] :  	18  CoreFoundation                      0x06f07bab CFRunLoopRunSpecific + 395
+[ERROR] :  	19  CoreFoundation                      0x06f07a0b CFRunLoopRunInMode + 123
+[ERROR] :  	20  GraphicsServices                    0x08241b4c GSEventRunModal + 177
+[ERROR] :  	21  GraphicsServices                    0x082419c7 GSEventRun + 80
+[ERROR] :  	22  UIKit                               0x025480eb UIApplicationMain + 148
+[ERROR] :  	23  PasteboardCheck                     0x000462e8 main + 408
+[ERROR] :  	24  libdyld.dylib                       0x07d96799 start + 1
+[ERROR] :  	25  ???                                 0x00000001 0x0 + 1
+[ERROR] :  )
+[ERROR] :  libc++abi.dylib: terminating with uncaught exception of type NSException
+[TRACE] :  [PasteboardCheck] -[_NSZeroData unboundBridge:]: unrecognized selector sent to instance 0x79191700
+[TRACE] :  [PasteboardCheck] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[_NSZeroData unboundBridge:]: unrecognized selector sent to instance 0x79191700'
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-09-04
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/8313" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8313</a>
+   PR (6_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8312" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8312</a>
+   PR (5_5_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8311" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8311</a>
+   
+   Test-case 1: Set invalid items, clear data, get items again:
+   <code><pre>
+   Ti.UI.Clipboard.setItems({
+       items: [{
+           "__text__invalid/plain": "Appcelerator"
+       }]
+   });
+   Ti.UI.Clipboard.clearData();
+   alert(Ti.UI.Clipboard.getItems());
+   </pre></code>
+   Expected: Empty array, no crash
+   
+   Test-case 2: Set invalid items, don't clear data, get items again: 
+   <code><pre>
+   Ti.UI.Clipboard.setItems({
+       items: [{
+           "__text__invalid": "Appcelerator"
+       }]
+   });
+   alert(Ti.UI.Clipboard.getItems());
+   </pre></code>
+   Expected: Error-log about invalid mime-type, empty array, no crash</li>
+<li>Hans Knöchel 2016-09-04
+
+   [~cng] This will be the last ticket you will see for the Pasteboard-API's. Sorry for the inconvenience caused!</li>
+<li>Chee Kiat Ng 2016-09-05
+
+   CR and FT passed. APPROVED! 
+   PRs merged.
+   </li>
+<li>Eric Wieber 2016-09-06
+
+   Verified fixed, using:
+   
+   MacOS 10.12 (16A239m)
+   Studio 4.7.1.201608190732
+   Ti SDK 5.5.0.v20160904203801
+   Appc NPM 4.2.7
+   Appc CLI 5.5.0-5
+   Alloy 1.9.1
+   Xcode 8.0 (8S201h)
+   
+   <code>getItems</code> no longer throws an error. Tested using the provided examples as well as reusing the examples that I used when discovering the issue. <code>getItems</code> was called when the Pasteboard was in multiple different states and it did not throw any errors.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23858.json">JSON Source</a></p>

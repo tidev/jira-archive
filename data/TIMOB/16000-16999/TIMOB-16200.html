@@ -1,0 +1,84 @@
+---
+title: "[TIMOB-16200] ACS: Cache problem in ACS"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>kazuaki konno</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-12-19T11:41:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:04:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+CCPhoto.m Line:227
+
+
+-(NSString *)localPathForPhotoSize:(NSString *)photoSize
+{
+return [NSString stringWithFormat:@"%@/%@_%d", [Cocoafish defaultCocoafish].cocoafishDir, self.objectId, photoSize];
+}
+
+
+ACS photos can not update if the photo id is the same.
+ 
+When we were developing Facebook like SNS, we used photos on ACS for the user's profile. And we tried to change the photo, but it didn't. So looked into the source and found the problem. 
+
+Line: 215
+-(UIImage *)getImageForPhotoSize:(NSString *)photoSize;
+
+This method cache photo data. And it will be used objectID for the cache data path.
+
+
+When user in ACS updated the photo, photo's objectID will not be changed and only photo itself will be replaced. The cache and loading cache by getImageForPhotoSize: method can not be used because this tries to use the existing cache unless the objectID wouldn't change.
+
+So we fixed as following;
+
+
+-(NSString *)localPathForPhotoSize:(NSString *)photoSize
+{
+    return [NSString stringWithFormat:@"%@/%@_%@", [Cocoafish defaultCocoafish].cocoafishDir, self.md5, photoSize];
+}
+
+We used md5 instead of objectID. 
+
+And as follwoing, there is also the problem. 
+Line:207
+-(NSString *)localPath:(PhotoSize)photoSize
+{
+    if (photoSize < CC_SQUARE_75 || photoSize > CC_ORIGINAL) {
+        [NSException raise:@"Invalid Photo Size" format:@"Unknown photo size",photoSize];
+    }
+return [NSString stringWithFormat:@"%@/%@_%d", [Cocoafish defaultCocoafish].cocoafishDir, self.objectId, photoSize];
+}
+
+
+So we changed to use md5 instead of objectID.
+
+-(NSString *)localPath:(PhotoSize)photoSize
+{
+    if (photoSize < CC_SQUARE_75 || photoSize > CC_ORIGINAL) {
+        [NSException raise:@"Invalid Photo Size" format:@"Unknown photo size",photoSize];
+    }
+return [self localPathForPhotoSize:[CCPhoto getPhotoSizeString:photoSize]];
+}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2013-12-20
+
+   Thanks for reporting this problem. Engineering is going to review this issue and provide an update shortly.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16200.json">JSON Source</a></p>

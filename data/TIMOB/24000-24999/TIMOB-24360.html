@@ -1,0 +1,168 @@
+---
+title: "[TIMOB-24360] Android: Cant clear TableView anymore"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-05T17:13:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>defect</td></tr>
+<tr><th>Reporter</th><td>Creative</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-01-18T10:28:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-05T17:13:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Populate a Ti.UI.TableView with some rows, and try to remove them using:
+
+<code><pre>
+$.myTableViewReference.setData([]);
+// I also tried (which didnt work as well):
+$.myTableViewReference.data = [];
+</pre></code>
+
+I've attached a screenshot of the error I'm getting through Android Monitor (this doesnt show up in my Titanium console since the app just instantly dies).
+
+As stated, this is on Android only. I'm not having these issues with the same code on iOS.
+
+I was hoping to provide a testcase, but I cant reproduce it with a blank table like:
+<code><pre>
+var x = Ti.UI.createTableView();
+x.appendRow(Ti.UI.createTableViewRow());
+x.data = [];
+// The code above just works.
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24360_61278/Schermafbeelding 2017-01-18 om 11.18.59.png">Schermafbeelding 2017-01-18 om 11.18.59.png</td></td><td>2017-01-18T10:22:36.000+0000</td><td>58769</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2017-01-18
+
+   Hello, I am testing the below code in Android and it works as expected. 
+   <code><pre>
+      <Alloy>
+       <Window id="win" backgroundColor="white">
+           <TableView id="table">
+                   <TableViewRow title="Apple" backgroundColor="gray"/>
+                   <TableViewRow title="Bananas" backgroundColor="gray"/>
+                   <TableViewRow title="Carrots" backgroundColor="gray"/>
+                   <TableViewRow title="Potatoes" backgroundColor="gray"/>
+                   <TableViewRow title="Cod" backgroundColor="gray"/>
+                   <TableViewRow title="Haddock" backgroundColor="gray"/>
+           </TableView>
+           <Button id="button" onClick="doClick" title="Hello"
+           bottom="10" width="100" height="50" />
+       </Window>
+   </Alloy>
+   </pre></code>
+   <code><pre>
+   function doClick(e) {
+       Titanium.API.info("You clicked the button");
+       $.table.data = [];
+   };
+   
+   $.win.open();
+   </pre></code>
+   
+   I can clear the table view with the blank date like this. Both $.table.setData([]); and $.table.data = [];. Thanks.
+   
+   
+   </li>
+<li>Creative 2017-01-18
+
+   hmm im positive it breaks in my (quite a bit bigger) situation. Perhaps try adding a clickhandler to the tableviewrows.
+   
+   I will try to debug the contents of the TableViewRow tomorrow, and see if any of that causes the issue. Sadly with this bug I cant deploy on SDK 6.0+.
+   
+   I will add to this bugreport soon.</li>
+<li>Sharif AbuDarda 2017-01-19
+
+   Hello [~uzbbert], Did you checked? Get back to us. </li>
+<li>Creative 2017-01-19
+
+   yes im on it</li>
+<li>Creative 2017-01-19
+
+   i've managed to create a testcase:
+   
+   
+   <code><pre>
+   var x = Ti.UI.createTableView();
+   var spacer = Ti.UI.createTableViewRow();
+   
+   x.add(spacer);
+   x.addEventListener('postlayout',function() {
+       spacer.height=10;
+   });
+   
+   x.setData([]);
+   </pre></code>
+   
+   This kills the application</li>
+<li>Sharif AbuDarda 2017-01-20
+
+   Hello, I don't see the issue. with
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   win.open();
+   
+   var x = Ti.UI.createTableView();
+   win.add(x);
+   
+   var spacer = Ti.UI.createTableViewRow();
+   
+   x.add(spacer);
+   
+   x.addEventListener('postlayout', function() {
+   
+       spacer.height = 10;
+   
+   });
+   
+   x.setData([]);
+   </pre></code>
+   I saw this error in console 
+   <code><pre>
+   [ERROR] :  Attempt to invoke virtual method 'void org.appcelerator.titanium.view.TiUIView.registerForTouch()' on a null object reference
+   </pre></code>
+   But app opens fine. Thanks.
+   </li>
+<li>Creative 2017-01-22
+
+   What are you testing on? I ran the snippet on an Android Z3 Compact (D5803) running Android 6.0.1.
+   
+   As soon as this code is executed the app dies (it completely exits).
+   
+   Also the Error you're getting in the console, isnt that worth further investigation?</li>
+<li>Sharif AbuDarda 2017-01-23
+
+   Hello, I am testing on Galaxy J7 Android 6.0.1.</li>
+<li>Creative 2017-01-25
+
+   I've fixed this now in my situation, by simply re-assigning the <code>spacer</code> variable like <code>TableView.data = [spacer]</code> right after i've cleared the TableView. Still the sample code used to work on pre 6.0 SDK so I'm quite positive something has changed in the codebase that caused this.
+   
+   I expect the app to throw an error always, and that it should be impossible to completely kill the app due to a code error.</li>
+<li>Carlos Henrique Zinato 2017-07-07
+
+    I was facing this problem on Android 6 with SDK 6.0.2.GA. This was working fine with 5.5.2. I was re-using some rows and updating then on the TableView. To fix it, I'm just destroying and creating the row again.
+    But this still an issue I think.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24360.json">JSON Source</a></p>

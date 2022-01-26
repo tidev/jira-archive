@@ -1,0 +1,115 @@
+---
+title: "[AC-6128] Android - REQUEST_IGNORE_BATTERY_OPTIMIZATIONS doesn't work"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2019-02-23T16:23:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>android, battery, optimization, permissions</td></tr>
+<tr><th>Reporter</th><td>josh.mocek</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-02-06T14:55:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-02-23T16:23:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In android 8.0 some background processes don't run because the app is no longer in the foreground. I would like to add this line to the tiapp.xml to ignore the battery optimization, but it doesn't work.
+
+<code><pre>
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-6128_66135/tiapp.xml">tiapp.xml</td></td><td>2019-02-06T14:46:03.000+0000</td><td>3811</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2019-02-06
+
+   Hello [~josh.mocek], Can you please share a sample code/project for us to test the issue? Thanks.</li>
+<li>josh.mocek 2019-02-06
+
+   I can, but the only thing that's going to happen is you make the boiler plate app and replace that tiapp.xml with the one I attached.</li>
+<li>Joshua Quick 2019-02-07
+
+   You should be using a "foreground" service. That's what Google prefers because it involves displaying a notification in the top status bar which informs the end-user that your app is doing work in the background.
+   
+   We added foreground service support in Titanium 7.3.0.
+   Have a look at the below for a code example.
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10076" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10076</a>
+   
+   Also note that you'll need to add the following Android permission to use a foreground service.
+   <code><pre>
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+   </pre></code></li>
+<li>josh.mocek 2019-02-08
+
+   So I have set an interval to create an http request to the server every 10 minutes. If I turn battery optimization off they run. If Android 8 is optimizing the battery it doesn't. I tested that foreground service and it didn't fix the problem.</li>
+<li>Joshua Quick 2019-02-08
+
+   Okay. I took a deeper dive into this. I think you have to worry about doze mode too which kill network communications. And doze mode ignores wake-locks too.
+   <a href="https://developer.android.com/training/monitoring-device-state/doze-standby#restrictions" rel="nofollow" target="_blank">https://developer.android.com/training/monitoring-device-state/doze-standby#restrictions</a>
+   
+   The "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" manifest permission isn't enough. You also have to request the end-user's permission as well. Details about this can be found below. It involves displaying a system dialog via a <code>startActivity()</code> and an <code>Intent</code>, which you *+can+* do in JavaScript. Just note that the end-user can say "no" and ban your app from ever requesting this again.
+   <a href="https://commonsware.com/blog/2015/11/11/google-anti-trust-issues.html" rel="nofollow" target="_blank">https://commonsware.com/blog/2015/11/11/google-anti-trust-issues.html</a>
+   
+   So, you need to add the permission in your "tiapp.xml". Titanium blindly copies whatever permission you add here, so this part was already working.
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+   	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+   		<manifest>
+   			<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+   		</manifest>
+   	</android>
+   </ti:app>
+   </pre></code>
+   
+   And you can request the end-user to give your app permission as follows.
+   <code><pre>
+   function requestIgnoreBatteryOptimizations() {
+   	if (Ti.Platform.Android.API_LEVEL >= 23) {
+   		var intent = Ti.Android.createIntent({
+   			action: "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+   			data: "package:" + Ti.App.Android.launchIntent.packageName,
+   		});
+   		Ti.Android.currentActivity.startActivity(intent);
+   	}
+   }
+   </pre></code>
+   
+   Unfortunately, Google doesn't appear to provide any feedback on which option ("Allow" or "Deny") was selected in the request dialog shown by the above code. Google doesn't return a "result" when launched via <code>startActivityForResult()</code>. Nor are there any native listeners. It looks like your only option is to poll the Java [PowerManager.isIgnoringBatteryOptimizations()](<a href="https://developer.android.com/reference/android/os/PowerManager#isIgnoringBatteryOptimizations(java.lang.String))" rel="nofollow" target="_blank">https://developer.android.com/reference/android/os/PowerManager#isIgnoringBatteryOptimizations(java.lang.String))</a> method via hyperloop.
+   
+   Doing the above appears to be your only option. And it appears to be frowned upon by Google too and they'll likely question it if they ever review your app to be "featured" on Google Play. Google's list of what they think is acceptable for an app to do this can be found below.
+   <a href="https://developer.android.com/training/monitoring-device-state/doze-standby#whitelisting-cases" rel="nofollow" target="_blank">https://developer.android.com/training/monitoring-device-state/doze-standby#whitelisting-cases</a>
+   </li>
+<li>Rakhi Mitro 2019-02-12
+
+   Hello [~josh.mocek],
+   
+   Did you find our last reply helpful for your progress? Let us know the updates from your end.</li>
+<li>josh.mocek 2019-02-12
+
+   Ti.Android.currentActivity.startActivity is always throws a red screen for me</li>
+<li>Sharif AbuDarda 2019-02-12
+
+   Hello [~josh.mocek], Did you try the code guide provided by Joshua? Can you share the log of the error? also the error screenshot will be helpful. Thanks.</li>
+</ol>
+
+
+<p><a href="/AC/AC-6128.json">JSON Source</a></p>

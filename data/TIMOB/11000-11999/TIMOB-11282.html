@@ -1,0 +1,213 @@
+---
+title: "[TIMOB-11282] Android TableView with remote images is very slow"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-29T00:33:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.2, Release 3.1.0, 2013 Sprint 02 API, 2013 Sprint 02</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Android, Performance, TableView, api, insight</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-10-05T20:40:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:42:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>The problem</h4>
+Loading a large tableview with remote images makes the scrolling really slow. If the images that are visible have not been downloaded, the app becomes almost unresponsive until they are downloaded.
+
+<h4>Details</h4>
+The sample code contains a table view with about 200 rows. These rows are separated by various sections, 10 of them. Run the code in app.js, once the table loads, scroll down as fast as possible, and if possible. You'll notice the performance is not there. Even when the images are loaded, the scrolling is still not close to native.
+
+<h4>The code</h4>
+The code is posted in a private comment, as it contains confidential image urls provided by the customer.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-11282_33323/ddms5847326689925497627.trace">ddms5847326689925497627.trace</td></td><td>2012-11-07T18:28:19.000+0000</td><td>4033624</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Belkin 2012-10-06
+
+   I've been fighting this problem for ages. I tried caching the remote images and loading them with the native path but this only marginally improved things. It seems that Ti on Android just can't handle a tableview with lots of images, due primarily to memory management. Even modifying tableview layout 2 in kitchen sink causes this.
+   
+   I really think this is a crippling feature for titanium and I've seriously considered going native because of it (my app is pretty much all tableviews with images). Any fix or improvement would be tremendously appreciated!</li>
+<li>Karl Rowley 2012-11-02
+
+   I tried out the sample app on Samsung Galaxy S2 and also Samsung Galaxy S3,
+   over the carrier data network in both cases.  Performance didn't seem bad to
+   me, and scrolling seemed reasonable.  I did notice that images were filled in
+   after the table had scrolled -- that's expected here.
+   
+   Can you give me more details about where the slowdown was seen?  What is the
+   hardware, and was it on a very slow network?   
+   
+   </li>
+<li>Darren Haligas 2012-11-05
+
+   The issue has been seen on both Galaxy S2 and S3 phones regardless of network speed.  The apps we build have more than one view before getting to the list and even after the images are loaded the scrolling is sub par (even on galaxy S3 which is very powerful).  I have yet to be able to get native like scrolling speeds with android with images in the table view.  
+   
+   I know it can be faster as native apps on the S2 (like imdb) scroll without any jerking or stuttering.   </li>
+<li>Karl Rowley 2012-11-07
+
+   Attaching a ddms trace file, it was made by profiling on the Android 2.2 emulator.</li>
+<li>Karl Rowley 2012-11-07
+
+   These are some highlights from the ddms trace file -- some
+   of the time-consuming methods in percent:
+   
+   ListView.fillDown  75 %
+   
+   TiTableView.getView    58 %
+   
+   TiTableViewRowProxyItem.createControls 54%
+   
+   TiUIImageView.processProperties 50 %
+   
+   TiUIImageView.setImage  43 %
+   
+   TiResponseCache.peek  18 %
+   
+   </li>
+<li>Darren Haligas 2012-11-07
+
+   Karl help me understand these numbers.  Does it show where the scrolling performance is being hindered?  
+   
+   How could the table view have scrolling issues once the native controls are rendered?  Is TiTableViewRowProxyItem.createControls 54% taking too long?</li>
+<li>Karl Rowley 2012-11-07
+
+   
+   Each time the table scrolls and a new row is added to the bottom,
+   the UI thread calls getView().   This blocks the UI thread from
+   doing anything else until it returns.  The profiling data says that 
+   each call to getView() is taking about 0.8 seconds.  It didn't feel
+   like it was quite that slow when I ran the test on the emulator, by 
+   the way.
+   
+   Handling of the images is taking a lot of time.
+   
+   Better performance in getView() would go a long way towards fixing
+   TableView performance.</li>
+<li>Karl Rowley 2012-11-08
+
+   Pull request <a href="https://github.com/appcelerator/titanium_mobile/pull/3395" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3395</a>
+   
+   Note that you'll need to use a slow device in order to see the
+   slowness here.  A good choice is the Android 2.2 emulator.  If you
+   use a fast device you won't see the problem.
+   
+   </li>
+<li>Darren Haligas 2012-11-12
+
+   Karl is there a way I can pull what you have done into a custom image view module for android to test this out?</li>
+<li>Darren Haligas 2012-11-12
+
+    How did the change to made effect the performance?</li>
+<li>Karl Rowley 2012-11-15
+
+    I've updated the pull request at <a href="https://github.com/appcelerator/titanium_mobile/pull/3395." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3395.</a>
+    It's ready for review.</li>
+<li>Darren Haligas 2012-12-03
+
+    Any way this can be added to 3.0?</li>
+<li>Ingo Muschenetz 2012-12-03
+
+    @Darren--Unlikely, as we're past our 3.0 code freeze date. However, it will go in 3.0.1, and you can use it now off of the "master" branch.</li>
+<li>Luis Miguel García 2013-01-09
+
+    I don't know what "Release 3.1.0, 2012 Sprint 24, 2012 Sprint 24 API" means, but, is this not going to be fixedin 3.0.1? This is a major issue to us too.</li>
+<li>Ping Wang 2013-01-24
+
+    The RejectedExecutionException described in Vishal's comment happens when workqueue in the ThreadPoolExecutor is full and the Executor cannot accept more tasks. This only happens between DONUT (API 4) and HONEYCOMB (API 11) because in those API levels the [execute()](<a href="http://developer.android.com/reference/android/os/AsyncTask.html#execute(Params...))" rel="nofollow" target="_blank">http://developer.android.com/reference/android/os/AsyncTask.html#execute(Params...))</a> function schedules the task on a queue for a pool of threads allowing multiple tasks to operate in parallel. Starting HONEYCOMB, tasks are executed on a single thread to avoid common application errors caused by parallel execution.</li>
+<li>Ping Wang 2013-01-24
+
+    PR to fix RejectedExecutionException: <a href="https://github.com/appcelerator/titanium_mobile/pull/3780" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3780</a></li>
+<li>Darren Haligas 2013-01-30
+
+    I would like to see this in 3.0.2.  Very important to improve table view performance</li>
+<li>Mauro Parra-Miranda 2013-01-30
+
+    Darren, 
+    Pia made this fix for 3.0.2 as well :-)
+    
+    Best,
+    Mauro </li>
+<li>Eric Merriman  2013-02-06
+
+    Added 3.0.2 fixVersion after speaking with Vishal. Ticket was back ported to 3.0.2.</li>
+<li>Lokesh Choudhary 2013-02-09
+
+    Verified the issue and found it to be slightly choppy but nothing which stands out.
+    Thus closing the issue. 
+    
+    Environment:
+    Ti Studio : 3.0.2.201302041757
+    Ti BB SDK : 3.0.2.v20130207164659
+    Mac OSX : 10.8.2
+    CLI Version : 3.0.24-cr
+    Samsung galaxy s3 -- android 4.0.4
+    Nexus 4 -- android 4.2</li>
+<li>Banzai Mobile 2013-02-20
+
+    Sorry to disagree, but behavior as I see it in 3.0.2 is even worse than the original problem.
+    
+    Now, rows with the same className seem to be recycled by FIRST painting the row with ALL its old content, then updating with the correct content. This is hugely noticeable if you have a listing of images (e.g. in a shopping app): you scroll down and see again the first block of rows, then they change under your eyes.
+    
+    If you try removing the className property, no row content is ever preserved, so if you scroll down and then back up, rows that were already fully painted start again from white.
+    
+    Compare with 2.1.4 behavior, where revealed rows start as white, but after painting they stay even after scrolling out. This is what is typically expected as standard experience.
+    
+    Please consider reverting to old behavior, or at least providing a property combination that allows the same effect.
+    </li>
+<li>Ingo Muschenetz 2013-02-20
+
+    @Banzai...can you please provide a snippet of code that demonstrates the problem?</li>
+<li>Banzai Mobile 2013-02-21
+
+    @Ingo, I see it should have been reported already in a premium support ticket by Brian Knorr (mentioned at the bottom of this alloy discussion: <a href="https://groups.google.com/forum/?fromgroups=#" rel="nofollow" target="_blank">https://groups.google.com/forum/?fromgroups=#</a>!topic/appc-ti-alloy/OswZqAoXTpg).
+    
+    Anyway, on Android 3.0.2 any tableView with remote images (if they are as big as the row the effect is more evident) and more than 10-15 rows will exhibit the behavior:
+    - same className for all rows -> revealed rows appear as copies of rows previously on screen (i.e. if screen is tall enough for 5 rows, the 6th will slide in with contents of row 1, 7th with row 2, etc, then quickly update to its correct content); 
+    - no className -> rows that scroll out of view start again empty when scrolling back in.</li>
+<li>Ping Wang 2013-02-21
+
+    Created TIMOB-12816 for the issues reported above.</li>
+<li>Darren Haligas 2013-02-22
+
+    I can confirm that this was not properly fixed.  Not only that it makes the table view completely useless and MUCH slower than 3.0.0 GA.  Cannot use this build.</li>
+<li>Ingo Muschenetz 2013-02-22
+
+    @Darren. Thank you for the update. Can you please attach a test case that demonstrates the problem for you?</li>
+<li>kent hao 2013-04-02
+
+    i have the same problem in sdk3.0.2, the tableview with images scroll uneasy, of course classname is used</li>
+<li>kent hao 2013-04-02
+
+    by the way, i already cache the remote images before the table view is loaded</li>
+<li>Ingo Muschenetz 2013-04-02
+
+    For all those commenting on the above issues, can you please try the latest CI of 3.1.0 from the master branch. That should have addressed your concerns.</li>
+<li>kent hao 2013-04-03
+
+    Thanks for your info. i'm sorry, i've never used a CI package, could you tell me where i can get it?</li>
+<li>Ingo Muschenetz 2013-04-03
+
+    Sure. Read here: <a href="http://docs.appcelerator.com/titanium/2.0/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.0/#</a>!/guide/Installing_Titanium_SDK_Continuous_Builds</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11282.json">JSON Source</a></p>

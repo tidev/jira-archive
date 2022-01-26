@@ -1,0 +1,119 @@
+---
+title: "[TIMOB-6459] Android: MapView Annotations - leftButton/rightButton don't appear when included from a commonjs subdirectory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-05T13:58:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>branch-v8, dr-list, regression</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Marshall Culpepper</td></tr>
+<tr><th>Created</th><td>2011-12-05T10:48:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:43:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Expected bahavior</h4>
+
+Given the test case below, the delete.png image should be shown as the leftButton on the MapView Annotation when selected.
+
+<h4>Actual Behavior</h4>
+
+The leftButton does not appear at all. This occurs only on 1.8.0.1 for both rhino and v8. 1.7.5 and 1.8.0v20111114 perform as expected.
+
+The problem occurs only when the annotation/mapview are created in a commonjs module that is in a subdirectory of the Resources directory. So for example, the below test case will show the failing behavior, but if you moved winInclude.js to the main Resources directory, instead of the 'ui' subdirectory, it will work as it should.
+
+<h4>test case</h4>
+<h4>app.js</h4>
+
+Creating the window from *Resources/winInclude.js* rather than *Resources/ui/winInclude.js* will make everything work fine.
+
+<code><pre>
+// This will make it work, provided you move winInclude.js to the Resources directory
+// var win = require('winInclude').createWin();
+
+var win = require('ui/winInclude').createWin();
+win.open();
+</pre></code>
+
+<h4>ui/winInclude.js</h4>
+
+<code><pre>
+exports.createWin = function() {
+	var win = Ti.UI.createWindow({
+		backgroundColor: '#fff',
+		fullscreen: false
+	});
+	var mapview;
+	
+	// win gets create in open function otherwise the map won't re-render
+	// on pinch, zoom, location change, etc...
+	win.addEventListener('open', function(e) {
+		mapview = Titanium.Map.createView({
+		    mapType: Titanium.Map.STANDARD_TYPE,
+		    region: {
+				latitude: 37.389569, 
+				longitude: -122.050212,
+		        latitudeDelta: 0.1, 
+		        longitudeDelta: 0.1
+		    },
+		    animate:true,
+		    regionFit:true,
+		    userLocation:false
+		});
+		
+		// Add initial annotation
+		mapview.addAnnotation(Ti.Map.createAnnotation({
+			animate: true,
+			pincolor: Titanium.Map.ANNOTATION_RED,
+			title: 'Appcelerator',
+			latitude: 37.389569,
+			longitude: -122.050212,
+			leftButton: 'delete.png'
+		}));
+		
+		// Handle all map annotation clicks
+		mapview.addEventListener('click', function(e) {
+		    if (e.annotation && (e.clicksource === 'leftButton' || e.clicksource === 'leftPane')) {    
+		        mapview.removeAnnotation(e.annotation);
+		    }         
+		});
+		win.add(mapview);
+	});
+	return win;
+};
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6459_24467/delete.png">delete.png</td></td><td>2011-12-05T13:39:21.000+0000</td><td>2515</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Marshall Culpepper 2011-12-05
+
+   You don't explicitly state this, but I assume that <code>delete.png</code> lives at <code>Resources/ui/delete.png</code> ?</li>
+<li>Tony Lukasavage 2011-12-05
+
+   I attached delete.png, which can be placed at Resources/delete.png</li>
+<li>Tony Lukasavage 2011-12-05
+
+   Turns out this was a result of a change in behavior in how paths are handled in commonjs modules. In versions prior to 1.8.0.1, all paths were considered relative to the root of the project. With 1.8.0.1, paths are relative to the path of the module. You can make the paths relative to the root simply by appending '/' in front to make it an absolute path.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6459.json">JSON Source</a></p>

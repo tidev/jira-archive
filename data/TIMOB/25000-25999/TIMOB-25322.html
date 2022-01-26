@@ -1,0 +1,214 @@
+---
+title: "[TIMOB-25322] iOS: Geolocation should be able to handle iOS 11 permission upgrade, Media should warn when writing to gallery"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-27T18:40:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jeroen van Dijk</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-09-20T10:37:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-31T03:42:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Context</h4>
+
+Since iOS 11 the location permission model is more strict. Developers are not allowed to support "Always" only anymore. Apple advices a 2 step approach to ask users for the "Always" support as explained in this blogpost:
+<a href="https://m.rover.io/wwdc-2017-update-significant-updates-to-location-permissions-coming-with-ios-11-41f96001f87f" rel="nofollow" target="_blank">https://m.rover.io/wwdc-2017-update-significant-updates-to-location-permissions-coming-with-ios-11-41f96001f87f</a>
+
+The current geolocation module doesn't support this strategy though due to this check: <a href="https://github.com/appcelerator/titanium_mobile/blob/822b2eeca1af07d6405ec47e5a33568b12362939/iphone/Classes/GeolocationModule.m#L816" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/822b2eeca1af07d6405ec47e5a33568b12362939/iphone/Classes/GeolocationModule.m#L816</a>
+
+Because of this, you won't be able to support the advised approach to require users to authorise the 'Always' mode which is needed to support geofences and beacon technology.
+
+Read more [here](<a href="https://developer.apple.com/documentation/corelocation/choosing_the_authorization_level_for_location_services/request_always_authorization)." rel="nofollow" target="_blank">https://developer.apple.com/documentation/corelocation/choosing_the_authorization_level_for_location_services/request_always_authorization).</a> 
+
+Edit by Hans: In addition, there is another new constant called <code>NSPhotoLibraryAddUsageDescription</code> that is now required when attempting to write to the photo-gallery. It works without this change, but this change will warn the user if it's not set to track down the changes more easily.
+
+P.S.: (by Hans): Apple made a typo in the above article. It is <code>NSLocationAlwaysAndWhenInUseUsageDescription</code>, not <code>NSLocationAlwaysAndWhenInUsageDescription</code>. I filed a radar for Apple regarding that.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-09-20
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9458" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9458</a>
+   PR (6_3_X): (Awaiting initial fix to be accepted)
+   
+   *Test-Case*:
+   <h4>Add the NSLocationAlwaysAndWhenInUseUsageDescription to your plist and ensure location services (GPS) are turned on</h4>
+   <h4>Click the first button. It should display the options "When In Use" or "Never"</h4>
+   <h4>Click the second button (to request "Always" permissions). It should display both options (When in Use + Always), select "Always"</h4>
+   <h4>Click the third button. It should log the current location and no warning</h4>
+   <h4>Reset the simulator and try to hit the third button without granting any permissions. It should work but throw a warning in the logs, telling you to request permissions beforehand when using iOS 11 and later.</h4>
+   
+   *Code*:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff',
+       layout: 'vertical'
+   });
+    
+   var btn1 = Ti.UI.createButton({
+       title: '1. Request "When In Use" authorization',
+       top: 50
+   });
+    
+   btn1.addEventListener('click', function() {
+       if (Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE)) {
+         Ti.API.info('Success (has "when in use" already)');
+         return;
+       }
+   
+       Ti.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE, function(e) {
+         Ti.API.info('Success (when in use): ' + e.success);
+         if (!e.success) {
+           Ti.API.error('Error (when in use): ' + e.error);
+         }
+       });
+   });
+    
+   var btn2 = Ti.UI.createButton({
+       title: '2. Upgrade to "Always" authorization',
+       top: 50
+   });
+    
+   btn2.addEventListener('click', function() {
+     if (Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS)) {
+       Ti.API.info('Success (has "always" already)');
+       return;
+     }
+     Ti.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS, function(e) {
+       Ti.API.info('Success (always): ' + e.success);
+       if (!e.success) {
+         Ti.API.error('Error (always): ' + e.error);
+       }
+     });
+   });
+    
+   var btn3 = Ti.UI.createButton({
+       title: '3. Use Ti.Geolocation API\'s',
+       top: 50
+   });
+    
+   btn3.addEventListener('click', function() {
+     
+     if (!Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_ALWAYS) && !Ti.Geolocation.hasLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE)) {
+       Ti.API.warn('Prepare: Probably will warn on iOS 11 (only) because trying to access Ti.Geolocation API\'s without authorizing before');
+     }
+     
+     Ti.Geolocation.getCurrentPosition(function(e) {
+       Ti.API.info(e);
+     });
+   });
+    
+   win.add(btn1);
+   win.add(btn2);
+   win.add(btn3);
+   win.open();
+   </pre></code></li>
+<li>Vijay Singh 2017-10-09
+
+   [~hknoechel] can you add test case for using  "NSPhotoLibraryAddUsageDescription" key and  back port for 6_3_X? Thanks!</li>
+<li>Vijay Singh 2017-10-10
+
+   Test Case (Using NSPhotoLibraryAddUsageDescription) - 
+   
+   Do not add 'NSPhotoLibraryAddUsageDescription' in tiapp.xml. It should log error message.
+   If added no error log.
+    
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+    
+   var btn = Ti.UI.createButton({
+       title: "Open Camera",
+       top: 50
+   });
+   btn.addEventListener("click", function() {
+       Ti.Media.showCamera({
+           showControls: true,
+           success: function(e) {
+               Ti.Media.hideCamera();
+           },
+           saveToPhotoGallery: true,
+           mediaTypes: Ti.Media.MEDIA_TYPE_PHOTO
+       });
+   });
+    
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2017-10-10
+
+   Backport (6_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9514" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9514</a>
+   
+   Another test-case for the <code>saveToGallery</code> changes:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+    
+   var btn = Ti.UI.createButton({
+       title: "Save to Gallery",
+       top: 50
+   });
+   btn.addEventListener("click", function() {
+       var view = Ti.UI.createView({
+         width: 1000,
+         height: 1000,
+         backgroundColor: 'red'
+       });
+       
+       Ti.Media.saveToPhotoGallery(view.toImage(), {
+         success: function(e) {
+           if (!e.success) {
+             Ti.API.error('Error saving file! Error: ' + e.error);
+             return;
+           }
+           Ti.API.error('Successfully saved file!');
+         },
+         error: function(e) {
+           Ti.API.error('Error saving file! Error: ' + e.error);
+         }
+       })
+   });
+    
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2017-10-19
+
+   Reopening ticket to include additional changes now being more clear. Here is what's exactly going on when targeting iOS 11:
+   <h4>You *always* need to include the <code>NSLocationWhenInUseUsageDescription</code> key, whether or not you don't plan to use when-in-use permissions. This is a constraint added by Apple to avoid crawling geolocation-data.</h4>
+   <h4>If you wan to have the "when-in-use" permissions, you still only need the <code>NSLocationWhenInUseUsageDescription</code> key covered above</h4>
+   <h4>If you want to have the "always" permissions, you need all three keys:</h4>
+   * NSLocationWhenInUseUsageDescription
+   * NSLocationAlwaysUsageDescription
+   * NSLocationAlwaysAndWhenInUseUsageDescription
+   <h4>If you are missing required keys, Titanium will now throw very descriptive error-logs to ensure you don't miss anything</h4>
+   
+   PR to implement those improvements coming later today.
+   </li>
+<li>Hans Knöchel 2017-10-19
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9537" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9537</a>
+   PR (6_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9538" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9538</a></li>
+<li>Eric Wieber 2017-10-31
+
+   FR Passed. The WhenInUse key is always required. To have "always" permissions, both Always and AlwaysAndWhenInUse keys are required. Appropriate error messages appear if the required keys are not present.</li>
+<li>Eric Wieber 2017-10-31
+
+   Verified in SDK builds 6.3.0.v20171030181741 & 7.0.0.v20171030085253</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25322.json">JSON Source</a></p>

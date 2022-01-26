@@ -1,0 +1,136 @@
+---
+title: "[TIMOB-13477] iOS: Parity issue parsing returns text nodes"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.1.0, Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>supportTeam</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-04-08T21:11:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+There appears to be a difference in parsing XML between Android and iOS. 
+
+Its required to check the nodeName of the first child found in a particular XML document, "firstChild.nodeName" should return 'LOGON_RESPONSE'. What we get from iOS is 'Text', because the DOM element thinks this is just a text node. 
+
+After using a removeWhitespace custom function the discrepancy may be noticeable even easier.
+
+<h4>Steps to reproduce</h4>
+1. Take the XML fragment below
+2. Monitor console output
+
+<h4>Simple snippet code</h4>
+<code><pre>
+var xmlTest = '<?xml version="1.0" encoding="utf-8"?>' +
+'<LOGON_RESPONSE ID="0">' +
+'  <RESULT>ACK</RESULT>' +
+'  <DATE_TIME>2013-03-28T09:13:42.786125+00:00</DATE_TIME>' +
+'  <DATA>' +
+'    <EPOD_SITES>' +
+'      <EPOD_SITE>' +
+'        <EPL_SITE_ID>TEST</EPL_SITE_ID>' +
+'        <EPL_DESCRIPTION>TEST SITE 1</EPL_DESCRIPTION>' +
+'      </EPOD_SITE>' +
+'      <EPOD_SITE>' +
+'        <EPL_SITE_ID>TEST2</EPL_SITE_ID>' +
+'        <EPL_DESCRIPTION>TEST SITE 2</EPL_DESCRIPTION>' +
+'      </EPOD_SITE>' +
+'    </EPOD_SITES>' +
+'    <EPOD_JOB_GROUPS>' +
+'      <EPOD_JOB_GROUP>' +
+'        <EPL_SITE_ID>TEST</EPL_SITE_ID>' +
+'        <EPL_JOB_GROUP>EXTER</EPL_JOB_GROUP>' +
+'        <EPL_DESCRIPTION>NEW JOB GROUP</EPL_DESCRIPTION>' +
+'      </EPOD_JOB_GROUP>' +
+'      <EPOD_JOB_GROUP>' +
+'        <EPL_SITE_ID>TEST2</EPL_SITE_ID>' +
+'        <EPL_JOB_GROUP>EXTER</EPL_JOB_GROUP>' +
+'        <EPL_DESCRIPTION>NEW JOB GROUP</EPL_DESCRIPTION>' +
+'      </EPOD_JOB_GROUP>' +
+'    </EPOD_JOB_GROUPS>' +
+'  </DATA>' +
+'</LOGON_RESPONSE>';
+
+var xml = Ti.XML.parseString(xmlTest);
+Ti.API.info('Name of xml nodeName: '+xml.nodeName);
+
+var nodes = xml.documentElement.childNodes;
+Ti.API.info(" nodes: " + nodes);
+
+Ti.API.info('Name of first node:'+xml.firstChild.nodeName);
+
+function removeWhitespace(str) {
+// Function removes all whitespace from an XML fragment, so it will parse correctly in iOS. 
+    return str.replace(/\>[\t ]+$/g, ">").replace(/\>[\t ]+\</g, "><").replace(/[\t ]+\</g, "<").replace(/\n/g, "");
+}
+
+xml = Ti.XML.parseString(removeWhitespace(xmlTest));
+Ti.API.info('Name of first node (removeWhitespace):'+xml.firstChild.nodeName); 
+
+Ti.API.info('Name of firstChild: '+xml.firstChild);
+Ti.API.info('Name of xml nodeName: '+xml.nodeName);
+</pre></code>
+
+<h4>iOS console output</h4>
+<code><pre>
+[INFO] :   ATest/1.0 (3.1.0.v20130314163255.12bff9f)
+[DEBUG] :  Loading: /Users/egomez/Library/Application Support/iPhone Simulator/6.1/Applications/6ACEF0D3-63E3-4A8A-906F-ECB1591FCA21/ATest.app/app.js, Resource: app_js
+[INFO] :   Name of xml nodeName: LOGON_RESPONSE
+[INFO] :   nodes: [object TiDOMNodeList]
+[INFO] :   Name of first node:#text
+[INFO] :   Name of first node (removeWhitespace):RESULT
+[INFO] :   Name of firstChild: [object TiDOMElement]
+[INFO] :   Name of xml nodeName: LOGON_RESPONSE
+[DEBUG] :  Application booted in 17.419994 ms
+</pre></code>
+
+<h4>Android console output</h4>
+<code><pre>
+04-08 15:57:04.539: I/TiAPI(3477):  Name of xml nodeName: #document
+04-08 15:57:04.539: I/TiAPI(3477):   nodes: [object NodeList]
+04-08 15:57:04.539: I/TiAPI(3477):  Name of first node:LOGON_RESPONSE
+04-08 15:57:04.554: I/TiAPI(3477):  Name of first node (removeWhitespace):LOGON_RESPONSE
+04-08 15:57:04.554: I/TiAPI(3477):  Name of firstChild: [object Element]
+04-08 15:57:04.554: I/TiAPI(3477):  Name of xml nodeName: #document
+</pre></code>
+
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2013-12-04
+
+   One of my students has discovered this bug independently, or at least one very similar.
+   
+   With the following code, the expected result on both iOS and Android would be be ParentNode. However, it is ChildNode on iOS and ParentNode on Android.
+   
+   <code><pre>
+   var xmlString = '<ParentNode><ChildNode></ChildNode></ParentNode>';
+   var xmlDoc = Ti.XML.parseString(xmlString);
+   
+   Ti.API.info(xmlDoc.firstChild.nodeName);
+   $.index.open();
+   </pre></code>
+   
+   The bug has turned up in their actual app, but he was able to reduce it down and reproduce with the simple test case above. 
+   
+   Tested with Ti 3.1.3GA
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13477.json">JSON Source</a></p>

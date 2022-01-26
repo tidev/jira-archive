@@ -1,0 +1,116 @@
+---
+title: "[MOD-2434] Android: need to implement Android Beacon monitoring on Localytics module"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>In Review</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fazlul Haque</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-06-19T22:25:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-20T04:32:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+We have a feature request to update the Android module with beacon monitoring. They have tried the Android localytics module and added the localytics.xml file in the /app/platform/android/res/values directory.
+
+The library was initiated as shown below. It fails calling to find the method - startMonitoring
+
+<code><pre>//Initialization of library: 
+Alloy.Globals.localytics = require('com.localytics'); 
+Alloy.Globals.localytics.autoIntegrate(); 
+ 
+//Start beacon monitoring: 
+Alloy.Globals.localytics.startMonitoring(handleProximity); </pre></code>
+
+Message: Uncaught TypeError: Alloy.Globals.localytics.startMonitoring is not a function.
+
+They would like to get the startMonitoring method on Android localytics module.
+
+Note: they are using the module from [Here](<a href="https://github.com/localytics/localytics-titanium/pull/6)" rel="nofollow" target="_blank">https://github.com/localytics/localytics-titanium/pull/6)</a>
+
+Thanks
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2018-06-19
+
+   I recommend they use <a href="https://github.com/garymathews/liferay-android-beacons/releases/download/2.0/com.liferay.beacons-android-2.0.zip" rel="nofollow" target="_blank">https://github.com/garymathews/liferay-android-beacons/releases/download/2.0/com.liferay.beacons-android-2.0.zip</a>
+   
+   *EXAMPLE*
+   <code><pre>
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+     <manifest>    
+       <uses-permission android:name="android.permission.BLUETOOTH"/>
+       <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+       <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+   
+       <application>
+         <service android:enabled="true" android:exported="true" android:isolatedProcess="false" android:label="iBeacon" android:name="com.radiusnetworks.ibeacon.service.IBeaconService"/>
+         <service android:enabled="true" android:name="com.radiusnetworks.ibeacon.IBeaconIntentProcessor">
+           <meta-data android:name="background" android:value="true"/>
+           <intent-filter android:priority="1">
+             <action android:name="${applicationId}.DID_RANGING"/>
+             <action android:name="${applicationId}.DID_MONITORING"/>
+           </intent-filter>
+         </service>
+       </application>
+   
+     </manifest>
+   </android>
+   </pre></code>
+   <code><pre>
+   const beacons = Ti.Platform.name === 'android' ? require('com.liferay.beacons') : null;
+   
+   if (beacons) {
+   
+       // obtain location permissions
+       Ti.Android.requestPermissions([ 'android.permission.ACCESS_FINE_LOCATION' ], (e) => {
+           if (e.success) {
+   
+               // wait for beacons library to be ready
+               let handle = setInterval(() => {
+                   if(!beacons.isReady()) return;
+                   clearInterval(handle);
+                   handle = null;
+   
+                   // listen for beacon proximity events
+                   beacons.addEventListener('beaconProximity', (e) => {
+                       const identifier = e.source.identifier,
+                             uuid = e.source.uuid,
+                             power = e.source.power;
+   
+                       Ti.API.info(<code>identifier: ${identifier}, uuid: ${uuid}, power: ${power}</code>);
+                   });
+   
+                   // monitor for our specific beacons
+                   beacons.startMonitoringForRegion({
+                       identifier: 'iBeacon',
+                       uuid: '1ED323F5-E1CB-6B4C-2418-B8D760237BDE'
+                   });
+                   beacons.startMonitoringForRegion({
+                       identifier: 'iBeacon',
+                       uuid: 'B9407F30-F5F8-466E-AFF9-25556B57FE6D'
+                   });
+   
+               }, 1000);
+           } else {
+               Ti.API.error(e.error);
+           }
+       });
+   }
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/MOD/MOD-2434.json">JSON Source</a></p>

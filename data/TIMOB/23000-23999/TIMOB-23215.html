@@ -1,0 +1,181 @@
+---
+title: "[TIMOB-23215] Windows: Data binding: Using attribute in ListItem that is not in data crashes view"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-26T14:53:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>windows</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2016-04-14T16:07:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T23:14:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have a ListView with Data Binding set up. I have a transform function attached to the binding of a ListSection. But if my transform function doesn't return data the ListItem expects, it crashes the view/window or throws an error which is unusable (unknown error).
+
+So for example
+<code><pre>
+<ListItem myLabel:text="{labelText}" />
+</pre></code>
+But transform doesn't give the variable labelText, or (not 100% confirmed yet) it returns null/empty result. In this case it goes wrong.
+
+Happens with Alloy coupled with 5.2.0 and 5.2.1 and 5.3.0
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2016-04-15
+
+   Maybe related to TIMOB23216 but [~topener] could you give us a sample code so we can reproduce the issue on our side? </li>
+<li>Rene Pot 2016-04-15
+
+   Hi, the example in the description is already basically what the problem is.
+   
+   Data provided in transform but not used in ListItem is fine, but data to-be-used in the ListItem that is not provided from the transform crashes the view</li>
+<li>Kota Iguchi 2016-04-17
+
+   [~topener] Could you confirm what kind of value <code>labelText</code> variable have? I think you are guessing it was empty or null?</li>
+<li>Rene Pot 2016-04-17
+
+   The data property  was missing. Neither null or empty.
+   
+   </li>
+<li>Kota Iguchi 2016-04-17
+
+   Hmm I can not reproduce this. I think you mean <code>doTransform</code> returns object but it doesn't have required property, is that right? For example let say we have <code>doTransform</code> like below:
+   
+   <code><pre>
+   function doTransform(model) {
+   	return [];
+   }
+   </pre></code>
+   
+   and then try to bind the missing property ListItem <code>title</code>:
+   
+   <code><pre>
+   <Alloy>
+       <Collection id='info' src="info" />
+   	<Window class="container">
+       <ListView id="list">
+           <ListSection id="section" dataCollection="info" dataTransform="doTransform">
+               <ListItem title="{title}" />
+           </ListSection>
+       </ListView>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   It just shows empty List  (as expected) and it does not throw "unknown exception".
+   
+   Did I miss something in this case?</li>
+<li>Rene Pot 2016-04-17
+
+   I had troubles with this, but for me it never returned an empty array or object. 
+    
+   I guess it should return something like this
+   
+   <code><pre>
+   function doTransform(model) {
+   	return {
+               test: "text",
+               showTitle: false
+           };
+   }
+   </pre></code>
+   
+   and keep the listview the same</li>
+<li>Kota Iguchi 2016-04-17
+
+   [~topener]  Yeah, I tried something like that too but app doesn't crash for me... Now I'm guessing that <code>doTransform</code> contains wrong property that causes ListView crash. Could you dump the actual value? Or at least can you provide a property names?
+   
+   <code><pre>
+   function doTransform(model) {
+       Ti.API.info(JSON.stringify(model));
+       return {
+           test: 'text',
+           showTitle: false
+       };
+   }
+   </pre></code></li>
+<li>Rene Pot 2016-04-22
+
+   Figured it out... turned out to be either <code>null</code> or <code>undefined</code>. I was trying to <code>get()</code> a property on a model that didn't exist. Although getting a non-existing property from a model didn't crash anything, trying to insert it in the view did.
+   
+   So that is the actual bug report</li>
+<li>Kota Iguchi 2016-04-25
+
+   Glad to hear you figure it out...Could you provide a simple sample code that reproduce the issue [~topener] ?
+   
+   From what you described, I would imagine like this:
+   <code><pre>
+   var book = Alloy.createModel('book', {title:'Green Eggs and Ham', author:'Dr. Seuss'});
+   var unknown_prop = book.get('unknown_prop');
+   book.save(); // crash??
+   </pre></code>
+   </li>
+<li>Rene Pot 2016-04-25
+
+    Hi,
+    
+    this has nothing to do with models and saving them. It has to do with DataBinding in a ListView. 
+    
+    <code><pre>
+    function transform(model){
+        return {
+           text: model.get('unknown_prop')
+       };
+    }
+    </pre></code>
+    
+    And that property is used in the xml
+    
+    <code><pre>
+    <ListItem myLabel:text="{text}" />
+    </pre></code></li>
+<li>Kota Iguchi 2016-04-26
+
+    I still can't reproduce this but I'm trying in various way. Just in case, which version of alloy are you using? Alloy prior to <code>1.8.1</code> had a issue around model binding (TIMOB-20577) so make sure you use Alloy <code>1.8.1</code> or <code>1.9.x</code>. (<code>alloy --version</code>)
+    </li>
+<li>Rene Pot 2016-04-26
+
+    Can confirm, behaves better with 1.8.# and crashes with 1.7.#</li>
+<li>Kota Iguchi 2016-04-26
+
+    Awesome, so you mean crash is fixed in 1.8.x? 
+    
+    I think I found a potential workaround for a View crash with alloy on my side...adding <code>setTimeout</code> on updating model (<code>save</code>) makes View stable for me. I know this is dirty workaround but just in case, hope this works for you too.
+    
+    <code><pre>
+    function updateStatus() {
+      setTimeout(function () {
+        var todo = todos.get(id);
+        todo.set({
+             done: todo.get("done") ? 0 : 1,
+             date_completed: moment().unix()
+         }).save();
+      }, 500);
+    }
+    </pre></code></li>
+<li>Rene Pot 2016-04-26
+
+    Yeah correct, apologies for that!</li>
+<li>Kota Iguchi 2016-04-26
+
+    Awesome! 
+    
+    Resolving this ticket as duplicate of TIMOB-20577.</li>
+<li>Lee Morris 2017-03-21
+
+    Closing ticket as duplicate with reference to the above comments and links.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23215.json">JSON Source</a></p>

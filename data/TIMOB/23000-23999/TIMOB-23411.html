@@ -1,0 +1,345 @@
+---
+title: "[TIMOB-23411] Windows: After app crash app is unable to boot."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-12T01:19:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2016-05-19T10:35:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-12T01:19:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Currently our app (Roamler) is unable to boot after a crash has occured. This has been discussed with Fokke and Kiat and I was asked to raise a ticket here. 
+
+This has been tested with <code>5.3.0.v20160415121959</code>.
+
+I can send the app code privately as also discussed with Fokke and internally here.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2016-05-19
+
+   It was reproducable on device and (any) simulator. It is not reproducable in an empty app, but it is with ours. We weren't able to get any logs whatsoever so no clue where it is stuck. Reinstalling the app fixes it again (another run).
+   
+   It hangs at the splash screen and will close the app shortly after.</li>
+<li>Rene Pot 2016-05-23
+
+   No update yet? We're stuck!</li>
+<li>Christopher Williams 2016-05-23
+
+   [~topener] Can you please attach your app here as a zip file, or email it to me at cwilliams@appcelerator.com ? I will mark this ticket private so others cannot see the contents...</li>
+<li>Christopher Williams 2016-05-23
+
+   [~topener] Do you have steps for recreating the crash that causes the issue? </li>
+<li>Rene Pot 2016-05-23
+
+   Usually the crash occures when taking a picture in the app. Couple things.
+   
+   Enable DEV url only in alloy.js line 153. (Basically remove the if-else construction to always have the dev url).
+   I'll privately email you login credentials for the dev environment.
+   
+   There is a task on top you can click which leads to a questionnaire (don't cancel it/remove it). In there you'll be asked (after a couple pages) to take a picture. A question before that is asked to input a number, put in anything. Sometimes taking a picture makes the app crash (we're not sure why) and the app is unable to recover from that crash.</li>
+<li>Christopher Williams 2016-05-23
+
+   [~topener] So far I have been unable to reproduce. I am testing with Alloy 1.8.0 and the absolute latest 5.4.0 build (5.4.0.v20160523005057) of the SDK. When I get to a task that asks to "Take Photo", clicking the button opens the photo gallery to choose. I have no photos on the emulator, so I hit the hardware camera button, take a photo, then hit the back button and get back into the app and choose the photo. It seems to work fine:
+   <code><pre>
+   [WARN]  make photo
+   [WARN]  made photo with result
+   [WARN]  start resizing file
+   [WARN]  stop resizing file
+   [WARN]  stored file
+   [ERROR]
+   [ERROR] 4
+   [ERROR] 5
+   [WARN]  {"url":"<a href="https://services.develop.roamler.com/JobsV2/47.6785619/-122.1311156/10000" rel="nofollow" target="_blank">https://services.develop.roamler.com/JobsV2/47.6785619/-122.1311156/10000</a>"}
+   [WARN]  11
+   [WARN]  22
+   [WARN]  33
+   [WARN]  44
+   [WARN]  55
+   [INFO]  updating location
+   [INFO]  updating location
+   [INFO]  updating location
+   [INFO]  updating location
+   [INFO]  onload http client
+   </pre></code>
+   
+   I notice that this section of the code is making use of the To.ImageCache CommonJS module, which does not use a package.json or index.js, which was an issue I _just_ fixed this morning: TIMOB-23264
+   
+   It may be that the require call was failing at app/controllers/tasks/question_types/task_step_picture, line 179 due to this bug. The ticket for that bug gives a simple workaround (add a very basic package.json to the commonjs module that points at To.ImageCache.js as it's "main" property) - or you can try using the bleeding edge 5.4.0 builds: <code>appc ti sdk install -b master</code>
+   
+   But I also tested with 5.3.0.v20160519171906 and that seemed to work (at least not crash) as well.</li>
+<li>Rene Pot 2016-05-23
+
+   I had the file copied to the lib folder, that might not be in the in zip I sent, that part worked fine.
+   
+   However, as mentioned before, it doesn't crash all the time, just sometimes. We've had other unexplained crashes as well, and the app was unable to recover from that as well. So... it might just be you could just trigger a crash elsewhere.</li>
+<li>Christopher Williams 2016-05-23
+
+   [~topener] Do you have the CLi logs from any of the crashes, so we can try and tell what area of the app is crashing? When you restart the app, does it spit any logs out before crashing? If you force kill the app on the phone and restart, then does it boot?</li>
+<li>Rene Pot 2016-05-23
+
+   It doesn't boot anything... Just the splash screen and then back to Apps again.
+   
+   No logs... nothing. Could not find anything. Also no CLI logs</li>
+<li>Christopher Williams 2016-05-23
+
+    I'm striking out here. I was only able to reproduce the crash once, and cannot again to see what specifically may be causing the issue. The one time it did crash, it was after I clicked the button to take a photo and it had opened the media gallery, and then a few seconds later just crashed. The last log statement was "make photo".
+    
+    Given that it just happens after some time while the media gallery is open, my best guess is that some background JS code or httpclient request is firing off while the app itself isn't in the foreground and we don't handle that properly - thereby causing the crash? But it would be useful to be able to reproduce/confirm this. Without some reproduceable steps, I'm afraid we won't be able to make any progress on determining the root cause and fixing the issue here.</li>
+<li>Rene Pot 2016-05-23
+
+    Thanks for finding this. However, the actual problem we've discovered is not the crash (we can work with that/fix it), but the fact that after a single crash, the app was not able to boot unless we did a re-install/rebuild of the app. Could you reproduce that as well?</li>
+<li>Christopher Williams 2016-05-23
+
+    I was unable to reproduce that myself, no. Not really sure what might cause that unless there's some corrupted Ti.Database that is attempted to be reloaded on next boot and causing a crash?</li>
+<li>Fokke Zandbergen 2016-05-24
+
+    [~cwilliams] that's exactly what I suspect is happening. Since it doesn't boot it must be something we do on boot and since it only happens after a (certain type of?) crash it has to do with some persistent data being screwed up. My first thought was our analytics, but [~topener] has this disabled. Could it still be it? Sounds like TIMOB-19773 then.
+    
+    Anyway; an app should always be able to boot after crashing. Isn't there a way to get the logs from the device as it boots and then hangs to see what happens? Like you can connect an iPhone and see the logs in Xcode?</li>
+<li>Christopher Williams 2016-05-24
+
+    As always, Windows is likely a larger pain for doing this. We do logging by opening a socket connection to a port we open on the CLI and spit logs across the wire for Titanium. Sounds like the app is crashing before sending _any_ logs, so in startup before we're even able to open the connection.
+    
+    Windows Phone has a special "Field Medic" app that supposedly can get low-level debug logs from the phone: <a href="http://scottge.net/2015/06/23/how-to-collect-troubleshooting-log-in-windows-phone/" rel="nofollow" target="_blank">http://scottge.net/2015/06/23/how-to-collect-troubleshooting-log-in-windows-phone/</a>
+    <a href="https://sysdev.microsoft.com/en-us/Hardware/oem/docs/Software_Tracing/Capture_event_trace_logs_on_Windows_Phone" rel="nofollow" target="_blank">https://sysdev.microsoft.com/en-us/Hardware/oem/docs/Software_Tracing/Capture_event_trace_logs_on_Windows_Phone</a>
+    
+    These are system logs, not Titanium logs - but could possibly shed some light on what's going on. So it may be worth a try...</li>
+<li>Rene Pot 2016-05-24
+
+    It is still VERY weird you cannot reproduce this non-recover status. We had it on multiple devices, simulator (2 different machines, multiple different simulators) both installed directly through USB and through the store. 
+    
+    We've been working on WP for weeks now (with 2 people) and we came to you as a last resort before we'd abandon our WP app altogether. 
+    
+    Are you also testing on device? And are you actually testing WP 8.1?</li>
+<li>Christopher Williams 2016-05-24
+
+    I was testing on Windows 10 emulators. Sorry, I did not (and do not) see any details in the ticket that this was happening on Windows Phone 8.1 (or was specific to Win Phone 8.1). I'll try again with the Win Phone 8.1 emulators and see if I can; along with my Win 10 device.</li>
+<li>Rene Pot 2016-05-24
+
+    Apologies for not mentioning this, I kinda assumed it was the default ;)</li>
+<li>Christopher Williams 2016-05-24
+
+    So I was able to get the app to eventually crash on a Win 8.1 Update 1 emulator, and now when I restart the app it doesn't crash right away, but only when I attempt to switch tabs. The Tasks list never loads, and clicking the "Activity" tab crashes the app. But again, Windows is a pain in the butt, so I can't seem to find a way to actually figure out what's causing the crash. Our own logging is working fine, but there's nothing to indicate there why the app would crash.
+    
+    I'll try with my Win 10 device (I don't have an 8.1 device anymore, it's been upgraded), and also see if I can figure out a way to possibly improve our crash handling to spit out some last desperate crash log file or something?</li>
+<li>Jan van Kampen 2016-05-25
+
+    It would be awesome if we can see what's wrong when the app starts. Is there an ETA for this issue? We have to update our client.</li>
+<li>Kota Iguchi 2016-05-25
+
+    I remember I saw similar issue once: TIMOB-20197 . At that time the app crashed at splash screen because app startup is taking time. It was fixed when user reduced number of <code>require</code> files that is loaded at application startup. I saw Windows Phone tend to kill the app when application startup takes 10 seconds or so.</li>
+<li>Christopher Williams 2016-05-25
+
+    Is this only happening on Win 8.1 phones? If you guys run on emulator, are you getting logs at all (with this app, even under normal circumstances where the app is running before crash)?
+    
+    I would suspect that perhaps Kota is correct here in that maybe it's a matter of speed of the emulator/phone and may be entirely unrelated to the preceding crash, but could be caused by a number of things getting fired off right at startup that should likely be delayed. Most notably I'm seeing a lot of possible geolocation calls right away (particularly if the user was already logged in), and some polling http requests for tasks - plus loading the controllers for the three tabs right off (I haven't gone through each of those to see what they might be spawning off).
+    
+    - I see the first controller starts right off by doing <code>Ti.Geolocation.getCurrentPosition(function(e) {});</code> which will likely prompt the user and may cause a hang if run too early in the app startup. It appears you're not actually using the result anyways, so maybe getting geolocation/prompting can happen later? Looking further it appears that you already have two libraries trying to poll for location...
+    
+    - I also see Auth.isLoggedIn() check and if they are you then ask for the email/password and check they're not null. But Auth.isLoggedIn() also grabs the email/password and does that check - so you're loading the email/password out of properties twice unnecessarily.
+    
+    - <code>openLogin()</code> does a require of libs/User/Auth even though you already require it at top and assign it to <code>Auth</code> variable. It should just call <code>Auth.openLogin()</code> rather then re-requiring the same file.
+    
+    In alloy.js I see a few things:
+    - <code>require('libs/Location').watchLocation();</code> is called right away. That appears to immediately run <code>Ti.Geolocation.getCurrentPosition()</code> twice.
+    - <code>Alloy.Globals.addLocationTracking()</code> appears to use bGeo, which looks like it may assume iOS OR Android. Not sure if it'll try to run/fail on Windows. Might want to avoid even starting it up on Windows until you know that library will work on this OS. (Note that this appears to be the second library that is pinging for geolocation data)
+    - you poll for tasks on libs/Task on a 5 second interval right away. Maybe delay starting the monitor until after login/initial fetch of user data?
+    - you <code>require('libs/UrlHandler')</code> which hooks an event listener and setTimeout whose bodies are guarded by an OS_IOS check. Move that check out to a higher level so you don't even add the listeners/setTimeout on other platforms
+    </li>
+<li>Jan van Kampen 2016-05-27
+
+    Hi Chris,
+    
+    This also happens on device on Windows Phone 10.
+    
+    </li>
+<li>Fokke Zandbergen 2016-05-30
+
+    [~cwilliams] great suggestion to improve the code, but [~janvankampen] am I correct that when you start the app after it has crashed it doesn't even reach the <code>app/alloy.js</code>?</li>
+<li>Jan van Kampen 2016-06-03
+
+    Yes, Fokke. It doesn't reach Alloy. An alert, console log or write to file will not be executed after the crash.</li>
+<li>Rene Pot 2016-06-03
+
+    Chris. 
+    
+    The optimisations you all mention are great. However, the app just works fine. Unless... there is a crash. This cannot be caused by any of your points as it doesn't even reach that code.</li>
+<li>Christopher Williams 2016-06-03
+
+    I'm not sure that it's "not reaching Alloy". When you see the splash screen, the app *is* executing under the hood. Logging doesn't happen synchronously, so it queues up the logs until it can connect to the CLI and spit them out. Just because you don't see your logs, doesn't mean it didn't hit the log function calls - it means they just haven't shown up on your CLI yet.
+    
+    I'm still not certain here if you guys are getting logs in "normal use" here yet. I know you'd been having troubles in the past with that. Using VMWare/Parallels certainly can play a role in messing that up since we have to send logs over the network to the CLI to get them. Jurgen gave some pointers in ti.slack about how he fixed it using Parallels. In my own usage I strongly, strongly recommend using a Boot Camp partition over a VM. The performance hit was intolerable for me on builds. (plus getting the network stuff figured out is a pain).
+    
+    It'd be helpful if we could reproduce easily or see a video of the steps to reproduce and then what you're seeing.
+    
+    If the app is in some loop, or taking too long to load up the UI, or trying to prompt the user during startup before ever opening a Window - you'll end up seeing just the splash screen and then after 10 seconds or so the OS will kill the app. My gut feeling here is that you guys are doing too much work on startup before any UI gets shown and the OS kills the app as being unresponsive because no UI came up in time.
+    
+    A simple way to test this is to modify the behavior of the app to force some initial view that opens immediately before you ask for geolocation permissions or fire off HTTP calls or anything else. I'm not saying do this for the final app design, but just to rule out that this isn't due to too much work happening on startup and delaying initial UI. The workflow for the app where the user has already signed in once looks to me like it can take quite some time to build up and show the first UI.
+    
+    Have you guys confirmed this only happens on restart after a crash and not on restart after being logged in once?</li>
+<li>Rene Pot 2016-06-06
+
+    We are getting logs in regular situations. I can confirm it is ONLY after a crash. I've quit & restarted the app very often while testing. No troubles and relatively responsively. I have never had it crash on me while booting.
+    
+    Also, you mentioned 10 seconds. However, it, by far, doesn't even reach 10 seconds before it quits again.
+    
+    </li>
+<li>Christopher Williams 2016-06-06
+
+    We've added a last-ditch error handler that should spit out something in the app's filesystem containing any details we have. If you get Windows Phone Power Tools, you should be able to connect to the emulator and see what files live in the app's location: <a href="https://wptools.codeplex.com/" rel="nofollow" target="_blank">https://wptools.codeplex.com/</a>
+    
+    Then you can try and see if we've placed any crash log in there, or maybe there's a sqlite3 database you can grab and see if it's corrupt/etc.
+    
+    (Note you'll need to try a cutting-edge build off master)</li>
+<li>Kota Iguchi 2016-06-07
+
+    I can't reproduce "unable to boot unless we did a re-install/rebuild of the app" issue on my side...but I saw a crash at startup. I think I got potential workaround for it. Note that this is not a fix for this ticket, but try making sure explicitly close root Window at the end of the app. For example try catching "back" event and close the app, and also put "close button" somewhere at the view. When I explicitly close the app using back button or close button, it made the app stop crashing at startup for me.
+    
+    <code><pre>
+    if (OS_WINDOWS) {
+    	$.getView().addEventListener('back', function() {
+    		$.getView().close();
+    	});
+    }
+    function appexit() {
+    	$.getView().close();
+    }
+    </pre></code>
+    
+    <code><pre>
+    ﻿﻿<Alloy>
+    	<Window id="win" onOpen="onOpenWindow">
+    		<ScrollView id="content">
+    			<ImageView id="logo" />
+    ...
+    		</ScrollView>
+    		<Button id="appexitButton" onClick="appexit"></Button>
+    	</Window>
+    </Alloy>
+    </pre></code>
+    
+    <code><pre>
+    "#win":{
+    	exitOnClose: true
+    }
+    </pre></code></li>
+<li>Kota Iguchi 2016-07-07
+
+    Maybe related: <a href="http://stackoverflow.com/questions/33287489/windows-phone-8-1-app-crashes-during-resume-possibly-because-it-hangs-during-su" rel="nofollow" target="_blank">http://stackoverflow.com/questions/33287489/windows-phone-8-1-app-crashes-during-resume-possibly-because-it-hangs-during-su</a></li>
+<li>Rene Pot 2016-07-08
+
+    I have just submitted a new ZIP to Christoper by email. This is a newly created app with bare minimum setup, many less files. It still crashes in a lot of places.
+    
+    Please replace investigation from the ZIP earlier provided with the new one as this one is much much simpler.
+    
+    To reproduce crash:
+    Please change the location in the simulator to 52.39,4.89 for best results.
+    Open a task, accept it and app will crash. App will also crash a lot of time just booting. Booting it an extra time might not trigger a crash, but a lot of times it crashes also.
+    After accepted, opening the same row will crash again. It will attempt to open [code]tasks/steps[code] controller.
+    
+    I tried SDK 5.3.0.GA, 5.4.0.# (in Tiapp) and 5.4.0.# (latest according to builds.appcelerator.com). App works in iOS, not at all in WIndows Phone.
+    </li>
+<li>Kota Iguchi 2016-07-11
+
+    I have tried "RoamlerReload" app. From what I have observed, it is very important to reduce CPU/memory consumption at boot time especially on Windows Phone 8.1. For example, reducing data size and reducing <code>require</code> at startup very much matters. I can see Roamler app already reduced lots of <code>require</code>, and it obviously gives good effect on the boot sequence (y)
+    
+    I tried RoamlerReload app on WP8.1 (Lumia 630) and Titanium SDK 6.0.0.v20160710035134, and I was able to make it work by reducing number of data that is loaded at the Tasks list view.
+    
+    <code><pre>
+                _.each(tasks, function(task){
+    ...
+                    if (newTasks.length < 20) {
+                        newTasks.push(task);
+                    }
+                });
+    </pre></code></li>
+<li>Rene Pot 2016-07-11
+
+    Tried that too... it works. But of course un-workable for an app. Also, just having 20 items in a listview/tableview is terrible.
+    
+    It also isn't requireing that much, this is just a simple app. 
+    
+    Have you tried to reproduce the crash I described?</li>
+<li>Rene Pot 2016-07-11
+
+    Also to add... the tableview isn't causing me any issues. </li>
+<li>Kota Iguchi 2016-07-11
+
+    Yes I was able to reproduce the crash at startup on my Lumia. From I have observed, this crash is happening outside of Titanium. I have even observed that corresponding application event (restore/suspend) is not happening in this case. Because application startup and its life cycle is controlled by Windows Phone (See also [App lifecycle](<a href="https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/app-lifecycle))" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/app-lifecycle))</a>, there's no way for the app to control what's happening before app actually starts, and I think the best thing app can do is to reduce CPU/memory consumption that is required at startup as less as possible.</li>
+<li>Christopher Williams 2016-07-11
+
+    [~kota] I understand that it may be helpful for them to further optimize, but it's true that narrowing to 20 items in the TableView is unworkable for a great deal of apps. I'm guessing we need to do some deep looks into trying to optimize our usage of the ListView implementation under the hood to avoid these issues.
+    
+    I'm guessing perhaps the way the controls are nested, we're hitting a use case where the phone's UI virtualization for the ListView is defeated. See <a href="https://msdn.microsoft.com/windows/uwp/debug-test-perf/optimize-gridview-and-listview" rel="nofollow" target="_blank">https://msdn.microsoft.com/windows/uwp/debug-test-perf/optimize-gridview-and-listview</a> 
+    
+    The critical portion being:
+    bq. The concept of a viewport is critical to UI virtualization because the framework must create the elements that are likely to be shown. In general, the viewport of an ItemsControl is the extent of the logical control. For example, the viewport of a ListView is the width and height of the ListView element. Some panels allow child elements unlimited space, examples being ScrollViewer and a Grid, with auto-sized rows or columns. When a virtualized ItemsControl is placed in a panel like that, it takes enough room to display all of its items, which defeats virtualization. Restore virtualization by setting a width and height on the ItemsControl.
+    
+    Are we certain that this is what is eating up the RAM and causing crashes? If the list is constrained to 20 items, does that solve the issue entirely?</li>
+<li>Christopher Williams 2016-07-11
+
+    [~kota] Lots more links out there on GridView/ListView performance problems:
+    
+    - <a href="https://blogs.msdn.microsoft.com/alainza/2014/09/03/listview-basics-and-virtualization-concepts/" rel="nofollow" target="_blank">https://blogs.msdn.microsoft.com/alainza/2014/09/03/listview-basics-and-virtualization-concepts/</a>
+    - <a href="https://www.interact-sw.co.uk/iangblog/2014/07/15/phone-listview-grouping" rel="nofollow" target="_blank">https://www.interact-sw.co.uk/iangblog/2014/07/15/phone-listview-grouping</a>
+    - <a href="http://nanovazquez.com/2013/11/28/windows-8.1-gridview-and-listview-performance-improvements/" rel="nofollow" target="_blank">http://nanovazquez.com/2013/11/28/windows-8.1-gridview-and-listview-performance-improvements/</a>
+    - <a href="http://stackoverflow.com/questions/28944705/multiple-listview-ui-virtualization" rel="nofollow" target="_blank">http://stackoverflow.com/questions/28944705/multiple-listview-ui-virtualization</a>
+    - <a href="http://mikaelkoskinen.net/post/winrt-xaml-gridview-performance-problems-on-windows-rt-tablets" rel="nofollow" target="_blank">http://mikaelkoskinen.net/post/winrt-xaml-gridview-performance-problems-on-windows-rt-tablets</a>
+    
+    
+    Long story short? First make sure you explicitly set a size on the ListView impl and not let it FILL, or it'll never virtualize. Second, it looks like sometimes grouping can basically kill UI virtualization as well, as each group effectively becomes auto-scaled in size to contain it's items.</li>
+<li>Kota Iguchi 2016-07-11
+
+    Thanks [~cwilliams], that's making sense. I'm guessing that the "unable to boot" issue is related to optimization at startup generally overall, but ListView and TableView is definitely one of the most "smelling" component in Titanium that we want to look into. It is complex because each row has Titanium views for its content based on given Titanium layout template, and it consumes memory because each row requires to be under control of Titanium layout system that is done outside of the Windows Xaml layout system. Yes we could use UI virtualization. I'll look into more on that.</li>
+<li>Rene Pot 2016-07-12
+
+    Thanks for looking into the tableview/gridview thing. I do have some issues with it but most problems occur in my tasks/steps controller.
+    
+    I'm requiring components there, and including other controllers on the fly. Would that be an issue with Windows Phone / Appcelerator's translation to JS that can cause this? Will I have to resort to make components on-the-fly using classic code instead of inserting controllers into a window?
+    
+    Is virtualisation not yet build in? Do I really have to limit the number of items in the list to be sure I do not get crashes?</li>
+<li>Kota Iguchi 2016-07-12
+
+    I'm trying to narrow it down now. I was able to reproduce the issue on my Lumia and I'm trying to see how optimizing ListView works to help avoid the crash. From what I observed, the issue seems it relates to CPU/memory consumption overall. I'm actually more interested in whether limiting number of items works for you.</li>
+<li>Rene Pot 2016-07-12
+
+    Thanks,
+    
+    but again. Please for now not focus on the tableview. My issue is not related to that but to the tasks/steps controller.</li>
+<li>Kota Iguchi 2016-07-13
+
+    I was not able to reproduce the crash at <code>steps.js</code> when the app is connected to the debugger (I am debugging it through Visual Studio).  I am guessing that this means crash is happening outside of Titanium, especially I suspect it's due to some runtime environmental reason (memory consumption, UI timeout etc). I am looking into some optimization areas on Titanium itself, especially for UI-related APIs.</li>
+<li>Christopher Williams 2016-07-19
+
+    [~topener] FYI, Kota's been doing some performance work on Windows overall and had some exciting improvements so far (with more in progress):
+    - <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/777" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/777</a>
+    - <a href="https://github.com/appcelerator/HAL/pull/63" rel="nofollow" target="_blank">https://github.com/appcelerator/HAL/pull/63</a>
+    - <a href="https://github.com/appcelerator/HAL/pull/64" rel="nofollow" target="_blank">https://github.com/appcelerator/HAL/pull/64</a>
+    - <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/779" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/779</a>
+    
+    These may help improve performance of your app, and avoid it getting killed on startup if it's taking too long to set up the initial UI (or the task list perf/crash). I think the majority of it is still not yet landed until that last PR gets stable and merged.</li>
+<li>Christopher Williams 2016-07-21
+
+    [~topener] Kota's performance PR just got merged in to 6.0.0/master branch: TIMOB-23637
+    
+    May want to try out a build off master and see if that helps: <code>appc ti sdk install -b master</code></li>
+<li>Rene Pot 2016-08-11
+
+    The ticket can be closed. We've dropped the project. Thanks for helping</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23411.json">JSON Source</a></p>

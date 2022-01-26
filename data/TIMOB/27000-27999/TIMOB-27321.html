@@ -1,0 +1,164 @@
+---
+title: "[TIMOB-27321] iOS: Ti.Stream.pump with Ti.Stream.write async operations don't actually run async/interleaved"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 8.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule</td></tr>
+<tr><th>Reporter</th><td>Christopher Williams</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2019-08-08T14:57:22.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-11-23T18:05:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Ti.Stream.pump behaves differently on iOS vs Android. If you register a pump callback handler that then writes the data out via Ti.Stream.write's async variant, the expected behavior is that the reads and writes get "interleaved" - which is what occurs on Android. On iOS, however, it will do all of the reads first until EOF, and then all of the writes. This can result in piling up Ti.Buffers queued for writes for the entire file contents.
+
+Given code like this:
+
+<code><pre>
+/**
+ * This file is used to validate iOS test-cases. It is ran using the Xcode
+ * project in titanium_mobile/iphone/iphone/Titanium.xcodeproj.
+ *
+ * Change the below code to fit your use-case. By default, it included a button
+ * to trigger a log that is displayed in the Xcode console.
+ */
+'use strict';
+
+var win = Ti.UI.createWindow({
+	backgroundColor: '#fff'
+});
+
+var btn = Ti.UI.createButton({
+	title: 'Trigger'
+});
+
+btn.addEventListener('click', function () {
+	Ti.API.info('Hello world!');
+	pipe(Ti.Filesystem.resourcesDirectory + '/ti.main.js', Ti.Filesystem.tempDirectory + '/ti.main.js', err => {
+		console.log(err);
+	});
+});
+
+win.add(btn);
+win.open();
+
+function pipe(src, dest, callback) {
+	const srcFile = Ti.Filesystem.getFile(src);
+	const srcStream = srcFile.open(Ti.Filesystem.MODE_READ);
+	const destFile = Ti.Filesystem.getFile(dest);
+	const destStream = destFile.open(Ti.Filesystem.MODE_WRITE);
+
+	let bytesWritten = 0;
+	let totalBytes = -1;
+	let doneReading = false;
+	Ti.Stream.pump(srcStream, obj => {
+		if (!obj.success) {
+			return callback(new Error(obj.error));
+		}
+
+		if (obj.bytesProcessed === -1) {
+			console.log(<code>Finished reading. Total of ${obj.totalBytesProcessed} bytes</code>);
+			totalBytes = obj.totalBytesProcessed;
+			doneReading = true;
+			return;
+		}
+
+		// schedule chunk to be written
+		console.log(<code>Read ${obj.bytesProcessed} bytes</code>);
+		Ti.Stream.write(destStream, obj.buffer, 0, obj.buffer.length, writeObj => {
+			if (!writeObj.success) {
+				return callback(new Error(writeObj.error));
+			}
+
+			console.log(<code>Read ${writeObj.bytesProcessed} bytes</code>);
+			bytesWritten += writeObj.bytesProcessed;
+
+			// if we're done reading and we've written as many bytes as we read, call the callback
+			if (doneReading && bytesWritten === totalBytes) {
+				console.log(<code>Finished writing. Total of ${bytesWritten} bytes</code>);
+				callback();
+			}
+		});
+	}, 8092, true);
+}
+</pre></code>
+
+On iOS you'll see output like this:
+<code><pre>
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 1970 bytes
+[INFO] Finished reading. Total of 228546 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 8092 bytes
+[INFO] Read 1970 bytes
+[INFO] Read 8092 bytes
+[INFO] Finished writing. Total of 228546 bytes
+[INFO] null
+</pre></code>
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-27321.json">JSON Source</a></p>

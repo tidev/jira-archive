@@ -1,0 +1,121 @@
+---
+title: "[TIMOB-1350] Ti.XML.DOMDocument.getElementById fails on iPhone"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:55:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>domelement, iphone, xml</td></tr>
+<tr><th>Reporter</th><td>Brion Vibber</td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:50:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:55:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>getElementById in the DOM proxy classes on iPhone fails,
+consistently returning null instead of expected elements.</p>
+<p>Example:<br>
+var dom = Ti.XML.parseString('</p>
+'); var foo = dom.getElementById('foo'); Titanium.API.info('#foo is
+' + foo);
+<p>Output on iPhone:<br>
+<a href="/projects/32238/changesets/INFO" title=
+"Changeset [INFO]">[INFO]</a> #foo is null</p>
+<p>The Android implementation gives expected output:<br>
+<a href="/projects/32238/changesets/INFO" title=
+"Changeset [INFO]">[INFO]</a> [306,493] #foo is
+ti.modules.titanium.xml.ElementProxy@43e66460</p>
+<p>The bug:</p>
+<p>The XPath expression used to implement getElementById doesn't
+quote the string, leading to an XPath parse failure, and no
+results:<br></p>
+<pre>
+<code>NSArray *nodes = [document nodesForXPath:[NSString stringWithFormat:@"//*[@id=%@]",args] error:&amp;error];</code>
+</pre>
+<p>Suggested fix is to add quotes:<br></p>
+<pre>
+<code>NSArray *nodes = [document nodesForXPath:[NSString stringWithFormat:@"//*[@id='%@']",args] error:&amp;error];</code>
+</pre>
+<p>Probably this should actually check for validity first as well,
+or else escape the string.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Provisional fix as a git branch:<br>
+   <a href=
+   "<a href="http://github.com/brion/titanium_mobile/commit/14b88d7e760ed39146f5b59c6440aba23fec4a6a" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/14b88d7e760ed39146f5b59c6440aba23fec4a6a</a>">
+   <a href="http://github.com/brion/titanium_mobile/commit/14b88d7e760ed39146f5..." rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/14b88d7e760ed39146f5...</a></a></p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Adding "[PATCH]" to title.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Further fix to return a single node instead of a NodeList. There
+   really need to be some comprehensive unit tests on this module!</p>
+   <p><a href=
+   "<a href="http://github.com/brion/titanium_mobile/commit/d725741f9ec56997499001b20f54ca25dde412a9" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/d725741f9ec56997499001b20f54ca25dde412a9</a>">
+   <a href="http://github.com/brion/titanium_mobile/commit/d725741f9ec569974990..." rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/d725741f9ec569974990...</a></a></p>
+   <p>Full branch: <a href=
+   "<a href="http://github.com/brion/titanium_mobile/commits/getelementbyid" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commits/getelementbyid</a>"><a href="http://github.com/brion/titanium_mobile/commits/getelementbyid" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commits/getelementbyid</a></a></p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Assigning open patches from StatusNet to our support contact per
+   request.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Nolan, any issues with this patch? Is there someone else we
+   should be assigning bugs to?</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>merged.</p></div></li>
+<li>MistX 2011-04-15
+
+   <div><p>Hi,</p>
+   <p>I have the same problem that getElementById() returns null. I
+   changed the class TiDOMDocumentProxy.m, but there is still the same
+   problem.</p>
+   <p>var f = Titanium.Filesystem.getFile("test.xml");<br>
+   var textString = f.read();<br>
+   var textNode = textString.toString();</p>
+   <p>var xml = Ti.XML.parseString(textNode);<br>
+   var foo = xml.getElementById('node_one');<br>
+   alert(foo);</p>
+   <p>Have you any ideas?</p>
+   <p>TiA,<br>
+   -Marc</p></div></li>
+<li>Pedro Enrique 2011-04-15
+
+   <div><p>Tested on iPhone 4 (4.2) and on simulator running 4.0, 4.1, and
+   4.2<br>
+   SDK 1.5 (12/8/10) - r47a03e70<br>
+   no problems found<br>
+   code:</p>
+   <pre>
+   <code>var win = Ti.UI.createWindow();
+   var xml = '&lt;all&gt;';
+   xml += '    &lt;one&gt;hello&lt;/one&gt;';
+   xml += '    &lt;two&gt;world&lt;/two&gt;';
+   xml += '    &lt;three id="foo"&gt;hello world&lt;/three&gt;';
+   xml += '&lt;/all&gt;';
+   var dom = Ti.XML.parseString(xml); 
+   var foo = dom.getElementById('foo'); 
+   Ti.API.info('#foo is ' + foo);
+   Ti.API.info('#foo\'s text is ' + foo.text);
+   win.open();</code>
+   </pre>
+   <p>info: #foo is [object TiDOMElement]<br>
+   info: #foo's text is hello world</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1350.json">JSON Source</a></p>

@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-26778] Android: Default "configChanges" settings are lost when overriding root activity in "tiapp.xml""
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-05-23T20:14:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.2</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>activity, android, engSchedule, manifest, tiapp.xml</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-01-29T23:57:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-23T20:14:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Titanium generates an "AndroidManifest.xml" when building an Android app. By default, the root activity will be assigned the following "android:configChanges" settings:
+* keyboardHidden
+* orientation
+* fontScale
+* screenSize
+* smallestScreenSize
+* screenLayout
+* density
+
+But if you override the root activity in the "tiapp.xml" without setting the "android:configChanges" yourself, then most of the above settings will be lost in the generated "AndroidManifest.xml". Only the below will be remaining.
+* screenSize
+* density
+
+*Why is this a problem:*
+By default, the Android OS will destroy and recreate the window activity when a system event such as an "orientation" change occurs. Since "android:configChanges" such as "orientation" is lost in this case, rotating the app while its loading at the splash screen will cause the app to reload every time you change orientation.
+
+Also note that app developers often do override the root activity in the "tiapp.xml" in order to set up their own custom intent-filters or to apply their own theme to the splash screen (such as a translucent status bar). So, this is a commonly done.
+
+*Steps to reproduce:*
+1. Create a Titanium app with project name "MyApp".
+2. Insert the below XML into your "tiapp.xml".
+3. Set up the "app.js" as shown below. It should be blank.
+4. Build and run the app.
+5. Verify the following gets logged on startup: <code>MyApp 1.0 (Powered By Titanium ...)</code>
+6. Rotate the app from portrait to landscape or vice-versa.
+7. Notice the <code>MyApp 1.0 (Powered By Titanium ...)</code> gets logged again. _(This means the app restarted. This is bad.)_
+8. Go to app project folder: <code>./build/android</code>
+9. Open the "AndroidManifest.xml" file.
+10. Look for an XML <code><activity/></code> element with name ".MyappActivity".
+11. Notice that the "android:configChanges" attribute only has settings <code>"screenSize|density"</code> defined. _(This is the issue.)_
+
+app.js
+<code><pre>
+// Keep this file blank.
+</pre></code>
+
+tiapp.xml
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<manifest>
+			<application>
+				<activity android:name=".MyappActivity">
+					<intent-filter>
+						<action android:name="android.intent.action.MAIN"/>
+						<category android:name="android.intent.category.LAUNCHER"/>
+					</intent-filter>
+				</activity>
+			</application>
+		</manifest>
+	</android>
+</ti:app>
+</pre></code>
+
+*Expected Result:*
+Titanium's default "android:configChanges" listed up above should always be included when overriding the root activity... *unless* the app developer sets the "android:configChanges" themselves, in which case we should honor the developer's settings.
+
+*Note:*
+This used to be a bigger issue in Titanium 7.4.1 and below since the "app.js" would have been re-executed every time you change orientation on startup.
+
+In 7.5.0 and above, Titanium loads "ti.main.js" instead which is lighter-weight and its call to <code>require("app.js")</code> would have no-op'ed upon re-execution of "ti.main.js" since the "app.js" was already cached.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-05-11
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10884" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10884</a></li>
+<li>Joshua Quick 2019-05-18
+
+   PR (8.0.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10900" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10900</a></li>
+<li>Keerthi Mahalingam 2019-05-21
+
+   FR passed. jenkin is failing test. waiting for resolving jenkin failure to merge</li>
+<li>Keerthi Mahalingam 2019-05-23
+
+   Verified the fix on SDK 8.1.0.v20190523084559 and 8.0.2.v20190522031334. Works as expected.
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Architecture                = 64bit
+     # CPUs                      = 8
+     Memory                      = 17179869184
+   Node.js
+     Node.js Version             = 8.9.1
+     npm Version                 = 5.5.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Titanium SDK
+     SDK Version                 = 8.1.0.v20190523084559 and 8.0.2.v20190522031334
+   Cli =7.0.11
+   Studio =5.1.2.201903111843
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26778.json">JSON Source</a></p>

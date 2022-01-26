@@ -1,0 +1,149 @@
+---
+title: "[ALOY-1610] Allow controller created variables to be used in tss"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Alloy 1.11.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Styling, XML</td></tr>
+<tr><th>Labels</th><td>alloy, controller, demo_app, tss</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2018-03-09T09:33:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-03-11T19:54:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In a TSS file only variables created on the Alloy namespace are to be used inside the TSS files. This creates anti-patterns with modules for example.
+
+Situation right now:
+
+<code><pre>
+// alloy.js
+Alloy.Globals.Map = require('ti.map');
+
+//mapview.tss
+    pattern: {
+        type: Alloy.Globals.Map.POLYLINE_PATTERN_DASHED,
+        gapLength: 15,
+        dashLength: 3
+    }
+</pre></code>
+
+Preferred flow would be to not pollute the global namespace for multiple reasons (memory usage and app startup time. Something like this:
+
+<code><pre>
+// mapview.js
+var timap = require('ti.map');
+
+// mapview.tss
+        type: timap.POLYLINE_PATTERN_DASHED,
+</pre></code>
+Or if namespacing is important, maybe use the $ namespace like this
+
+<code><pre>
+// mapview.js
+$.timap = require('ti.map');
+
+// mapview.tss
+        type: $.timap.POLYLINE_PATTERN_DASHED,
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2019-03-07
+
+   [~topener], do you think it would be preferable to adapt <a href="https://github.com/appcelerator/alloy/pull/885" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/885</a> to allow behaviour as described in your last example as opposed to limiting to just $.args usage?</li>
+<li>Rene Pot 2019-03-08
+
+   I feel like any <code>$.</code> variable should be usable, though maybe that might cause issues at some point (like referencing another UI element with it as well). 
+   
+   But if it is possible to use anything on the <code>$.</code> namespace I'd prefer that over <code>$.args</code></li>
+<li>Ewan Harris 2019-03-11
+
+   I think the limitation here is that the UI element creation comes before the controller code (I've pasted an excerpt below), so when my label is set to use <code>$.foo</code> as it's text <code>$.foo</code> is not defined yet. I'm not sure whether this is achievable without having the compile process move the setting of the text (for example adding $.ELEMENTID.text = $.foo) to be after the controller defined code, we can't move the UI element creation to be after because that would break referencing UI elements from a controller, and even saying that I don't think doing that is achievable really without some special voodoo
+   
+   <code><pre>
+   <Alloy>
+   	<Window>
+   			<Label id="bar"/>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   <code><pre>
+   "Label": {
+   	text: $.foo
+   }
+   </pre></code>
+   
+   <code><pre>
+   $.timap = require('ti.map');
+   $.foo = 'a';
+   
+   $.index.open();
+   </pre></code>
+   
+   
+   <code><pre>
+   function Controller() {
+   
+   	require('/alloy/controllers/' + 'BaseController').apply(this, Array.prototype.slice.call(arguments));
+   	this.__controllerPath = 'index';
+   	this.args = arguments[0] || {};
+   
+   	if (arguments[0]) {
+   		var __parentSymbol = __processArg(arguments[0], '__parentSymbol');
+   		var $model = __processArg(arguments[0], '$model');
+   		var __itemTemplate = __processArg(arguments[0], '__itemTemplate');
+   	}
+   	var $ = this;
+   	var exports = {};
+   	var __defers = {};
+   
+   	$.__views.index = Ti.UI.createWindow(
+   	{ titleid: "settings", id: "index" });
+   
+   	$.__views.index && $.addTopLevelView($.__views.index);
+   	$.__views.bar = Ti.UI.createLabel(
+   	{ text: $.foo, id: "bar" });
+   
+   	$.__views.index.add($.__views.bar);
+   	exports.destroy = function () {};
+   
+   	_.extend($, $.__views);
+   
+   	$.timap = require('ti.map');
+   	$.foo = 'a';
+   
+   	$.index.open();
+   	_.extend($, exports);
+   }
+   </pre></code></li>
+<li>Rene Pot 2019-03-11
+
+   Oof that is a pickle... however, $.args should be known already so we should be able to support that I think? Or maybe... hoisting could be implemented for the variables being used.</li>
+<li>Brenton House 2019-03-11
+
+   I've always added something like this to component.js which will allow the developer to create a function called __init and it would run this before most of the generated code in the controller.  I tried it w/ the current proposal and it worked with $.args as well variables like $.test 
+   
+   
+   {noformat}
+   __init && __init();
+   {noformat}
+   </li>
+<li>Ewan Harris 2019-03-11
+
+   $.args is fine to support as it's one of the initial things defined in the function so anything on that object is defined by the UI creation, it's possible we could hoist $.thing assignments to the [preCode](<a href="https://github.com/appcelerator/alloy/blob/784c0a7ea45510953533b1748dae0407316434b8/Alloy/template/component.js#L34)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/784c0a7ea45510953533b1748dae0407316434b8/Alloy/template/component.js#L34)</a> but that seems risky as it wont match the expectation of a user in how their code would execute.
+   
+   I think I've seen a similar proposal for what [~bhouse] is suggesting (a setup function of sorts but can't seem to find it in jira) currently. Having something like that does make sense to me, but I think given that we can't guarantee <code>$.thing</code> will work I think I'd prefer to just keep to <code>$.args</code> for now as it seems less of a foot gun and potential source of confusion to a developer.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1610.json">JSON Source</a></p>

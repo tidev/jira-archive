@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-19038] Windows: Crashes when opening windows from a tableview with the QE testing app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-06-25T23:11:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>qe-4.1.0</td></tr>
+<tr><th>Reporter</th><td>Ewan Harris</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2015-06-17T22:01:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-06-30T18:47:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+
+When using the QE testing apps, if I open one test case then the next test case I open will crash the application. I have attached an example app as APIModule.zip
+
+<h4>Steps To Reproduce</h4>
+
+1. Download the attached project and build it for device or emulator
+2. Open test case TIMOB7187
+3. Close the window
+4. Open test case TIMOB9214
+5. Reverse steps 2-4
+
+<h4>Actual Result</h4>
+
+When attempting open the second test case window the app will crash
+
+<h4>Expected Result</h4>
+
+The app should not crash
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19038_55869/APIModule.zip">APIModule.zip</td></td><td>2015-06-17T21:54:10.000+0000</td><td>3125699</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2015-06-21
+
+   Bit more information due to TIMOB-19034 when this happens the following is printed in the console
+   <code>[ERROR] Application Error: "Runtime Error during click event: unknown exception"</code></li>
+<li>Gary Mathews 2015-06-24
+
+   Here's code to reproduce the problem. It seem's we cant add a single UI element to +multiple+ windows.
+   <code><pre>
+   var main = Ti.UI.createWindow({ backgroundColor: 'black' }),
+       desc = Ti.UI.createLabel({text: '\'OPEN\' and \'CLOSE\' more than once.', top: '25%'}),
+   	btn = Ti.UI.createButton({ title: 'OPEN' }),
+   
+   	btn_close = Ti.UI.createButton({ title: 'CLOSE' }); // Create this once
+   
+   btn.addEventListener('click', function () {
+       var win = Ti.UI.createWindow({ backgroundColor: 'blue' });
+   
+       // Add 'btn_close' to potentially multiple windows
+       win.add(btn_close); // This causes the exception
+   
+       btn_close.addEventListener('click', function () {
+           win.close();
+       });
+   
+       win.open();
+   });
+   
+   main.add(desc);
+   main.add(btn);
+   main.open();
+   </pre></code></li>
+<li>Gary Mathews 2015-06-25
+
+   [~eharris] To fix the problem replace <code>createTableView</code> in _ui.js_ with :
+   
+   <code><pre>
+   function createTableView(_level) {
+       var tableView = Ti.UI.createTableView();
+       
+       // populate the rows with test cases
+       if (_level == 'Acceptance') {
+           var testCases = at.createData();
+           tableView.setData(testCases);
+       }
+       
+       // launch each test case when selected
+       tableView.addEventListener('click', function(_e) {
+           var win = createTestCase(_e.rowData),
+               done = Titanium.UI.createButton({
+                   title: "Done",
+                   height: 50,
+                   width: 50,
+                   bottom: 0,
+                   right: 0
+               });
+   
+           win.add(done);
+           done.addEventListener('click', function() {
+               win.close();
+           });
+   
+           win.open();
+       });
+   
+       return tableView;
+   }
+   </pre></code>
+   
+   This creates a new instance of <code>done</code> for every window.</li>
+<li>Kota Iguchi 2015-06-25
+
+   ??Here's code to reproduce the problem. It seem's we cant add a single UI element to multiple windows.??
+   
+   Confirmed that it doesn't work because Windows Xaml components doesn't accept this. I can say it is a limitation of <code>Xaml.UI.Controls</code>, not because of Titanium <code>LayoutEngine</code>.</li>
+<li>Gary Mathews 2015-06-25
+
+   We should add a more descriptive error message.</li>
+<li>Gary Mathews 2015-06-25
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/325" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/325</a></li>
+<li>Lokesh Choudhary 2015-06-30
+
+   Verified the fix.
+   
+   We now get error with a more descriptive message : <code><pre>[ERROR] :  Application Error: "Runtime Error during click event: No installed components were detected.\r\n\r\nElement is already the child of another element."</pre></code>
+   
+   Closing.
+   
+   Environment:
+   Appc Studio: 4.1.0.201506261427
+   Ti SDK: 4.1.0.v20150630092706
+   Ti CLI: 4.0.1
+   Alloy: 1.6.2
+   Windows: 8.1 Enterprise 64-bit
+   APPC NPM: 4.1.0-1
+   APPC CLI: 4.1.0-4 
+   Device: Nokia Lumia 928 - Windows Phone 8.1
+   Windows emulator : 8.1
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19038.json">JSON Source</a></p>

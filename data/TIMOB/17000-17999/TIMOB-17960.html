@@ -1,0 +1,75 @@
+---
+title: "[TIMOB-17960] Assigning an object with circular references to a Kroll object property overflows stack (TiBindingTiValueToNSObject bug)"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TCSupportTriage</td></tr>
+<tr><th>Reporter</th><td>Szymon Tomasz Stefanek</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2014-09-06T02:06:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Assigning an object with circular references to a Kroll object property overflows the stack.
+
+<code><pre>
+var label = Titanium.UI.createLabel({});
+
+var a = {
+	dummy: "x"
+};
+	
+var b = {
+	a: a
+};
+	
+a.b = b;
+	
+label.test = a;
+</pre></code>
+
+The bug is in TiBindingTiValueToNSDictionary / TiBindingTiValueToNSObject which will create an infinite recursion while trying to visit the object tree (which is in fact a graph).
+
+A part of the call stack:
+
+<code><pre>
+...
+    frame #2694: 0x0026209f Museo900<code>TiBindingTiValueToNSObject(jsContext=0x0cfcc19c, objRef=0x100edf28) + 1903 at TiBindingTiValue.m:132
+    frame #2695: 0x0026189b Museo900</code>TiBindingTiValueToNSDictionary(jsContext=0x0cfcc19c, objRef=0x100edea8) + 283 at TiBindingTiValue.m:50
+    frame #2696: 0x0026209f Museo900<code>TiBindingTiValueToNSObject(jsContext=0x0cfcc19c, objRef=0x100edea8) + 1903 at TiBindingTiValue.m:132
+    frame #2697: 0x0026189b Museo900</code>TiBindingTiValueToNSDictionary(jsContext=0x0cfcc19c, objRef=0x100edf28) + 283 at TiBindingTiValue.m:50
+    frame #2698: 0x0026209f Museo900<code>TiBindingTiValueToNSObject(jsContext=0x0cfcc19c, objRef=0x100edf28) + 1903 at TiBindingTiValue.m:132
+    frame #2699: 0x0026189b Museo900</code>TiBindingTiValueToNSDictionary(jsContext=0x0cfcc19c, objRef=0x100edea8) + 283 at TiBindingTiValue.m:50
+    frame #2700: 0x0026209f Museo900<code>TiBindingTiValueToNSObject(jsContext=0x0cfcc19c, objRef=0x100edea8) + 1903 at TiBindingTiValue.m:132
+    frame #2701: 0x000310bc Museo900</code>TiValueToId(context=0x0caf7540, v=0x100edea8) + 60 at KrollObject.m:86
+    frame #2702: 0x00031e41 Museo900<code>KrollSetProperty(jsContext=0x0fc8c110, object=0x0cfd9f90, prop=0x0fb85a10, value=0x100edea8, exception=0xb032cd6c) + 273 at KrollObject.m:280
+    frame #2703: 0x002b6c8d Museo900</code>TI::TiCallbackObject<TI::TiObjectWithGlobalObject>::put(this=<unavailable>, exec=<unavailable>, propertyName=<unavailable>, value=TiValue at 0xb032cdbc, slot=<unavailable>) + 365 at TiCallbackObjectFunctions.h:213
+    frame #2704: 0x002f524b Museo900<code>TI::Interpreter::privateExecute(TI::Interpreter::ExecutionFlag, TI::RegisterFile*, TI::TiExcState*) [inlined] TI::TiValue::put(this=0x0cfd9f90, slot=0x00000000, exec=<unavailable>, propertyName=0x0fb90590) + 69 at TiObject.h:812
+    frame #2705: 0x002f5206 Museo900</code>TI::Interpreter::privateExecute(this=0xb032cff8, flag=Normal, registerFile=0x00000111, callFrame=0x0fc8c110) + 20790 at Interpreter.cpp:3191
+    frame #2706: 0x002fda6b Museo900<code>TI::Interpreter::executeCall(this=0x0fb92b80, callFrame=<unavailable>, function=0x0fc8c040, callType=<unavailable>, callData=<unavailable>, thisValue=TiValue at 0xb032d904, args=<unavailable>) + 763 at Interpreter.cpp:965
+    frame #2707: 0x0033fa73 Museo900</code>TI::call(exec=0x0cfcc19c, functionObject=TiValue at 0xb032d934, callType=CallTypeJS, callData=0xb032d970, thisValue=TiValue at 0xb032d944, args=0xb032d958) + 83 at CallData.cpp:45
+    frame #2708: 0x002b53cc Museo900<code>TiObjectCallAsFunction(ctx=<unavailable>, object=0x100e31f0, thisObject=0x100e2578, argumentCount=<unavailable>, arguments=<unavailable>, exception=<unavailable>) + 492 at TiObjectRef.cpp:449
+    frame #2709: 0x002612dc Museo900</code>TiBindingEventProcess(runloop=0x0caf7540, payload=0x0ca1f400) + 1356 at TiBindingEvent.m:278
+    frame #2710: 0x002615c3 Museo900<code>-[TiBindingCallbackInvoke invoke:](self=0x0ca9c820, _cmd=0x00406f6c, runLoop=0x0caf7540) + 67 at TiBindingRunLoop.m:53
+    frame #2711: 0x00029875 Museo900</code>-[KrollContext invoke:](self=0x0caf7540, _cmd=0x00406f6c, object=0x0ca9c820) + 213 at KrollContext.m:958
+    frame #2712: 0x0002b2fc Museo900<code>-[KrollContext main](self=0x0caf7540, _cmd=0x00f893eb) + 4540 at KrollContext.m:1315
+    frame #2713: 0x00dfb597 Foundation</code>-[NSThread main] + 76
+    frame #2714: 0x00dfb4f6 Foundation<code>__NSThread__main__ + 1275
+    frame #2715: 0x04ae75b7 libsystem_c.dylib</code>_pthread_start + 344
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-17960.json">JSON Source</a></p>

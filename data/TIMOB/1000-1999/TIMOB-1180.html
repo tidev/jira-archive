@@ -1,0 +1,155 @@
+---
+title: "[TIMOB-1180] Recording audio crashes on 3GS device (but not in emulator!) under iOS 4.0 Ti 1.3.2"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:55:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>audio, crash, emulator, ios, iphone, recording</td></tr>
+<tr><th>Reporter</th><td>karlo </td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:45:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:55:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>I have the below code to allow the user to press a button and
+record (other buttons etc to playback of course). The code is
+pretty much taken straight from KS and works perfectly in the
+emulator and on a pre- iOS 4.0 device. In the app, I tap the record
+button, app sits for a second and then crashes back to Springboard.
+I'm not 100% the crash is happening in the record, but I get no
+response from the app between the tapping of the record button and
+the crash.<br>
+And again, it works fine in the emulator. Any ideas? Thanks in
+advance!</p>
+<pre>
+<code>// create record button
+var buttonRecord = Ti.UI.createButton
+({
+    backgroundImage:'../images/record.png',
+    width:50,
+    height:60,
+    left:107,
+    top:4
+});
+buttonRecord.addEventListener( 'click', function()
+{
+    if ( recording.recording )
+    {
+        file = recording.stop();
+        buttonRecord.backgroundImage = '../images/record.png';
+        buttonPlay.enabled = true;
+    }
+    else
+    {
+        buttonRecord.backgroundImage = '../images/stop.png';
+        recording.start();
+        buttonPlay.enabled = false;
+    }
+});
+buttonView.add( buttonRecord );</code>
+</pre>
+<p>If I comment out "recording.start();" there are (of course) no
+crashes.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>karlo  2011-04-15
+
+   <div><p>Sorry, meant to mention I also tested this with KS e37f5dd and
+   it exhibits the same behavior (which is pretty much expected, since
+   I basically copied the KS code for my app)</p></div></li>
+<li>ranguard 2011-04-15
+
+   <div><p>I'm getting this issue as well - works fine in simulator - but
+   crashes on the phone</p></div></li>
+<li>kosso 2011-04-15
+
+   <div><p>What compression codecs and formats are you trying?</p>
+   <p>(I've yet to try my recorder on a 4.0 iOS device yet)</p>
+   <p>try changing over to:</p>
+   <p>recording.compression = Ti.Media.AUDIO_FORMAT_AAC;<br>
+   recording.format = Ti.Media.AUDIO_FILEFORMAT_MP4A;</p>
+   <p>which I find gives great quality/filesize for the 3GS (on iOS
+   &lt; 4.0) - but crashes the 3G, where I had to use
+   Ti.Media.AUDIO_FILEFORMAT_CAF and
+   Ti.Media.AUDIO_FORMAT_LINEAR_PCM</p></div></li>
+<li>karlo  2011-04-15
+
+   <div><p>I'm using these:</p>
+   <p>recording.compression = Ti.Media.AUDIO_FORMAT_ULAW;<br>
+   recording.format = Ti.Media.AUDIO_FILEFORMAT_WAVE;</p>
+   <p>I tried with alternate compression/formats (including the combo
+   you recommend above), but the behavior is the same: works fine on
+   emulator, crashes on device.</p>
+   <p>Thanks for the suggestion, though!</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Have you made sure that your audio session mode is one of
+   <code>Titanium.Media.AUDIO_SESSION_MODE_RECORD</code> or
+   <code>Titanium.Media.AUDIO_SESSION_MODE_PLAY_AND_RECORD</code>?</p>
+   <p>Assigning to Blain because he is currently testing this under
+   4.0.</p></div></li>
+<li>karlo  2011-04-15
+
+   <div><p>Thanks for updating the ticket, Stephen! I am setting the
+   session mode (I neglected to include that bit in the code above). I
+   have it set to:<br></p>
+   <pre>
+   <code>recording.audioSessionMode = Titanium.Media.AUDIO_SESSION_MODE_RECORD;</code>
+   </pre>
+   <p>I haven't tried PLAY_AND_RECORD but would be happy to if you
+   think it will make a difference. I also haven't tried all
+   permutations/combinations of compression and format, except for the
+   two indicated above.</p>
+   <p>Thanks again!</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p><code>PLAY_AND_RECORD</code> is actually going to be the same
+   type of audio session (it allows recording and playback at the same
+   time), so this will not fix your problem. We're working on it right
+   now and I will be sure to close this bug once we have it resolved.
+   This is a priority for 1.4 so expect it to be fixed by official
+   release at the latest.</p></div></li>
+<li>karlo  2011-04-15
+
+   <div><p>Ah, that's what I assumed. Thanks again for making this a
+   priority! You guys rock!!</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/eadace1da081b2cbd8a5aee4c877cb006d221861"
+   title=
+   "Changeset [eadace1da081b2cbd8a5aee4c877cb006d221861]">[eadace1da081b2cbd8a5aee4c877cb006d221861]</a>)
+   Closes <a href="/projects/32238/tickets/1180" title=
+   "Ticket #1180">#1180</a>: In pre-iOS 4, the device had its number
+   of input channels set before setting RECORD modes. In iOS 4 this
+   changed, presumably because the number of input chanels can change
+   between recording sessions - presumably this was to deal with bugs
+   involving swapping out the recording-enabled earbuds on Touch
+   devices. <a href=
+   "<a href="http://github.com/appcelerator/titanium_mobile/commit/eadace1da081b2cbd8a5aee4c877cb006d221861" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/eadace1da081b2cbd8a5aee4c877cb006d221861</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/commit/eadace1da081b..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/eadace1da081b...</a></a></p></div></li>
+<li>Blain Hamon 2011-04-15
+
+    <div><p>Haw. I just realized why this would be the case in iOS4. Up
+    until now, all recordings are single channel because there's only
+    one microphone. But what new feature was brought out with the
+    iPhone 4? Yup, a second microphone, technically making two input
+    channels. D'oh.</p></div></li>
+<li>karlo  2011-04-15
+
+    <div><p>Awesome! Again, I cannot say enough how cool you guys are! Many
+    many thanks!</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1180.json">JSON Source</a></p>

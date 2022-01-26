@@ -1,0 +1,90 @@
+---
+title: "[AC-2683] Parsing Bug in Building for iOS Distribution"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-14T23:28:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Studio, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>distribution, ios, javascript</td></tr>
+<tr><th>Reporter</th><td>Joe Falcone</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2012-09-30T04:50:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This was a real head scratcher.
+Posted on Q&A as 
+<a href="http://developer.appcelerator.com/question/142848/distribution-build-for-ios6-failing-with-213-sdks-including-rc--rc2" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/142848/distribution-build-for-ios6-failing-with-213-sdks-including-rc--rc2</a>
+
+This happens ONLY when you build for "Distribute - Apple iTunes Store"
+The same code runs on iPhone emulator, Android emulator, and build for Distribution on Android.
+
+When you build for Distribution for Apple - you get this error on console:
+
+[INFO] Performing clean build
+[INFO] Compiling localization files
+[DEBUG] compiled ios file: /Users/jrf/Workspace/iPumpkin/build/iphone/build/Release-iphoneos/iPumpkin.app/en.lproj/Localizable.strings
+[ERROR] 
+[ERROR] Error: Traceback (most recent call last):
+  File "/Library/Application Support/Titanium/mobilesdk/osx/2.1.3.v20120927181611/iphone/builder.py", line 1551, in main
+    execute_xcode("iphoneos%s" % iphone_version,args,False)
+  File "/Library/Application Support/Titanium/mobilesdk/osx/2.1.3.v20120927181611/iphone/builder.py", line 1231, in execute_xcode
+    output = run.run(args,False,False,o)
+  File "/Library/Application Support/Titanium/mobilesdk/osx/2.1.3.v20120927181611/iphone/run.py", line 41, in run
+    sys.exit(rc)
+SystemExit: 65
+
+This was in an App with over 20,000 lines of JS so once we had determined that this error was specific to this App, we removed files from the App until we found the one that caused the error.  Then we removed suspect statements until we found the one.  And you won't believe, but it is true.
+
+a = b
+   / c;
+
+That's it.  a = b on one line, and / c; on the second line.
+
+The actual statement was more complex, but the gist is that the parser accepts 
+a = b 
+as a valid statement and the croaks on 
+/ c;
+as a malformed comment or statement.
+
+This arose because the formatter had split the statement on to separate lines with the division operator at the beginning of the second line.
+
+BTW, 
+a = ( b
+  / c );
+also doesn't work.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2013-03-14
+
+   Tested with 3.0.2 GA and can't reproduce. This works:
+   
+   <code><pre>var win = Ti.UI.createWindow({
+   	backgroundColor : "#FFF"
+   });
+   
+   var a = 10;
+   var b = 10;
+   var c = 2;
+   
+   a = b 
+   / c;
+   
+   Ti.API.info("A = " + a);
+   
+   win.open();</pre></code>
+   
+   Since this report is old now, I assume it was fixed.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2683.json">JSON Source</a></p>

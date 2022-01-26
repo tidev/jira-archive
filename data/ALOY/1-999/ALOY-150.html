@@ -1,0 +1,159 @@
+---
+title: "[ALOY-150] Change the current hidden exports to be explicit just as in regular commonjs"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-08-13T09:50:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>2012 Sprint 16</td></tr>
+<tr><th>Fix Version/s</th><td>2012 Sprint 16, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Runtime, XML</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Russell McMahon</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2012-07-30T23:46:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I think this means we can get rid of the $. syntax completely.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2012-07-31
+
+   I'd like to go beyond just renaming <code>$</code> to <code>exports</code> and do some restructuring based on feedback from the google groups (Rick). Specifically, I'd like to support controller inheritance. Since we are already using Backbone and it has a very simple inheritance format for Models and Collections, I'm proposing we do the same with Alloy's controllers.
+   
+   backbone does this:
+   
+   <code><pre>
+   var MyModel = Backbone.Model.extend({});
+   var instance = new MyModel();
+   </pre></code>
+   
+   perhaps we should follow suit:
+   
+   <code><pre>
+   // make the getController return a controller definition instead of
+   // an instance of a controller.
+   var MyController = Alloy.getController('myController');
+   
+   // we could then use an extend function, just like Backbone, to allow
+   // a new derivative controller to inherit from another.
+   var MyDerivativeController = MyController.extend({
+       customProperty: 1,
+       customFunction: function() {}
+   });
+   
+   // use new to create an instance
+   var controller = new MyDerivativeController();
+   
+   // Or if you prefer a single assignment
+   var controller = new Alloy.getController('myController').extend({
+       customProperty: 1,
+       customFunction: function() {}
+   });
+   </pre></code>
+   
+   for reference, the above code would look like the below code now, and would not cleanly support controller inheritance:
+   
+   <code><pre>
+   var controller = Alloy.getController('myController').create({});
+   </pre></code></li>
+<li>Russell McMahon 2012-07-31
+
+   I like it. I think Backbone's method of extending the base is good. It allows both instance and class but maybe class is not needed now. But for reference:
+   
+   var Model = Backbone.Model.extend(extendObj, extendClass); 
+   
+   ...
+   
+   model = new Model({});</li>
+<li>Rick Blalock 2012-08-01
+
+   I like this too.  It's semi-close to how I code already in Ti apps.  It's also similar to a lot of JS frameworks that do this as well (e.g. Mootools, JQuery).  I also like the fact that I know I'm getting a new instance.</li>
+<li>Tony Lukasavage 2012-08-02
+
+   The most relevant changes that removed unnecessary "magic", added the Backbone eventing and inheritance model, and provided much more extensibility to controllers:
+   - new controller boilerplate: <a href="https://github.com/appcelerator/alloy/blob/master/Alloy/template/controller.js" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/Alloy/template/controller.js</a>
+   - new generated runtime controller template: <a href="https://github.com/appcelerator/alloy/blob/master/Alloy/template/component.js" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/Alloy/template/component.js</a> (devs won't see this)
+   - BaseController.js: <a href="https://github.com/appcelerator/alloy/blob/master/Alloy/lib/alloy/controllers/BaseController.js" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/Alloy/lib/alloy/controllers/BaseController.js</a> (devs won't see this either)
+   
+   All samples in [alloy/test/apps](<a href="https://github.com/appcelerator/alloy/tree/master/test/apps)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps)</a> have been updated to use the new controller syntax. Check there to see it in action.
+   
+   Also, the [default generated index.js](<a href="https://github.com/appcelerator/alloy/blob/master/Alloy/template/default/index.js)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/Alloy/template/default/index.js)</a> for new projects has A LOT of inline documentation to get devs started until we have solid docs to reference. Anyone peeking in here, please let me know if they make sense, and if we need more or less description. Again, this will only be put into the default index.js controller when a new project is created. All other generated controllers will use the minimal boilerplate from the list above.</li>
+<li>Tony Lukasavage 2012-08-02
+
+   Things that need to be added:
+   - life cycle events should be optional. Controller code can be defined without preLayout() and postLayout() 
+   - Add "extends" attribute to \<Alloy\> tag for defining the parent controller (defaults to BaseController)
+   - Add magic variable "arguments" to the lifecycle-less controllers</li>
+<li>Russell McMahon 2012-08-02
+
+   1) Keep the preLayout and postLayout functionality as is. 
+   2) Make "alloy new ." just return controller with postLayout(args) {...} all the comments were good but better in docs.
+   3) Remove $.parentController = Alloy.getController('BaseController'); from the controller generated from "alloy generate controller".
+   
+   For extending the controller object (controller, style and view) open another ticket.
+   
+   Then let's close the ticket. We can review with team during sprint Demo.</li>
+<li>Tony Lukasavage 2012-08-03
+
+   OK, one more time around the bend on this one.
+   
+   * Flatten controller files. All code in the controller file is executed after the view hierarchy is established.
+   ** The lone exception to this rule will be the *optional* <code>init()</code> function. This function will not be part of the code executed ater the view hierarchy. It is instead executed when the controller class itself is created. 
+   This function will return the base controller definition for this class. From here you can extend the base class definition, add lifecycle functions, or establish inheritance from a controller other than <code>BaseComponent</code>. Again, all optional. <code><pre>function init() {
+       return Alloy.getController('MySuperController').extend({
+           customProperty: 123,
+           customFunction: function(){},
+           preLayout: function(args) { 
+               // execute code before view hierarchy is established 
+           }
+       });
+   }</pre></code>
+   * Markup events need to be reworked as private functions will no longer be available on the module and instead are wrapped up in a function for the base controller.
+   * </li>
+<li>Tony Lukasavage 2012-08-06
+
+   OK, once more, as per instruction
+   
+   * All commonjs module constructs will remain hidden. <code>$</code> is still used as a reference to the controller triad object.
+   * Inheritance will be instance-based. This will no longer use the Backbone-like class-based extend() inheritance. <code><pre>function Controller() {
+       Alloy.getController('BaseController').call(this); // can eventually be set by markup
+       var $ = this;
+   
+       // the rest of the view and controller code
+   }
+   </pre></code>
+   * A parent controller must be assigned in markup. We currently have no means to do so in the controller code itself. This means if you want a pure code controller as a subclass, you would still have to create an empty view file that looked like this: <code><pre><Alloy parentController="MyParentController"/></pre></code>
+   * Controller code will be flattened. No special functions and/or syntax. All code in controllers ends up executed after the view hierarchy is created.
+   * No lifecycle functions
+   * The "arguments" variable is available in the controller, despite the fact that developers can't see the containing function. See also, "magic". </li>
+<li>Tony Lukasavage 2012-08-07
+
+   Now implementing the style shown in this gist:
+   
+   <a href="https://gist.github.com/3248559" rel="nofollow" target="_blank">https://gist.github.com/3248559</a>
+   
+   and the lifecycle events will look like this now:
+   
+   <a href="https://gist.github.com/3285234" rel="nofollow" target="_blank">https://gist.github.com/3285234</a>
+   
+   This will be done in a new branch called *explicit_controller*. Both the current and this new method will be compared and evaluated to see which better suits the goals of Alloy.</li>
+<li>Tony Lukasavage 2012-08-08
+
+    git branch "ALOY-150" created: <a href="https://github.com/appcelerator/alloy/tree/ALOY-150" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/ALOY-150</a>
+    
+    Development on explicit controllers as listed in the previous comment will be done here.</li>
+<li>Tony Lukasavage 2012-08-10
+
+    changes have been implemented in ALOY-150 branch of the repo. Will merge into master after the changes have been discussed.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-150.json">JSON Source</a></p>

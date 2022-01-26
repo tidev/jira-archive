@@ -1,0 +1,309 @@
+---
+title: "[TIMOB-10802] iOS: Navigation group not firing close event on windows"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-09-18T18:10:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Sprint 2012-19 API, 2012 Sprint 19</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, module_navgroup, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-09-06T14:27:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-17T09:57:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>The problem:</h4>
+
+When closing a window programmatically in a Navigation group, only the first window in the stack (or last, depending how you look at it) fires the close event, the rest of the windows do not.
+
+<h4>The steps to repro</h4>
+1. Run the following code in app.js
+2. Open a few windows with the "open" button
+3. Click on the close all button
+4. Look at the logs, only the last window fired the "close" event
+
+<h4>The code:</h4>
+
+<code><pre>
+function NavGroup() {
+	var win = Ti.UI.createWindow();
+	var nav = Ti.UI.iPhone.createNavigationGroup();
+	var allWindows = [];
+	win.add(nav);
+	
+	function open(_window) {
+		if(_window) {
+			nav.open(_window);
+			allWindows.push(_window);
+		} else {
+			win.open();
+		}
+	}
+
+	function close(_window) {
+		if(_window) {
+			nav.close(_window);
+			for(var i = 0, len = allWindows.length; i < len;  i++) {
+				if(_window == allWindows[i]) {
+					allWindows.splice(i, 1);
+					break;
+				}
+			}
+		} else {
+			win.open();
+		}
+	}
+	
+	function setWindow(_window) {
+		nav.window = _window;
+	}
+	
+	function closeAll() {
+		for(var i = 0, len = allWindows.length; i < len; i++) {
+			nav.close(allWindows[i]);
+		}
+	}
+	
+	return {
+		open: open,
+		close: close,
+		closeAll:closeAll,
+		setWindow: setWindow
+	}
+}
+
+
+function Window(num){
+	var win = Ti.UI.createWindow({
+		backgroundColor: '#ccc',
+		title: 'Window #'+num
+	});
+
+	var btnOpen = Ti.UI.createButton({
+		title: 'open next',
+		top: 10,
+		width: Ti.UI.SIZE,
+		height: Ti.UI.SIZE
+	});
+	
+	var btnCloseAll = Ti.UI.createButton({
+		title: 'close all',
+		top: 60,
+		width: Ti.UI.SIZE,
+		height: Ti.UI.SIZE
+	});
+	
+	var btnCloseThis = Ti.UI.createButton({
+		title: 'close this window',
+		top: 110,
+		width: Ti.UI.SIZE,
+		height: Ti.UI.SIZE
+	});
+	
+	win.add(btnOpen);
+	win.add(btnCloseAll);
+	if(num !== 1)
+		win.add(btnCloseThis);
+	
+	btnOpen.addEventListener('click', function(){
+		num++;
+		Nav.open(Window(num));
+	});
+	btnCloseAll.addEventListener('click', function(){
+		Nav.closeAll();
+	});
+	btnCloseThis.addEventListener('click', function(){
+		Nav.close(win);
+	});
+	
+	win.addEventListener('close', function(){
+		Ti.API.info('Closing Window #' + num)
+	});
+	
+	return win;
+}
+
+var Nav = NavGroup();
+Nav.setWindow(Window(1));
+Nav.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2012-09-11
+
+   Expanded test case
+   <code><pre>
+   function NavGroup() {
+       var win = Ti.UI.createWindow();
+       var nav = Ti.UI.iPhone.createNavigationGroup();
+       var allWindows = [];
+       win.add(nav);
+        
+       function open(_window) {
+           if(_window) {
+               nav.open(_window);
+               allWindows.push(_window);
+           } else {
+               win.open();
+           }
+       }
+       
+       function removeWin(_window) {
+   		for(var i = 0, len = allWindows.length; i < len;  i++) {
+           	if(_window == allWindows[i]) {
+               	allWindows.splice(i, 1);
+                   break;
+               }
+           }    	
+       }
+    
+       function close(_window,opts) {
+           if(_window) {
+               nav.close(_window,opts);
+           } else {
+               win.open();
+           }
+       }
+        
+       function setWindow(_window) {
+           nav.window = _window;
+       }
+        
+       function closeAll() {
+           for(var i = 0, len = allWindows.length; i < len; i++) {
+               nav.close(allWindows[i]);
+           }
+       }
+       function closeAll2(opts) {
+           for(var len = allWindows.length, i = len-1 ; i >=0 ; i--) {
+               nav.close(allWindows[i],opts);
+           }
+       }
+       return {
+           open: open,
+           close: close,
+           closeAll:closeAll,
+           closeAll2:closeAll2,
+           setWindow: setWindow,
+           removeWin:removeWin
+       }
+   }
+    
+    
+   function Window(num){
+       var win = Ti.UI.createWindow({
+           backgroundColor: '#ccc',
+           title: 'Window #'+num,
+           number:num
+       });
+    
+       var btnOpen = Ti.UI.createButton({
+           title: 'open next',
+           top: 10,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+        
+       var btnCloseThis = Ti.UI.createButton({
+           title: 'close this (animated)',
+           top: 60,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+       var btnCloseThis2 = Ti.UI.createButton({
+           title: 'close this',
+           top: 110,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+   
+       var btnCloseAll = Ti.UI.createButton({
+           title: 'close All (Back->Front)',
+           top: 160,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+        
+       var btnCloseAll2 = Ti.UI.createButton({
+           title: 'close All (Front->Back animated)',
+           top: 210,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+   
+       var btnCloseAll3 = Ti.UI.createButton({
+           title: 'close All (Front->Back)',
+           top: 260,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE
+       });
+   
+   
+       win.add(btnOpen);
+       
+       if(num !== 1)
+       {
+       	win.add(btnCloseThis);
+       	win.add(btnCloseThis2);
+       	win.add(btnCloseAll);
+       	win.add(btnCloseAll2);
+       	win.add(btnCloseAll3);
+       }
+           
+        
+       btnOpen.addEventListener('click', function(){
+           num=win.number+1;
+           Nav.open(Window(num));
+       });
+       btnCloseAll.addEventListener('click', function(){
+           Nav.closeAll();
+       });
+       btnCloseAll2.addEventListener('click', function(){
+           Nav.closeAll2({animated:true});
+       });
+       btnCloseAll3.addEventListener('click', function(){
+           Nav.closeAll2({animated:false});
+       });
+       btnCloseThis.addEventListener('click', function(){
+           Nav.close(win,{animated:true});
+       });
+       btnCloseThis2.addEventListener('click', function(){
+           Nav.close(win,{animated:false});
+       });
+       win.addEventListener('close', function(){
+       	Ti.API.info('Closing Window #' + win.number)
+       	Nav.removeWin(win);
+       });
+        
+       return win;
+   }
+    
+   var Nav = NavGroup();
+   Nav.setWindow(Window(1));
+   Nav.open();
+   </pre></code></li>
+<li>Vishal Duggal 2012-09-11
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/2909" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2909</a></li>
+<li>David Welch 2012-09-14
+
+   Vishal - Please let me know when this gets put into one of the nightly releases. </li>
+<li>Tamila Smolich 2012-10-26
+
+   Closing as fixed. Tested and verified on:
+   Titanium Studio, build: 3.0.0.201210220122
+   Titanium SDK, build: 3.0.0.v20121025171611
+   Device: iPhone 5 (6.0)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10802.json">JSON Source</a></p>

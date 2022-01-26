@@ -1,0 +1,226 @@
+{
+	"id": "172781",
+	"key": "TIMOB-26673",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-01-11T19:46:43.000+0000",
+		"created": "2018-12-20T17:45:08.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2019-01-15T15:13:15.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Async functions can trigger a race conditions which leads to an internal dead lock inside JavaScriptCore. This happens because we often reschedule block execution using [TiThreadPerformOnMainThread|https://github.com/appcelerator/titanium_mobile/blob/33498aeaddac7409a3f411a60455bfc5ddaeabf6/iphone/TitaniumKit/TitaniumKit/Sources/API/TiBase.m#L166].\r\n\r\nNote that these race conditions only happen if a lot of async stuff happens at the same time. This example uses a timer with a 5ms interval to force the deadlock to happen. It is very unlikely to happen under normal conditions.\r\n\r\n*Steps to reproduce the behavior*\r\nRun the following code in a classic app on an iOS device:\r\n{code:js}\r\nlet counter = 0;\r\nconst win = Ti.UI.createWindow({ layout: 'vertical' });\r\nconst statusLabel = Ti.UI.createLabel({ top: 100, text: 'Running ...' });\r\nwin.add(statusLabel);\r\nconst counterLabel = Ti.UI.createLabel({ top: 5 });\r\nwin.add(counterLabel);\r\nconst testButton = Ti.UI.createButton({ top: 6, title: 'Click me!' });\r\ntestButton.addEventListener('click', () => Ti.API.info('expected'));\r\nwin.add(testButton);\r\n\r\nfunction triggerRaceCondition() {\r\n  counterLabel.text = counter++;\r\n  console.log(`[${counter}] r\u001dequestUserNotificationSettings`);\r\n  Ti.App.iOS.UserNotificationCenter.requestUserNotificationSettings(e => {\r\n    console.log(`[${counter}] requestUserNotificationSettings callback`);\r\n  });\r\n}\r\nconst triggerInterval = setInterval(() => triggerRaceCondition(), 5);\r\nsetTimeout(() => {\r\n  clearInterval(triggerInterval);\r\n  statusLabel.text = 'Finished!';\r\n}, 1000);\r\n\r\nwin.open();\r\n{code}\r\n\r\n*Actual behavior*\r\nThe whole app will freeze after a few iterations. The counter will not increase anymore and the button will not accept clicks.\r\n\r\n*Expected behavior*\r\nThe counter should increase for about one second and then stop. The status should switch from \"Running\" to \"Finished\". The button should accept click events and print \"expected\" to the console.\r\n\r\n*Additional information*\r\nThis is caused by [TiThreadPerformOnMainThread|https://github.com/appcelerator/titanium_mobile/blob/33498aeaddac7409a3f411a60455bfc5ddaeabf6/iphone/TitaniumKit/TitaniumKit/Sources/API/TiBase.m#L166] which reschedules a block on the main queue when not running on main thread.\r\n\r\nIn this particular test case various things happen which ultimately lead to the deadlock inside JSCore:\r\n# The timer fires and calls out to its callback function (1)\r\n# Now, this function contains an async function, namely {{Ti.App.iOS.UserNotificationCenter.requestUserNotificationSettings}}. Under the hood this will call [getNotificationSettingsWithCompletionHandler:|https://developer.apple.com/documentation/usernotifications/unusernotificationcenter/1649524-getnotificationsettingswithcompl] of {{UNUserNotificationCenter}}. The completion handler for this method will be called on a separate thread. This is important for the race condition to happen.\r\n# Eventually the completion handler is called and it will call the JS callback (2) [here|https://github.com/appcelerator/titanium_mobile/blob/33498aeaddac7409a3f411a60455bfc5ddaeabf6/iphone/Classes/TiAppiOSUserNotificationCenterProxy.m#L199].\r\n# The timer fires again and it will be added to the dispatch queue to be processed.\r\n# Inside the callback (2) we make use of {{console.log}}. Since the callback was called from a different thread, KrollMethod will reschedule the {{console.log}} call to the main thread [here|https://github.com/appcelerator/titanium_mobile/blob/33498aeaddac7409a3f411a60455bfc5ddaeabf6/iphone/TitaniumKit/TitaniumKit/Sources/Kroll/KrollMethod.m#L42]. This will schedule the method call behind the previously scheduled timer.\r\n# The timer callback (1) is now called which also want's to use {{console.log}}. However, the pending call from callback (2) still has a lock on that. Boom, deadlock!",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Race conditions in async APIs (e.g. timers)",
+		"creator": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "444793",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "A simple workaround for this specific test case using {{UNNotificationCenter}} is to wrap calling the callback in {{TiThreadPerformOnMainThread}}. This will schedule the complete callback execution on the main thread and not every single JS statement made in the callback. This should also be a lot more performant since we do not need to constantly switch threads.",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-12-20T19:48:03.000+0000",
+					"updated": "2018-12-20T19:48:03.000+0000"
+				},
+				{
+					"id": "444794",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "PR: https://github.com/appcelerator/titanium_mobile/pull/10556\r\n\r\nThis fixes the issues with {{UNNotificationCenter}}.\r\n\r\nWe may need to scan our SDK for similar issues.",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-12-20T20:34:19.000+0000",
+					"updated": "2018-12-20T20:34:19.000+0000"
+				},
+				{
+					"id": "445100",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "8_0_X backport done in https://github.com/appcelerator/titanium_mobile/pull/10584",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2019-01-08T20:37:45.000+0000",
+					"updated": "2019-01-08T20:37:45.000+0000"
+				},
+				{
+					"id": "445191",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed. Waiting for  merge conflicts to be resolved for merge",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-01-10T21:55:29.000+0000",
+					"updated": "2019-01-10T21:55:29.000+0000"
+				},
+				{
+					"id": "445230",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR's Merged.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-01-11T19:46:39.000+0000",
+					"updated": "2019-01-11T19:46:39.000+0000"
+				},
+				{
+					"id": "445323",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket, Verified fix in SDK Version 8.1.0.v20190115054502 and SDK version 8.0.0.v20190114160512.\r\n\r\nTest and other information can be found at: \r\nMaster: https://github.com/appcelerator/titanium_mobile/pull/10556\r\n8_0_X: https://github.com/appcelerator/titanium_mobile/pull/10584",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-01-15T15:13:08.000+0000",
+					"updated": "2019-01-15T15:13:08.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,216 @@
+---
+title: "[TIMOB-23751] Hyperloop iOS: Block callback arguments are null"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-12T23:05:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.5.0, hyperloop 1.2.7</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Wilson Luu</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2016-08-09T21:44:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-09-13T01:51:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Details:* If you call <code>LAContext.evaluatePolicyLocalizedReasonReply</code>, null is returned for the success parameter instead of true or false.
+
+*Steps to reproduce:*
+<h4>Create a classic app: <code>appc new --classic</code></h4>
+<h4>In the <code>Resources</code> folder, add/replace the following code:</h4>
+*app.js*
+<code><pre>
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2014 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ *
+ */
+
+// WARNING!
+//
+// THIS MODULE WILL ONLY RUN ON AN IOS 8 DEVICE
+//
+
+var TiTouchId = require('ti.touchid');
+
+var win = Ti.UI.createWindow();
+
+var btn = Ti.UI.createButton({
+	title: 'authenticate'
+});
+
+win.add(btn);
+win.open();
+
+btn.addEventListener('click', function(){
+
+	if(!TiTouchId.isSupported()) {
+		alert("Touch ID is not supported on this device!");
+		return;
+	}
+
+	TiTouchId.authenticate({
+		reason: '#### We need your fingerprint to continue.',
+		callback: function(e) {
+			if (!e.success) {
+				console.log("Success? - " + e.success);
+                console.log("Error? - " + e.error);
+                console.log("Code? - " + e.code);
+			}
+            else {
+			  	// do something useful
+				alert('YAY! success');
+			}
+		}
+	});
+
+});
+</pre></code>
+*ti.touchid.js*
+<code><pre>
+/**
+ * Ti.TouchID
+ *
+ * Summary:	Support native Touch ID with Hyperloop in Titanium Mobile.
+ * Author: 	Hans Knoechel | Appcelerator, Inc
+ * Date: 	03/22/2016
+ * Version:	0.1.0
+ * Example
+ *
+ *	var touchID = require("ti.touchid");
+ *	if (touchID.isSupported()) {
+ *		touchID.authenticate({
+ *			reason : "Please verify to reset all devices",
+ *			callback : function(e) {
+ * 				Ti.API.warn("Success? - " + e.success);
+ *				Ti.API.warn("Error? - " + e.error);
+ *				Ti.API.warn("Code? - " + e.code);
+ *			}
+ *		});
+ *	}
+ */
+
+var UIDevice = require("UIKit/UIDevice");
+var NSNumericSearch = require("Foundation").NSNumericSearch;
+var NSOrderedAscending = require("Foundation").NSOrderedAscending;
+var LAContext = require('LocalAuthentication/LAContext');
+var LocalAuthentication = require('LocalAuthentication/LocalAuthentication');
+var context = new LAContext();
+
+function isSupported() {
+	var currentOSSupported = UIDevice.currentDevice().systemVersion.compareOptions("8.0", NSNumericSearch) != NSOrderedAscending;
+	var touchIDSupported = context.canEvaluatePolicyError(LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics);
+
+	return currentOSSupported && touchIDSupported;
+}
+
+function authenticate(args) {
+	var reason = args.reason || null;
+	var callback = args.callback || null;
+
+	if (!reason || !callback) {
+		Ti.API.error("Ti.TouchID: Please provide a valid 'reason' and 'callback' parameter.");
+		return;
+	}
+
+	context.evaluatePolicyLocalizedReasonReply(LocalAuthentication.LAPolicyDeviceOwnerAuthenticationWithBiometrics, reason, function(success, error) {
+		var attrs = {
+			success : success
+		};
+
+		if (error) {
+			attrs["error"] = error.localizedDescription;
+			attrs["code"] = error.code;
+		}
+
+		callback(attrs);
+	});
+}
+
+exports.isSupported = isSupported;
+exports.authenticate = authenticate;
+</pre></code>
+<h4>Install the app to an iOS device that is *touch id supported*; make sure the touch id is enabled first before installing</h4>
+<h4>Launch the app and press on the *authenticate* button</h4>
+<h4>Use your fingerprint to continue</h4>
+
+*Actual:* In the console, success is null:
+<code><pre>
+[INFO]  Success? - null
+[INFO]  Error? - undefined
+[INFO]  Code? - undefined
+</pre></code>
+
+*Expected:* Success should either be true or false with the appropriate error message and error code. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-21
+
+   Ok, some investigation:
+   - It is caused by [this commit](<a href="https://github.com/appcelerator/hyperloop.next/pull/10/commits/f57ff6e427fad0b80ab608db538af417d0bf341e)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/10/commits/f57ff6e427fad0b80ab608db538af417d0bf341e)</a> and most probably around [this line](<a href="https://github.com/appcelerator/hyperloop.next/pull/10/files#diff-90680d080481b4bc4e5c23fcdf677533L100)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/10/files#diff-90680d080481b4bc4e5c23fcdf677533L100)</a> that manages the block arguments (which we want aight?)
+   - The fix proposed in that commit was to remove the manual retains and fix the general crash of blocks, so we may cleaned up too much
+   - We now need to compare the generated block arguments before and after the commit to see what's different
+   
+   </li>
+<li>Rodolfo Perottoni 2016-08-29
+
+   Can this be fixed in 5.5.0.GA or we'll have to wait for 6.0 ?</li>
+<li>Rodolfo Perottoni 2016-09-12
+
+   Hans, Kiat or Wilson.
+   I think this ticket deserves way more attention that it is receiving right now.
+   Why should we wait 2 months (or more in case 6.0 is delayed, like it has been lately...) just to make use of callbacks? Returning values from an asynchronous operation is the only usage of callbacks, and if we don't have this working then it makes no sense to use them at all. 
+   
+   -----
+   This is kind of off topic, but I'd also like to ask you guys what happened to the ticket that I've opened reporting that Android does not work with Hyperloop 1.2.6 anymore. It simply disappeared and no one gave any feedback on what happened to it.
+   Much appreciated!</li>
+<li>Hans Knöchel 2016-09-12
+
+   [~rdperottoni] Hyperloop releases are not linked to SDK releases, so it will very likely be available before the 6.0.0 timeline. 
+   
+   For your OT question, it was made private to be discussed internally. It is fixed and is already fixed in a patched 1.2.6 version that is online in production. You may need to delete the Hyperloop-plugin from your <code>~/Library/Application Support/Titanium/modules/android/hyperloop</code> directory (best is to delete iOS as well and fetch it clean) and it will work. The fix is also included in the tomorrows 1.2.7 version.</li>
+<li>Rodolfo Perottoni 2016-09-12
+
+   This is great news.
+   So does that mean that the *fix version* in this ticket is wrong?
+   </li>
+<li>Hans Knöchel 2016-09-12
+
+   Well, 2.0.0 with 6.0.0 is correct, but there might be a 1.2.8 between 1.2.7 (along with 5.5.0) and 2.0.0 (along with 6.0.0). Ok? :-)</li>
+<li>Jan Vennemann 2016-09-12
+
+   PR (master): <a href="https://github.com/appcelerator/hyperloop.next/pull/72" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/72</a>
+   PR (1_2_X): <a href="https://github.com/appcelerator/hyperloop.next/pull/73" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/73</a></li>
+<li>Rodolfo Perottoni 2016-09-12
+
+   Wooooooot!</li>
+<li>Hans Knöchel 2016-09-12
+
+   PR's merged. @ QE: Please use the above demo-code to test the arguments of blocks and compare the fixed behavior.</li>
+<li>Eric Wieber 2016-09-13
+
+    Verified fixed, using:
+    MacOS 10.12 (16A239m)
+    Studio 4.7.1.201609100950
+    Ti SDK 5.5.0.v20160912150826
+    Appc NPM 4.2.7
+    Appc CLI 5.5.0-6
+    Alloy 1.9.2
+    Xcode 8.0 (8A218a)
+    Hyperloop 1.2.7
+    
+    The success parameter is correctly returned as true or false. Callbacks and error attributes can be properly set by referencing it and are called appropriately. Tested by using the provided test case and by modifying it to check attribute/parameter differences.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23751.json">JSON Source</a></p>

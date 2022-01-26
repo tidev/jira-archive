@@ -1,0 +1,530 @@
+---
+title: "[TIMOB-16622] iOS: ListView with SearchBar under NavigationWindow with extendEdges fails to position properly."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-10T21:23:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>contentInsets, extendEdges, ios, listview, navigationWindow, searchbar, translucent</td></tr>
+<tr><th>Reporter</th><td>Ed</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2014-03-12T21:53:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-11T18:26:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The extendEdges property of a window under a NavigationWindow allows the content of the window to extend under a translucent navigation bar, giving an iOS 7 depth effect. 
+
+However, when extendEdges is defined and a SearchBar is added to a ListView the positioning is incorrect. Using contentInsets on the ListView should align the SearchBar to be visible under the navigation bar, but it does not work as expected. It also creates a positioning problem when one clicks the SearchBar to use it, as it gets re-positioned under the navigation bar.
+
+Expected Behavior:
+
+When the SearchBar is added to a ListView, it should show below the navigation bar of the window without the need to use contentInsets. It should also remain in position when the user taps on it to enter some search text.
+
+Test:
+
+Using the code below, load the app. The initial view (pic 1) shows the SearchBar hidden below the navigation bar. 
+
+Tapping on the status bar at the top, correctly positions the SearchBar below the navigation bar (pic 2).
+
+Tapping on the search bar to enter text, re-positions the SearchBar again under the navigation bar (pic 3).
+
+app.js:
+<code><pre>
+var rows = [];
+for (var i = 0; i < 50; i++) {
+    rows.push({ properties: { title: '\u263B Row '+ i }});
+}
+
+
+var win = Ti.UI.createWindow({
+	title: 'TEST',
+	extendEdges: [Ti.UI.EXTEND_EDGE_TOP, Ti.UI.EXTEND_EDGE_BOTTOM],
+	backgroundColor: '#ffffff',
+	navBarHidden: false
+});
+
+var nav = Ti.UI.iOS.createNavigationWindow({ window: win });
+
+
+var sb = Ti.UI.createSearchBar();
+
+
+var ls = Ti.UI.createListSection({
+	items: rows
+});
+
+
+var lv = Ti.UI.createListView({
+ 	contentInsets: { top: 64, bottom: 60 },
+    sections: [ls],
+    searchView: sb
+});
+
+
+win.add(lv);
+nav.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16622_46598/1_init_view.jpg">1_init_view.jpg</td></td><td>2014-03-12T21:53:03.000+0000</td><td>16981</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16622_46599/2_tap_to_position.jpg">2_tap_to_position.jpg</td></td><td>2014-03-12T21:53:03.000+0000</td><td>17001</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16622_46600/3_tap_to_search.jpg">3_tap_to_search.jpg</td></td><td>2014-03-12T21:53:03.000+0000</td><td>23934</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-03-13
+
+   Moving this ticket to engineering as I can reproduce this issue with the provided test case and iOS simulator.</li>
+<li>Vijay Singh 2017-05-17
+
+   Replacement of UISearchDisplayController with UISearchController in TIUIListView
+   PR:  <a href="https://github.com/appcelerator/titanium_mobile/pull/9066" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9066</a>
+   
+   Test Case1 :
+   <code><pre>
+   // without navigation bar
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ properties: { title: 'Row '+ i , backgroundColor: 'red', searchableText:'Row '+i}});
+   }
+   var win = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: '#ffffff',
+   }); 
+   var sb = Ti.UI.createSearchBar();
+    
+   var ls = Ti.UI.createListSection({
+     items: rows
+   });
+   
+    var lv = Ti.UI.createListView({
+       //top : 100,
+       sections: [ls],
+       searchView: sb,
+       resultsBackgroundColor: 'green',
+       resultsSeparatorColor: 'blue'
+   });
+    
+   sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+     sb.blur();
+   });
+   lv.addEventListener('itemclick', function(e) {
+       Ti.API.info('click at index: ' + e.itemIndex);
+   });
+    
+   win.add(lv);
+   win.open();
+   </pre></code>
+   
+   Test Case 2 -
+   <code><pre>
+   // with navigation bar
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ properties: { title: 'Row '+ i , backgroundColor: 'red', searchableText:'Row '+i}});
+   }
+    
+   
+   var win = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: '#ffffff',
+   });
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({ 
+     window: win,
+    });
+    
+    var testView = Ti.UI.createView({
+       backgroundColor : 'green'
+    });
+   var sb = Ti.UI.createSearchBar();
+    
+   var ls = Ti.UI.createListSection({
+     items: rows
+   });
+   
+    var lv = Ti.UI.createListView({
+       dimBackgroundForSearch: false,
+       sections: [ls],
+       searchView: sb,
+   });
+   
+    testView.add(lv);
+    
+   sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+     sb.blur();
+   });
+   lv.addEventListener('itemclick', function(e) {
+       Ti.API.info('click at index: ' + e.itemIndex);
+   });
+    
+   win.add(testView);
+   nav.open();
+   </pre></code>
+   
+   Test Case 3 -
+   <code><pre>
+   // With tab bar
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ properties: { title: 'Row '+ i , backgroundColor: 'red', searchableText:'Row '+i}});
+   }
+   var win1 = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: '#ffffff',
+   }); 
+   var sb = Ti.UI.createSearchBar();
+    
+   var ls = Ti.UI.createListSection({
+     items: rows
+   });
+   
+    var lv = Ti.UI.createListView({
+       top : 20,
+       left : 50,
+       right : 20,
+       sections: [ls],
+       searchView: sb,
+       resultsBackgroundColor: 'green',
+   });
+    
+   sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+     sb.blur();
+   });
+   lv.addEventListener('itemclick', function(e) {
+       Ti.API.info('click at index: ' + e.itemIndex);
+   });
+    
+   win1.add(lv);
+   
+   var win2 = Ti.UI.createWindow({
+       backgroundColor: 'red',
+       title: 'Red'
+   });
+   win2.add(Ti.UI.createLabel({text: 'I am a red window.'}));
+   
+   var tab1 = Ti.UI.createTab({
+       window: win1,
+       title: 'Blue'
+   }),
+   tab2 = Ti.UI.createTab({
+       window: win2,
+       title: 'Red'
+   }),
+   tabGroup = Ti.UI.createTabGroup({
+       tabs: [tab1, tab2]
+   });
+   tabGroup.open();
+   
+   </pre></code>
+   
+   </li>
+<li>Vijay Singh 2017-05-19
+
+   For TIUITableView also the changes has been made in same PR as both were similar changes.
+   
+   Test Case for TIUITableView -
+   
+   Test Case 1-
+   <code><pre>
+   // TIUITableView with navigation
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ title: 'Row '+ i});
+   }
+   var win = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: '#ffffff',
+     navBarHidden: false
+   });
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({ 
+     window: win,
+    });
+   
+   var sb = Ti.UI.createSearchBar();
+    
+   var lv = Ti.UI.createTableView({
+       hideSearchOnSelection: false,
+       data: rows,
+       search: sb,
+   });
+    
+    sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+   sb.blur();
+   });
+    
+   //when the cancel button is tapped, remove focus from our searchBar
+   sb.addEventListener('cancel', function(e){
+   //sb.blur();
+   });
+   lv.addEventListener('click', function(e) {
+       Ti.API.info('click at index: ' + e.index);
+       Ti.API.info('clicked row data: ' + e.rowData.title);
+    
+   })
+   win.add(lv);
+   nav.open();
+   </pre></code>
+   
+   Test Case 2 - 
+   <code><pre>
+   // TiUITableView without navigation
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ title: 'Row '+ i});
+   }
+    
+    
+   var win = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: '#ffffff',
+     navBarHidden: false
+   });
+     
+   var sb = Ti.UI.createSearchBar();
+    
+   var lv = Ti.UI.createTableView({
+       hideSearchOnSelection: false,
+       data: rows,
+       search: sb,
+   });
+    
+    sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+   sb.blur();
+   });
+    
+   //when the cancel button is tapped, remove focus from our searchBar
+   sb.addEventListener('cancel', function(e){
+   //sb.blur();
+   });
+   lv.addEventListener('click', function(e) {
+       Ti.API.info('click at index: ' + e.index);
+       Ti.API.info('clicked row data: ' + e.rowData.title);
+    
+   })
+    
+   win.add(lv);
+   win.open();
+   </pre></code>
+   
+   Test Case 3 - 
+   
+   
+   <code><pre>
+   // Tableview with tabbar
+   var rows = [];
+   for (var i = 0; i < 20; i++) {
+       rows.push({ title: 'Row '+ i});
+   }
+    
+   var win1 = Ti.UI.createWindow({
+     title: 'TEST',
+     backgroundColor: 'red',
+     navBarHidden: false
+   });
+     
+   var sb = Ti.UI.createSearchBar();
+    
+   var lv = Ti.UI.createTableView({
+       hideSearchOnSelection: false,
+       dimBackgroundForSearch: true,
+       data: rows,
+       search: sb,
+   });
+    
+    sb.setHintText("test");
+    sb.addEventListener('change', function(e){
+     Ti.API.info(e.value);
+   });
+    
+    //when the return key is hit, remove focus from our searchBar
+   sb.addEventListener('return', function(e){
+   sb.blur();
+   });
+    
+   //when the cancel button is tapped, remove focus from our searchBar
+   sb.addEventListener('cancel', function(e){
+   //sb.blur();
+   });
+   lv.addEventListener('click', function(e) {
+       Ti.API.info('click at index: ' + e.index);
+       Ti.API.info('clicked row data: ' + e.rowData.title);
+    
+   })
+    
+   win1.add(lv);
+   
+   var win2 = Ti.UI.createWindow({
+       backgroundColor: 'red',
+       title: 'Red'
+   });
+   win2.add(Ti.UI.createLabel({text: 'I am a red window.'}));
+   
+   var tab1 = Ti.UI.createTab({
+       window: win1,
+       title: 'Blue'
+   }),
+   tab2 = Ti.UI.createTab({
+       window: win2,
+       title: 'Red'
+   }),
+   tabGroup = Ti.UI.createTabGroup({
+       tabs: [tab1, tab2]
+   });
+   tabGroup.open();
+   </pre></code></li>
+<li>Vijay Singh 2017-06-20
+
+   In this PR, Replacement of UISearchDisplayController with UISearchController in TIUIListView and TiUITableView has done. There is major change in TiUITableView and TIUIListView especially with search bar. So need more testing.</li>
+<li>Vijay Singh 2017-07-19
+
+   Test case ( search bar is not part  of list view) -
+   
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+    
+   var list = Ti.UI.createListView({
+       top: 50,
+       keepSectionsInSearch: true,
+       sections: [Ti.UI.createListSection({
+                   headerTitle:"Line1",
+           items: [{
+               properties: {
+                   title: "I",
+                   searchableText: "I",
+               }
+           },{
+               properties: {
+                   title: "Item 2",
+                   searchableText: "Item 2",
+               }
+           },{
+               properties: {
+                   title: "Item 3",
+                   searchableText: "Item 3",
+               }
+           }
+           ]
+       }),
+       Ti.UI.createListSection({
+                    headerTitle:"Line2",
+   
+           items: [{
+               properties: {
+                   title: "I4",
+                   searchableText: "I4",
+               }
+           },{
+               properties: {
+                   title: "Item 5",
+                   searchableText: "Item 5",
+               }
+           },{
+               properties: {
+                   title: "Item 6",
+                   searchableText: "Item 6",
+               }
+           }
+           ]
+       })]
+   })
+    
+    list.addEventListener("delete", function(e){
+       Ti.API.info("Deleted Row Index is is: " +e.itemIndex);
+       Ti.API.info("Deleted Section Index is is: " +e.sectionIndex);
+   
+    });
+   var searchBar = Ti.UI.createSearchBar({
+       top:0,
+       height:44,
+       barColor:'#000',
+       showCancel:true,
+   });
+   searchBar.addEventListener('change', function(e){
+   list.searchText = e.value;
+   });
+   
+   searchBar.addEventListener('return', function(e){
+     searchBar.blur();
+   });
+   
+   searchBar.addEventListener('cancel', function(e){
+     searchBar.blur();
+   });
+   
+   win.add(searchBar);
+   win.add(list);
+   win.open();
+   </pre></code></li>
+<li>Vijay Singh 2017-08-10
+
+   Backported PR (6_2_X) : <a href="https://github.com/appcelerator/titanium_mobile/pull/9296." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9296.</a>
+   [~hknoechel] Please review. Thanks.</li>
+<li>Eric Wieber 2017-08-10
+
+   FR Passed, using:
+   MacOS 10.12.6 (16G24b)
+   Studio 4.9.0.201705302345
+   Ti SDK 7.0.0.v20170802103048 & 6.2.0.v20170810132631
+   Appc NPM 4.2.9
+   Appc CLI 6.2.3
+   Alloy 1.9.13
+   Xcode 8.3.3 (8E3004b)
+   
+   Tested searchbar functionality when used with listview and tableview. No issues encountered. Tested using the provided sample code as well as the searchbar suite</li>
+<li>Eric Wieber 2017-08-11
+
+   Verified changes in 6.2.0.v20170811022027 & 7.0.0.v20170811094808</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16622.json">JSON Source</a></p>

@@ -1,0 +1,214 @@
+---
+title: "[AC-2220] Android: displayHomeAsUp and onCreateOptionsMenu together are broken"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-19T08:07:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>actionbar, android</td></tr>
+<tr><th>Reporter</th><td>Thomas Keunebroek</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2013-01-14T08:23:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you open a heavyweight Window from a TabGroup's tab and set the new window's Activity's ActionBar's displayHomeAsUp property to true, the Activity.onCreateOptionsMenu() callback is never called, therefore the menu items are not created.
+
+Code snippet:
+
+<code><pre>
+var win = Ti.UI.createWindow({
+   title: 'New win',
+   backgroundColor: 'white'
+});
+var activity = win.getActivity();
+win.addEventListener('open', function() {
+   activity.actionBar.setDisplayHomeAsUp(true);
+});
+activity.onCreateOptionsMenu = function(e) {
+   var menu = e.menu;
+   menu.add({
+     title: 'Your action',
+     showAsAction: Ti.Android.SHOW_AS_ACTION_ALWAYS
+   });
+};
+
+yourTab.open(win);
+</pre></code>
+
+If we remove the line that sets displayHomeAsUp to true, the menuItem is correctly drawn.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nikhil Sharma 2013-02-06
+
+   The test case that you've provided contains errors. Could you please provide a valid test case?</li>
+<li>Thomas Keunebroek 2013-02-06
+
+   Here you go:
+   
+   app.js
+   <code><pre>
+   (function() {
+   
+       var tabGroup = Ti.UI.createTabGroup();
+   
+   	var win1 = Ti.UI.createWindow({
+           title: 'win1'
+       });
+   
+       var btn = Ti.UI.createButton({
+           title: 'open win2',
+           height: 84,
+           width: 200,
+           top: 20
+       });
+   
+       win1.add(btn);
+   
+       var win2 = Ti.UI.createWindow({
+           title: 'win2'
+       });
+   
+       btn.addEventListener('click', function() {
+           tab.open(win2);
+       });
+   
+       win2.addEventListener('open', function() {
+           this.getActivity().actionBar.setDisplayHomeAsUp(true);
+       });
+   
+       win2.getActivity().onCreateOptionsMenu = function(e) {
+           var menu = e.menu;
+           menu.add({
+               title: 'My action',
+               showAsAction: Ti.Android.SHOW_AS_ACTION_ALWAYS
+           });
+       };
+   
+       var tab = Ti.UI.createTab({
+           title: 'tab',
+           window: win1
+       });
+   
+       tabGroup.addTab(tab);
+   
+       tabGroup.open();
+   
+   })();
+   </pre></code>
+   
+   tiapp.xml
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+       <id>com.tab.test</id>
+       <name>TabTest</name>
+       <version>1.0</version>
+       <publisher>shopmium</publisher>
+       <url>http://</url>
+       <description>not specified</description>
+       <copyright>2013 by shopmium</copyright>
+       <icon>appicon.png</icon>
+       <persistent-wifi>false</persistent-wifi>
+       <prerendered-icon>false</prerendered-icon>
+       <statusbar-style>default</statusbar-style>
+       <statusbar-hidden>false</statusbar-hidden>
+       <fullscreen>false</fullscreen>
+       <navbar-hidden>false</navbar-hidden>
+       <analytics>true</analytics>
+       <guid>e962583e-41b2-4280-b05a-dfa612e015f2</guid>
+       <property name="ti.ui.defaultunit" type="string">system</property>
+       <iphone>
+           <orientations device="iphone">
+               <orientation>Ti.UI.PORTRAIT</orientation>
+           </orientations>
+           <orientations device="ipad">
+               <orientation>Ti.UI.PORTRAIT</orientation>
+               <orientation>Ti.UI.UPSIDE_PORTRAIT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_LEFT</orientation>
+               <orientation>Ti.UI.LANDSCAPE_RIGHT</orientation>
+           </orientations>
+       </iphone>
+   	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+   	<tool-api-level>17</tool-api-level>
+   	<manifest>
+   		<uses-sdk android:minSdkVersion="8" />
+   	
+   		<!-- TI_MANIFEST -->
+   	
+   		<application android:icon="@drawable/appicon"
+   			android:label="TabTest" android:name="TabtestApplication"
+   			android:theme="@android:style/Theme.Holo.Light"
+   			android:debuggable="false">
+   	
+   			<!-- TI_APPLICATION -->
+   	
+   			<activity android:name=".TabtestActivity"
+   				android:label="TabTest"
+   				android:configChanges="keyboardHidden|orientation">
+   				<intent-filter>
+   					<action android:name="android.intent.action.MAIN" />
+   					<category android:name="android.intent.category.LAUNCHER" />
+   				</intent-filter>
+   			</activity>
+   	
+   			<activity android:name="org.appcelerator.titanium.TiActivity"
+   				android:configChanges="keyboardHidden|orientation" />
+   			<activity android:name="org.appcelerator.titanium.TiTranslucentActivity"
+   				android:configChanges="keyboardHidden|orientation"
+   				android:theme="@android:style/Theme.Translucent" />
+   			<activity android:name="org.appcelerator.titanium.TiModalActivity"
+   				android:configChanges="keyboardHidden|orientation"
+   				android:theme="@android:style/Theme.Translucent" />
+   			<activity android:name="ti.modules.titanium.ui.TiTabActivity"
+   				android:configChanges="keyboardHidden|orientation" />		
+   	
+   		</application>	
+   	
+   		</manifest>
+   	</android>
+       <modules/>
+       <deployment-targets>
+           <target device="blackberry">false</target>
+           <target device="android">true</target>
+           <target device="ipad">false</target>
+           <target device="iphone">false</target>
+           <target device="mobileweb">false</target>
+       </deployment-targets>
+       <sdk-version>3.0.0.GA</sdk-version>
+   </ti:app>
+   </pre></code>
+   
+   If you run the above code snippet, you'll see that you don't have any options menu created. However, if you don't set the up affordance by commenting the line <code><pre>this.getActivity().actionBar.setDisplayHomeAsUp(true)</pre></code>, you will get your action. Those two features should be working at the same time without any problem.
+   
+   I hope it's clearer this way.
+   
+   Regards,</li>
+<li>Mostafizur Rahman 2013-12-07
+
+   Hello,
+   
+   We tested this issue with your test code using the latest 3.1.3 GA. We can’t reproduce this issue in Ti SDK 3.1.3GA. It is most likely fixed. Please test your issue using the latest release and let us know your feedback. 
+   
+   <h4>Testing Environment: </h4>
+   
+   OS: MAC OS X 10.8.5
+   Ti SDK: 3.0.0/3.1.3GA 
+   Android SDK 4.2.2
+   
+   Thanks 
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-2220.json">JSON Source</a></p>

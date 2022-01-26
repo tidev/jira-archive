@@ -1,0 +1,49 @@
+---
+title: "[TIMOB-12816] Android: Clean up the Image View"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-14T00:10:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2013 Sprint 05 API, 2013 Sprint 05</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ping Wang</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2013-02-21T23:48:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-16T21:00:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Since we did many image operations in UI thread, for example creating the drawable reference from file or URL and resizing the image after it's loaded, the Table View with remote images was very slow (TIMOB-11282). To fix that, we moved some of those operations to non-UI threads and tried to run them in parallel using multiple threads. But this [fix](<a href="https://github.com/appcelerator/titanium_mobile/pull/3395)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3395)</a> introduces several other issues: (see the comments in TIMOB-11282 for more info)
+1. The RejectedExecutionException can happen when workqueue in the ThreadPoolExecutor is full and the Executor cannot accept more tasks.
+2. Even when the image is in the cache, it is not fetched/used correctly.
+3. Since rows with the same className are reused, when the table is scrolled, rows will first render the old images, then update with the correct content.
+Need to clean up the code in the image view and fix the above issues.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Darren Haligas 2013-02-22
+
+   I can confirm that this was not properly fixed.  Not only that it makes the table view completely useless and MUCH slower than 3.0.0 GA.  Cannot use this build.</li>
+<li>Ping Wang 2013-03-06
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3936" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3936</a>
+   In this PR,
+   1. Use TiDownloadManager which uses an unbounded pool to cache the remote images in the SD card instead of AsyncTask because AsyncTask uses a bounded pool and it may cause RejectedExecutionException.
+   2. Implement TiLoadImageManager which uses an unbounded pool to fetch and decode bitmaps.
+   3. Use both memory cache and disk cache.
+   4. Don't pre-scale the images in our code. Let native Android take care of scaling.
+   5. Download and decode bitmaps in the background thread so it won't block the UI.</li>
+<li>Lee Morris 2017-03-16
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12816.json">JSON Source</a></p>

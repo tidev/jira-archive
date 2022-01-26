@@ -1,0 +1,405 @@
+---
+title: "[MOD-2276] Android CloudPush: Callback event did not fire if close app and remove from recent"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>CloudPush</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2016-07-24T16:30:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-14T17:17:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce Step</h4>
+1. Run the following code in app.js
+<code><pre>
+var win = Ti.UI.createWindow({});
+
+var CloudPush = require('ti.cloudpush'); 
+var Cloud = require('ti.cloud');
+
+var deviceToken = null;
+
+CloudPush.singleCallback = true;
+
+CloudPush.retrieveDeviceToken({	
+	success: function deviceTokenSuccess(e) {
+		deviceToken = e.deviceToken;
+		Ti.API.info('Device Token: ' + e.deviceToken);
+       		
+       	loginUser();
+    },
+    error: function deviceTokenError(e) {
+        alert('Failed to register for push! ' + e.error);
+    }
+});
+
+CloudPush.addEventListener('callback', function (evt) {
+    alert(evt.payload);
+    Ti.API.info("CallBack fired: \n" + evt.payload);
+});
+CloudPush.addEventListener('trayClickLaunchedApp', function (evt) {
+	alert('Tray Click Launched App (app was not running)');
+    Ti.API.info('Tray Click Launched App (app was not running)');
+});
+CloudPush.addEventListener('trayClickFocusedApp', function (evt) {
+	alert('Tray Click Focused App (app was already running)');
+    Ti.API.info('Tray Click Focused App (app was already running)');
+});
+
+function loginUser(){
+    Cloud.Users.login({
+        login: 'sliang@appcelerator.com',
+        password: '1234'
+    }, function (e) {
+        if (e.success) {
+            Ti.API.info('Login successful');
+            subscribeToChannel();
+        } else {
+            alert('Error:\n' +
+                ((e.error && e.message) || JSON.stringify(e)));
+        }
+    });
+}
+
+function subscribeToChannel(){
+    Cloud.PushNotifications.subscribe({
+        channel: 'alert',
+        device_token: deviceToken,
+        type: Ti.Platform.name == 'android' ? 'android' : 'ios'
+    }, function (e) {
+        if (e.success) {
+            Ti.API.info('Subscribed');
+        } else {
+            alert('Error:\n' +
+                ((e.error && e.message) || JSON.stringify(e)));
+        }
+    });
+}
+
+win.open();
+</pre></code>
+2. Send push notification from dashboard, make sure the push working well.
+3. Close the app and remove it from recent.
+4. Send push notification again.
+5. Click the tray notification to open the app.
+
+<h4>Expect Result</h4>
+callback and trayClickLaunchedApp event should be triggered both.
+
+<h4>Actual Result</h4>
+only trayClickLaunchedApp event triggered, callback event did not get called.
+
+<h4>Note</h4>
+If you only put the app in background, then it works well as expected.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ashraf Abu 2016-07-28
+
+   Sample code for classic app:
+   <code><pre>
+   var win = Ti.UI.createWindow({});
+    
+   var CloudPush = require('ti.cloudpush'); 
+   var Cloud = require('ti.cloud');
+   
+   var env = Ti.App.deployType.toLowerCase() === 'production' ? 'production' : 'development',
+       username = Ti.App.Properties.getString('acs-username-'+env),
+       password = Ti.App.Properties.getString('acs-password-'+env);
+   
+   
+   var deviceToken = null;
+    
+   CloudPush.singleCallback = true;
+    
+   CloudPush.retrieveDeviceToken({ 
+       success: function deviceTokenSuccess(e) {
+           deviceToken = e.deviceToken;
+           Ti.API.info('Device Token: ' + e.deviceToken);
+               
+           loginUser();
+       },
+       error: function deviceTokenError(e) {
+           alert('Failed to register for push! ' + e.error);
+       }
+   });
+    
+   CloudPush.addEventListener('callback', function (evt) {
+       alert(evt.payload);
+       Ti.API.info("CallBack fired: \n" + evt.payload);
+   });
+   CloudPush.addEventListener('trayClickLaunchedApp', function (evt) {
+       alert('Tray Click Launched App (app was not running)');
+       Ti.API.info('Tray Click Launched App (app was not running)\n' + evt.payload);
+   });
+   CloudPush.addEventListener('trayClickFocusedApp', function (evt) {
+       alert('Tray Click Focused App (app was already running)');
+       Ti.API.info('Tray Click Focused App (app was already running)\n' + evt.payload);
+   });
+    
+   function loginUser(){
+       
+       Cloud.Users.login({
+       login:username,
+       password:password,
+       }, function (e) {
+           if (e.success) {
+               Ti.API.info('Login successful');
+               subscribeToChannel();
+           } else {
+               alert('Error:\n' +
+                   ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   }
+    
+   function subscribeToChannel(){
+       Cloud.PushNotifications.subscribe({
+           channel: 'alert',
+           device_token: deviceToken,
+           type: Ti.Platform.name == 'android' ? 'android' : 'ios'
+       }, function (e) {
+           if (e.success) {
+               Ti.API.info('Subscribed');
+           } else {
+               alert('Error:\n' +
+                   ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   }
+    
+   win.open();
+   </pre></code></li>
+<li>Ashraf Abu 2016-07-28
+
+   Tested with code above using 5.3.1.GA with latest ti.cloud 3.2.11 and ti.cloudpush 3.4.1. Not able to reproduce issue.
+   Tested with Android 6.0 Nexus 6.
+   
+   Logs show it works:
+   <code><pre>
+   7-28 01:17:41.197  9527  9540 I ALERT   : (KrollRuntimeThread) [242,264] {"android":{"sound":"none","alert":"Push With App not in Background","vibrate":false}}
+   07-28 01:17:41.197  9527  9540 I TiAPI   :  CallBack fired: 
+   07-28 01:17:41.197  9527  9540 I TiAPI   : {"android":{"sound":"none","alert":"Push With App not in Background","vibrate":false}}
+   07-28 01:17:41.198  9527  9540 I ALERT   : (KrollRuntimeThread) [1,265] Tray Click Launched App (app was not running)
+   07-28 01:17:41.198  9527  9540 I TiAPI   :  Tray Click Launched App (app was not running)
+   07-28 01:17:41.198  9527  9540 I TiAPI   : {"android":{"sound":"none","alert":"Push With App not in Background","vibrate":false}}
+   </pre></code></li>
+<li>Ashraf Abu 2016-07-28
+
+   [~sliang] Not able to reproduce. It's working correctly for me.</li>
+<li>Ashraf Abu 2016-07-28
+
+   Here's a workaround for it to work:
+   <code><pre>
+   
+   /*
+   // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+   Titanium.UI.setBackgroundColor('#000');
+   
+   // create tab group
+   var tabGroup = Titanium.UI.createTabGroup();
+   
+   
+   //
+   // create base UI tab and root window
+   //
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+   var tab1 = Titanium.UI.createTab({  
+       icon:'KS_nav_views.png',
+       title:'Tab 1',
+       window:win1
+   });
+   
+   var label1 = Titanium.UI.createLabel({
+   	color:'#999',
+   	text:'I am Window 1',
+   	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+   	textAlign:'center',
+   	width:'auto'
+   });
+   
+   win1.add(label1);
+   
+   //
+   // create controls tab and root window
+   //
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'#fff'
+   });
+   var tab2 = Titanium.UI.createTab({  
+       icon:'KS_nav_ui.png',
+       title:'Tab 2',
+       window:win2
+   });
+   
+   var label2 = Titanium.UI.createLabel({
+   	color:'#999',
+   	text:'I am Window 2',
+   	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+   	textAlign:'center',
+   	width:'auto'
+   });
+   
+   win2.add(label2);
+   
+   
+   
+   //
+   //  add tabs
+   //
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+   
+   
+   // open tab group
+   tabGroup.open();
+   */
+   
+   // added during app creation. this will automatically login to
+   // ACS for your application and then fire an event (see below)
+   // when connected or errored. if you do not use ACS in your
+   // application as a client, you should remove this block
+   (function(){
+   var ACS = require('ti.cloud'),
+       env = Ti.App.deployType.toLowerCase() === 'production' ? 'production' : 'development',
+       username = Ti.App.Properties.getString('acs-username-'+env),
+       password = Ti.App.Properties.getString('acs-password-'+env);
+   
+   // if not configured, just return
+   if (!env || !username || !password) { return; }
+   
+   ACS.Users.login({
+   	login:username,
+   	password:password,
+   }, function(result){
+   	if (env==='development') {
+   		Ti.API.info('ACS Login Results for environment <code>'+env+'</code>:');
+   		Ti.API.info(result);
+   	}
+   	if (result && result.success && result.users && result.users.length){
+   		Ti.App.fireEvent('login.success',result.users[0],env);
+   	} else {
+   		Ti.App.fireEvent('login.failed',result,env);
+   	}
+   });
+   
+   })();
+   
+   var win = Ti.UI.createWindow({});
+    
+   var CloudPush = require('ti.cloudpush'); 
+   var Cloud = require('ti.cloud');
+   
+   var env = Ti.App.deployType.toLowerCase() === 'production' ? 'production' : 'development',
+       username = Ti.App.Properties.getString('acs-username-'+env),
+       password = Ti.App.Properties.getString('acs-password-'+env);
+   
+   
+   var deviceToken = null;
+    
+   CloudPush.singleCallback = true;
+    
+   CloudPush.retrieveDeviceToken({ 
+       success: function deviceTokenSuccess(e) {
+           deviceToken = e.deviceToken;
+           Ti.API.info('Device Token: ' + e.deviceToken);
+               
+           loginUser();
+       },
+       error: function deviceTokenError(e) {
+           alert('Failed to register for push! ' + e.error);
+       }
+   });
+    
+   CloudPush.addEventListener('callback', function (evt) {
+       setTimeout(function(){
+               alert("CallBack fired: \n" + evt.payload);
+       }, 1000);
+       Ti.API.info("CallBack fired: \n" + evt.payload);
+   });
+   CloudPush.addEventListener('trayClickLaunchedApp', function (evt) {
+       alert('Tray Click Launched App (app was not running)\n'+ evt.payload);
+       Ti.API.info('Tray Click Launched App (app was not running)\n' + evt.payload);
+   });
+   CloudPush.addEventListener('trayClickFocusedApp', function (evt) {
+       alert('Tray Click Focused App (app was already running)\n'+ evt.payload);
+       Ti.API.info('Tray Click Focused App (app was already running)\n' + evt.payload);
+   });
+    
+   function loginUser(){
+       
+       Cloud.Users.login({
+       login:username,
+       password:password,
+       }, function (e) {
+           if (e.success) {
+               Ti.API.info('Login successful');
+               subscribeToChannel();
+           } else {
+               alert('Error:\n' +
+                   ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   }
+    
+   function subscribeToChannel(){
+       Cloud.PushNotifications.subscribe({
+           channel: 'alert',
+           device_token: deviceToken,
+           type: Ti.Platform.name == 'android' ? 'android' : 'ios'
+       }, function (e) {
+           if (e.success) {
+               Ti.API.info('Subscribed');
+           } else {
+               alert('Error:\n' +
+                   ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   }
+    
+   win.open();
+   </pre></code></li>
+<li>Ashraf Abu 2016-07-28
+
+   I believe, what's happening is that the "Callback" event is being called before the App is properly set up.
+   Thus, the <code>Ti.API.info</code> comes out fine. But anything that has a UI element, eg <code>alert()</code> won't be called correctly as the App is not ready (timing of the thread).
+   
+   The workaround around above uses a timeout function for 1 second before showing the alert.
+   <code><pre>
+   setTimeout(function(){
+               alert("CallBack fired: \n" + evt.payload);
+       }, 1000);
+   </pre></code>
+   
+   [~sliang] Is this workaround acceptable? If so, I'll resolve it.
+   
+   Update with more information: It has to do with the Activity being available and getting the context in order to do the alert.</li>
+<li>Ashraf Abu 2016-07-28
+
+   Leaving this ticket open as we should take a look to make sure that this workaround is not needed in the future.</li>
+<li>shumne 2018-05-21
+
+   Hey Guys,
+   
+   Any updates on this ticket?
+   We are still facing this issue on some Android devices specifically on Android 7!</li>
+</ol>
+
+
+<p><a href="/MOD/MOD-2276.json">JSON Source</a></p>

@@ -1,0 +1,114 @@
+---
+title: "[TIMOB-15935] Titanium Mobile doesn't compile for device in over Xcode"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-12-10T01:23:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 25, 2013 Sprint 25 Core, Release 3.2.0, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>defect, ios, module_xcodebuild, qe-closed-3.2.0, qe-manualtest, regression</td></tr>
+<tr><th>Reporter</th><td>Kenan Sulayman</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-12-09T22:33:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-08T16:50:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The compilation process for mobile device is broken when done over Xcode, see the attachment (Text 2013.12.09 23-24-34.txt) for the error log.
+
+The issue isn't in _build.js.
+
+1. _build.js:1353 references this.certDeveloperName
+2. certDeveloperName is defined at _build.js:1299 as argv['developer-name'].
+3. _build.js is called by titanium-cli.
+4. Titanium is called by the pre-compile script (see Text 2013.12.09 23-28-13.txt) which is stored at ~ > Library > Developer > Xcode > DerivedData > project path > Build > Intermediates > <project>.build > <build-type>.iphoneos > <project>.build > Script-<uuid>.sh.
+
+Since as outlined in 2) argv -> developer-name is specified, the issue must be in the invocation script of titanium's pre-build phase. Simulator builds compile as expected.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15935_44504/Text 2013.12.09 23-24-34.txt">Text 2013.12.09 23-24-34.txt</td></td><td>2013-12-09T22:33:34.000+0000</td><td>2622</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15935_44505/Text 2013.12.09 23-28-13.txt">Text 2013.12.09 23-28-13.txt</td></td><td>2013-12-09T22:33:34.000+0000</td><td>294</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2013-12-09
+
+   I believe this might be a duplicate of TC-2572, which is marked as needing more info.</li>
+<li>Kenan Sulayman 2013-12-09
+
+   The issue you are referencing includes 1) invoking titanium-cli manually, which is working fine for me and 2) it specifies "[INFO] :   Building for target: simulator" which isn't the case here. I try to compile to device from Xcode itself, whereas it doesn't fail from Titanium Studio (using a valid run configuration). This is a regression since I was able to use Xcode on the generated xcodeproject before.</li>
+<li>Ingo Muschenetz 2013-12-09
+
+   True, but both seems to have a similar error of "TypeError: Cannot read property 'cyan' of undefined" which is why I noted the similarity. That might be a red herring.</li>
+<li>Kenan Sulayman 2013-12-09
+
+   "Cyan" is just a getter in the prototype of the strings indicating that the value should be returned in the color cyan. That is, if a value is undefined its prototype can't be called (because it doesn't instantiate String if it's not defined at all) — thus will yield <code>Cannot read property 'cyan' of undefined</code> in any case the string isn't set at all.
+   
+   Edit: the issue you referred to indicates that the issue happens to be in "node-appc/lib/timodule.js". That is — just as said before — it's trying to get the cyan-colored version of something that isn't defined. This doesn't correlate to any functional issue.</li>
+<li>Chris Barber 2013-12-10
+
+   Titanium CLI master pull request: <a href="https://github.com/appcelerator/titanium/pull/82" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium/pull/82</a>
+   Titanium CLI 3.2.x pull request: <a href="https://github.com/appcelerator/titanium/pull/83" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium/pull/83</a>
+   
+   To test:
+   1) create an ios project
+   2) do a device build
+   3) open the generated xcode project in xcode
+   4) run the app for device</li>
+<li>Kenan Sulayman 2013-12-10
+
+   Checkout <a href="http://f.cl.ly/items/2i0a252U37131S130P1O/Bildschirmfoto%202013-12-10%20um%2002.05.03.png" rel="nofollow" target="_blank">http://f.cl.ly/items/2i0a252U37131S130P1O/Bildschirmfoto%202013-12-10%20um%2002.05.03.png</a> — still fails to build; though it doesn't throw an issue anymore.</li>
+<li>Chris Barber 2013-12-10
+
+   [~kenansulayman] You need to go to the project's "Build Settings" and explicitly select a "Code Signing Identity" and "Provisioning Profile".</li>
+<li>Kenan Sulayman 2013-12-10
+
+   This wasn't necessary before. I'm considering this a regression since the requirement to change values manually (from now on) seems like a workaround</li>
+<li>Kenan Sulayman 2013-12-10
+
+   Err — <a href="http://data.sly.mn/SslQ/Bildschirmfoto%202013-12-10%20um%2002.27.49.png" rel="nofollow" target="_blank">http://data.sly.mn/SslQ/Bildschirmfoto%202013-12-10%20um%2002.27.49.png</a></li>
+<li>Chris Barber 2013-12-10
+
+    [~kenansulayman] This will be better handled when I add support for exporting built Titanium apps to be standalone (TIMOB-9037).</li>
+<li>Ingo Muschenetz 2013-12-10
+
+    [~kenansulayman] How are you testing those changes? It appears you have a SDK from 2013-12-06. Are you doing git pulls for the CLI?</li>
+<li>Chris Barber 2013-12-10
+
+    [~kenansulayman] You have just encountered TIMOB-15934. We have it fixed and it's merged. Wait 24 minutes, then run "ti sdk install -b 3_2_X -d".</li>
+<li>Kenan Sulayman 2013-12-10
+
+    Ingo: yes. I cherry-picked the change :) Chris: thanks! Let's see</li>
+<li>Kenan Sulayman 2013-12-10
+
+    The newly installed SDK doesn't contain your commit yet, but applying your patch manually fixes it. Thanks!</li>
+<li>Samuel Dowse 2013-12-11
+
+    Verified fixed on:
+    Mac OSX 10.9 Mavericks
+    Titanium Studio, build: 3.2.0.201312091613
+    Titanium SDK, build: 3.2.0.v20131210112451
+    CLI: 3.2.0-cr
+    Alloy: 1.3.0-cr
+    iOS Device: iPhone 5C (7.0.4)
+    
+    iOS project successfully built and install to device through studio.
+    Generated XCode project also builds to device successfully.
+    Closing</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15935.json">JSON Source</a></p>

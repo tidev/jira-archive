@@ -1,0 +1,202 @@
+---
+title: "[TIMOB-24018] iOS: Calling Titanium.Media.hasAudioPermissions() is crashing the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-12-07T05:36:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.5.0, Release 5.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-6.0.1</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-10-12T03:08:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-12-19T19:32:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce</h4>
+1. Create a new default mobile app and add following code to app.js
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: "white"
+});
+
+var button = Ti.UI.createButton({
+	title: "Test",
+	top: 100,
+});
+
+button.addEventListener("click", function(){
+	if (Ti.Media.hasAudioPermissions()) {
+		alert('-> THIS APP HAS AUDIO PERMISSIONS');
+	} else {
+		alert('-> THIS APP HAS NO AUDIO PERMISSIONS');
+	};
+});
+
+win.add(button);
+win.open();
+</pre></code>
+2. Run the app on iOS 10 device
+3. Click the "Test" button
+
+<h4>Expect Result</h4>
+It should alert whether the app have Audio permission
+
+<h4>Actual Result</h4>
+App crashed and exit. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-10-12
+
+   Sorry just realised this is audio permissions. will investigate.</li>
+<li>Hans Knöchel 2016-10-12
+
+   The <code>Ti.Media.hasAudioPermissions()</code> method is only available in Titanium SDK 6.0.0 and later (see [the docs](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Media-method-hasAudioPermissions)). 6.0.0 will be released in mid November, thx!</li>
+<li>Hans Knöchel 2016-12-06
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/8664" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8664</a>
+   PR (6_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8665" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8665</a>
+   
+   Test-Case:
+   (Please set the <code>NSMicrophoneUsageDescription</code> key in the plist section of your tiapp.xml first)
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: 'white'
+   });
+   
+   var button = Ti.UI.createButton({
+       title: 'Test audio permissions',
+       top: 100,
+   });
+   
+   button.addEventListener('click', function() {
+       if (Ti.Media.hasAudioPermissions()) {
+           alert('-> THIS APP HAS AUDIO PERMISSIONS');
+       } else {
+           Ti.API.warn('-> THIS APP HAS NO AUDIO PERMISSIONS, TRYING TO REQUEST ...');
+           Ti.Media.requestAudioPermissions(function(e) {
+               if (!e.success) {
+                   Ti.API.error('Requesting audio permissions failed!');
+                   return;
+               }
+   
+               alert('Audio permissions granted!');
+           })
+       };
+   });
+   
+   win.add(button);
+   win.open();
+   </pre></code></li>
+<li>Chee Kiat Ng 2016-12-07
+
+   CR and FT Passed! APPROVED!</li>
+<li>sulaimaanrawoot 2016-12-15
+
+   Hi, I have just tested this on a iphone 5s ios 9 and an iphone 6 ios 10 and it does not work.
+   The app crashes and shuts down.</li>
+<li>Chee Kiat Ng 2016-12-15
+
+   [~sulaimaanrawoot] did you do this
+   (Please set the <code>NSMicrophoneUsageDescription</code> key in the plist section of your tiapp.xml first and read [this post](<a href="http://www.appcelerator.com/blog/2016/09/ga-release-for-titanium-sdk-5-5-0-appcelerator-cli-5-5-0-appcelerator-studio-4-7-1/)" rel="nofollow" target="_blank">http://www.appcelerator.com/blog/2016/09/ga-release-for-titanium-sdk-5-5-0-appcelerator-cli-5-5-0-appcelerator-studio-4-7-1/)</a> about privacy settings introduced by iOS 10).
+   </li>
+<li>sulaimaanrawoot 2016-12-15
+
+   Hi, yes I did.
+   
+   This is my plist section.
+   
+   <plist>
+               <dict>
+                   <key>UISupportedInterfaceOrientations~iphone</key>
+                   <array>
+                       <string>UIInterfaceOrientationPortrait</string>
+                   </array>
+                   <key>UISupportedInterfaceOrientations~ipad</key>
+                   <array>
+                       <string>UIInterfaceOrientationPortrait</string>
+                       <string>UIInterfaceOrientationPortraitUpsideDown</string>
+                       <string>UIInterfaceOrientationLandscapeLeft</string>
+                       <string>UIInterfaceOrientationLandscapeRight</string>
+                   </array>
+                   <key>UIRequiresPersistentWiFi</key>
+                   <false/>
+                   <key>UIPrerenderedIcon</key>
+                   <false/>
+                   <key>UIStatusBarHidden</key>
+                   <false/>
+                   <key>UIStatusBarStyle</key>
+                   <string>UIStatusBarStyleDefault</string>
+                   <key>NSMicrophoneUsageDescription</key>
+                   <string>Can we use your microphone?</string>
+               </dict>
+           </plist>
+   
+   And this is the code:
+   
+   var win = Ti.UI.createWindow({
+   	backgroundColor : 'white'
+   });
+   
+   var button = Ti.UI.createButton({
+   	title : 'Test audio permissions',
+   	top : 100,
+   });
+   
+   button.addEventListener('click', function() {
+   	if (Ti.Media.hasAudioPermissions()) {
+   		alert('-> THIS APP HAS AUDIO PERMISSIONS');
+   	} else {
+   		Ti.API.warn('-> THIS APP HAS NO AUDIO PERMISSIONS, TRYING TO REQUEST ...');
+   		Ti.Media.requestAudioPermissions(function(e) {
+   			if (!e.success) {
+   				Ti.API.error('Requesting audio permissions failed!');
+   				return;
+   			}
+   
+   			alert('Audio permissions granted!');
+   		});
+   	};
+   });
+   
+   win.add(button);
+   win.open();
+   
+   I can't see where I am going wrong. No error is logged the app just crashes. I am using sdk 6, testing on an iphone 5s running IOS 9 and I am using the latest xcode, 8.2 i think.</li>
+<li>Josh Longton 2016-12-15
+
+   [~sulaimaanrawoot] What SDK are you using?, I have just tested on <code>6.0.1.v20161214184817</code> with Xcode 8.2 and the test case worked fine.</li>
+<li>Josh Longton 2016-12-19
+
+   Verified fixed, using: 
+   
+   {noformat}
+   macOS Sierra 10.12.1
+   iPhone 6 (10.2)
+   iPhone 5 (9.3.5)
+   iOS simulator (10.2)
+   Ti SDK 6.0.1.v20161217061750
+   Appc NPM 4.2.8 
+   Appc CLI 6.1.0
+   Xcode 8.2
+   {noformat}
+   
+   <code>Ti.Media.hasAudioPermissions()</code> no longer crashes the app.
+   
+   *Closing ticket*
+   
+   
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24018.json">JSON Source</a></p>

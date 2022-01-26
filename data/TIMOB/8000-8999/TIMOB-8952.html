@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-8952] iOS XML: appendChild Removes Namespace and Over Validation"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-05-03T16:45:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.0.2, Release 2.1.0, Sprint 2012-09 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, qe-port</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-05-02T12:08:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-05-14T20:48:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+There are several problems preventing proper XML generation in Titanium:
+
+1. When an element is appendChild'd to a parent on iOS, it loses its namespace. This is exhibited in all of the elements, other than "feed", below. Plus, an extra xmlns:xmlns attribute is added to "feed".
+2. "xmlns" cannot be used in an attribute NS. Browsers don't impose this restriction. Why do we? It is preventing me from defining a namespace. This blocking problem can be worked around by removing lines 26-27 and 42-43 of TiDOMValidator.m.
+
+<h4>Reproduction</h4>
+<code><pre>
+(function (document, Ti) {
+    document = document || Ti && Ti.XML.parseString('<a/>');
+    var feed = document.implementation.createDocument('<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>', 'atom:feed', null);
+    feed.documentElement.setAttributeNS('<a href="http://www.w3.org/2000/xmlns/" rel="nofollow" target="_blank">http://www.w3.org/2000/xmlns/</a>', 'xmlns:atom', '<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>');
+    feed.documentElement.setAttributeNS('<a href="http://www.w3.org/2000/xmlns/" rel="nofollow" target="_blank">http://www.w3.org/2000/xmlns/</a>', 'xmlns:m', '<a href="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices/metadata</a>');
+    feed.documentElement.setAttributeNS('<a href="http://www.w3.org/2000/xmlns/" rel="nofollow" target="_blank">http://www.w3.org/2000/xmlns/</a>', 'xmlns:d', '<a href="http://schemas.microsoft.com/ado/2007/08/dataservices" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices</a>');
+
+    var id = document.createElementNS('<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>', 'atom:id');
+    id.appendChild(document.createTextNode('<a href="http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7" rel="nofollow" target="_blank">http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7</a>'));
+    feed.documentElement.appendChild(id);
+
+    var title = document.createElementNS('<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>', 'atom:title');
+    title.appendChild(document.createTextNode('4f9f037df04d4613dc0607d7'));
+    feed.documentElement.appendChild(title);
+
+    var entry = document.createElementNS('<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>', 'atom:entry');
+    var content = document.createElementNS('<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>', 'atom:content');
+    content.setAttribute('type', 'application/xml');
+    var properties = document.createElementNS('<a href="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices/metadata</a>', 'm:properties');
+
+    var message = document.createElementNS('<a href="http://schemas.microsoft.com/ado/2007/08/dataservices" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices</a>', 'd:message');
+    message.appendChild(document.createTextNode('This is a flock!'));
+    properties.appendChild(message);
+
+    content.appendChild(properties);
+    entry.appendChild(content);
+    feed.documentElement.appendChild(entry);
+
+    var expected = '<?xml version="1.0" encoding="UTF-8"?>\
+            <atom:feed xmlns:atom="<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>"\
+            xmlns:m="<a href="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices/metadata</a>"\
+            xmlns:d="<a href="http://schemas.microsoft.com/ado/2007/08/dataservices" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices</a>">\
+                <atom:id><a href="http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7" rel="nofollow" target="_blank">http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7</a></atom:id>\
+                <atom:title>4f9f037df04d4613dc0607d7</atom:title>\
+                <atom:entry>\
+                    <atom:content type="application/xml">\
+                        <m:properties>\
+                            <d:message>This is a flock!</d:message>\
+                        </m:properties>\
+                    </atom:content>\
+                </atom:entry>\
+            </atom:feed>'.replace(/\s{1,}/ig, ' ').replace(/> </ig, '><');
+
+    var actual = '<?xml version="1.0" encoding="UTF-8"?>' + ((Ti && Ti.XML) || new XMLSerializer()).serializeToString(feed);
+
+    if (Ti) {
+        Ti.API.info('Expected:\n' + expected);
+        Ti.API.info('Actual:\n' + actual);
+    }
+    else {
+        console.log('Expected:\n' + expected);
+        console.log('Actual:\n' + actual);
+    }
+
+    if (expected != actual) {
+        alert('FAIL! Check logs for more information.');
+    }
+    else {
+        alert('PASS!');
+    }
+})(this['document'], this['Ti']);
+</pre></code>
+
+<h4>Test Results</h4>
+
+<h4>Chrome, Firefox, Safari</h4>
+**PASS**
+The expected and actual are equal.
+
+<h4>iPhone Simulator 5.1</h4>
+**FAIL**
+The actual results are as follows (once problem #1 is resolved):
+```
+<?xml version="1.0" encoding="UTF-8"?><atom:feed xmlns:xmlns="<a href="http://www.w3.org/2000/xmlns/" rel="nofollow" target="_blank">http://www.w3.org/2000/xmlns/</a>" xmlns:atom="<a href="http://www.w3.org/2005/Atom" rel="nofollow" target="_blank">http://www.w3.org/2005/Atom</a>" xmlns:m="<a href="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices/metadata</a>" xmlns:d="<a href="http://schemas.microsoft.com/ado/2007/08/dataservices" rel="nofollow" target="_blank">http://schemas.microsoft.com/ado/2007/08/dataservices</a>"><id><a href="http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7" rel="nofollow" target="_blank">http://appc.me/odata/flocker/4f9f037df04d4613dc0607d7</a></id><title>4f9f037df04d4613dc0607d7</title><entry><content type="application/xml"><properties><message>This is a flock!</message></properties></content></entry></atom:feed>
+
+{quote}
+Note these discrepancies:
+1. Extra xmlns:xmlns attribute on "feed".
+2. "properties" has lost its prefix.
+3. "message" has lots its prefix.
+4. "id", "title" have lost their prefix.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dawson Toth 2012-05-03
+
+   Adjusted. Chrome was being graceful and working properly despite me doing the XML generation... poorly. The above code should now be an accurate reflection of something that works in modern browsers, and should work in Titanium as well.</li>
+<li>Vishal Duggal 2012-05-03
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/2134" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2134</a></li>
+<li>Natalie Huynh 2012-05-14
+
+   Tested with 2.0.2.v20120514121649 with iPhone Simulator 5 and iPhone 4 5.0.1 (When testing on the device: add this code: var win = Ti.UI.createWindow(); or it will fail to build because there is no window in the code)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8952.json">JSON Source</a></p>

@@ -1,0 +1,82 @@
+---
+title: "[TIMOB-14782] iOS: Unable to set Accept-Encoding header on Ti.Network.HTTPClient "
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-25T18:23:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.1, Release 3.2.0, Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>supportTeam</td></tr>
+<tr><th>Reporter</th><td>Bert Grantges</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2013-08-07T22:50:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-25T18:23:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On the iOS platform, a developer can not set the Accept-Encoding header as one would expect. It is always defaulting to Accept-Encoding=gzip.
+
+We are forcing the Accept-Encoding=gzip on our side because of this line:
+
+[request setAllowCompressedResponse:YES];  (TiNetworkHTTPClientProxy.m line 596)
+
+Basically, the ASIHTTPRequest that we are using defaults to overriding the Accept-Encoding to gzip if this flag above is YES (which is the default). In our TiNetworkHttpClientProxy, we are also specifically setting this flag to YES in the send function without checking to see if the user has overridden the Accept-Encoding header. So in this case that means that we can not override the Accept-Encoding header at all, and it will always default to gzip value.
+
+The fix i propose is pretty easy – we just need to allow the user to set an allowCompressedResponse property on the request object, and then check to see what it is when we are going through the send function and set it accordingly.
+
+Here is my replacement code:
+
+ if([TiUtils boolValue:[self valueForUndefinedKey:@"cache"] def:YES]){
+     [request setAllowCompressedResponse:YES];
+ }
+ else{
+     [request setAllowCompressedResponse:NO];
+ }
+
+This is pretty quick and dirty and end the end, you would need to set this flag to false on the XHR in order to allow the Accept-Encoding header to be set, so there may certainly be a more elegant way for this to work.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2013-08-08
+
+   As per RFC 2616, section 14.3 ( <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.3" rel="nofollow" target="_blank">http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.3</a> ), we are claiming we can take identity (uncompressed) as well as gzip. This is perfectly valid.
+   
+   This is not a bug, but instead a feature to override West_Interactive's server fault. Their server response was to claim Content-Encoding: gzip for an uncompressed JSON.
+   
+   Moving to mark this a new feature, but I'm not sure of why we would intentionally disable gzip compression except to compensate for buggy servers.</li>
+<li>Marco Cota 2014-03-18
+
+   [~ingo] it is possible to allow user to set the Accept-Encoding from something different than just "gzip", currently when they try to set it to "gzip, deflate" and due the inability to do it they have been forced to run their calls through a proxy.
+   
+   <code><pre>
+   var client = Ti.Network.createHTTPClient({
+       // function called when the response data is available
+       onload : function(e) {
+            // Do Something
+       },
+       // function called when an error occurs, including a timeout
+       onerror : function(e) {
+            // Do Something
+       },
+       timeout : 5000 // in milliseconds
+   });
+   
+   // Prepare the connection.
+   client.open("GET", url);
+   
+   // Modify client as needed - IT'S THIS PROPERTY THAT DOESN'T PERSIST
+   client.setRequestHeader('Accept-Encoding', 'gzip,deflate');
+   
+   // Send the request.
+   client.send();
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14782.json">JSON Source</a></p>

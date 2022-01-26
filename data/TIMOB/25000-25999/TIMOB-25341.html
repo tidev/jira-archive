@@ -1,0 +1,169 @@
+---
+title: "[TIMOB-25341] Hyperloop: Error after iOS 11 / Xcode 9 update"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-10T08:41:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Hyperloop 2.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 2.2.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>ios11, xcode9</td></tr>
+<tr><th>Reporter</th><td>Matias Penela</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2017-09-25T20:04:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-05-10T06:47:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After installing Xcode's iOS 11 SDK, I am having trouble compiling my application. 
+
+The module I am testing with is Intercom (SDK 4.0.3) Via Podfile (included below)
+
+After cleaning the project and compiling this is the output:
+<code><pre>
+[INFO] :   Starting Hyperloop assembly
+[WARN] :   [Hyperloop] couldn't find class Protocol * {"name":"protocol","optional":false,"type":{"type":"objc_pointer","value":"Protocol *"}}
+[WARN] :   [Hyperloop] Not sure how to handle: name= __fpu_fcw type= unknown type: 119 value= unknown type: 119
+</pre></code>
+
+On second try (without project clean) here is the output:
+
+<code><pre>
+[ERROR] :  Couldn't find module: Intercom for architecture: x86_64
+</pre></code>
+
+System information:
+<code><pre>
+Hyperloop: 2.1.3
+Operating System
+  Name                        = Mac OS X
+  Version                     = 10.12.6
+  Architecture                = 64bit
+  # CPUs                      = 8
+  Memory                      = 17179869184
+Node.js
+  Node.js Version             = 6.11.3
+  npm Version                 = 3.10.10
+Titanium CLI
+  CLI Version                 = 5.0.14
+Titanium SDK
+  SDK Version                 = 6.2.2.GA
+  SDK Path                    = /Users/matiaspenela/Library/Application Support/Titanium/mobilesdk/osx/6.2.2.GA
+  Target Platform             = iphone
+
+[INFO] :   Building using iOS SDK: 11.0
+[INFO] :   Building for iOS Simulator: iPhone 6s
+[INFO] :   Building for device family: universal
+[INFO] :   Minimum iOS version: 8.0
+</pre></code>
+
+I believe the issue is that hyperloop assembly does not start or build and thus the modules required by app are not found.
+
+TEST CASE:
+<code><pre>
+var Intercom = require('Intercom/Intercom');
+var IntercomUser = require('Intercom/ICMUserAttributes');
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25341_63360/Podfile">Podfile</td></td><td>2017-09-25T20:12:34.000+0000</td><td>141</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25341_63361/screenshot-1.png">screenshot-1.png</td></td><td>2017-09-25T20:12:50.000+0000</td><td>181974</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fabian Martinez 2017-09-25
+
+   I'm experiencing the same issue and was about to open a Jira ticket when I found this one.
+   To reproduce it just create a new project, Hyperloop enabled and add this line to the index.js file:
+   
+   var UIView = require('UIKit/UIView');
+   
+   I was testing with node v4.x and ti SDK 6.2.1.GA and 6.1.2.GA. 
+   Now I'm with node v6.x and SDK 6.2.2.GA. I have reinstalled everything (node, npm, ti, appc) and still happens.
+   
+   The /js folder under /hyperloop remains empty after compiling. The first time it fails, the second time it says it is already generated but breaks in runtime. In my case I get this error: /hyperloop/uikit/uiview module not found.
+   
+    !screenshot-1.png|thumbnail! 
+   </li>
+<li>Fabian Martinez 2017-09-26
+
+   Is the Hyperloop module open source? Is there a way to workaround this until 2.0.0 is released?
+   I have reinstalled XCode 8.3.3 for now.
+   
+   </li>
+<li>Jan Vennemann 2017-09-27
+
+   The Hyperloop module is not open source yet. Unfortunately, the only solution for this until Hyperloop 2.2.0 is out, is to stick to Xcode 8.3.3. Apple made a major version bump for the included clang compiler to 4.0 with Xcode 9, which is causing some troubles during metabase generation. We are working hard to include a fix for this in Hyperloop 2.2.0 and get that out asap!</li>
+<li>Jan Vennemann 2017-09-27
+
+   PR (master): <a href="https://github.com/appcelerator/hyperloop.next/pull/215" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/215</a>
+   PR (2_2_X): <a href="https://github.com/appcelerator/hyperloop.next/pull/214" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/214</a></li>
+<li>Mark Henderson 2017-10-01
+
+   I have this exact issue too.. Back to 8.3.3 it is then..
+   
+   Weirdly this was working for me for the last week (I usually had to build the app twice to get it to not error out) now it's stopped working completely with the same error. Strange.. </li>
+<li>Jan Vennemann 2017-10-06
+
+   Follow up fix for block issues when requiring certain class combinations:
+   
+   PR (master): <a href="https://github.com/appcelerator/hyperloop.next/pull/227" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/227</a>
+   PR (2_2_X): <a href="https://github.com/appcelerator/hyperloop.next/pull/228" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/228</a></li>
+<li>Abir Mukherjee 2017-10-09
+
+   Node Version: 6.10.3
+   NPM Version: 3.10.10
+   Mac OS: 10.13
+   Appc CLI: 6.2.4
+   Appc CLI NPM: 4.2.9
+   Titanium SDK version: 6.2.2
+   Appcelerator Studio vers 4.10.0
+   Hyperloop 2.2.0 RC3
+   Xcode 9.0
+   
+   Validated the fix with the above environment.</li>
+<li>Brian García 2018-05-10
+
+   The same issue happens with Hyperloop 3.1.0 beta 2 release. 
+   
+   
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.4
+     Architecture                = 64bit
+     # CPUs                      = 8
+     Memory                      = 17179869184
+   
+   Node.js
+     Node.js Version             = 8.10.0
+   npm Version                 = 5.6.0
+   
+   Titanium CLI
+     CLI Version                 = 5.1.0
+   
+   Titanium SDK
+     SDK Version                 = 7.1.1.GA
+     SDK Path                    = /Users/Brian/Library/Application Support/Titanium/mobilesdk/osx/7.1.1.GA
+     Target Platform             = iphone
+   
+   xcode 9.3
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25341.json">JSON Source</a></p>

@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-26895] Android: APK signing will fail when using MD5 keystore and JDK 8 or newer"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-05-23T21:11:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.2</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, apk, engSchedule, jdk, md5, signing</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-03-12T03:05:27.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-23T21:11:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Digitally signing an APK will fail when using a keystore using an MD5 encryption with JDK 8 or newer version.
+
+*Steps to reproduce:*
+<h4>Go to a machine with JDK 8 or newer installed on it.</h4>
+<h4>Create a Classic Titanium app.</h4>
+<h4>Copy the [^testmd5.keystore] the project's root directory.</h4>
+<h4>In Appc Studio, select "Package" from the top-left-most dropdown box.</h4>
+<h4>In Appc Studio, select "Android Play Store" from the other dropdown box.</h4>
+<h4>Click the build button.</h4>
+<h4>For "Keystore Location", click the "Browse" button and select the "testmd5.keystore" file.</h4>
+<h4>For "Keystore Password", enter: <code>testmd5</code></h4>
+<h4>For "Keypair Password", enter: <code>testmd5</code></h4>
+<h4>For "Key Alias", enter: <code>testmd5</code></h4>
+<h4>Click the "Publish" button.</h4>
+
+*Result:*
+Build fails with the following logged error messages.
+<code><pre>
+[ERROR] :  Failed to sign apk:
+[ERROR] :  jarsigner error: java.security.NoSuchAlgorithmException: MD5withRSA (weak) Signature not available
+</pre></code>
+
+*Cause:*
+When reading the keystore file's information via the JDK "keytool", the algorithm returned will be "MD5withRSA (weak)" with " (weak)" appended to it as of JDK 8. The returned "MD5withRSA (weak)" string is being blindly passed to the signing tool, when we should be passing "MD5withRSA" instead.
+
+*Note 1:*
+Issue was raised on github below...
+<a href="https://github.com/appcelerator/titanium_mobile/issues/10769" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/issues/10769</a>
+
+*Note 2:*
+Newest JDK "keytool" versions will typically create a keystore using SHA1 or SHA256 by default. I think MD5 was the default for JDK 6.
+
+*Note 3:*
+You can create a keystore file with "MD5withRSA" at the command line on Mac by entering the below in the Terminal. Note that we don't recommend signing a real app with MD5. You should use SHA256 instead. The below is for testing purposes only.
+<code><pre>
+keytool -genkey -v -keystore <NewKeystoreFilePath> -alias <AliasName> -sigalg MD5withRSA -keyalg RSA -validity 999999
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26895_66239/testmd5.keystore">testmd5.keystore</td></td><td>2019-03-12T02:53:42.000+0000</td><td>2577</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26895_66601/testsha1.keystore">testsha1.keystore</td></td><td>2019-05-15T00:49:39.000+0000</td><td>2579</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26895_66602/testsha256.keystore">testsha256.keystore</td></td><td>2019-05-15T00:49:39.000+0000</td><td>2583</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-05-15
+
+   I've attached SHA1 and SHA256 keystore files to be used to test the fix for this issue. Note that there are not any issues with these algorithms, but we need to ensure the fix doesn't break them either.
+   
+    [^testsha1.keystore] 
+   *Keystore Password:*  <code>testsha1</code>
+   *Keypair Password:*  <code>testsha1</code>
+   *Key Alias:*  <code>testsha1</code>
+   
+    [^testsha256.keystore] 
+   *Keystore Password:*  <code>testsha256</code>
+   *Keypair Password:*  <code>testsha256</code>
+   *Key Alias:*  <code>testsha256</code>
+   </li>
+<li>Joshua Quick 2019-05-15
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10888" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10888</a>
+   PR (8.0.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10889" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10889</a></li>
+<li>Keerthi Mahalingam 2019-05-17
+
+   FR passed.</li>
+<li>Keerthi Mahalingam 2019-05-17
+
+   PR merged for master.but on 8_0_X jenkin is failing .not able to merge</li>
+<li>Keerthi Mahalingam 2019-05-23
+
+   Verified the fix on SDK 8.1.0.v20190523084559 and 8.0.2.v20190522031334.APP built successfully with keystore. Works as expected.
+   <code><pre>Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Architecture                = 64bit
+     # CPUs                      = 8
+     Memory                      = 17179869184
+   Node.js
+     Node.js Version             = 8.9.1
+     npm Version                 = 5.5.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Titanium SDK
+     SDK Version                 = 8.1.0.v20190523084559 and 8.0.2.v20190522031334
+   Cli =7.0.11
+   Studio =5.1.2.201903111843
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26895.json">JSON Source</a></p>

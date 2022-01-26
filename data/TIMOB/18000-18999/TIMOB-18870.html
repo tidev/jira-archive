@@ -1,0 +1,321 @@
+---
+title: "[TIMOB-18870] Android: HTTPClient Onload Callback handles GET request incorrectly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2015-05-14T04:43:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 4.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-05-04T21:12:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-16T21:41:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description</h4>
+When an user submits, in the 'load' event of the webview, document download functionality is initiated an completed. Contents are written to a file and fetched back and displayed in the webview. We are facing the below issues in android (works fine in iOS): 
+
+1. When calling HTTPClient document is not properly downloaded. The actual size of the document is around 10MB while the downloaded size is around 6KB 
+2. If the document download is initiated once, the login screen doesn’t render on the mobile app until we re-install the app. We have also tried to disable cache.
+
+Also a forbidden error occurs only when trying from within the app. If you hit the same url from Chrome browser, it works with the credentials used. 
+
+<h4>Use Case</h4>
+To download a remote document. The remote url will first render a Login screen; after successful login, the same url will render the actual document. 
+
+<h4>Android 4.0.4 device output:</h4>
+<code><pre>
+05-04 15:27:03.398: I/TiAPI(9530):  0.35535908174344655
+05-04 15:27:03.398: I/TiAPI(9530):  0.8045602605863192
+05-04 15:27:03.437: I/TiAPI(9530):  1
+05-04 15:27:03.447: I/TiAPI(9530):  onload called, readyState = 4
+05-04 15:27:03.447: I/TiAPI(9530):  download file onload
+</pre></code>
+
+<h4>Android 4.4.4 device output:</h4>
+<code><pre>
+05-04 15:48:41.077: I/TiAPI(7104):  1
+05-04 15:48:41.079: I/TiAPI(7104):  onload called, readyState = 4
+05-04 15:48:41.079: I/TiAPI(7104):  download file onload
+</pre></code>
+
+<h4>iOS 8.2 device output:</h4>
+<code><pre>
+[DEBUG] New scheme: <NSMutableURLRequest: 0x170013460> { URL: <a href="https://keysight-preprod.assetserv.com/das/UI/Login" rel="nofollow" target="_blank">https://keysight-preprod.assetserv.com/das/UI/Login</a> }
+[DEBUG] New scheme: <NSMutableURLRequest: 0x1740175a0> { URL: <a href="https://keysight-preprod.assetserv.com/r2/servlet/dload/Leveraging-Big-Data.pdf?force_dload=true&confirm_license=true&id=4977" rel="nofollow" target="_blank">https://keysight-preprod.assetserv.com/r2/servlet/dload/Leveraging-Big-Data.pdf?force_dload=true&confirm_license=true&id=4977</a> }
+[INFO]  webViewonload - else
+[INFO]  download file
+</pre></code>
+
+<h4>Test Case</h4>
+When we open the link it will ask for login, the login username and password it's been set automatically. Just hit the login button. Then the content will be downloaded fully and open. 
+<code><pre>
+var win = Ti.UI.createWindow();
+win.addEventListener('open', function() {
+    downloadKF();
+});
+var testWebView = Ti.UI.createWebView({
+    height : Ti.UI.FILL,
+    width : Ti.UI.FILL
+});
+testWebView.addEventListener('load', webViewonload);
+testWebView.addEventListener('error', webViewOnError);
+win.add(testWebView);
+win.open();
+
+var loggedin = false;
+function downloadKF(e) {
+    testWebView.url = url;
+}
+
+function autoLoginUser() {
+    if (_emailID && _password) {
+        testWebView.evalJS("document.getElementById('IDToken1').value = '" + _emailID + "'");
+        testWebView.evalJS("document.getElementById('IDToken2').value = '" + _password + "'");
+        testWebView.evalJS("LoginSubmit('Log In')");
+        loggedin = true;
+    }
+}
+
+function webViewonload(e) {
+    if (loggedin == false) {
+        Ti.API.info('onload ' + e.source.html);
+        setTimeout(function(e) {
+            Ti.API.info('called autologin');
+            autoLoginUser();
+        }, 5);
+
+    } else {
+        Ti.API.info('webViewonload - else');
+        setTimeout(function(e) {
+            downloadFile();
+        }, 1000);
+
+    }
+}
+
+function webViewOnError(e) {
+    Ti.API.info(' e.error code ' + e.errorCode);
+    if (e.errorCode == -1015) {
+        var _errorText = 'Incomplete download. \n(Error details: ' + e.message + ', Error code: ' + e.errorCode + '). \nPage will refresh.';
+        reloadInASecondWithMessage(_errorText);
+    }
+}
+
+function reloadInASecondWithMessage(errorText) {
+    testWebView.html = errorText;
+    setTimeout(function incompleteMessageHandler() {
+        testWebView.url = url;
+    }, 1000);
+}
+
+function downloadFile() {
+    Ti.API.info('download file');
+    var xhr = Titanium.Network.createHTTPClient({
+        onload : function(e) {
+            Ti.API.info('onload called, readyState = ' + this.readyState);
+            Ti.API.info('download file onload');
+            if (Ti.Filesystem.isExternalStoragePresent()) {
+                sdPath = 'file:///sdcard/';
+                var folder = Ti.Filesystem.getFile(sdPath, 'Testing');
+                if (!folder.exists()) {
+                    folder.createDirectory();
+                }
+                newPath = 'file:///sdcard/Testing/' + fileName;
+                tmpFile = Ti.Filesystem.getFile(newPath);
+                tmpFile.write(this.responseData);
+                openFile();
+            } else {
+                alert('No external storage present');
+            }
+        },
+        timeout : 50000,
+        onerror : function(e) {
+            Ti.API.info('Error: ' + JSON.stringify(e));
+        },
+        ondatastream : function(e) {
+            Ti.API.info(e.progress);
+        }
+    });
+    xhr.open('GET', url);
+    xhr.send();
+}
+
+function openFile() {
+    var tmpFile = Ti.Filesystem.getFile('file:///sdcard/Testing/' + fileName);
+    if (tmpFile.exists()) {
+        Ti.API.info('tempfile: ' + tmpFile + ' ___ ' + JSON.stringify(tmpFile));
+        testWebView.backgroundColor = 'red';
+        testWebView.setData(tmpFile.nativePath);
+    } else {
+        Ti.API.info('File not found');
+    }
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ashraf Abu 2015-05-14
+
+   <h4>Test Case Solution</h4>
+   Please provide ur credentials, url, _emailID, _password and filename
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   win.addEventListener('open', function() {
+       downloadKF();
+   });
+   
+   var testWebView = Ti.UI.createWebView({
+       height : Ti.UI.FILL,
+       width : Ti.UI.FILL
+   });
+   
+   //For Android
+   //Website didn't load again as webview was directed to the PDF link and webviews don't show that
+   //The cookies need to be removed to show the login page again
+   if(Ti.Platform.osname == 'android') {
+   	Titanium.Network.removeAllSystemCookies();
+   }
+   
+   testWebView.addEventListener('load', webViewonload);
+   testWebView.addEventListener('error', webViewOnError);
+   win.add(testWebView);
+   win.open();
+    
+   var loggedin = false;
+   function downloadKF(e) {
+       testWebView.url = url;
+   }
+    
+   function autoLoginUser() {
+       if (_emailID && _password) {
+           testWebView.evalJS("document.getElementById('IDToken1').value = '" + _emailID + "'");
+           testWebView.evalJS("document.getElementById('IDToken2').value = '" + _password + "'");
+           testWebView.evalJS("LoginSubmit('Login');");
+           loggedin = true;
+       }
+   }
+    
+   function webViewonload(e) {
+       if (loggedin == false) {
+           Ti.API.info('onload ' + e.source.html);
+           setTimeout(function(e) {
+               Ti.API.info('called autologin');
+               autoLoginUser();
+           }, 5);
+    
+       } else {
+           Ti.API.info('webViewonload - else');
+           setTimeout(function(e) {
+               downloadFile();
+           }, 1000);
+           
+   
+    
+       }
+   }
+    
+   function webViewOnError(e) {
+       Ti.API.info(' e.error code ' + e.errorCode);
+       if (e.errorCode == -1015) {
+           var _errorText = 'Incomplete download. \n(Error details: ' + e.message + ', Error code: ' + e.errorCode + '). \nPage will refresh.';
+           reloadInASecondWithMessage(_errorText);
+       }
+   }
+    
+   function reloadInASecondWithMessage(errorText) {
+       testWebView.html = errorText;
+       setTimeout(function incompleteMessageHandler() {
+           testWebView.url = url;
+       }, 1000);
+   }
+    
+   function downloadFile() {
+       Ti.API.info('download file');
+   	
+   	//Login information in cookies needed for Android
+       var cookies = testWebView.evalJS("document.cookie"); 
+   	    
+       var xhr = Titanium.Network.createHTTPClient({
+       	cache: false,
+           onload : function(e) {
+               Ti.API.info('onload called, readyState = ' + this.readyState);
+               Ti.API.info('download file onload');
+               if (Ti.Filesystem.isExternalStoragePresent()) {
+                   sdPath = 'file:///sdcard/';
+                   var folder = Ti.Filesystem.getFile(sdPath, 'Testing');
+                   if (!folder.exists()) {
+                       folder.createDirectory();
+                   }
+                   newPath = 'file:///sdcard/Testing/' + fileName;
+                   tmpFile = Ti.Filesystem.getFile(newPath);
+                   tmpFile.write(this.responseData);
+                   Ti.API.info('responseData:' + this.responseData);
+                   Ti.API.info('responseText:' + this.responseText);
+                   Ti.API.info('status:' + this.status);
+                   Ti.API.info('statusText:' + this.statusText);
+                   Ti.API.info('allResponseHeaders:' + this.allResponseHeaders);
+                   Ti.API.info('cache:' + this.cache);
+                   openFile();
+               } else {
+                   alert('No external storage present');
+               }
+           },
+           timeout : 50000,
+           onerror : function(e) {
+               Ti.API.info('Error: ' + JSON.stringify(e));
+           },
+           ondatastream : function(e) {
+               Ti.API.info('Datastream:' +e.progress);
+           }
+       });
+       
+       //If it is Android, the cookies from webview is not shared in
+       //Httpclient. You need to set it for the login information
+       if(Ti.Platform.osname == 'android') {
+   		Ti.API.info("check cookie:"+cookies);
+       	xhr.setRequestHeader("cookie", cookies);
+   	}
+   
+       xhr.open('GET', url);
+       xhr.send();
+   }
+    
+   function openFile() {
+       var tmpFile = Ti.Filesystem.getFile('file:///sdcard/Testing/' + fileName);
+       if (tmpFile.exists()) {
+           Ti.API.info('tempfile: ' + tmpFile + ' ___ ' + JSON.stringify(tmpFile));
+           testWebView.backgroundColor = 'red';
+           testWebView.setData(tmpFile.nativePath);
+       } else {
+           Ti.API.info('File not found');
+       }
+   }
+   </pre></code>
+   
+   <h4>Explanation</h4>
+   From <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.WebView
+   {quote}
+   On Android, the web view uses the system cookie store which does not share cookies with the Titanium.Network.HTTPClient cookie store. 
+   {quote}
+   
+   This implies that you need to handle the login cookies yourself. In iOS it's handled. Hence when you try to download it with the HTTPClient in the original code, you are actually just downloading the webpage, hence the 6KB file. When you set the cookie, it then does the download.
+   
+   The webview is blank when you open the app again due to the webview cookies logging you in automatedly and trying to download the pdf. The webview doesn't handle the download, hence a blank screen is shown. To remove this, you need to clear the webview cookies as show in the code above.
+   
+   This should solve your issues. :)</li>
+<li>Lee Morris 2017-03-16
+
+   Can confirm that this was done.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18870.json">JSON Source</a></p>

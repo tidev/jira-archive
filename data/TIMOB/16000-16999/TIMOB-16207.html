@@ -1,0 +1,118 @@
+---
+title: "[TIMOB-16207] Android: Setting a property that expect a boolean to a string throws ClassCastException"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-03-06T21:51:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_android, parity, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Tim Poulsen</td></tr>
+<tr><th>Assignee</th><td>Biju pm</td></tr>
+<tr><th>Created</th><td>2014-01-16T16:43:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-12-17T16:03:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Originally reported as an Alloy issue, this is a platform issue. Setting a property to a string that expects a boolean will work on iOS but throw an exception on Android.
+
+Test case: returnKeyEnabled expects boolean, drop the following into a new classic project, build for Android, tap the text field then with or without entering text in the field, tap the Done (return) button to cause the crash.
+
+App works as-is on iOS (7.0 simulator)
+
+<code><pre>
+var win = Titanium.UI.createWindow({  
+    backgroundColor:'#fff',
+    layout: 'vertical'
+});
+
+var txt = Ti.UI.createTextField({
+    top: 50, width: Ti.UI.FILL, 
+    color: 'black',
+    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+    enableReturnKey: 'true' // change to true to "fix"
+});
+
+win.add(txt);
+
+
+win.open();
+</pre></code>
+
+<code><pre>
+[ERROR] TiApplication: (main) [12383,12383] Sending event: exception on thread: main msg:java.lang.ClassCastException: java.lang.String cannot be cast to java.lang.Boolean; Titanium 3.2.0,2013/12/20 10:57,d9182d6
+[ERROR] TiApplication: java.lang.ClassCastException: java.lang.String cannot be cast to java.lang.Boolean
+[ERROR] TiApplication: 	at ti.modules.titanium.ui.widget.TiUIText.onEditorAction(TiUIText.java:389)
+[ERROR] TiApplication: 	at android.widget.TextView.onEditorAction(TextView.java:4117)
+[ERROR] TiApplication: 	at com.android.internal.widget.EditableInputConnection.performEditorAction(EditableInputConnection.java:138)
+[ERROR] TiApplication: 	at com.android.internal.view.IInputConnectionWrapper.executeMessage(IInputConnectionWrapper.java:297)
+[ERROR] TiApplication: 	at com.android.internal.view.IInputConnectionWrapper$MyHandler.handleMessage(IInputConnectionWrapper.java:77)
+[ERROR] TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+[ERROR] TiApplication: 	at android.os.Looper.loop(Looper.java:137)
+[ERROR] TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:5041)
+[ERROR] TiApplication: 	at java.lang.reflect.Method.invokeNative(Native Method)
+[ERROR] TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:511)
+[ERROR] TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:793)
+[ERROR] TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:560)
+[ERROR] TiApplication: 	at dalvik.system.NativeStart.main(Native Method)
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-01-16
+
+   Originally reported as Alloy issue, but this is underlying platform behavior</li>
+<li>Biju pm 2014-01-20
+
+   PR:-
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/5238" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5238</a></li>
+<li>Priya Agarwal 2014-04-23
+
+   Verified the issue using the environment :
+   
+   Appc-Studio:3.2.3.201404162038
+   sdk:3.3.0.v20140417173316
+   acs:1.0.14
+   alloy:1.3.1
+   npm:1.3.2
+   titanium:3.2.3-beta2
+   titanium-code-processor:1.1.1-beta1
+   xcode:5.1.1
+   Device:Nexus5(v4.4.2),Iphone5(v7.1)
+   
+   observed that it does not give the exception message if we provide string value in the property "enableReturnKey" for iOS as well as Android.
+   
+   But,According to documentation, the property "enableReturnKey" accept boolean value only. 
+   Documentation made me think? why this property "enableReturnKey" takes the string value and typecast internally. 
+   Instead of this exception should be handled gracefully and give proper error message if we provide value other than boolean.</li>
+<li>Tim Poulsen 2014-04-23
+
+   [~pagarwal] Since iOS does this conversion automatically internally, the request was to match functionality on the Android site to ease the burden on internal and external developers. For example:
+   
+   * - Values entered in the XML or TSS are treated as strings unless Alloy adds special handling for them (to transform them to booleans). Adding these special cases increases our development and maintenance costs.
+   * - The same would be true for any data retrieved from a web service that returns XML -- the developer would need to parse the data and cast values on Android, but not on iOS. 
+   * - I have frequently encountered this issue when setting a TextField's value to a numeric value -- on iOS, I can set <code>textfield.text = 20</code> but on Android I have to do <code>textfield.text = String(20)</code>.  </li>
+<li>Lokesh Choudhary 2014-05-06
+
+   Verified the fix. Setting a property that expect a boolean to a string does not throws ClassCastException error.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio : 3.2.3.201404181520
+   Ti SDK : 3.3.0.v20140502133323
+   Mac OSX : 10.8.5
+   Alloy : 1.3.1	
+   CLI - 3.2.3
+   Nexus 5 - android 4.4.2</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16207.json">JSON Source</a></p>

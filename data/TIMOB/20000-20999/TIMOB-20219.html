@@ -1,0 +1,94 @@
+---
+title: "[TIMOB-20219] Android: HTTPClient not working with http redirected to https"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-02-11T00:00:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>redirect</td></tr>
+<tr><th>Reporter</th><td>Shawn Lan</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2016-01-07T20:31:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-09-23T18:07:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If the request url is from http redirected to https, HTTPClient downloads garbage instead. On iOS it's working fine.
+
+In the following example, <a href="http://audio.forerunner.cc/test.pdf" rel="nofollow" target="_blank">http://audio.forerunner.cc/test.pdf</a> is permanently redirected to <a href="https://audio.forerunner.cc/test.pdf" rel="nofollow" target="_blank">https://audio.forerunner.cc/test.pdf</a>
+
+Examine the downloaded file and see it's just garbage. Replace the url with <a href="https://audio.forerunner.cc/test.pdf." rel="nofollow" target="_blank">https://audio.forerunner.cc/test.pdf.</a> It will then download the file correctly.
+
+index.js
+<code><pre>
+var opt = {url:'<a href="http://audio.forerunner.cc/test.pdf" rel="nofollow" target="_blank">http://audio.forerunner.cc/test.pdf</a>',type:'GET',file:Ti.Filesystem.getFile(Ti.Filesystem.tempDirectory,'test.pdf')};
+require('http').request(opt);
+</pre></code>
+
+
+http.js
+<code><pre>
+exports.request = function(opts) {
+
+	var xhr = Ti.Network.createHTTPClient();
+
+	xhr.timeout = (opts.timeout) ? opts.timeout : 5000;
+
+	xhr.enableKeepAlive = (opts.keepAlive) ? opts.keepAlive : false;
+
+	xhr.onload = function() {
+		if(opts.file && OS_IOS) opts.file.remoteBackup = false; 
+        var data = (opts.format === 'json') ? JSON.parse(this.responseText) : this.responseData;
+        var rHeader = opts.rHeader ? this.getResponseHeader(opts.rHeader) : null;
+        if((data || rHeader) && opts.callback)
+			opts.callback(data, rHeader);
+	};
+
+	if (opts.ondatastream)
+		xhr.ondatastream = function(e){
+			opts.ondatastream(e.progress);
+		};
+
+    
+	xhr.onerror = function() {
+		if(opts.file)
+			opts.file.deleteFile();
+		if(opts.onerror)
+			opts.onerror();
+	};
+
+	xhr.open(opts.type?opts.type:'GET', encodeURI(opts.url));
+	if(opts.file) xhr.file = OS_ANDROID?opts.file.nativePath:opts.file;
+    if(opts.headers) {
+        for(var i = 0, j = opts.headers.length; i < j; i++) {
+            xhr.setRequestHeader( opts.headers[i].name, opts.headers[i].value );
+        }
+    }
+
+    if(opts.data) {
+        xhr.send(JSON.stringify(opts.data));
+	} else {
+		xhr.send(null);
+	}
+};
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Parween Singh 2016-04-11
+
+   Even, We are facing the same issue. With ti 4.0.0 sdk, it works fine both on iOS and Android. But with 5.1.1 ,It doesn't work on android. We get a garbage file downloaded, and pdf viewer gives a message "This Document cannot be opened". Same result when we try to download .xls file. Kindly , provide a workaround with this sdk. Thanks.</li>
+<li>Lokesh Choudhary 2016-06-24
+
+   Closing as duplicate & the original ticket is closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20219.json">JSON Source</a></p>

@@ -1,0 +1,82 @@
+---
+title: "[TIMOB-19000] Remove Titanium build call from Xcode pre-compile phase"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-07-28T08:50:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.0.0</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2015-06-11T19:52:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-16T21:08:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A long time ago, Titanium's iOS build was written in Python. The iOS build performed 3 major steps:
+
+<h4>Create all Xcode related files in build dir</h4>
+<h4>Run xcodebuild to compile project, which in turn fires the Xcode project's pre-compile phase script that calls the iOS build again to copy the Titanium-specific resources</h4>
+<h4>Xcode builds the final app and signs it</h4>
+
+It was done this way so that you could open the generated Xcode project, modify JS files, and build from Xcode.
+
+When we replaced they Python-based iOS build scripts with the Node.js version, there was a performance issue with Xcode calling the Titanium CLI to copy the Titanium resources. I changed things so that if you are building from the Titanium CLI, it would copy the Xcode project related files, then the Titanium related files, then finally call xcodebuild. This significantly sped things up.
+
+The problem today is that when you run <code>appc run</code>, it generates a Xcode project who's pre-compile script references the Titanium CLI. Users do not have the Titanium CLI installed by default and thus it will fail. Even if they did, the encryption method would vary. Also the Xcode project's pre-compile should be calling the <code>appc run</code>, not <code>ti build</code>.
+
+I'm proposing we remove the Xcode project's pre-compile script.
+
+Pros:
+* Remove cruft from the iOS build
+** There's a lot of code that accommodates the ability for Titanium resources to be processed when building from Xcode that we could rip out
+** As maintainers of the iOS build changes, not all of the knowledge is transferred and thus new contributors neglect the Xcode-specific build path
+* Speeds up builds when building from Xcode
+* Building from Xcode only really works when you have Titanium CLI installed
+* Building via <code>appc run</code> encrypts differently than <code>ti build</code> and thus building from Xcode would render the new encrypted files unused and bloat the app
+* Modifying Titanium JS files and building directly from Xcode is not officially supported
+
+Cons:
+* Deprecates a feature that has existed for years
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2015-06-11
+
+   [~bgrantges@appcelerator.com] [~rblalock] [~aleard] [~scottd] FYI. Any objections?</li>
+<li>Rick Blalock 2015-06-11
+
+   There's gotta be more cons than that.  :-)
+   
+   "Modifying Titanium JS files and building directly from Xcode is not officially supported"
+   
+   We've supported building from Xcode though.  We've always had the ability, for example, to run Instruments with your app, which requires building from Xcode.</li>
+<li>Chris Barber 2015-06-11
+
+   [~rblalock] Right and that won't change. What you won't be able to do is do a device build, change the app.js, build from Xcode and expect to see your changes. You will still be able to run instruments, profile the app, and package it for distribution.</li>
+<li>Rick Blalock 2015-06-11
+
+   Kk so if you did a <code>ti build</code> compile only...open in Xcode and build to device...it'd work right?</li>
+<li>Chris Barber 2015-06-11
+
+   [~rblalock] Correct.</li>
+<li>Bert Grantges 2015-06-12
+
+   all of the above being true - then make it so!</li>
+<li>Chris Barber 2015-07-28
+
+   This has been fixed as apart of TIMOB-18840.</li>
+<li>Lee Morris 2017-03-16
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19000.json">JSON Source</a></p>

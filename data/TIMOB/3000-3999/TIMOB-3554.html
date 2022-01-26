@@ -1,0 +1,229 @@
+---
+title: "[TIMOB-3554] webview.evalJS() causes exception"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-07-07T11:12:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.6.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-25</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Paul Dowsett</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:46:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-02-15T10:14:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A number of users in the Q&amp;A have reported that evalJS applied to a webview causes an exception. The following usecase demonstrates the problem, which results in [this trace](<a href="http://pastebin.com/raw.php?i=HNGHQn6C)" rel="nofollow" target="_blank">http://pastebin.com/raw.php?i=HNGHQn6C)</a>
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor : "blue",
+	exitOnClose:true
+});
+
+var myWeb = Ti.UI.createWebView({
+	url:'myweb.htm',
+	// url:'<a href="http://www.mydomain.net/myweb.htm" rel="nofollow" target="_blank">http://www.mydomain.net/myweb.htm</a>',
+	url:'myweb.htm',
+	backgroundColor:'green'
+});
+
+myWeb.addEventListener('load',function(e){
+	var title = myWeb.evalJS("return document.title;");
+	Ti.API.info("The title of the webview is " + title);
+});
+
+win.add(myWeb);
+
+win.open();
+</pre></code>
+
+<code><pre>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "<a href="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" rel="nofollow" target="_blank">http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd</a>">
+<html xmlns="<a href="http://www.w3.org/1999/xhtml" rel="nofollow" target="_blank">http://www.w3.org/1999/xhtml</a>" xml:lang="en-GB">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>This is Titanium</title>
+</head>
+<body>
+<div id="page-content">
+	<h1>Testing Titanium</h1>
+	<div id="inner-content">
+
+	<p>
+		This is a Titanium test.
+	</p>
+	</div>
+</div>
+</body>
+</html>
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>hal 2011-04-15
+
+   <div><p>Moving contents of ticket <a href="/projects/32238/tickets/3510"
+   title="Ticket #3510">#3510</a>, by user KT, here:</p>
+   <p>Here's a test that will crash on Android 2.2 / Ti 1.7.X with
+   SIGSEGV:</p>
+   <pre>
+   <code class="javascript">var win = Ti.UI.createWindow({
+       // Android
+       navBarHidden: false,
+       exitOnClose: true
+   });
+   var view = Ti.UI.createWebView({
+       scalesPageToFit: false,
+       url: 'something.html'
+   });
+   view.addEventListener('load', function() {
+       view.evalJS("test");
+   });
+   win.add(view);
+   win.open();</code>
+   </pre>
+   <p>This code gives a crash dump similar to <a href=
+   "<a href="http://pastie.org/1754641" rel="nofollow" target="_blank">http://pastie.org/1754641</a>"><a href="http://pastie.org/1754641" rel="nofollow" target="_blank">http://pastie.org/1754641</a></a></p>
+   <p>Just as some further background, and to help try to pinpoint it
+   regression-wise, users seem to be having similar issues for at
+   least a year:</p>
+   <ul>
+   <li><a href=
+   "<a href="http://developer.appcelerator.com/question/117750/android-evaljs" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/117750/android-evaljs</a>">android-evaljs</a></li>
+   <li><a href=
+   "<a href="http://developer.appcelerator.com/question/67431/js-to-webview-working-on-iphone-not-in-android" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/67431/js-to-webview-working-on-iphone-not-in-android</a>">
+   js-to-webview-working-on-iphone-not-in-android</a></li>
+   <li><a href=
+   "<a href="http://developer.appcelerator.com/question/13431/evaljs-not-working-anymore-since-12x-upgrade-on-android-16" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/13431/evaljs-not-working-anymore-since-12x-upgrade-on-android-16</a>">
+   evaljs-not-working-anymore-since-12x-upgrade-on-android-16</a></li>
+   </ul>
+   <p>This is, strangely, in direct contravention to the <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/597a4878af606e255811964cc5cbc9b93df5dfb2" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/597a4878af606e255811964cc5cbc9b93df5dfb2</a>">
+   drillbit test</a></p>
+   <p>If that works, then what is drillbit doing differently so that
+   it works whereas the app.js above crashes immediately?</p>
+   <p>This crash doesn't seem to happen on 3.0. But the necessary Ti
+   Javascript seems to never get injected, as is the case with 1.6
+   (i.e., no crash, but no Ti injection). The injection problem is
+   described separately in <a href="/projects/32238/tickets/3539"
+   title="Ticket #3539">#3539</a></p></div></li>
+<li>Paul Dowsett 2011-06-18
+
+   The problem was with the code that the user was passing to evalJS(), ie:
+   <code><pre>myWeb.evalJS("return document.title;")</pre></code>
+   
+   The test code above works as expected, and returns the following output:
+   
+   <code><pre>
+      53         ActivityManager  I  Displayed activity com.testing.testing7/.Testing7Activity: 3335 ms (total 3335 ms)
+      53                 gralloc  E  [unregister] handle 0x3e2b20 still locked (state=40000001)
+     1493       TiWebViewBinding  D  (main) [1271,1300] getJSValue:javascript:_TiReturn.setValue((function(){try{return document.title+"";}catch(ti_eval_err){return '';}})());
+     1493                  TiAPI  I  (kroll$1: app://app.js) [70,1370] ************TITLE: This is Titanium
+     1493       TiWebViewBinding  D  (main) [129,1499] getJSValue:javascript:_TiReturn.setValue((function(){try{return document.getElementById("inner-content").getElementsByTagName("p").item(0).innerHTML+"";}
+                                     catch(ti_eval_err){return '';}})());
+     1493                  TiAPI  I  (kroll$1: app://app.js) [25,1524] ************CONTENT: This is a Titanium test
+   </pre></code></li>
+<li>Paul Dowsett 2011-06-18
+
+   This is the code that proves that this issue is either invalid or fixed, as it works as expected:
+   
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor : "blue",
+   	exitOnClose:true
+   });
+   
+   var view = Ti.UI.createWebView({
+   	scalesPageToFit: false,
+   	// url:'<a href="http://www.mydomain.net/myweb.htm" rel="nofollow" target="_blank">http://www.mydomain.net/myweb.htm</a>'
+   	url:'myweb.htm'
+   });
+   view.addEventListener('load', function() {
+   	Ti.API.info("************TITLE: " + view.evalJS("document.title"));
+   	Ti.API.info("************CONTENT: " + view.evalJS('document.getElementById("inner-content").getElementsByTagName("p").item(0).innerHTML'));
+   });
+   win.add(view);
+   win.open();</pre></code>
+   
+   <code><pre>
+   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "<a href="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" rel="nofollow" target="_blank">http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd</a>">
+   <html xmlns="<a href="http://www.w3.org/1999/xhtml" rel="nofollow" target="_blank">http://www.w3.org/1999/xhtml</a>" xml:lang="en-GB">
+   <head>
+   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+   <title>This is the title</title>
+   </head>
+   <body>
+   <div id="page-content">
+   	<h1>Testing Titanium</h1>
+   	<div id="inner-content">
+   	<p>This is the content</p>
+   	</div>
+   </div>
+   </body>
+   </html>
+   </pre></code></li>
+<li>Paul Dowsett 2011-06-18
+
+   Note this ticket is duplicated in TIMOB-3539</li>
+<li>Don Thorp 2011-07-07
+
+   Closing as invalid due to comments from Paul.</li>
+<li>Michel Leong 2011-09-12
+
+   When I try to run the example provided above by Paul, it crashes and the output is as follows:
+   
+   {noformat}
+   D/TiWebViewBinding(  319): (main) [2408,2971] getJSValue:javascript:_TiReturn.setValue((function(){try{return document.title+"";}catch(ti_eval_err){return '';}})());
+   W/dalvikvm(  319): JNI WARNING: jarray 0x40610110 points to non-array object (Ljava/lang/String;)
+   I/dalvikvm(  319): "WebViewCoreThread" prio=5 tid=14 NATIVE
+   I/dalvikvm(  319):   | group="main" sCount=0 dsCount=0 obj=0x405ac350 self=0x219b10
+   I/dalvikvm(  319):   | sysTid=377 nice=0 sched=0/0 cgrp=default handle=2202696
+   I/dalvikvm(  319):   | schedstat=( 507256989 1098467084 111 )
+   I/dalvikvm(  319):   at android.webkit.BrowserFrame.stringByEvaluatingJavaScriptFromString(Native Method)
+   I/dalvikvm(  319):   at android.webkit.BrowserFrame.stringByEvaluatingJavaScriptFromString(Native Method)
+   I/dalvikvm(  319):   at android.webkit.BrowserFrame.loadUrl(BrowserFrame.java:246)
+   I/dalvikvm(  319):   at android.webkit.WebViewCore.loadUrl(WebViewCore.java:1570)
+   I/dalvikvm(  319):   at android.webkit.WebViewCore.access$1400(WebViewCore.java:53)
+   I/dalvikvm(  319):   at android.webkit.WebViewCore$EventHub$1.handleMessage(WebViewCore.java:956)
+   I/dalvikvm(  319):   at android.os.Handler.dispatchMessage(Handler.java:99)
+   I/dalvikvm(  319):   at android.os.Looper.loop(Looper.java:123)
+   I/dalvikvm(  319):   at android.webkit.WebViewCore$WebCoreThread.run(WebViewCore.java:629)
+   I/dalvikvm(  319):   at java.lang.Thread.run(Thread.java:1019)
+   I/dalvikvm(  319): 
+   E/dalvikvm(  319): VM aborting
+   I/DEBUG   (   31): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+   I/DEBUG   (   31): Build fingerprint: 'generic/google_sdk/generic:2.3.1/GSI11/93351:eng/test-keys'
+   I/DEBUG   (   31): pid: 319, tid: 377  >>> com.nokiasiemens.reporting <<<
+   I/DEBUG   (   31): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadd00d
+   I/DEBUG   (   31):  r0 fffffebc  r1 deadd00d  r2 00000026  r3 00000000
+   I/DEBUG   (   31):  r4 81da45c8  r5 40610110  r6 81d859ec  r7 0021a540
+   I/DEBUG   (   31):  r8 44026b50  r9 43efbe20  10 43efbe08  fp 4168d82c
+   I/DEBUG   (   31):  ip 81da4728  sp 44026678  lr afd19375  pc 81d45a02  cpsr 20000030
+   {noformat}
+   
+   Please check this issue.
+   
+   Thank you.
+   </li>
+<li>Arthur Evans 2012-02-15
+
+   I just tested Paul's sample against master and it worked as expected on iOS, Android, and Mobile Web.
+   
+   Note that there is a typo in the sample. The app.js file says "myweb.htm", but the filename is listed as "myapp.htm"--if you use this sample verbatim, you'll get nothing back from the evalJS methods. However, with the filename corrected, it works fine.
+   
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3554.json">JSON Source</a></p>

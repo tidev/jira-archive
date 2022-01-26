@@ -1,0 +1,178 @@
+---
+title: "[AC-6365] Android camera image rotated 90 degrees"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2019-11-02T21:00:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Thijs</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-09-12T10:04:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-11-02T21:00:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+There are lots of issues raised on this topic. However, it seems like there is no clear solution, fix or way to work with this.
+
+Having used modules like fh.imagefactory in the past to solve/work with this issue is no longer an option, since this module generates errors when for example using saved images from the web (e.g. a website logo).
+
+Also; setting autorotate - true to the imageview doesn't fix it.
+
+It seems like it has to do with the presence or absence of exif information with respect to the orientation (looking/reading through other issues).
+
+Code that still leads to a rotated image below. This is the case both when taking a new photo with the Galaxy S6 camera, as well as selecting a previously made photo with the camera from the gallery using Ti.Media.openPhotoGallery()
+
+
+<code><pre>
+Ti.Media.showCamera({
+		success : function(event) {
+			callback(rotateAndResize(event.media));
+		},
+		allowEditing: false,
+		mediaTypes: [ Ti.Media.MEDIA_TYPE_PHOTO ],
+		saveToPhotoGallery: true
+	});
+
+function rotateAndResize (media, width, quality) {
+	
+    var quality = 0.5;
+    var width = Alloy.CFG.size_450;
+    
+    var newMedia = require('/libs/Image').resizeIfNecessary(media, width, quality);
+    
+    return require('/libs/Image').cropToSquare(newMedia, width, quality);
+}
+
+// Image.js lib
+
+if (!ImageFactory)
+		ImageFactory = require('ti.imagefactory');
+
+	var width = blob.width;
+	var height = blob.height;
+	var maxWidth = maxSize;
+	var maxHeight = maxSize;
+
+	var ratio = width / height;
+
+	var newWidth = width,
+	    newHeight =
+	    height;
+
+	if (width > maxWidth) {
+		newWidth = maxWidth;
+		newHeight = +((newWidth / ratio).toFixed());
+		if (newHeight > maxHeight) {
+			newHeight = maxHeight;
+			newWidth = +((newHeight * ratio).toFixed());
+		}
+	} else if (height > maxHeight) {
+		newHeight = maxHeight;
+		newWidth = +((newHeight * ratio).toFixed());
+	}
+
+	if (width != newWidth || height != newHeight || quality !== 1) {
+		var blob = ImageFactory.imageAsResized(blob, {
+			width : newWidth,
+			height : newHeight,
+			format : ImageFactory.JPEG
+		});
+		if (!blob) return;
+		var blob = ImageFactory.compress(blob, quality);
+	}
+
+	return blob;
+};
+
+function resizeCompressAndroid(blob, size, quality){	
+	var filename = 'android_resize_image.jpg';
+	var path = Ti.Filesystem.applicationCacheDirectory;
+	var file = Ti.Filesystem.getFile(path, filename);
+	file.write(blob);
+	var nativePath = file.nativePath;
+	file = null;
+	
+	quality = Math.round(quality*100) ? Math.round(quality*100) : 60;
+	
+	var fh = require('fh.imagefactory');
+	
+	fh.rotateResizeImage(nativePath, size, quality);
+	
+	fh = null;
+	var file = Ti.Filesystem.getFile(path, filename);
+	var returnFile = file.read();
+	return returnFile;
+};
+
+function cropToSquare(blob, size, quality){
+	var newSize, x, y;
+	
+	if (blob.height > blob.width){
+		newSize = blob.width;
+		x = 0;
+		y = (blob.height - newSize)/2;
+	}
+	else if (blob.height < blob.width){
+		newSize = blob.height;
+		y = 0;
+		x = (blob.width - newSize)/2;
+	} else {
+		// already is square
+		if (blob.with > size) return blob;
+		// square but too big
+		return resizeIfNecessary(blob, size,quality);
+	}
+	
+	return require('ti.imagefactory').imageAsCropped(blob, {
+		width : newSize,
+		height : newSize,
+		x: x,
+		y: y
+	});
+}
+
+module.exports = {
+	resizeIfNecessary : resizeIfNecessary,
+	cropToSquare: cropToSquare
+};
+
+
+
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-09-12
+
+   An <code>ImageView</code>'s "autorotate" property does work. When setting it to <code>true</code>, the software will read the JPEG file's EXIF information (if it has any) to see if it has an orientation/rotation value. If it does, the <code>ImageView</code> will automatically rotate it. If you assigned the JPEG returned by <code>showCamera()</code> directly to the <code>ImageView</code>, then this would have worked. The issue is that the code you are using to resize and copy to a new image file is stripping-off the EXIF information.
+   
+   Unfortunately, "ti.imagefactory" does not support reading/writing EXIF information.
+   
+   There is a pending PR for "ti.imagefactory" to add a method to save the photo as an "upright" image. The EXIF information will still be lost, but it orientation setting will no longer be needed anymore. You can build your own version of this module and use that for now. Just note that we currently disagree with its method name <code>fixOrientation()</code> and a better solution would be to provide APIs that can read/write EXIF information.
+   <a href="https://github.com/appcelerator-modules/ti.imagefactory/pull/32" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.imagefactory/pull/32</a>
+   </li>
+<li>Rakhi Mitro 2019-10-20
+
+   Hello!
+   
+   Hope you are doing fine today.
+   
+   Would you please reply us regarding previous reviews? We are looking forward to your response.
+   
+   </li>
+<li>Sharif AbuDarda 2019-10-24
+
+   Hello [~thijsalbers], Can you please follow up here on the previous comment? Let us know the status of your issue. Thanks.</li>
+</ol>
+
+
+<p><a href="/AC/AC-6365.json">JSON Source</a></p>

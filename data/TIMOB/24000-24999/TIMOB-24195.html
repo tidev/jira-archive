@@ -1,0 +1,134 @@
+---
+title: "[TIMOB-24195] iOS: currentPage & views properties of Ti.UI.ScrollableView doesn't change after removing a view"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2017-05-21T16:05:36.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0, Release 5.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, kroll-thread</td></tr>
+<tr><th>Reporter</th><td>Prashant Saini</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-12-05T11:29:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T22:20:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Whenever we remove a view from ScrollableView, *currentPage* and *views* properties do not change immediately. It happens in different cases but not all.
+
+*Javascript Test-Case:*
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor: '#fff',
+    title: 'ScrollableView Test'
+});
+
+var nav = Ti.UI.iOS.createNavigationWindow({
+    window: win
+});
+
+var scrollable = Ti.UI.createScrollableView({
+    views: [
+        Ti.UI.createView({top: 50, bottom: 50, left: 10, right: 10, backgroundColor: 'red'}),
+        Ti.UI.createView({top: 50, bottom: 50, left: 10, right: 10, backgroundColor: 'teal'}),
+        Ti.UI.createView({top: 50, bottom: 50, left: 10, right: 10, backgroundColor: 'cyan'}),
+        Ti.UI.createView({top: 50, bottom: 50, left: 10, right: 10, backgroundColor: 'pink'}),
+    ]
+});
+
+var btn = Ti.UI.createButton({
+    title: 'Remove view with index 1'
+});
+
+btn.addEventListener('click', function() {
+    Ti.API.info('\nCurrent Page = ' + scrollable.currentPage);
+    scrollable.removeView(1);
+    Ti.API.info('Current Page = ' + scrollable.currentPage);
+
+    setTimeout(function () {
+        Ti.API.info('Current Page = ' + scrollable.currentPage);  
+    }, 500);
+});
+
+win.add(scrollable);
+win.setRightNavButton(btn);
+
+nav.open();
+</pre></code>
+
+*Alloy Test-Case:*
+<code><pre>
+<Alloy>
+	<Window backgroundColor="black">
+		<ScrollableView id="SCROLLABLE_VIEW">
+			<View backgroundColor="red" top="50" bottom="50" left="10" right="10"><Button>All Good 0</Button></View>
+			<View backgroundColor="teal" top="50" bottom="50" left="10" right="10"><Button>All Good 1</Button></View>
+			<View backgroundColor="cyan" top="50" bottom="50" left="10" right="10"><Button>All Good 2</Button></View>
+			<View backgroundColor="pink" top="50" bottom="50" left="10" right="10"><Button>All Good 3</Button></View>
+		</ScrollableView>
+
+		<Button bottom="10" color="white" onClick="remove">REMOVE PAGE</Button>
+	</Window>
+</Alloy>
+</pre></code>
+
+<code><pre>
+function remove() {
+    Ti.API.info('\nCurrent Page = ' + $.SCROLLABLE_VIEW.currentPage);
+    $.SCROLLABLE_VIEW.removeView(1);
+    Ti.API.info('Current Page = ' + $.SCROLLABLE_VIEW.currentPage);
+
+    setTimeout(function () {
+        Ti.API.info('Current Page = ' + $.SCROLLABLE_VIEW.currentPage);  
+    }, 500);
+}
+</pre></code>
+
+To get the bug output, click on the button after swiping to last page (index 3). This output will be shown then:
+
+<code><pre>
+[INFO] :   Current Page = 3
+[INFO] :   Current Page = 3
+[INFO] :   Current Page = 2
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-12-05
+
+   Hey [~prashant_saini_1], I can reproduce this issue, but only when the <code>run-on-main-thread</code> property is not set (or set to <code>false</code>) in the tiapp.xml. It's the recommended way for all apps since 5.4.0 and should be considered over using the legacy (kroll-thread) threading. You can enable it by pasting the following in the top-level tiapp.xml:
+   <code><pre>
+   <property name="run-on-main-thread" type="bool">true</property>
+   </pre></code>
+   We will still look into the issue of course, but the above is the recommended way for the future.</li>
+<li>Prashant Saini 2016-12-05
+
+   Thanks @hansknoechel, can you please confirm that will it work properly by setting run-on-main-thread to false as well, or do we have to set it to true only?</li>
+<li>Hans Knöchel 2016-12-05
+
+   Please read my comment carefully, I just updated it to be more clear. If you don't have the property or have it set to false, it won't work as (of course) the effect is the same then. 
+   
+   The reason for this is that the kroll-thread doesn't wait for the removal to be finished, but the main-thread does. So we'd either need to make the method asynchronous (which is no good solution) or lock the execution until all removal-operations are finished.</li>
+<li>Prashant Saini 2016-12-05
+
+   Thanks again, but I do not want to use or set the property to true because there can be some weird issues in other sections of the app. I have no issue in setting this property to true, but only if it provides complete working of other codes as well. So what could be best use case of setting main thread to true apart from using Hyperloop module?</li>
+<li>Hans Knöchel 2017-05-21
+
+   Hey Prashant, sorry for taking so long to come back to you. I would like to answer your main-thread question more detailed:
+   
+   So if have issues with run-on-main-thread, you should definitely report them. Many had the issue that child events didn't fire, which is fixed on 6.1.0 (try the RC version released last week). If it's something different, please file a JIRA for it, since it will become the default in the next major version for sure. The big advantage is that is guarantees that *UI operations* are executed on the main-thread, which is the way that Apple requires it. Previously (and this ticket is a great example for it), the kroll-thread may handle the execution, leading to weird race conditions that result in this behavior. Things like HTTP-requests or geolocation-fetches are still made on it's own thread to not block your UI, so you should already see a performance increase when activating it. And again: If not, please file a ticket to describe your issue.
+   
+   I hope that this will enlighten the main-thread mysts a bit. Maybe we should have called it "run-ui-on-main-thread" to be more specific. Thanks!</li>
+<li>Eric Merriman  2018-08-02
+
+   Closing old "Won't fix" tickets. If you disagree, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24195.json">JSON Source</a></p>

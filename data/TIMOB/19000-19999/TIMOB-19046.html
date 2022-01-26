@@ -1,0 +1,188 @@
+---
+title: "[TIMOB-19046] Android: error with requestWithGraphPath and facebook sdk 4.0.3"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-19T22:12:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, ios, regression</td></tr>
+<tr><th>Reporter</th><td>Alessandro Galvagno</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-05-20T08:41:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-19T22:13:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have just started working with Appcelerator Studio. But when I try to use the new facebook sdk 4.0.3 I no longer use the follow request:
+
+<code><pre>
+facebook.requestWithGraphPath('xeniagympalestra/albums? fields=id,name,cover_photo,count&format=json', {}, 'GET', function(e) {
+	if (e.success) {
+		var result = JSON.parse(e.result);
+</pre></code>
+I have made the following changes, found in the documentation of the module Facebook in Appcelerator documentation:
+<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Facebook
+
+1) Add 
+
+<code><pre>
+<meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/app_id"/>
+<activity android:name="com.facebook.LoginActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:label="Xenia Gym"/>
+</pre></code>
+
+in tiapp.xml file
+
+2) Add
+<code><pre>
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+<string name="app_id">1615395XXXXXXXXXX</string>
+</resources>
+</pre></code>
+
+in platform/android/res/values/strings.xml file
+3) Add
+<code><pre>
+var facebook = Alloy.Globals.Facebook;
+
+$.index.fbProxy = facebook.createActivityWorker({
+	lifecycleContainer : $.index
+});
+</pre></code>
+
+in index.js file
+4) Add
+<code><pre>
+var facebook = Alloy.Globals.Facebook;
+facebook.permissions = ['read_stream'];
+</pre></code>
+
+But the result are these errors:
+<code><pre>
+Bad request, contact the developer and log a bug
+</pre></code>
+
+for android platform
+<code><pre>
+FBSDKLog: Error for request to endpoint 'xeniagympalestra/albums?fields=id,name,cover_photo,count&format=json': An open FBSession must be specified for calls to this endpoint.
+</pre></code>
+
+for iOS platform
+
+The same request was working with the facebook module ver 3.x.x
+
+<h3>Comments</h3>
+
+<ol>
+<li>Robin Williams 2015-06-14
+
+   Your syntax is incorrect. From the module's documentation:
+   
+   fb.requestWithGraphPath('me', {}, 'GET', function(e) {
+       if (e.success) {
+           alert(e.result);
+       } else if (e.error) {
+           alert(e.error);
+       } else {
+           alert('Unknown response');
+       }
+   });
+   
+   
+   So I think your request ought to be formatted something like:
+   
+   facebook.requestWithGraphPath('xeniagympalestra/albums', {fields: 'id,name,cover_photo,count'}, 'GET', function(e) {
+   	if (e.success) {</li>
+<li>Praveen Kodakkad 2015-06-18
+
+   I am also experiencing the Same issue with Facebook Login App. The application is not Frozen state as without resolving this issue I cannot log in to the App and hence Whole app development in hang state. 
+   
+   I tried in iOs 8+ devices.
+   Titanium SDK Version 4.0
+   Appcelerator Studio
+   
+   I am able to login for the first time. Then I exit app, to background and then coming to foreground, it checks
+   <code><pre>
+    if(fb.loggedin) </pre></code>
+   Then decides to call 
+   
+   <code><pre>
+   fb.requestWithGraph('me',{},function(e){
+   //Code to write
+   }</pre></code>
+   
+   This is failing with an error 
+   
+   FBSDKLog: Error for request to end point 'me': An open FBSession must be specified for calls to this endpoint.
+   
+   Can I know when and in which version this issue will be fixed?
+   </li>
+<li>Robin Williams 2015-06-18
+
+   I've been getting that error too! iOS for certain... Haven't checked android yet</li>
+<li>Joe Falcone 2015-06-25
+
+   We're running identical code iOS and Android to view a photo gallery.  Using 4.0.0.GA SDK
+   
+   On iOS it works perfectly.
+   
+   On Android 5.1 we're getting "Bad request, contact the developer and log a bug" also.
+   
+   We login successfully but the requestWithGraphPath fails!
+   
+   {panel:title=Console Log}
+   [INFO] :   login from uid: 10206542681741842, name: Kon Lovett
+   [ERROR] :  TiFacebookModule: (KrollRuntimeThread) [90,49768] requestWithGraphPath callback error
+   [ERROR] :  TiFacebookModule: (KrollRuntimeThread) [0,49768] error userActionMessageId: 0
+   [ERROR] :  TiFacebookModule: (KrollRuntimeThread) [0,49768] should notify user: false
+   [ERROR] :  TiFacebookModule: (KrollRuntimeThread) [0,49768] error message: An access token is required to request this resource.
+   [ERROR] :  Facebook gallery: Bad request, contact the developer and log a bug
+   {panel}
+   
+   </li>
+<li>Joe Falcone 2015-06-26
+
+   So here's the problem
+   
+   On iOS say you use /34753323422/photos?limit=50 as a graph endpoint and that works fine.
+   
+   But on Android you have to move *limit=50* and any other parameters into the params dictionary - the second parameter to requestWithGraphPath.
+   
+   Once we did that, it worked on Android fine.</li>
+<li>Alessandro Galvagno 2015-06-30
+
+   Hi Robin Williams, 
+   I have also tried:
+   
+   facebook.requestWithGraphPath('xeniagympalestra/albums', {
+   fields: 'id,name,cover_photo,count'
+   }, 'GET', function(e) {
+   if (e.success) {
+   .....
+   }
+   
+   but the result is the same, an error.
+   <code><pre>
+   error message: com.facebook.FacebookException: Session provided to a Request in un-opened state.
+   </pre></code>
+   </li>
+<li>Ashraf Abu 2015-10-09
+
+   </li>
+<li>Ashraf Abu 2015-10-22
+
+   </li>
+<li>Lokesh Choudhary 2016-01-19
+
+   Closing in accordance to resolution of the ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19046.json">JSON Source</a></p>

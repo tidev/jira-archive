@@ -1,0 +1,81 @@
+---
+title: "[TIMOB-28454] Android: "longpress" event wrongly fires when tapping a touch disabled view"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-05-24T14:51:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, click, longpress, touch</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-05-18T21:23:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-05-24T14:51:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+When tapping on a view with "touchEnabled" set to <code>false</code>, the parent will wrongly fire a "longpress" event if it has a listener set up on it. That is, it fires when you're not actually long pressing it and should be a click instead. This issue does not happen if "touchEnabled" is set to <code>true</code>.
+
+*Steps to reproduce:*
+<h4>Build and run the below on Android.</h4>
+<h4>Tap on the "Click Me" label.</h4>
+<h4>Notice you get a dialog displaying "click". _(This is good.)_</h4>
+<h4>Notice you also get a dialog displaying "longpress". _(This is the bug.)_</h4>
+
+<code><pre>
+const window = Ti.UI.createWindow({ backgroundColor: "white" });
+const view = Ti.UI.createView({
+	backgroundColor: "blue",
+	touchFeedback: true,
+	width: "250dp",
+	height: "250dp",
+});
+view.add(Ti.UI.createLabel({
+	text: "Click Me\nor\nLong Press Me",
+	textAlign: Ti.UI.TEXT_ALIGNMENT_CENTER,
+	color: "white",
+	touchEnabled: false,
+}));
+view.addEventListener("click", () => {
+	alert("click");
+});
+view.addEventListener("longpress", (e) => {
+	const formatter = new Intl.NumberFormat(Ti.Locale.currentLocale, {
+		maximumFractionDigits: 0,
+		minimumFractionDigits: 0,
+	});
+	alert(<code>longpress (${formatter.format(e.x)},${formatter.format(e.y)})</code>);
+});
+window.add(view);
+window.open();
+</pre></code>
+
+*Cause:*
+We're running into the same issue mentioned here...
+<a href="https://stackoverflow.com/questions/24326530/long-press-in-gesturedetector-also-fires-on-tap" rel="nofollow" target="_blank">https://stackoverflow.com/questions/24326530/long-press-in-gesturedetector-also-fires-on-tap</a>
+
+The issue is that Google's <code>GestureDetector</code> sends a "longpress" message via a timeout which doesn't get canceled since the touch event isn't handled. The solution may be to implement our own custom long press event handling.
+
+*Note:*
+A "longpress" event should also cause the device to vibrate like how the native "longclick" works. This would match the behavior seen in Google's apps. The vibration should only happen if an event listener has been added for it.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2021-05-18
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12820" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12820</a></li>
+<li>Christopher Williams 2021-05-24
+
+   merged to master and 10_0_X for 10.0.1 target</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28454.json">JSON Source</a></p>

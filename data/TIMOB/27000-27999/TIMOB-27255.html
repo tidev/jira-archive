@@ -1,0 +1,99 @@
+---
+title: "[TIMOB-27255] Titanium CLI plugin deprecation notices"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>cb-tooling</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2019-07-18T16:52:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-02-10T21:37:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+There are 2 major Titanium CLI <=5.x plugin related deprecations coming up with the release of the next Titanium CLI, namely version 6.0.
+
+1. Titanium CLI 6 will drop support for all Titanium CLI plugins that are executed for any command other than <code>"ti build"</code> (or <code>"appc run"</code>). That means that any plugin that was loaded for a non-build command, such as "create"/"new", will no longer be loaded in Titanium CLI 6.
+
+* Hooks that will only fire when performing a build
+** <code>cli:command-loaded</code>
+** <code>cli:go</code>
+** <code>cli:post-execute</code>
+** <code>cli:post-validate</code>
+** <code>cli:pre-execute</code>
+** <code>cli:pre-validate</code>
+** <code>help:header</code>
+* Hooks that will no longer be called
+** <code>clean.config</code>
+** <code>clean.post</code>
+** <code>clean.pre</code>
+** <code>create.config</code>
+** <code>create.finalize</code>
+** <code>create.post</code>
+** <code>create.pre</code>
+
+All other <code>build.*</code> hooks will continue to fire including Alloy, Hyperloop, Liveview, Ti.shadow, etc.
+
+2. Titanium CLI 7 will drop support for all Titanium CLI plugins including "build" related commands.
+
+<h4>New Titanium CLI 6 Plugin System</h4>
+
+The new Titanium CLI 6 will support plugins in the form of Appc Daemon (appcd) plugins. While the daemon's plugin system exists as well as the underlying hook mechanism, the hook registration system (DAEMON-90) does not exist yet.
+
+Once the hook system is implemented in the appcd plugin system, then Titanium CLI <=5.x plugins with <code>clean.*</code> and <code>create.*</code> hooks will need to be ported to the new format. Porting is not trivial, but it's hours, not days, of work.
+
+Appcd plugins also have limitations compared to Titanium CLI <=5.x plugins. While pre and post hooks are possible, modifying function hook arguments, the actual hooked function, and the result are not. Furthermore, appcd plugins must be async aware and maintain their own state.
+
+Currently, there are no known plugins that use the <code>clean.*</code> hooks, however we have several new project templates that use the <code>create.*</code> hooks. Those project templates will need to be updated.
+
+<h4>Titanium CLI 7 Plugin Support</h4>
+
+With Ti CLI 7, all Titanium CLI <=5.x plugins will no longer work and thus must be ported. Plugins such as Alloy, Hyperloop, and Liveview will need to be ported to appcd plugins. This is a big effort, however Titanium CLI 7 likely won't ship until the 2nd half of 2020. We have time.
+
+<h4>References</h4>
+
+<a href="https://wiki.appcelerator.org/display/guides2/Titanium+CLI+Plugins" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/Titanium+CLI+Plugins</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2019-07-19
+
+   <code>clean.post</code> is used in the alloy [deepclean hook](<a href="https://github.com/appcelerator/alloy/blob/c63914c87610bcd1bc0e8be3426b160783a0991e/hooks/deepclean.js#L39-L41)" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/c63914c87610bcd1bc0e8be3426b160783a0991e/hooks/deepclean.js#L39-L41)</a> that _every_ alloy project will use, as well as in the [windows sdk](<a href="https://github.com/appcelerator/titanium_mobile_windows/blob/c58b5b6efcfc75ab69914987e38f6bab50c6a2e0/cli/hooks/clean.js#L21-L31)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/blob/c58b5b6efcfc75ab69914987e38f6bab50c6a2e0/cli/hooks/clean.js#L21-L31)</a> (maybe this one could be migrated to be a _clean.js file though as I think Chris W added support for that)
+   
+   As for community plugins from a quick search (limited to plugins that are available on GitHub and area not archived by the owner)
+   
+   <code>clean.config</code> - [tiapp-composer](<a href="https://github.com/caffeinalab/tiapp-composer)" rel="nofollow" target="_blank">https://github.com/caffeinalab/tiapp-composer)</a>
+   <code>clean.post</code> - Most repos seem to be archived, and lots of noise from apps with alloy hooks
+   <code>clean.pre</code> - Could not find any
+   
+   <code>create.*</code> - Only our repos</li>
+<li>Brenton House 2019-07-19
+
+   One thing to note is that it is probably a very small percentage of teams that are allowed to open-source their code and put it out on GitHub.   We probably want to do our due diligence in reaching out to developers and customers to see what they are using as well. 
+   
+   Is there a technical reason the new Daemon system supports less hooks than the existing Titanium system?</li>
+<li>Chris Barber 2019-07-19
+
+   [~bhouse] The Titanium CLI.next relies on the Appc Daemon where all of the Titanium CLI logic runs in a plugin that is executed in a long running subprocess. Because of that, arbitrary JavaScript "plugin" files are not loaded and I'm not entirely convinced that's even a good idea.
+   
+   Furthermore, Titanium CLI plugins can "hook" into two types of hooks: event and function hooks. Event hooks just fire a callback that an event has occurred such as "build.pre.compile".
+   
+   However, function hooks wrap a function and allow a plugin to modify the arguments going into the function, the function itself, and the return value. The daemon promotes the idea of plugins being decoupled and thus the communicate through a central dispatch system where all payloads must be serializable (via <code>JSON.stringify()</code>). Certain data types such as class instances or contexts cannot be serialized without data loss. Even then, things like <code>Error</code> would have to be reconstructed for <code>instanceof</code> to work.
+   
+   As an example of how much pain this is, go look at [vm2](<a href="https://www.npmjs.com/package/vm2)." rel="nofollow" target="_blank">https://www.npmjs.com/package/vm2).</a> The simplest of simple things are [impossible](<a href="https://github.com/patriksimek/vm2/issues/62)." rel="nofollow" target="_blank">https://github.com/patriksimek/vm2/issues/62).</a>
+   
+   Unless we add support for one-time loaded scripts, plugins will need to be daemon plugins that abide by the lifecycle and limitations of the daemon.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27255.json">JSON Source</a></p>

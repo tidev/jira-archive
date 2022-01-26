@@ -1,0 +1,228 @@
+---
+title: "[TIMOB-19885] Android 6.0 : Asking for contacts permissions fails with "one or more permissions denied" with SDK 5.1.0.v20151104190037"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-12T02:14:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0, Release 5.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-5.1.0, regression</td></tr>
+<tr><th>Reporter</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2015-11-06T02:31:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-05-27T22:46:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*This is a regression. This issue is not seen with SDK 5.1.0.v20151104153625*
+
+<h4>Description:</h4>
+1. Use the code below in your tiapp.xml & build for android 6.0 device:
+<code><pre>
+var win = Ti.UI.createWindow();
+win.addEventListener("open", function(e) {
+    if (Ti.Contacts.hasContactsPermissions()) {
+       Ti.API.info("People: " + JSON.stringify(Ti.Contacts.getAllPeople()));
+    } else {
+       Ti.Contacts.requestContactsPermissions(function(e) {
+           if (e.success === true) {
+              alert("Access granted");
+              Ti.API.info("People: " + JSON.stringify(Ti.Contacts.getAllPeople()));
+           } else {
+              alert("Access denied, error: " + e.error);
+           }
+       });
+    }
+});
+win.open();
+</pre></code>
+2. After the app launches grant permissions to access contacts.
+3. Observe the alert you get after.
+
+<h4>Actual Results:</h4>
+1. We see alert "Access denied, error: ContactsOne or more permissions were denied"
+*Attached screenshot for the alert & the permissions in settings for the app.*
+
+<h4>Expected Results:</h4>
+1. We should see success.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19885_57269/Screenshot_20151105-181714.png">Screenshot_20151105-181714.png</td></td><td>2015-11-06T02:32:01.000+0000</td><td>64681</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19885_57268/Screenshot_20151105-181723.png">Screenshot_20151105-181723.png</td></td><td>2015-11-06T02:32:03.000+0000</td><td>88483</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ashraf Abu 2015-11-06
+
+   Tried this and unable to reproduce this. I got <code>Access granted</code>.
+   
+   Using Android 6.0, Nexus 6.</li>
+<li>Ashraf Abu 2015-11-06
+
+   [~hpham] Could you see if you can reproduce this as well?</li>
+<li>Harry Bryant 2015-11-06
+
+   I can also reproduce this issue. 
+   
+   Mac OSX El Capitan 10.11 (15A284) 
+   Ti SDK: 5.1.0.v20151104190037 
+   Appc NPM: 4.2.1 
+   Appc CLI: 5.1.0-43
+   Ti CLI: 5.0.4 
+   Alloy: 1.7.23 
+   Xcode 7.1(7B91b) 
+   Node v0.12.7 
+   production</li>
+<li>Hieu Pham 2015-11-09
+
+   I tried it, couldn't reproduce this either.
+   Edit: Ok, I figured out what the problem is. This problem will occur when your AndroidManifest is missing either READ_CONTACT, or WRITE_CONTACT permission. Usually the CLI is pretty good at adding these permissions, but contacts is a special case. Depending on which method you use, sometimes only READ_CONTACT permission is included in the manifest. This causes the problem. </li>
+<li>Hieu Pham 2015-11-09
+
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7413" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7413</a>
+   5.1.X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7414" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7414</a></li>
+<li>Ashraf Abu 2015-11-11
+
+   Both master and 5.1.X PR merged.</li>
+<li>Lokesh Choudhary 2015-11-11
+
+   [~hpham], This piece of code throws same errors when getting contact permissions:
+   <code><pre>
+   function askContactPermission(){
+   	if (Ti.Contacts.hasContactsPermissions()) {
+   	       return true;
+   	    } else {
+   	       Ti.Contacts.requestContactsPermissions(function(e) {
+   	           if (e.success === true) { 
+   	           	  Ti.API.info("Contacts Permissions Granted");
+   	              return true;
+   	           } else {
+   	              alert("Access denied, error: " + e.error);
+   	           }
+   	       });
+   	    }
+   }
+       
+   if(askContactPermission()){
+   	alert("All permissions granted");
+   }
+   else{
+   	alert("One or more permissions not granted. Check permissions");
+   }
+   </pre></code>
+   
+   AndroidManifest has following permissions:
+   <code><pre>
+   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+   	<uses-permission android:name="android.permission.INTERNET"/>
+   	<uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+   	<uses-permission android:name="android.permission.BLUETOOTH"/>
+   	<uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+   	<uses-permission android:name="android.permission.GET_TASKS"/>
+   	<uses-permission android:name="android.permission.READ_LOGS"/>
+   	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+   	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+   </pre></code>
+   Notice it does not have contact permissions added.
+   Do we need to have a code to access contacts in the permissions code i.e Ti.Contacts.hasContactsPermissions or Ti.Contacts.requestContactsPermissions to get a success? 
+   
+   Reopening for the time being.
+   
+   Environment:
+   Appc Studio : 4.4.0.201511101919
+   Ti SDK :  5.1.0.v20151110202023
+   Ti CLI : 5.0.5
+   Alloy : 1.7.24
+   MAC Yosemite : 10.10.5
+   Appc NPM : 4.2.1
+   Appc CLI : 5.1.0-50
+   Node: v0.10.37
+   Nexus 6 - Android 6.0</li>
+<li>Hieu Pham 2015-11-11
+
+   Well, that's expected. You're not using any contacts method, so no permission is given, therefore your access is denied. This will be the case for ALL permissions, not just contacts. If you request a permission but not actually using an API regarding that permission, your access will be denied.
+   
+   Edit: Keep in mind that the AndroidManifest is generated at compile time, and we append needed permissions based on API usage. Checking and asking for permissions do NOT trigger the permissions to be added to the manifest - only APIs that require permissions to work do.</li>
+<li>Lokesh Choudhary 2015-11-11
+
+   So the issue is not fixed running the code in the description goes not get the contact info & shows <code><pre>People: null</pre></code>
+   In logcat I get this:
+   <code><pre>
+   11-11 15:37:43.245: D/msm8974_platform(382): platform_send_audio_calibration: sending audio calibration for snd_device(2) acdb_id(15)
+   11-11 15:37:43.245: D/audio_hw_primary(382): enable_snd_device: snd_device(2: speaker)
+   11-11 15:37:43.247: I/ALERT(18599): (KrollRuntimeThread) [1527,1863] Access granted
+   11-11 15:37:43.249: D/audio_hw_primary(382): enable_audio_route: apply and update mixer path: low-latency-playback speaker
+   11-11 15:37:43.252: W/TiCommonContactsApi(18599): (KrollRuntimeThread) [5,1868] Contact permissions are missing
+   11-11 15:37:43.252: E/TiContacts5(18599): (KrollRuntimeThread) [0,1868] Contacts permissions missing
+   11-11 15:37:43.253: I/TiAPI(18599):  People: null
+   </pre></code>
+   
+   Android Manifest has the READ_CONTACTS permissions:
+   <code><pre>
+   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+       <uses-permission android:name="android.permission.INTERNET"/>
+       <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+       <uses-permission android:name="android.permission.BLUETOOTH"/>
+       <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+       <uses-permission android:name="android.permission.GET_TASKS"/>
+       <uses-permission android:name="android.permission.CAMERA"/>
+       <uses-permission android:name="android.permission.READ_LOGS"/>
+       <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+       <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+       <uses-permission android:name="android.permission.READ_CONTACTS"/>
+   </pre></code>
+   
+   Reopening.
+   
+   Environment:
+   Appc Studio : 4.4.0.201511101919
+   Ti SDK : 5.1.0.v20151110202023
+   Ti CLI : 5.0.5
+   Alloy : 1.7.24
+   MAC Yosemite : 10.10.5
+   Appc NPM : 4.2.1
+   Appc CLI : 5.1.0-50
+   Node: v0.10.37
+   Nexus 6 - Android 6.0
+   </li>
+<li>Hieu Pham 2015-11-12
+
+    master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7427" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7427</a>
+    5_1_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7428" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7428</a></li>
+<li>Ashraf Abu 2015-11-12
+
+    Code reviewed and functionally tested. Able to see contacts with test code in description. Both PR Merged.</li>
+<li>Lokesh Choudhary 2015-11-12
+
+    Verified the fix.
+    Permissions are granted successfully & we can see the contacts.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio : 4.4.0.201511101919
+    Ti SDK :  5.1.0.v20151111182050, 5.2.0.v20151112112825
+    Ti CLI : 5.0.5
+    Alloy : 1.7.24
+    MAC Yosemite : 10.10.5
+    Appc NPM : 4.2.1
+    Appc CLI : 5.1.0-52
+    Node: v0.10.37
+    Nexus 6 - Android 6.0</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19885.json">JSON Source</a></p>

@@ -1,0 +1,135 @@
+---
+title: "[TIMOB-12643] iOS: TableView selectRow method is moving TableView to the middle"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, selectrow, tableview, tableviewrow</td></tr>
+<tr><th>Reporter</th><td>Carter Lathrop</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-02-07T13:41:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem*
+
+Method selectRow of Ti.UI.TableView centers the selected row to the middle of the screen. 
+
+*Test Code*
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var data = [];
+for (var i = 0; i < 150; i++) {
+	data.push( { title: "Foobar " + i } );
+}
+
+var tableView = Ti.UI.createTableView({
+	data: data
+});
+win.add(tableView);
+
+tableView.addEventListener("click", function(e) {
+	// Here, the TableView is scrolling to the center 
+	// of TableViewRow selected.
+	this.selectRow( e.index );
+});
+
+win.open();
+</pre></code>
+
+It happens because of selectRow method in iOS Class (TiUITableView.m at line 2051) the parameter *atScrollPosition* is <code>UITableViewScrollPositionMiddle</code>.
+
+*Requested Change*
+
+IMHO, what need to happens:
+
+1) When TableViewRow isn't visible (100%) at the top, it needs to be scrolled to the top, using <code>UITableViewScrollPositionTop</code>.
+2) When TableViewRow isn't visible (100%) at the bottom, it needs to be scrolled to the bottom, using <code>UITableViewScrollPositionBottom</code>.
+3) When TableViewRow is complete visible, it doesn't needs to be scrolled to anywhere, using <code>UITableViewScrollPositionNone</code>.
+
+*Or*
+
+Allow developers to "force" scrollPosition with a second parameter of *selectRow*, using constants like "top", "bottom", "middle" or "none".
+
+*Note*
+
+Tested selectRow on Android (4.1.1) and seems to be broken. Use the same test code above on Android OS and rows are not selected, rather when a row is clicked, the tableView just scrolls down.
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-12643_35463/Screen Shot 2013-02-07 at 11.41.14 AM.png">Screen Shot 2013-02-07 at 11.41.14 AM.png</td></td><td>2013-02-07T13:42:05.000+0000</td><td>133179</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Carter Lathrop 2013-02-07
+
+   The selectRow method uses UITableViewScrollPositionMiddle to select a TableViewRow that might not visible on the screen. The Position to middle ensures that the selected row is visible when selected. PositionNone would not ensure the visibility, this is why it is not used. Marking invalid as this is desired functionality.
+   
+   Regards,
+   
+   Carter</li>
+<li>Rafael Kellermann Streit 2013-02-07
+
+   OK, but the use of "middle" as default is not valid, IMHO.
+   
+   If you look to Mail app in iOS, you will se this rules happening:
+   ** When row isn't visible at the top (middle of Row is showing, for example) the row is selected with scrollPosition <code>UITableViewScrollPositionTop</code>.
+   ** When row isn't visible at the bottom (middle of Row is showing, for example) the row is selected with scrollPosition <code>UITableViewScrollPositionBottom</code>.
+   ** When row is complete visible, the row is selected using scrollPosition <code>UITableViewScrollPositionNone</code>.
+   
+   I think this is the defaults rule. It makes much more sense to me.</li>
+<li>Carter Lathrop 2013-02-08
+
+   Rafael, I see your point here. Would you mind revising the ticket or creating a new one that suggests the functionality you mentioned in your last comment? Detailing the PositionTop and PositionBottom when row not visible I think should do the trick. It seems as the ticket was missing this detail. I would be glad to pass this along to engineering at this point. Thank you for your suggestion! I think this now makes sense too. 
+   
+   Regards,
+   
+   Carter</li>
+<li>Rafael Kellermann Streit 2013-02-08
+
+   Hi Carter,
+   
+   Sorry by not be complete clear.
+   
+   Thanks to review my comment. I have changed the description of ticket.</li>
+<li>Carter Lathrop 2013-02-08
+
+   Edited ticket and more information from reporter made this ticket valid. Moved to TiMOB</li>
+<li>James K 2014-01-23
+
+   This is very easy to fix.
+   
+   The class reference for [UITableView](<a href="https://developer.apple.com/library/ios/documentation/uikit/reference/UITableView_Class/Reference/Reference.html#//apple_ref/doc/c_ref/UITableViewScrollPosition)" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/documentation/uikit/reference/UITableView_Class/Reference/Reference.html#//apple_ref/doc/c_ref/UITableViewScrollPosition)</a> provides:
+   
+   {quote}<code>UITableViewScrollPositionNone</code>
+   The table view scrolls the row of interest to be fully visible with a minimum of movement. If the row is already fully visible, no scrolling occurs. For example, if the row is above the visible area, the behavior [sic] is identical to that specified by UITableViewScrollPositionTop. This is the default.{quote}
+   
+   So, in fact, all you need to do is replace <code>UITableViewScrollPositionMiddle</code> with <code>UITableViewScrollPositionNone</code>.
+   
+   For an immediate workaround, you can pass this as a parameter directly to <code>selectRow</code>:
+   
+   <code><pre>myTableView.selectRow(index, {animated:false, position:Ti.UI.iPhone.TableViewScrollPosition.NONE});</pre></code>
+   
+   These parameters do not appear in the API documentation for [Ti.UI.TableView](<a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.TableView), but they continue to exist and operate correctly in 3.2.0 GA.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12643.json">JSON Source</a></p>

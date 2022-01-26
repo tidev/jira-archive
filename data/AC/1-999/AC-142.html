@@ -1,0 +1,145 @@
+---
+title: "[AC-142] Resursion when setting lifecycleContainer"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-14T01:50:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, lifecycle, titanium</td></tr>
+<tr><th>Reporter</th><td>Seth Benjamin</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2015-05-26T20:55:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-11-14T01:51:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem*
+Setting the lifecycleContainer property of a TiViewProxy and adding it as a child of the lifecycleContainer creates an infinite loop when logging.
+
+*Test Case*
+<code><pre>
+var window = Ti.UI.createWindow();
+var view = Ti.UI.createView({ lifecycleContainer: window });
+
+window.add(view);
+console.log(window);
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Radamantis Torres-Lechuga 2015-05-26
+
+   [~animecyc] Per documentation, please be sure that you are doing this:
+   {quote}
+   If this property is set to a Window or TabGroup, then the corresponding Activity lifecycle event callbacks will also be called on the proxy. Proxies that require the activity lifecycle will need this property set to the appropriate containing Window or TabGroup.
+   {quote}
+   If you are following the documentation, please provide a full test case to reproduce the issue
+   
+   Best</li>
+<li>Seth Benjamin 2015-05-26
+
+   @Radamantis Torres-Lechuga I provided the test case in the description.</li>
+<li>Radamantis Torres-Lechuga 2015-05-26
+
+   [~animecyc] I don't see your Activity lifecycle callbacks in your test case, can you please provide a full runnable test case? Also if you can provide a use case that will help.
+   
+   Best</li>
+<li>Seth Benjamin 2015-05-26
+
+   I don't see how that is relevant to the issue nor is it required to see the bug. For full disclosure I am using the lifecycleContainer in a custom android module. Regardless the issue will persist given my description.</li>
+<li>Seth Benjamin 2015-05-26
+
+   Also, the provided test case exemplifies the issue. Adding callbacks won't remove the infinite loop. From what I've discerned it is because on Android when you log a TiViewProxy it prints all properties set on it's v8 object as well as its TiViewProxy children. Since "lifecycleContainer" sets the window and the window has the TIViewProxy in question as a child we get infinite recursion. </li>
+<li>Radamantis Torres-Lechuga 2015-05-26
+
+   [~animecyc] as you can see in our [documentation](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/How_to_Submit_a_Bug_Report-section-29004732_HowtoSubmitaBugReport-SubmittingTickets) , a test case is required, and here's the doc on [how to create a test case](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/How_to_Submit_a_Bug_Report-section-29004732_HowtoSubmitaBugReport-CreatingaTestCase)
+   
+   
+   Thanks</li>
+<li>Seth Benjamin 2015-05-26
+
+   What am I missing that is not already there? From the article you provided it hits all the points needed for a test case: The test case is in the description, it has the least amount of code required to reproduce the bug, and it has no validation errors. The only thing I can't provide is a log because logging is the issue.
+   
+   I went ahead and added bold text as per the formatting in the article you provided.</li>
+<li>Rakhi Mitro 2015-09-19
+
+   We tested the issue using the sample code below. The *lifecycleContainer* property set to the current active instance of a standalone Window and it is working as expected.
+   
+   *Test Environments:*
+   
+   CLI Version :4.1.3
+   Titanium SDK  Version:4.1.1.GA,
+   Emulator :Google Nexus 7 - 5.1.0 - API 22 - 800x1280
+   Appc Studio: Appcelerator Studio, build: 4.1.1.201507141126
+   Alloy: 1.7.6
+   Mac OS X,Version                     = 10.10.1.
+   
+   
+   
+   *Test Steps:*
+   
+   1.Create a classic project
+   2.Import [Facebook module](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Facebook)  into it and paste Facebook app id into /platform/android/res/values/strings.xml
+   3.In app.js Use the createActivityWorker() method to create a Facebook proxy and Attach the proxy to the Window t, so it does not get garbage collected.
+   4.Run with sample code.
+   
+   
+   *Test Code:*
+   You may need to add the manifest and application elements.
+   *tiapp.xml*
+   
+   <code><pre>
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <manifest>
+               <application>
+                   <activity android:label="@string/app_name"
+                       android:name="com.facebook.LoginActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+                   <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
+               </application>
+           </manifest>
+       </android>
+   
+   </pre></code>
+   
+   *app.js*
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor: 'white'});
+   var fb = require('facebook');
+   fb.addEventListener('login', function(e) {
+       if (e.success) {
+           alert('Logged in');
+       }
+   });
+   fb.addEventListener('logout', function(e) {
+       alert('Logged out');
+   });
+   if (Ti.Platform.name === 'android') {
+       win.fbProxy = fb.createActivityWorker({lifecycleContainer: win});
+   }
+   // Add the button.  Note that it doesn't need a click event listener.
+   win.add(fb.createLoginButton({
+           readPermissions: ['read_stream','email'],
+           top: 50
+   }));
+   win.open()
+   </pre></code>
+   
+   *strings.xml*
+   
+   <code><pre>
+   <resources>
+       <string name="facebook_app_id”>your app id</string>
+   </resources>
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-142.json">JSON Source</a></p>

@@ -1,0 +1,168 @@
+---
+title: "[TIMOB-20285] Android - CloudPush - callback is called but notification isn't cleared"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-30T07:08:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Shawn Lan</td></tr>
+<tr><th>Assignee</th><td>Srikanth Sombhatla</td></tr>
+<tr><th>Created</th><td>2015-07-31T19:57:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T22:18:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+My setup is like the following:
+
+<code><pre>
+	var CloudPush = require('ti.cloudpush');
+	var rc = CloudPush.isGooglePlayServicesAvailable();
+	if(rc == CloudPush.SUCCESS){
+		CloudPush.retrieveDeviceToken({
+		    success: deviceTokenSuccess,
+		    error: function(){}
+		});
+		CloudPush.addEventListener('trayClickLaunchedApp', handler1);
+		CloudPush.addEventListener('trayClickFocusedApp', handler2);
+		CloudPush.addEventListener('callback', handler3);
+	}
+</pre></code>
+
+tiapp.xml
+<code><pre>
+    <property name="acs-grouped-notification-message" type="string">You have $number$ unread messages</property>
+</pre></code>
+
+If I receive a notification but leave it there without clicking it. Instead I launch my app from launcher. Then the callback function is called but the notification isn't cleared. If later I click the notification, it will launch the app but no callback is called.
+
+This is confusing to users. Preferable behavior would be: Once the callback is called, the corresponding notification should be cleared and the group message number should be reset.
+
+Or, like the iOS, the callback should never be called unless users click the notification or the app is in the foreground.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shawn Lan 2015-08-21
+
+   Please re-open this case. I tested it again using your test case. The notification isn't cleared.
+   
+   To test it, you can't click the notification. Instead, launch the app from launcher. Then the callback is called, but the notification isn't cleared.
+   
+   I test it on my device - HTC One M7 - Android 5.0.2</li>
+<li>Shawn Lan 2016-01-27
+
+   I tested again on Nexus 7, Android 6.0. I can still re-produce the issue. Please re-open this ticket. Maybe include a video or detailed steps on how you test it, so that we can make sure we are on the same page. Thanks!</li>
+<li>Srikanth Sombhatla 2016-02-26
+
+   [~shawnlan],
+   
+   This is as per expected behaviour as mentioned in <code>callback</code> event documentation <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.CloudPush-event-callback
+   
+   The notifications are not cleared in <code>callback</code> event because this event is fired on receiving a push, but not on user interaction.
+   Also the docs says <code>This will only be fired once per push notification.</code> This is the reason the <code>callback</code> event will not be fired on next app open.
+   
+   But notification will be cleared either in <code>trayClickFocusedApp</code> or <code>trayClickLaunchedApp</code> events respecting the clear flag <code>FLAG_AUTO_CANCEL</code> mentioned in the notification. These events are fired when User clicks on your app's notifications. To handle graciously, you may want to invoke your notification handling logic in these methods as well.
+   
+   So I don't see this as a bug. That being said, I understand that clearing handled notifications should be unambiguous. You can open a feature request to provide an API to clear a particular notification or all notifications. </li>
+<li>Shawn Lan 2016-02-26
+
+   "The notifications are not cleared in callback event because this event is fired on receiving a push, but not on user interaction. 
+   Also the docs says This will only be fired once per push notification. This is the reason the callback event will not be fired on next app open."
+   
+   Well, the expected behavior should be:
+   
+   The callback shouldn't be called if the user doesn't interact with the notification. Or, when the user interacts with the notification, the callback should be called again. Or, when the user interacts with the notification, the trayClick events should contain the payload.
+   
+   I would say it's a bug from user experience perspective.</li>
+<li>Shawn Lan 2016-02-26
+
+   I found that if singleCallback is set to true, then when launching the app, the callback isn't called. Well, that can solve the issue here.
+   
+   But is this the expected behavior? It isn't in the documentation. Will it not be changed in the future?
+   
+   Thanks.</li>
+<li>Srikanth Sombhatla 2016-02-29
+
+   Actually the purpose of <code>callback</code> event is well defined. It is used to inform that the app received a push. This behaviour can be effected by combination of flags like <code>focusAppOnPush</code>. See <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.CloudPush-event-callback
+   
+   The trayClick events indeed contain the payload. 
+   Also what are the other flags you are using with CloudPush ?
+   
+   
+   </li>
+<li>Shawn Lan 2016-02-29
+
+   Yeah the problem is that the trayClick events don't contain the payload. At least not in the documentation. So I have to use the "callback" to show the message.
+   
+   What about my last question? When singleCallback set to true, the callback isn't called when launching the app from the drawer? It is not in the documentation either.</li>
+<li>Srikanth Sombhatla 2016-03-04
+
+   [~shawnlan]
+   
+   <code>trayClick*</code> events contains payload. We need to update docs accordingly. 
+   <code><pre>
+   Ti.API.info('Tray Click Focused App (app was already running)' + JSON.stringify(evt));
+   {"type":"trayClickFocusedApp","source":{"pushType":"gcm","invocationAPIs":[],"bubbleParent":true,"showTrayNotification":true,"enabled":false,"__propertiesDefined__":true,"singleCallback":false,"_events":{"callback":{},"trayClickFocusedApp":{}},"focusAppOnPush":false,"debug":true,"showAppOnTrayClick":true,"showTrayNotificationsWhenFocused":false,"apiName":"Ti.Module"},"payload":"{\"android\":{\"icon\":\"app_icon\",\"sound\":\"default\",\"alert\":\"Push Notification Test\",\"badge\":2}}","bubbles":false,"cancelBubble":false}
+   </pre></code>
+   
+   To invoke <code>callback</code> when app is launched you can set <code>showTrayNotification</code> to false. Please read this through before configuring your requirement <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.CloudPush-event-callback
+   This should not be effected by <code>singleCallback</code></li>
+<li>Shawn Lan 2016-03-17
+
+   Then update the docs, please.
+   
+   Here is my setup:
+   
+   <code><pre>
+   var CloudPush = require('ti.cloudpush');
+   	var rc = CloudPush.isGooglePlayServicesAvailable();
+   	if(rc == CloudPush.SUCCESS){
+   		//CloudPush.singleCallback = true;
+   		CloudPush.retrieveDeviceToken({
+   		    success: deviceTokenSuccess,
+   		    error: function(){}
+   		});
+   		CloudPush.addEventListener('callback', receivePush);
+   	}
+   </pre></code>
+   
+   Launching the app without clicking the notification will fire the callback, as described in the original post. If setting CloudPush.singleCallback to true, launching the app without clicking the notification will NOT fire the callback. Test it yourself and see.
+   
+   I've read through the docs several times, but it seems your docs is not clear and complete.</li>
+<li>Srikanth Sombhatla 2016-03-24
+
+    [~shawnlan] did you try setting <code>showTrayNotification</code> to false. 
+    </li>
+<li>Srikanth Sombhatla 2016-03-24
+
+    PR for docs change <a href="https://github.com/appcelerator/titanium_mobile/pull/7880" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7880</a></li>
+<li>Shawn Lan 2016-03-24
+
+    Thanks.
+    
+    I didn't try to set <code>showTrayNotification</code> to false. I didn't want that.
+    
+    Check my previous code. That's all my setup.</li>
+<li>Ashraf Abu 2016-03-30
+
+    Docs for PR merged.</li>
+<li>Ashraf Abu 2016-03-30
+
+    [~shawnlan] Is this still an issue?</li>
+<li>Lee Morris 2017-03-22
+
+    [~shawnlan] Hi Shawn, I'm just wondering if you are still experiencing this issue? If not, would you like me to close the ticket?</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as fixed, if there are any problems, please file a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20285.json">JSON Source</a></p>

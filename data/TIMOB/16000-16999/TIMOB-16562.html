@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-16562] Android: Kroll bridge passing null/undefined values can throw exceptions when passed to TiConvert methods"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-27T18:55:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0, Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.1, Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_androidmapv2, qe-manualtest, qe-testadded, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Mostafizur Rahman</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2014-03-06T10:18:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-21T18:49:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description </h4>
+
+Exception is thrown when passing objects with null/undefined values for expected keys values on Android.  Ti.map.TiUIMapView passes this null value to TiConvert.toDouble which causes then throws a NullPointerException.
+
+Here is an example piece of code when setting a map region. This works fine on iOS:
+<code><pre>
+function setup(event) {
+
+ $.map.region = {
+   latitude: 36,
+   longitude: -78,
+   latitudeDelta: null,
+   longitudeDelta: null
+ };
+}
+</pre></code>
+Here is the exception on Android:
+<code><pre>
+[ERROR] :  TiApplication: (main) [1830,1830] Sending event: exception on thread: main msg:java.lang.NullPointerException; Titanium 3.2.0,2013/12/20 10:57,d9182d6
+[ERROR] :  TiApplication: java.lang.NullPointerException
+[ERROR] :  TiApplication:   at org.appcelerator.titanium.util.TiConvert.toDouble(TiConvert.java:527)
+[ERROR] :  TiApplication:   at org.appcelerator.titanium.util.TiConvert.toDouble(TiConvert.java:540)
+[ERROR] :  TiApplication:   at ti.map.TiUIMapView.updateCamera(TiUIMapView.java:247)
+[ERROR] :  TiApplication:   at ti.map.TiUIMapView.propertyChanged(TiUIMapView.java:171)
+[ERROR] :  TiApplication:   at org.appcelerator.kroll.KrollPropertyChange.fireEvent(KrollPropertyChange.java:21)
+[ERROR] :  TiApplication:   at org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1059)
+[ERROR] :  TiApplication:   at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:329)
+[ERROR] :  TiApplication:   at ti.map.ViewProxy.handleMessage(ViewProxy.java:150)
+[ERROR] :  TiApplication:   at android.os.Handler.dispatchMessage(Handler.java:95)
+[ERROR] :  TiApplication:   at android.os.Looper.loop(Looper.java:158)
+[ERROR] :  TiApplication:   at android.app.ActivityThread.main(ActivityThread.java:5789)
+[ERROR] :  TiApplication:   at java.lang.reflect.Method.invokeNative(Native Method)
+[ERROR] :  TiApplication:   at java.lang.reflect.Method.invoke(Method.java:525)
+[ERROR] :  TiApplication:   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1027)
+[ERROR] :  TiApplication:   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:843)
+[ERROR] :  TiApplication:   at dalvik.system.NativeStart.main(Native Method)
+
+</pre></code>
+
+This the kroll bridge should either ignore null/undefined values or have each
+have maps module defensively check for null values.
+
+I've attached a project showcases the error.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16562_50636/ErrorScreenShot.png">ErrorScreenShot.png</td></td><td>2014-08-21T17:45:03.000+0000</td><td>91776</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16562_46422/krollBridge.zip">krollBridge.zip</td></td><td>2014-03-06T10:25:45.000+0000</td><td>757617</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-03-10
+
+   This I believe will be fixed in the maps module, however, the fix will be that we are more defensive of Null values. Instead, they should use a default value of 0 for lat/long instead of null.</li>
+<li>Ingo Muschenetz 2014-05-01
+
+   Since the fix is in the maps module, it does not need to go out with 3.3.0</li>
+<li>Allen Yeung 2014-07-18
+
+   PR for TIMOB: <a href="https://github.com/appcelerator/titanium_mobile/pull/5917" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5917</a>
+   ti.map PR: <a href="https://github.com/appcelerator-modules/ti.map/pull/45" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/pull/45</a>
+   
+   Test steps:
+   
+   1. Create a project and use the example code from the ti.map module (You will need to copy all the relevant code and resources from the examples dir of the map module.)
+   2.  Inside the annotations.js file, change all the values of latitude, longitude, latitudeDelta, longitudeDelta values to null
+   3. Run the example code, and verify that the annotations section does not crash</li>
+<li>Ewan Harris 2014-08-21
+
+   The problems still exists on:
+   
+   Mac OSX 10.9.4
+   Appcelerator Studio, build: 3.4.0.201408201526 
+   Titanium SDK build:  3.4.0.v20140820125714
+   Titanium CLI, build: 3.4.0-dev
+   Alloy: 1.5.0-dev
+   
+   Using the ti.Map 2.1.4 module example code, I changed all latitude, longitude, latitudeDelta, longitudeDelta values to null and obtained the error shown in the attached screenshot.
+   
+   Reopening the issue.</li>
+<li>Ingo Muschenetz 2014-08-27
+
+   Moving into 3.5.0 as this relies on updating the map as well. Does [~eharris] need to test with ti.map 2.1.6+?</li>
+<li>Allen Yeung 2014-08-29
+
+   Yes, this needs to be tested with 2.1.6+ for ti.map</li>
+<li>Jon Alter 2014-08-29
+
+   Here is a link to ti.map 2.2.0 (just click on "Raw" to download): <a href="https://github.com/appcelerator-modules/ti.map/blob/master/android/dist/ti.map-android-2.2.0.zip" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/blob/master/android/dist/ti.map-android-2.2.0.zip</a></li>
+<li>Ewan Harris 2014-08-29
+
+   Verified fix on:
+   
+   Mac OSX 10.9.4
+   Appcelerator Studio, build: 3.4.0.201408291421
+   Titanium SDK build: 3.4.0.v20140829104912 
+   Titanium CLI, build: 3.4.0-dev
+   Alloy: 1.5.0-dev
+   ti.map 2.2.0
+   Android Emulator 4.4.2
+   Android Device S4 (4.0.4)
+   
+   Using ti.map 2.2.0 took the code from the example folder changed all latitude, longitude, latitudeDelta, longitudeDelta values to null and opened the annotations section. The app does not crash.
+   
+   Closing ticket.</li>
+<li>Ingo Muschenetz 2014-10-23
+
+   We _might_ be fixing this in 3.4.1 with an updated map module. Adding to 3.4.1 to confirm.</li>
+<li>Ewan Harris 2014-10-27
+
+    Verified fix on:
+    
+    
+    Mac OSX 10.10
+    Appcelerator Studio, build: 3.4.1.201410191611
+    Titanium SDK build: 3.4.1.v20141024151719
+    Titanium CLI, build: 3.4.1-dev
+    Alloy: 1.5.1
+    ti.map 2.2.1
+    Android Device S5 (4.4.2)
+    
+    Using ti.map 2.2.1 took the example code and change the latitude, longitude, latitudeDelta, longitudeDelta to null and opened the annotations section, the app does not crash.
+    
+    Closing ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16562.json">JSON Source</a></p>

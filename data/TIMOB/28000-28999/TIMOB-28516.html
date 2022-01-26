@@ -1,0 +1,98 @@
+---
+title: "[TIMOB-28516] Android: Setting ScrollableView "views" property after window open slower as of 10.0.1"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-08-09T09:24:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 10.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.2</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>ScrollableView, android, performance, regression</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-08-02T09:52:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-08-09T09:24:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We noticed an increased lack of performance (on the UI thread) when using SDK 10.0.1 and beyond. The issue is reflected by the following log (shown > 25 times due to our high usage of card views):
+<code><pre>
+[INFO]  MaterialCardView: Setting a custom background is not supported.
+</pre></code>
+Our main list (uses card views a lot), which is inside a scrollable view. So could this maybe be a regression from the recent changes in the Ti.UI.ScrollableView?
+
+It can be easily reproduced in our app by using a 10_0_X build vs 10.0.0.GA and adding a new POI inside a waypoint. Usually, it redraws in 1-2 seconds (by the socket update), but now it takes up to 8 seconds due to the UI thread being blocked.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2021-08-03
+
+   [~hknoechel], your app's startup time does not seem any slower between Titanium 10.0.0, 10.0.1, and 10.1.0.
+   
+   A cold-start of your app takes about <code>5 seconds</code> on my device for the "debug" version, which is what the CLI builds when the deployment type is "test" or "development". In your "build.gradle", I can disable debugging in the debug build (I know that sounds weird) via the following "build.gradle" setting and the launch time is about <code>2 seconds</code>, which is about the same time your release version on Google Play takes.
+   <code><pre>
+   android.buildTypes.debug.debuggable false
+   </pre></code>
+   
+   So I think it's just the traces/debug messages that Google outputs that's making it take longer. Also, the "debuggable" setting makes the Android OS check for private API usage and probably some other things.</li>
+<li>Joshua Quick 2021-08-04
+
+   Also the MaterialCardView warning won't cause this performance issue. Looking at Google's code, it simply logs that message and replaces the color drawable. We can override this behavior when setting the "backgroundColor" to get rid of this warning message, but it has nothing to do with the performance issue you saw.
+   <a href="https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/card/MaterialCardView.java#L362-L371" rel="nofollow" target="_blank">https://github.com/material-components/material-components-android/blob/master/lib/java/com/google/android/material/card/MaterialCardView.java#L362-L371</a>
+   </li>
+<li>Michael Gangolf 2021-08-04
+
+   How expensive are the <code>getViews()</code> calls in <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIScrollableView.java" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIScrollableView.java</a> ? Eg. in <code>onPageScrollStateChanged</code> there are 3, in <code>onPageScrolled</code> are 4; before it was just <code>mViews</code></li>
+<li>Joshua Quick 2021-08-04
+
+   The <code>getViews()</code> just returns the collection reference as-is. So, there's no issue there.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIScrollableView.java#L379" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIScrollableView.java#L379</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/ScrollableViewProxy.java#L139" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/ScrollableViewProxy.java#L139</a>
+   </li>
+<li>Hans Knöchel 2021-08-04
+
+   This really worries me. @Josh: Can you go ahead and add a waypoint on the waypoint map and compare the time between the pin is drawn between 10.0.0 and 10.0.2? We literally swapped SDK versions and saw a difference of 4x in redraw performance</li>
+<li>Joshua Quick 2021-08-04
+
+   I tested your app with your "hans2" account.
+   
+   On my Pixel 3a device running Android 11 the app startup times are...
+   * Titanium [PR #12989](<a href="https://github.com/appcelerator/titanium_mobile/pull/12989)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12989)</a> - debug build: <code>5 seconds</code>
+   * Titanium [PR #12989](<a href="https://github.com/appcelerator/titanium_mobile/pull/12989)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12989)</a> - release build: <code>2 seconds</code>
+   * Titanium 10.0.0.GA - debug build: <code>5 seconds</code>
+   * Titanium 10.0.0.GA - release build: <code>2 seconds</code>
+   
+   On my Android 12 emulator, the app startup times are...
+   * Titanium [PR #12989](<a href="https://github.com/appcelerator/titanium_mobile/pull/12989)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12989)</a> - debug build: <code>13 seconds</code>
+   * Titanium [PR #12989](<a href="https://github.com/appcelerator/titanium_mobile/pull/12989)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12989)</a> - release build: <code>11 seconds</code>
+   * Titanium 10.0.0.GA - debug build: <code>13 seconds</code>
+   * Titanium 10.0.0.GA - release build: <code>11 seconds</code>
+   
+   So, I'm not seeing a difference in app startup times between 10.0.0.GA and the Titanium SDK I've built with [PR #12989](<a href="https://github.com/appcelerator/titanium_mobile/pull/12989)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12989).</a> The emulator startup times are pretty bad and I'm not sure why yet, but on a real device the startup times are good.</li>
+<li>Joshua Quick 2021-08-06
+
+   I'm able to reproduce this performance issue. It's caused by setting the "views" property after the window has opened. As of 10.0.1, we release all of the native views in the last "views" array before assigning it new views. This would normally be okay except when the new array contains the same views as before in which case we don't want to release them (this is what [~hknoechel] is running into).
+   
+   Also we're notifying the native view adapter for every view in the array when we should only invoke this notification once after adding all views.</li>
+<li>Joshua Quick 2021-08-06
+
+   Regarding the CardView warning message, it's harmless.
+   We'll look into resolving it via ticket [TIMOB-28517] which is a good opportunity to support "touchFeedbackColor" which has always been ignored before.</li>
+<li>Joshua Quick 2021-08-06
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/13001" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13001</a></li>
+<li>Hans Knöchel 2021-08-06
+
+    The issue is now fixed - brilliant work, Josh, thank you!</li>
+<li>Ewan Harris 2021-08-09
+
+    Merged to master and 10_0_X</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28516.json">JSON Source</a></p>

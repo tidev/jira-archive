@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-5419] SplitWindow loses 'visible' event when inside tabgroup or window"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2012-01-26T12:34:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Alan Leard</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2011-10-03T16:58:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T21:38:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If a splitWindow is placed within a tabgroup, the visible event is lost and you cannot remove the leftNavButton on rotation.  In the provided example, the 'visible' alert will only popup when the app is loaded.
+
+<code><pre>
+var tabGroup = Ti.UI.createTabGroup();
+
+var window = Ti.UI.createWindow({ 
+    Title:'Super Win',
+    navBarHidden: true,
+    barColor:'#336699'
+
+});
+
+var master = Ti.UI.createWindow({
+    title:'Master',
+    barColor:'#336699'
+});
+
+var detail = Ti.UI.createWindow({
+    title:'Detail',
+    backgroundColor:'blue',
+    barColor:'#336699'
+});
+master.navigation = Ti.UI.iPhone.createNavigationGroup({ 
+    window: master 
+});
+
+var data = [{title:"Appcelerator", url:'<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>'},{title:"Google", url:'<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>'}];
+
+var table = Titanium.UI.createTableView({
+    data:data
+});
+
+master.add(table);
+
+detail.navigation = Ti.UI.iPhone.createNavigationGroup({ 
+    window: detail
+});
+
+var windowSplit = Ti.UI.iPad.createSplitWindow({ 
+    masterView: master.navigation, 
+    detailView: detail.navigation
+    //barColor:'#336699' - This property does not exist on SplitWindow
+});
+
+
+windowSplit.addEventListener('visible', function(e) {
+	alert('visible');
+    if (e.view == 'detail') {
+        e.button.title = "Popover";
+        detail.leftNavButton = e.button;
+    }
+    else if (e.view == 'master') {
+        detail.leftNavButton = null;
+    }
+});
+
+
+window.add(windowSplit);
+
+var tab1 = Ti.UI.createTab({ 
+    title: "Split", 
+    //window: windowSplit,//
+    window:window, //TOGGLE ME TO SEE THE DIFFERENCES...............................
+    icon: "KS_nav_views.png" 
+});
+
+var win2 = Titanium.UI.createWindow({
+    title:'Tab 2', 
+    backgroundColor:'#fff',
+    barColor:'red'
+});
+
+var label2 = Titanium.UI.createLabel({ 
+    color:'#999', 
+    text:'I am Window 2', 
+    font:{fontSize:20,fontFamily:'Helvetica Neue'}, 
+    textAlign:'center', 
+    width:'auto'
+});
+
+win2.add(label2);
+
+var tab2 = Ti.UI.createTab({ 
+    title: "Other", 
+    window: win2, 
+    icon: "KS_nav_ui.png" 
+});
+
+tabGroup.addTab(tab1);  
+tabGroup.addTab(tab2);  
+
+tabGroup.open();
+
+table.addEventListener('click', function(e){
+    var webview = Ti.UI.createWebView({
+        url:e.rowData.url
+    });
+    detail.add(webview);
+});
+
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2012-01-26
+
+   Documentation states that you cannot place split windows in tab groups, nav groups, or other windows.</li>
+<li>Brian Blankenship 2012-01-26
+
+   Stephen, I can understand how one might interpret it this way, but I spoke to Blain Hammond specifically about this at Codestrong and he agreed this was something that should work and be fixed.  Apple themselves have apps with SplitWindows in Tab Groups (at least in the way we have been trying to use them).</li>
+<li>Stephen Tramer 2012-01-26
+
+   HIG states that tabs can be used inside of a split view, but split views cannot be used inside tab groups.
+   
+   This bug describes the latter. See TIMOB-1060 - some applications emulate split views to make them work inside of a tab group. iOS 5 also appears to remove the restriction that split views must be the "root" view of an application, but it is unclear if this is the case on earlier iOS revs.</li>
+<li>Blain Hamon 2012-01-26
+
+   I don't exactly recall, or possibly misunderstood. The code example itself is an invalid use case, as the split view is inside the tab group, not the other way around. [Apple Documentation](<a href="http://developer.apple.com/library/ios/documentation/UserExperience/Conceptual/MobileHIG/UIElementGuidelines/UIElementGuidelines.html#//apple_ref/doc/uid/TP40006556-CH13-SW52)" rel="nofollow" target="_blank">http://developer.apple.com/library/ios/documentation/UserExperience/Conceptual/MobileHIG/UIElementGuidelines/UIElementGuidelines.html#//apple_ref/doc/uid/TP40006556-CH13-SW52)</a> states: 
+   {quote}
+   On iPad, you might use a tab bar in a split view pane or a popover if the tabs switch or filter the content within that view. However, it often works better to use a segmented control at the bottom edge of a popover or split view pane, because the appearance of a segmented control coordinates better with the popover or split view appearance. (For more information on using a segmented control, see “Segmented Control.”)
+   {quote}
+   The takeaway here is that the tab group should be inside the split view, perhaps as the main panel in the split view.
+   
+   I'm also curious as to which Apple apps do otherwise.</li>
+<li>Brian Blankenship 2012-01-26
+
+   Thanks for the followup.  The best example of an Apple app I had (at the time of reporting this) was the iTunes Festival app... seems to naturally be no longer available on App Store now, but it did this.</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as "Won't Fix".</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5419.json">JSON Source</a></p>

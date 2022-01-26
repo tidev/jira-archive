@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-16080] Android: Remove Default Sound Effect when touchEnabled = false"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-03-07T19:46:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Andrew Greenstreet</td></tr>
+<tr><th>Assignee</th><td>Andy Waldman</td></tr>
+<tr><th>Created</th><td>2013-12-17T20:52:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-07T22:06:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Please update "registerForTouch" in TiUIView.java with
+
+<code><pre>
+if (clickable) {
+   registerTouchEvents(touchable);
+   doSetClickable(touchable);
+} else {
+   touchable.setSoundEffectsEnabled(false);
+}
+</pre></code>
+
+Reasoning: If a developer has specifically set a view to be non-touchable, then there should not be a touch sound on that view.
+
+Alternative would be to add another view property for soundEffectsEnabled, such that in either Alloy
+
+<code><pre>
+<View soundEffectsEnabled='false'></View>
+</pre></code>
+
+or
+
+<code><pre>
+Ti.UI.createView({
+  soundEffectsEnabled : false
+});
+</pre></code>
+
+Where View is any kind of View (View, Label, Image, etc)
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2013-12-26
+
+   Makes sense. Moving this enhancement request to engineering for further evaluation.</li>
+<li>Tim Poulsen 2014-12-01
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/5373" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5373</a></li>
+<li>Ivan Skugor 2014-12-01
+
+   IMHO - this should enabled by default, native Android apps have that kind of behaviour.
+   
+   
+   So, sound should be played only if view have touch events added.</li>
+<li>Andrew Greenstreet 2014-12-03
+
+   I agree. I've been rolling a custom version of the Ti Android SDK that work this way for almost a year. Touch sounds on non-interactive items is just plain wrong.
+   
+   This is what I use:
+   
+   <code><pre>
+   protected void registerForTouch(final View touchable)
+   {
+   	if (touchable == null) {
+   		return;
+   	}
+   		
+   	if (proxy.hasProperty(TiC.PROPERTY_TOUCH_ENABLED)) {
+   		boolean enabled = TiConvert.toBoolean(proxy.getProperty(TiC.PROPERTY_TOUCH_ENABLED), true);
+   		if (!enabled) {
+   			if (touchable.getClass().toString() != android.widget.TextView.class.toString()) {
+   				//setting enabled on some early versions of 4.0 causes a Java exception when the label has no text
+   				touchable.setEnabled(false);
+   			}
+   			touchable.setSoundEffectsEnabled(false);
+   		} else {
+   			touchable.setSoundEffectsEnabled(true);
+   		}
+   	} else {
+   		touchable.setSoundEffectsEnabled(false); //Turn off the touch sound unless this item is specifically set to touch enabled
+   	}
+   	registerTouchEvents(touchable);
+   
+   	// Previously, we used the single tap handling above to fire our click event. It doesn't
+   	// work: a single tap is not the same as a click. A click can be held for a while before
+   	// lifting the finger; a single-tap is only generated from a quick tap (which will also cause
+   	// a click.) We wanted to do it in single-tap handling presumably because the singletap
+   	// listener gets a MotionEvent, which gives us the information we want to provide to our
+   	// users in our click event, whereas Android's standard OnClickListener does _not_ contain
+   	// that info. However, an "up" seems to always occur before the click listener gets invoked,
+   	// so we store the last up event's x,y coordinates (see onTouch above) and use them here.
+   	// Note: AdapterView throws an exception if you try to put a click listener on it.
+   	doSetClickable(touchable);
+   
+   }
+   </pre></code></li>
+<li>Hans Knöchel 2017-02-03
+
+   Updated PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8816" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8816</a>
+   
+   Basically, we should normalize the SDK behavior to the native behaviorm which is described above.</li>
+<li>Andy Waldman 2017-02-28
+
+   Lastest PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8852" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8852</a></li>
+<li>Andy Waldman 2017-03-07
+
+   Closing <a href="https://github.com/appcelerator/titanium_mobile/pull/8816" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8816</a> 
+   Find above the current PR</li>
+<li>Samir Mohammed 2017-03-07
+
+   Improvement present in SDK build 6.1.0.v20170307124208 
+   Test information available in <a href="https://github.com/appcelerator/titanium_mobile/pull/8852" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8852</a> </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16080.json">JSON Source</a></p>

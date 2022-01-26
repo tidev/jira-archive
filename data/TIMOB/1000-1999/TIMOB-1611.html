@@ -1,0 +1,186 @@
+---
+title: "[TIMOB-1611] iOS: base64 encoding/decoding of Blob cannot be round-tripped successfully"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-29T18:32:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.8.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>blob, defect, ios, parity</td></tr>
+<tr><th>Reporter</th><td>Thomas Huelbert</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:57:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:31:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>This was already addressed for android as lighthouse ticket
+<a href="/projects/32238/tickets/1604" title=
+"Ticket #1604">#1604</a>, below are Bill's original notes from the
+bug.</p>
+<p>You cannot use Titanium.Utils.base64encode &amp;
+Titanium.Utils.base64decode successfully to round-trip the encoding
+/ decoding of a blob. In other words, you don't get back the same
+set of bytes that you originally started with.</p>
+<p>Failcase app.js (make sure you have KS_nav_ui.png in your
+Resources folder; it's there by default with new projects):</p>
+<p>var win = Ti.UI.createWindow({fullscreen: true,
+exitOnClose:true});</p>
+<p>var file = Ti.Filesystem.getFile('KS_nav_ui.png');</p>
+<p>var blob1 = file.read();<br>
+var base64 = Ti.Utils.base64encode(blob1);<br>
+var blob2 = Ti.Utils.base64decode(base64);</p>
+<p>var thumbnail1 = Titanium.UI.createView({left: 0, top: 0, width:
+46, height: 43});<br>
+thumbnail1.backgroundImage = 'KS_nav_ui.png'; // the orig, which
+obviously works<br>
+var thumbnail2 = Titanium.UI.createView({left: 56, top: 0, width:
+46, height: 43});<br>
+var thumbnail3 = Titanium.UI.createView({left: 112, top: 0, width:
+46, height: 43});<br>
+win.add(thumbnail1); win.add(thumbnail2); win.add(thumbnail3);</p>
+<p>var tempDir = Titanium.Filesystem.createTempDirectory();<br>
+tempDir.createDirectory();</p>
+<p>// Blob from original file var file1 =
+Titanium.Filesystem.getFile(tempDir.nativePath, 'file1.png');<br>
+file1.write(blob1);<br>
+thumbnail2.backgroundImage = file1.nativePath;</p>
+<p>// Base64 encoded-then-decoded blob var file2 =
+Titanium.Filesystem.getFile(tempDir.nativePath, 'file2.png');<br>
+file2.write(blob2);<br>
+thumbnail3.backgroundImage = file2.nativePath;</p>
+<p>win.open();<br>
+You should see three identical images when that runs. Instead,
+you'll see only two.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>James David Low 2011-04-15
+
+   <div><p>Hi, I'm an end user of Titanium that had some trouble with this
+   recently.</p>
+   <p>The problem on iPhone is that the TiBlob is converted to a
+   String first using UtilsModule.convertToString grabbing the
+   TiBlob.text field. If the TiBlob is an image or file you need to
+   use the TiBlob.data field.</p>
+   <p>I managed to get it to work using the attached code. I figured
+   it was better to use the TiBlob.data rather than TiBlob.text
+   always, as if you really must base64 encode a String from a blob
+   you can change your Javascript to Ti.Utils.base64encode(blob.text)
+   and it will still encode it.</p>
+   <p><code>-(TiBlob*)base64encode:(id)args {</code></p>
+   <pre>
+   <code>ENSURE_SINGLE_ARG(args,NSObject);
+   const char *data;
+   size_t len;
+   if ([args isKindOfClass:[NSString class]])
+   {
+       data = [args UTF8String];
+       len = [args length];
+   }
+   else if ([args isKindOfClass:[TiBlob class]])
+   {
+       data = [[(TiBlob*)args data] bytes];
+       len = [[(TiBlob*)args data] length];
+   }
+   else
+   {
+       THROW_INVALID_ARG(@"invalid type");
+   }
+   
+   size_t outsize = EstimateBas64EncodedDataSize(len);
+   char *base64Result = malloc(sizeof(char)*outsize);
+   size_t theResultLength = outsize;
+   
+   bool result = Base64EncodeData(data, len, base64Result, &amp;theResultLength);
+   if (result)
+   {
+       NSData *theData = [NSData dataWithBytes:base64Result length:theResultLength];
+       free(base64Result);
+       return [[[TiBlob alloc] initWithData:theData mimetype:@"application/octet-stream"] autorelease];
+   }    
+   free(base64Result);
+   return nil;</code>
+   </pre>
+   <p>}</p></div></li>
+<li>James David Low 2011-04-15
+
+   <div><p>I also created this function because I wanted the TiBlob I
+   created to be an Image with width/height attributes. Is it possible
+   to<br>
+   1) Add it to UtilsModule.m<br>
+   or<br>
+   2) Have an optional parameter that determines the type of TiBlob to
+   return<br>
+   or<br>
+   3) Maybe even better have an TiBlob be able to create another
+   TiBlob of type TiBlobTypeImage from the data within it. Maybe at
+   the same time you could provide a constructor in Javascript to let
+   us create our own TiBlobs from our own data.</p>
+   <p><code>-(TiBlob*)base64decodeImage:(id)args {</code></p>
+   <pre>
+   <code>ENSURE_SINGLE_ARG(args,NSObject);
+   
+   NSString *str = [self convertToString:args];
+   
+   const char *data = [str UTF8String];
+   size_t len = [str length];
+   
+   size_t outsize = EstimateBas64DecodedDataSize(len);
+   char *base64Result = malloc(sizeof(char)*outsize);
+   size_t theResultLength = outsize;
+   
+   bool result = Base64DecodeData(data, len, base64Result, &amp;theResultLength);
+   if (result)
+   {
+       NSData *theData = [NSData dataWithBytes:base64Result length:theResultLength];
+       free(base64Result);
+       return [[[TiBlob alloc] initWithImage:[UIImage imageWithData:theData]] autorelease];
+   }    
+   free(base64Result);
+   return nil;</code>
+   </pre>
+   <p>}</p></div></li>
+<li>James David Low 2011-10-14
+
+   Hi Reggie,
+   
+   This problem isn't trivial its actually quite serious that it isn't able to do the round trip and makes it a bit unusable.
+   
+   I have a fully changed UtilsModule.m that has all the necessary changes:
+   1) To make a round trip possible
+   2) To return a image type TiBlob which has dimensions initiated.
+   
+   Please contact me about this, I'd really like to get it sorted as I have to make changes to the Titanium SDK every time there's an issue.
+   
+   You can use my email james.low @ onoko.com
+   Thanks,
+   James</li>
+<li>Wilson Luu 2011-11-01
+
+   Bug is not valid, does not reproduce in:
+   TiMOB sdk version: 1.8.0.v20111031173855
+   Studio version: 1.0.6.201110251616
+   OS version: Mac OS X Lion
+   Devices tested on: ipad 4.3.5
+   
+   Note: 1.7.2 still show this bug, 1.8.0.v20111031173855 fixes this bug</li>
+<li>Reggie Seagraves 2011-11-02
+
+   Parity check with Android implementation.</li>
+<li>Stephen Tramer 2011-12-29
+
+   Duplicate of TIMOB-6280.</li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket as duplicate with reference to the linked issues.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1611.json">JSON Source</a></p>

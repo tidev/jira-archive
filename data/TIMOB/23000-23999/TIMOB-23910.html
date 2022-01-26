@@ -1,0 +1,116 @@
+---
+title: "[TIMOB-23910] iOS 10: 2D transforms not applied in Ti.Media.showCamera"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-01T19:35:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios10, native_issue, showcamera, uiimagepickercontroller</td></tr>
+<tr><th>Reporter</th><td>Richard Lustemberg</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-09-15T15:15:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:59:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When adding a transform to on Ti.Media.showCamera, the transform is not applied.
+
+<code><pre>
+var cameraTransform = Ti.UI.create2DMatrix().scale(1.5,1.5);
+Ti.Media.showCamera({
+            showControls: false,
+            autohide: false,
+            animated: true,
+            overlay: cameraControls.getView(),
+            success: function (e) {
+                //do something
+            },
+            error: function (e) {
+                Ti.API.error(JSON.stringify(e));
+            }
+        });
+</pre></code>
+Also applying the trasform directly on the sdk is ignored.
+
+<code><pre>
+            float cameraAspectRatio = 4.0 / 3.0;//whatever values you set here are ignored when built on iOS10
+            float camViewHeight = screenSize.width * cameraAspectRatio;
+            float scale = screenSize.height/camViewHeight;
+            
+            CGAffineTransform translate = CGAffineTransformMakeTranslation(0, (screenSize.height - camViewHeight) / 2.0);
+            picker.cameraViewTransform = CGAffineTransformScale(translate, scale, scale);
+</pre></code>
+It's probably related to this: [<a href="http://stackoverflow.duapp.com/questions/39124794/uiimagepickercontrollers-cameraviewtransform-is-ignoring-scaling-and-transla/39342257#39342257" rel="nofollow" target="_blank">http://stackoverflow.duapp.com/questions/39124794/uiimagepickercontrollers-cameraviewtransform-is-ignoring-scaling-and-transla/39342257#39342257</a>]
+
+<h3>Comments</h3>
+
+<ol>
+<li>Richard Lustemberg 2016-09-15
+
+   Forgot to add the transform on showCamera, but of course that's what I'm doing on my tests
+   </li>
+<li>Richard Lustemberg 2016-09-15
+
+   And this is the correct SO link [<a href="http://stackoverflow.com/questions/39124794/uiimagepickercontrollers-cameraviewtransform-is-ignoring-scaling-and-transla/39342257#39342257" rel="nofollow" target="_blank">http://stackoverflow.com/questions/39124794/uiimagepickercontrollers-cameraviewtransform-is-ignoring-scaling-and-transla/39342257#39342257</a>]</li>
+<li>Hans Knöchel 2016-09-17
+
+   Well, the second one is obviously failing because of some more configuration and graphics-context being required. If the first one works with iOS 9.3, I will investigate it. But not that your demo-code is still invalid, since you don't even use the <code>cameraTransform</code> after it's creation.</li>
+<li>Richard Lustemberg 2016-09-17
+
+   In the example code I've forgot to add the transform, but it really doesn't work (I already pointed that out in a previous comment)
+   In MediaModule.m , doesn't matter what aspect ratio you set, the values are ignored on iOS 10, although they work as expected on 9.3.5</li>
+<li>Richard Lustemberg 2016-09-17
+
+   The Obj C code in the second example is an excerpt from MediaModule.m</li>
+<li>Hans Knöchel 2016-09-17
+
+   Yes, but the snippet alone won't help to reproduce it. I have a valid test-case now, but as many native devs run into the same issue with iOS 10 GM, hopefully Apple comes with a fix for this soon. There is a workaround that I will test as well. And does it work without the <code>overlay</code> property supplied?</li>
+<li>Richard Lustemberg 2016-09-17
+
+   I tested many cases, I think also without the overlay, but I'll confirm asap. I couldn't edit the Jira ticket description, that's why you have the test case without the transform property set.
+   It's indeed an iOS 10 issue, I also made a ticket at Apple's. I have to make a custom camera to capture LivePhoto's  so I'll eventually stop using UIImagePicker.
+   I'll do a full native test to confirm. Almost sure it's an Apple bug, but I thought it was worth letting you guys know</li>
+<li>Hans Knöchel 2016-09-17
+
+   Yep, very thankful for that. I will file a [bug report at Apple|bugreport.apple.com] next week as well. For now, I updated [the docs](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/apidoc/Titanium/Media/Media.yml#L1660)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/apidoc/Titanium/Media/Media.yml#L1660)</a> so people are aware of the issue. Thanks again!</li>
+<li>Hans Knöchel 2017-01-01
+
+   Apple resolved this issue in iOS 10.2. Demo-code to test:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: 'Trigger'
+   });
+   
+   btn.addEventListener('click', function() {
+   	var cameraTransform = Ti.UI.create2DMatrix().scale(3, 3);
+   	Ti.Media.showCamera({
+           transform: cameraTransform,
+           success: function (e) {
+               //do something
+           },
+           error: function (e) {
+               Ti.API.error(JSON.stringify(e));
+           }
+       });	
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Lee Morris 2017-03-24
+
+    Closing ticket with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23910.json">JSON Source</a></p>

@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-17253] iOS: Filename of a photo blob uploaded to ACS has no file extension and always has the same name"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-07-07T17:59:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.3.0, Release 3.4.0</td></tr>
+<tr><th>Components</th><td>Cloud, iOS</td></tr>
+<tr><th>Labels</th><td>module_acs, qe-3.3.0, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Satyam Sekhri</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2014-07-01T09:42:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-07-07T18:58:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a image blob from a camera or gallery is uploaded on the ACS, it always has the same filename as "file0." and also the file extension is missing.
+
+The issue is a regression and it did not occur on 3.2.3.GA.
+
+Also the issue does not occur on Android. On iOS, if the photo to be uploaded is assigned through an image file instead of a blob from camera or gallery then it works fine.
+
+Steps to Reproduce:
+1. Create a default titanium classic app
+2. Copy the app.js and windows folder from "~/Library/Application Support/Titanium/modules/commonjs/ti.cloud/3.2.3/example" into the Resources directory of the project.
+3. Install and launch app on iOS device
+4. Create a user from Users > Create User
+5. Press back button twice and go to Photos > Create Photo
+6. Press "Select Photo from Gallery" or "Take Photo with Camera" to select/take a photo and use it
+7. Press Create button. The photo gets uploaded to the cloud and "Uploaded" alert is shown
+8. Next go to Dashboard and check the photos object saved in the cloud for your project
+
+Actual Result:
+The photo object is created with filename "file0.". Every new photo from camera or gallery that is uploaded to the cloud has the same filename. And also it does not have a file extension.
+
+If in the project file at "Resources > Windows > Photos > create.js", the line 147
+<code><pre>
+photo: photo,
+</pre></code>
+is replaced with
+<code><pre>
+photo: Titanium.Filesystem.getFile('photo.jpg')
+</pre></code>
+i.e. we assign the photo parameter of the photo create with a file instead of the blob from Camera or Gallery, then the issue does not occur and the new photo object in cloud is saved with the filename "photo.jpg"
+
+<h3>Comments</h3>
+
+<ol>
+<li>Pedro Enrique 2014-07-03
+
+   PR for master: <a href="https://github.com/appcelerator/titanium_mobile/pull/5885" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5885</a>
+   PR for 3.3.x: <a href="https://github.com/appcelerator/titanium_mobile/pull/5886" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5886</a>
+   
+   Sample code:
+   <code><pre>
+   function choosePhoto(_params){
+   	var opts = ['Photo Gallery', 'Camera'];
+   	if(_params.extraButton) {
+   		opts.push(_params.extraButton);
+   	}
+   	opts.push('Cancel');
+   	var options = Ti.UI.createOptionDialog({
+   		title: _params.title,
+   		options: opts,
+   		cancel: _params.extraButton == undefined ? 2 : 3
+   	});
+   	options.addEventListener('click', function(e) {
+   		if(_params.extraButton != undefined && e.index == 2) {
+   			_params.onExtraButton();
+   			return;
+   		}
+   		var params = {
+   			allowEditing: _params.square,
+   			success: _params.onSuccess
+   		};
+   		switch(e.index) {
+   			case 0:
+   				Ti.Media.openPhotoGallery(params);
+   			return;	
+   			case 1:
+   				Ti.Media.showCamera(params);
+   			return;	
+   		}
+   	});
+   	options.show();
+   };
+   		var Cloud = require('ti.cloud');
+   
+   (function() {
+   	var win = Ti.UI.createWindow({
+   		backgroundColor: 'white'
+   	});
+   	var navWindow = Ti.UI.iOS.createNavigationWindow({
+   		window: win
+   	});
+   	var btn = Ti.UI.createButton({
+   		title:'here',
+   		enabled: false
+   	});
+   	btn.addEventListener('click', function(){
+   		choosePhoto({
+   			onSuccess: function(e) {
+   				Cloud.Photos.create({
+   					photo: e.media
+   				}, function(e){
+   					Ti.API.info(e);
+   				});
+   			}
+   		})
+   	})
+   	win.add(btn);
+   	Cloud.Users.login({
+   		login: 'pec1985',
+   		password: 'pec1985'
+   	}, function(e){
+   		if(e.success) {
+   			btn.enabled = true;
+   		} else {
+   			alert(e.message);
+   		}
+   	});
+   	navWindow.open();
+   })();
+   </pre></code></li>
+<li>Samuel Dowse 2014-07-07
+
+   Verified fixed on:
+   Mac OSX 10.9.4
+   Appcelerator Studio, build: 3.3.0.201407031747
+   Titanium SDK, build: 3.3.0.v20140707105712
+   Titanium CLI, build: 3.3.0-rc4
+   Alloy: 1.4.0-rc4
+   iOS Device: iPhone 5 (7.0.6)
+   
+   Followed test steps provided in the description as well as test code provided by [~penrique].
+   Photo is successfully uploaded to Dashboard with the correct file extension.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17253.json">JSON Source</a></p>

@@ -1,0 +1,167 @@
+---
+title: "[TIMOB-13730] Android: Ti.Platform.displayCaps crashes taking whole JNI local reference table"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Yury Skaletskiy</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-04-19T15:15:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:04:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem description*
+The following test case causes Java process to crash on Android with local ref table overflow error as shown in the log below.
+
+*Test case*
+<code><pre>
+var getdcaps = function() {
+	var a = [];
+	for (i = 0; i < 1000; i++) {
+		a.push(Ti.Platform.displayCaps);
+	}
+	return a;
+}
+Ti.API.info("getdcaps length: " + getdcaps().length);
+</pre></code>
+
+*Log*
+<code><pre>
+04-19 15:11:21.583: E/dalvikvm(2243): JNI ERROR (app bug): local reference table overflow (max=512)
+04-19 15:11:21.583: W/dalvikvm(2243): JNI local reference table (0xb9f763b0) dump:
+04-19 15:11:21.593: W/dalvikvm(2243):   Last 10 entries (of 512):
+04-19 15:11:21.593: W/dalvikvm(2243):       511: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       510: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       509: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       508: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       507: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       506: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       505: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       504: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       503: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):       502: 0xb4447688 ti.modules.titanium.platform.DisplayCapsProxy
+04-19 15:11:21.593: W/dalvikvm(2243):   Summary:
+04-19 15:11:21.593: W/dalvikvm(2243):         2 of java.lang.String (2 unique instances)
+04-19 15:11:21.593: W/dalvikvm(2243):         1 of org.appcelerator.kroll.runtime.v8.V8Runtime
+04-19 15:11:21.593: W/dalvikvm(2243):         2 of org.appcelerator.titanium.proxy.ActivityProxy (1 unique instances)
+04-19 15:11:21.593: W/dalvikvm(2243):         1 of ti.modules.titanium.platform.PlatformModule
+04-19 15:11:21.593: W/dalvikvm(2243):       506 of ti.modules.titanium.platform.DisplayCapsProxy (1 unique instances)
+04-19 15:11:21.593: E/dalvikvm(2243): Failed adding to JNI local ref table (has 512 entries)
+04-19 15:11:21.593: I/dalvikvm(2243): "KrollRuntimeThread" prio=5 tid=11 RUNNABLE
+04-19 15:11:21.593: I/dalvikvm(2243):   | group="main" sCount=0 dsCount=0 obj=0xb44128c8 self=0xb9f97070
+04-19 15:11:21.593: I/dalvikvm(2243):   | sysTid=2258 nice=0 sched=0/0 cgrp=[fopen-error:2] handle=-1174825904
+04-19 15:11:21.593: I/dalvikvm(2243):   | state=R schedstat=( 0 0 0 ) utm=5 stm=2 core=0
+04-19 15:11:21.603: I/dalvikvm(2243):   at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+04-19 15:11:21.603: I/dalvikvm(2243):   at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:159)
+04-19 15:11:21.603: I/dalvikvm(2243):   at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:289)
+04-19 15:11:21.603: I/dalvikvm(2243):   at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:185)
+04-19 15:11:21.603: I/dalvikvm(2243):   at android.os.Handler.dispatchMessage(Handler.java:95)
+04-19 15:11:21.603: I/dalvikvm(2243):   at android.os.Looper.loop(Looper.java:137)
+04-19 15:11:21.603: I/dalvikvm(2243):   at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+04-19 15:11:21.603: E/dalvikvm(2243): VM aborting
+04-19 15:11:21.603: A/libc(2243): Fatal signal 11 (SIGSEGV) at 0xdeadd00d (code=1), thread 2258 (KrollRuntimeThr)
+04-19 15:11:21.725: I/DEBUG(792): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+04-19 15:11:21.725: I/DEBUG(792): Build fingerprint: 'generic_x86/sdk_x86/generic_x86:4.2/JOP40C/eng.android-build.20121231.103448:eng/test-keys'
+04-19 15:11:21.725: I/DEBUG(792): Revision: '0'
+04-19 15:11:21.725: I/DEBUG(792): pid: 2243, tid: 2258, name: UNKNOWN  >>> ru.mobileorders.gemm.pf <<<
+04-19 15:11:21.725: I/DEBUG(792): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadd00d
+04-19 15:11:21.803: I/DEBUG(792):     eax 0000020c  ebx b733eff4  ecx 00000001  edx 00000000
+04-19 15:11:21.803: I/DEBUG(792):     esi ab91423c  edi 0000020c
+04-19 15:11:21.813: I/DEBUG(792):     xcs 00000073  xds 0000007b  xes 0000007b  xfs 00000000  xss 0000007b
+04-19 15:11:21.813: I/DEBUG(792):     eip b72800f2  ebp b733fc80  esp ab914220  flags 00010246
+04-19 15:11:21.813: I/DEBUG(792): backtrace:
+04-19 15:11:21.813: I/DEBUG(792):     #00  pc 0005e0f2  /system/lib/libdvm.so (dvmAbort+178)
+04-19 15:11:21.813: I/DEBUG(792): stack:
+04-19 15:11:21.813: I/DEBUG(792):          ab9141e0  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141e4  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141e8  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141ec  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141f0  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141f4  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141f8  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab9141fc  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab914200  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab914204  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab914208  00000000  
+04-19 15:11:21.813: I/DEBUG(792):          ab91420c  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914210  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914214  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914218  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab91421c  00000000  
+04-19 15:11:21.823: I/DEBUG(792):     #00  ab914220  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914224  b7305a9d  /system/lib/libdvm.so
+04-19 15:11:21.823: I/DEBUG(792):          ab914228  b7306c9b  /system/lib/libdvm.so
+04-19 15:11:21.823: I/DEBUG(792):          ab91422c  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914230  ba002a30  [heap]
+04-19 15:11:21.823: I/DEBUG(792):          ab914234  b7305a9d  /system/lib/libdvm.so
+04-19 15:11:21.823: I/DEBUG(792):          ab914238  b7305f0b  /system/lib/libdvm.so
+04-19 15:11:21.823: I/DEBUG(792):          ab91423c  6c756e28  
+04-19 15:11:21.823: I/DEBUG(792):          ab914240  0000296c  
+04-19 15:11:21.823: I/DEBUG(792):          ab914244  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914248  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab91424c  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914250  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914254  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab914258  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ab91425c  00000000  
+04-19 15:11:21.823: I/DEBUG(792):          ........  ........
+04-19 15:11:21.823: I/DEBUG(792): memory map around fault addr deadd00d:
+04-19 15:11:21.833: I/DEBUG(792):     bf95d000-bf972000 [stack]
+04-19 15:11:21.833: I/DEBUG(792):     (no map for address)
+04-19 15:11:21.833: I/DEBUG(792):     (no map above)
+04-19 15:11:21.853: I/BootReceiver(1189): Copying /data/tombstones/tombstone_08 to DropBox (SYSTEM_TOMBSTONE)
+04-19 15:11:21.863: D/Zygote(795): Process 2243 terminated by signal (11)
+04-19 15:11:21.863: I/ActivityManager(1189): Process ru.mobileorders.gemm.pf (pid 2243) has died.
+04-19 15:11:21.873: I/dalvikvm(2262): Turning on JNI app bug workarounds for target SDK version 7...
+04-19 15:11:21.873: I/ActivityManager(1189): Start proc ru.mobileorders.gemm.pf for activity ru.mobileorders.gemm.pf/.PeoplesfoodActivity: pid=2262 uid=10046 gids={50046, 1015, 3003, 1028}
+04-19 15:11:21.873: W/Trace(1189): Unexpected value from nativeGetEnabledTags: 0
+04-19 15:11:21.873: W/Trace(1189): Unexpected value from nativeGetEnabledTags: 0
+04-19 15:11:21.873: W/Trace(1189): Unexpected value from nativeGetEnabledTags: 0
+04-19 15:11:21.883: W/Trace(1189): Unexpected value from nativeGetEnabledTags: 0
+04-19 15:11:21.883: E/Trace(2262): error opening trace file: No such file or directory (2)
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13730_37680/emulator-output.log">emulator-output.log</td></td><td>2013-04-19T18:33:18.000+0000</td><td>8774</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13730_37681/emulator-output.log">emulator-output.log</td></td><td>2013-04-19T18:33:18.000+0000</td><td>8774</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13730_37682/hardware-qemu.ini">hardware-qemu.ini</td></td><td>2013-04-19T18:33:18.000+0000</td><td>1439</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13730_37679/testcase.zip">testcase.zip</td></td><td>2013-04-19T18:33:18.000+0000</td><td>752972</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2013-04-19
+
+   Please ensure that the test case you provided runs. I'm getting a "length is undefined" error, and understandably so.</li>
+<li>Yury Skaletskiy 2013-04-19
+
+   Please find attached the solution archive as well as full emulator log and its config files </li>
+<li>Daniel Sefton 2013-04-30
+
+   Tested and confirmed on Google APIs Android 4.2 Emulator [armeabi-v7a] with Ti SDK 3.1 GA, Alloy 1.1.1, Ti Studio 3.1.0.201304151600.
+   
+   It does not crash on Android 4.1.2 and below however, on Android 4.1.2 x86 emulator, or Samsung Galaxy S2 Android 2.3.6. Test case runs without crash, printing the log as expected:
+   
+   <code><pre>04-30 14:57:56.599: I/TiAPI(3963):  getdcaps length: 1000</pre></code>
+   
+   So it's an Android OS version parity issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13730.json">JSON Source</a></p>

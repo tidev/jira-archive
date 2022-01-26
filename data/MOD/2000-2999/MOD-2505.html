@@ -1,0 +1,150 @@
+---
+title: "[MOD-2505] EncryptedDB: Android ResultSet reads 64-bit integer column values as 32-bit which causes overflow/underflow for large values"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-15T18:41:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Encrypted SQLite DB</td></tr>
+<tr><th>Labels</th><td>android, database, engTriage</td></tr>
+<tr><th>Reporter</th><td>Ryan Aston</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-04-06T22:55:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-25T17:48:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+On Android, when reading an <code>INTEGER</code> column via the "appcelerator.encrypteddatabase" module's <code>RecordSet</code>, integer values are always read as 32-bit. This is an issue if the column is storing a 64-bit integer value which exceeds max/min 32-bit signed int and will return an overflowed/underflowed value respectively.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>Notice the app throws an exception on startup. (Caused by below <code>asserts</code> failing.)</h4>
+
+<code><pre>
+var MAX_SIGNED_INT32 = 2147483647;
+var MIN_SIGNED_INT32 = -2147483648;
+var MAX_SIGNED_INT16 = 32767;
+var MIN_SIGNED_INT16 = -32768;
+
+var rows = [
+	Number.MAX_SAFE_INTEGER,  // <- This fails.
+	MAX_SIGNED_INT32 + 1,  // <- This fails.
+	MAX_SIGNED_INT32,
+	MAX_SIGNED_INT16 + 1,
+	MAX_SIGNED_INT16,
+	1,
+	0,
+	-1,
+	MIN_SIGNED_INT16,
+	MIN_SIGNED_INT16 - 1,
+	MIN_SIGNED_INT32,
+	MIN_SIGNED_INT32 - 1,  // <- This fails.
+	Number.MIN_SAFE_INTEGER,  // <- This fails.
+];
+
+var isEncrypted = true;
+var database = isEncrypted ? require("appcelerator.encrypteddatabase") : Ti.Database;
+if (isEncrypted) {
+	database.password = "password";
+}
+
+var dbName = isEncrypted ? "int_test_encrypted.db" : "int_test.db";
+var dbConnection = database.open(dbName);
+dbConnection.execute("CREATE TABLE IF NOT EXISTS intTable(id INTEGER PRIMARY KEY, intValue INTEGER);");
+dbConnection.execute("DELETE FROM intTable;");
+for (var index = 0; index < rows.length; index++) {
+	dbConnection.execute("INSERT INTO intTable (id, intValue) VALUES (?, ?);", index, rows[index]);
+}
+var resultSet = dbConnection.execute("SELECT id, intValue FROM intTable ORDER BY id");
+Ti.API.info("@@@ Database Table 'intTable' row count: " + (resultSet ? resultSet.rowCount : "<null>"));
+assert(resultSet.rowCount === rows.length);
+for (var index = 0; resultSet.isValidRow(); resultSet.next(), index++) {
+	Ti.API.info("- id: " + resultSet.field(0) + ", intValue: " + resultSet.field(1));
+	assert(resultSet.field(1) === rows[index]);
+}
+dbConnection.close();
+</pre></code>
+
+*Cause:*
+The module's <code>TiResultSetProxy.java</code> is fetch the integer typed column via <code>getInt()</code> instead of <code>getLong()</code>.
+[TiResultSetProxy.java#L104](<a href="https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/blob/f2a188a691e08c84baae24cf50c4849ca825f1a2/android/src/appcelerator/encrypteddatabase/TiResultSetProxy.java#L104)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/blob/f2a188a691e08c84baae24cf50c4849ca825f1a2/android/src/appcelerator/encrypteddatabase/TiResultSetProxy.java#L104)</a>
+
+*Work-Around:*
+Store 64-bit integer values as strings instead. Partly because a JavaScript <code>number</code> type is a double float and does not have enough digits of precision to store a max 64-bit int value (which a module fix can't solve; this would be an app design issue).
+\\
+----
+*Original Ticket Description Below*
+----
+
+Using a testing release of the encrypteddatabase (3.0.3 on Android), any time I read an integer field from the database it appears to be read incorrectly.  Digging further it appears to be related to integers larger than 32 bits.  The attached sample project demonstrates the issue.  If you run the project and click the "Press Me" button you'll see 3 int values written to the warning log.  The first set was created and read back using the built-in Ti.Database module.  The second set uses the exact same queries but with the appcelerator.encrypteddatabase 3.0.3 module.  As you can see the results do not match, and the values appear to be limited to 32 bit values.  Looking at the actual database using the sqlitedbbrowser shows that the values were written to the database correctly.  It seems the problem is with reading the data back from the DB.  This is not an issue with the iOS module.
+
+[Sample project](<a href="https://drive.google.com/file/d/1S6n2cjDg55abNzJfHEJh6FqFq5O4gyUx/view?usp=sharing)" rel="nofollow" target="_blank">https://drive.google.com/file/d/1S6n2cjDg55abNzJfHEJh6FqFq5O4gyUx/view?usp=sharing)</a>
+
+Console logs:
+
+{quote}-- Start application log -----------------------------------------------------
+[WARN]   art: Unexpected CPU variant for X86 using defaults: x86
+[INFO]   TiApplication: (main) [0,0] checkpoint, app created.
+[INFO]   MultiDex: VM with version 2.1.0 has multidex support
+[INFO]   MultiDex: Installing application
+[INFO]   MultiDex: VM has multidex support, MultiDex support library is disabled.
+[INFO]   TiApplication: (main) [558,558] Titanium Javascript runtime: v8
+[INFO]   TiRootActivity: (main) [1,1] checkpoint, on root activity create, savedInstanceState: null
+[WARN]   art: Before Android 4.1, method android.graphics.PorterDuffColorFilter android.support.graphics.drawable.VectorDrawableCompat.updateTintFilter(android.graphics.PorterDuffColorFilter, android.content.res.ColorStateList, android.graphics.PorterDuff$Mode) would have incorrectly overridden the package-private method in android.graphics.drawable.Drawable
+[INFO]   RyansPlayground 1.0 (Powered by Titanium 8.0.0.3726240fa2)
+[LiveView] Client connected
+[INFO]   TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.movista.ryansplayground.RyansplaygroundActivity@8912b12
+[INFO]   OpenGLRenderer: Initialized EGL, version 1.4
+[WARN]   OpenGLRenderer: Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+[INFO]   APSAnalyticsRunnable: Analytics Started
+[INFO]   APSAnalyticsRunnable: Analytics service flush complete
+[INFO]   APSAnalyticsRunnable: Stopping Service
+[WARN]   db file: file:///data/user/0/com.movista.ryansplayground/databases/test.db
+[WARN]   Int Value: 2147483648
+[WARN]   Int Value: 4294967296
+[WARN]   Int Value: 1555072837463
+[WARN]   db file: file:///data/user/0/com.movista.ryansplayground/databases/encTest.db
+[WARN]   Int Value: -2147483648
+[WARN]   Int Value: 0
+[WARN]   Int Value: 294676311{quote}
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2019-04-07
+
+   Hello,
+   Can you please share your console logs here?</li>
+<li>Ryan Aston 2019-04-07
+
+   Added logs to description</li>
+<li>Joshua Quick 2019-04-08
+
+   I see a design issue here.
+   
+   A JavaScript "number" type is a <code>double float</code> which has <code>15</code> digits of precision.
+   
+   A 64-bit signed integer max value (worst case scenario) is <code>9,223,372,036,854,775,807</code> which is <code>19</code> digits. A double float (ie: JavaScript "number") can't store a value that large without losing precision. The least significant digits will end up being random junk on all platforms (Android and iOS) when attempting to store max value.
+   
+   If it's possible for the app's 64-bit integer value to exceed 15 digits, then you're eventually going to run into this design problem. The only solution is to store the 64-bit integer as a <code>string</code> in JavaScript and in the database.</li>
+<li>Ryan Aston 2019-04-08
+
+   The max safe integer in Javascript is +/- 9007199254740991 which is 16 digits.  Our use case is well within these boundaries.  If we needed to store larger INTs we would certainly use a string, however that is out of scope for this issue.  The bigger issue is the discrepancy between the standard Ti.Database.ResultSet and Appcelerator.Encrypteddatabase.ResultSet on Android.</li>
+<li>Joshua Quick 2019-04-08
+
+   [~ryan@mvretail.com], fair enough. I just wanted to check that you (or anyone reading this) understood this limitation. I've seen devs get burned by this before. And you shouldn't assume the digits of precision is 16. Worst case it's 15 depending on the architecture.
+   <a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format#IEEE_754_double-precision_binary_floating-point_format:_binary64" rel="nofollow" target="_blank">https://en.wikipedia.org/wiki/Double-precision_floating-point_format#IEEE_754_double-precision_binary_floating-point_format:_binary64</a>
+   </li>
+<li>Joshua Quick 2019-04-09
+
+   PR: <a href="https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/pull/36" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/pull/36</a></li>
+</ol>
+
+
+<p><a href="/MOD/MOD-2505.json">JSON Source</a></p>

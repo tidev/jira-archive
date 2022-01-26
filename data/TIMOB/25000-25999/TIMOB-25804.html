@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-25804] iOS: Bar Image is not showing properly in iPhone X"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-12T18:43:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>barimage, engTriage, ios, ios11, safearea</td></tr>
+<tr><th>Reporter</th><td>Motiur Rahman</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-02-24T09:04:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-12T18:43:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Issue: For iPhone X, bar image is not showing properly as like iPhone 8 and other. Always crop top portion.
+
+
+Steps To Reproduce:
+1. Create a new Alloy App.
+2. Use the following test code and image then run it on iOS X and iOS 8 for checking the difference.
+
+<code><pre>
+<Alloy>
+	<TabGroup id="tabGroup">
+		<Tab id="tab" title="My Tab" icon="myicon.png">
+			<Window barImage = "/images/relevent-dark-header.png">
+				
+			</Window>
+		</Tab>
+	</TabGroup>
+</Alloy>
+
+</pre></code>
+
+Thanks!
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25804_64898/example-fixed.png">example-fixed.png</td></td><td>2018-02-24T22:43:18.000+0000</td><td>175558</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25804_64896/iPhone8.png">iPhone8.png</td></td><td>2018-02-24T08:57:38.000+0000</td><td>1890051</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25804_64895/iPhoneX.png">iPhoneX.png</td></td><td>2018-02-24T08:57:38.000+0000</td><td>1429668</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25804_64894/relevent-dark-header.png">relevent-dark-header.png</td></td><td>2018-02-24T08:57:29.000+0000</td><td>14218</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25804_64901/TestNavBar.zip">TestNavBar.zip</td></td><td>2018-02-26T08:17:26.000+0000</td><td>81164</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-02-24
+
+   There is a general issue here: Bar images have always been hard to manage when it comes to devices of different size and scale. In this case, the iPhone X requires a different bar-image height than all other devices. Reading some native discussions about this topic (like [here](<a href="https://www.devno.com/1242-ios-11-iphone-x-navigationbar-background-image-too-small/))" rel="nofollow" target="_blank">https://www.devno.com/1242-ios-11-iphone-x-navigationbar-background-image-too-small/))</a>, the use case usually is a gradient or patterned view that is simply stretched. This is not possible in this case and I don't see an SDK change that would solve this design issue (let us know if you have one). 
+   
+   So there are two short- and long-term options I could think of:
+   - Use a larger image for the iPhone X that includes the safe area height (short term)
+   - Replace bar-images with "real" navigation bar titles (long term)
+   
+   *EDIT*: Here is a solution:
+   <h4>Check if the current device is an iPhone X</h4>
+   <h4>Use a different image for that exact device</h4>
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff',
+       barImage: getBarImage()
+   });
+   
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: win
+   });
+   
+   nav.open();
+   
+   function getBarImage() {
+     if (isiPhoneX()) {
+       return 'relevent-dark-header-iphonex.png'
+     }
+     return 'relevent-dark-header.png';
+   }
+   
+   function isiPhoneX() {
+     if (Ti.Platform.displayCaps.logicalDensityFactor !== 3) {
+       return false
+     }
+   
+     return (Ti.Platform.displayCaps.platformWidth === 375 
+            && Ti.Platform.displayCaps.platformHeight === 812) ||
+            (Ti.Platform.displayCaps.platformWidth === 375
+            && Ti.Platform.displayCaps.platformHeight === 812);
+   }
+   </pre></code>
+   
+   Looks like this:
+    !example-fixed.png|thumbnail! 
+   
+   And again: This is caused by the fact that the bar image is a non-stretchable image that cannot be reused on all possible devices. For a more modern approach, I would recommend to either use a custom navigation bar with a fixed spacing to the safe-area or move away from bar images and display the actual title, like larger apps do these days as well.</li>
+<li>Vijay Singh 2018-02-26
+
+   If we see in native app (Attached TestNavBar.zip) also, similar problem is there. If you see [here](<a href="https://stackoverflow.com/questions/46664822/how-to-set-navigation-bar-background-image-for-all-devices-including-iphone-x)" rel="nofollow" target="_blank">https://stackoverflow.com/questions/46664822/how-to-set-navigation-bar-background-image-for-all-devices-including-iphone-x)</a>, it is suggested to use different image for iPhone X.
+   
+   Apart from what Hans has suggested, following approach can also be used if it suits the requirement -
+   
+   1.  If the barImage is single coloured  image (only the image near title view is different)
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff',
+       barColor: 'black',
+       titleImage: 'relevent-dark-header.png',
+   });
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: win
+   });
+    
+   nav.open();
+   </pre></code>
+   
+   2. If the barImage is patterned (only the image near title view is different)
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff',
+       barImage: 'Use the patterned image',
+       titleImage: 'relevent-dark-header.png',
+   });
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: win
+   });
+    
+   nav.open();
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25804.json">JSON Source</a></p>

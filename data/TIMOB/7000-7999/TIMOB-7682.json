@@ -1,0 +1,150 @@
+{
+	"id": "86568",
+	"key": "TIMOB-7682",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "12097",
+				"description": "",
+				"name": "Sprint 2012-05",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-03-11"
+			},
+			{
+				"id": "12593",
+				"name": "Release 2.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2012-03-30"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2012-03-07T11:09:51.000+0000",
+		"created": "2012-02-16T07:54:57.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"module_network",
+			"parity",
+			"qe-port"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "mculpepper",
+			"key": "mculpepper",
+			"displayName": "Marshall Culpepper",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2012-03-19T12:09:03.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "Currently in iOS, the \"timeout\" property only affects the socket connect, but in Android it affects both the socket connect and socket read. Removing the latter would improve our parity. We may also want to further investigate a \"soTimeout\" property to keep the read timeout behavior.\r\n\r\nTest Case:\r\n\r\n{code}\r\nvar socket = Ti.Network.Socket.createTCP({\r\n    host: \"some_existing_host\",\r\n    port: 50000,\r\n    connected: function(e) {\r\n        Ti.API.info(\"connected\");\r\n    },\r\n    closed: function(e) {\r\n       Ti.API.info(\"Socket closed\");\r\n    },\r\n    error: function(e) {\r\n        Ti.API.info(\">> Socket error:\" + e.error);\r\n    }\r\n});\r\n\r\nsocket.timeout = 10000;\r\nsocket.connect();\r\n{code}\r\n\r\nTest Server:\r\n{code}\r\n#! /usr/bin/env ruby\r\n\r\nrequire \"socket\"\r\nserv = TCPServer.open(50000)\r\nnsock = select([serv])\r\nsock = serv.accept\r\np sock\r\nsleep(10*60)\r\n\r\nIf a connection to this script is accepted, \"#TCPSocket:0x?????\" will be displayed, and just wait 10 minutes without read/write. like this:\r\n\r\n$ ruby socket_connnect.rb\r\n#TCPSocket:0x105a907d0\r\n{code}\r\n\r\n* Run the attached test server\r\n* Change \"some_existing_host\" to your server's IP address, and run the app\r\n* The app will connect to the server program, and no error will occurs during the connection (though an error will be rise after 10 seconds before the modification)",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: \"timeout\" property on HTTPClient should only set a connect timeout",
+		"creator": {
+			"name": "mculpepper",
+			"key": "mculpepper",
+			"displayName": "Marshall Culpepper",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "mculpepper",
+			"key": "mculpepper",
+			"displayName": "Marshall Culpepper",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "184764",
+					"author": {
+						"name": "sakira09",
+						"key": "sakira09",
+						"displayName": "Akira Suzuki",
+						"active": true,
+						"timeZone": "Asia/Tokyo"
+					},
+					"body": "The test code might be the following:\r\n\r\nTitanium.UI.setBackgroundColor('#000');\r\n\r\nvar app = {};\r\napp.win = Ti.UI.createWindow({ Title: \"TCP Socket Test\" });\r\napp.textarea = Ti.UI.createTextArea({ \r\nvalue: '',\r\nwidth:'100%',\r\nheight:'100%',\r\ntop:0,\r\nleft:0 });\r\napp.win.add(app.textarea);\r\napp.win.open();\r\n\r\nvar socket;\r\nvar readBuffer = Ti.createBuffer({ length: 1024 });\r\n\r\nvar readCallback = function(e) {\r\nTi.API.info(\"callback called\");\r\nif (e.bytesProcessed == -1) { // EOF\r\napp.textarea.value += \">> Received socket closed\\n\";\r\nif (socket.state == Ti.Network.Socket.CONNECTED)\r\nsocket.close();\r\nreturn;\r\n}\r\n\r\napp.textarea.value += readBuffer;\r\nTi.Stream.read(socket, readBuffer, readCallback);\r\n};\r\n\r\nsocket = Ti.Network.Socket.createTCP({\r\nhost: \"192.168.100.101\",\r\nport: 50000,\r\nconnected: function(e) {\r\nTi.Stream.read(socket, readBuffer, readCallback);\r\napp.textarea.value += \">> Connected to host \" + socket.host + \"\\n\";\r\nTi.API.info(\"connected\");\r\n},\r\nerror: function(e) {\r\napp.textarea.value += \">> Socket error:\" + e.error + \"\\n\";\r\n}\r\n});\r\nsocket.timeout = 10000;\r\nsocket.connect();",
+					"updateAuthor": {
+						"name": "sakira09",
+						"key": "sakira09",
+						"displayName": "Akira Suzuki",
+						"active": true,
+						"timeZone": "Asia/Tokyo"
+					},
+					"created": "2012-03-01T07:58:42.000+0000",
+					"updated": "2012-03-01T07:58:42.000+0000"
+				},
+				{
+					"id": "187132",
+					"author": {
+						"name": "mpettiford",
+						"key": "mpettiford",
+						"displayName": "Michael Pettiford",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing issue\r\n\r\nTested with Ti Studio build 2.0.0.201203182248\r\nTi Mob SDK 2.0.0.v20120319003254 hash r60b6da4c\r\nOSX Lion 10.7.3\r\nNexus S OS 2.3.6\r\n\r\nVerified that I received the connected result in ddms and the script printed the correct output",
+					"updateAuthor": {
+						"name": "mpettiford",
+						"key": "mpettiford",
+						"displayName": "Michael Pettiford",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-19T12:08:48.000+0000",
+					"updated": "2012-03-19T12:08:48.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,127 @@
+---
+title: "[AC-1474] openPhotoGallery + Remote Image = NullPointerException"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-08-07T02:59:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>TCSupportTriage, android</td></tr>
+<tr><th>Reporter</th><td>Felipe Knaesel Koch</td></tr>
+<tr><th>Assignee</th><td>Radamantis Torres-Lechuga</td></tr>
+<tr><th>Created</th><td>2014-12-10T23:05:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:37:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem </h4>
+
+I've come across a nasty bug when using openPhotoGallery() where accessing the returned media.nativePath causes a NullPointException. Now, this only happens when the selected media, for some reason, appears to become a remote media (i.e. after automatic backup of Photo Gallery).
+Even weirder, if I use an ImageView to display the image, it is displayed correctly. Initially I hit the bug when trying to upload the selected image. I was then able to reproduce the bug with this minimal code:
+
+<h4>Test case </h4>
+
+1. Create a new Default Alloy Project
+2. Replace the initial doClick() function, within index.js:
+
+<code><pre>
+function doClick(e){
+	Titanium.Media.openPhotoGallery({
+    	success:function(event) {
+    		try {
+    			Ti.API.info('event.media.nativePath: ' + event.media.nativePath); 
+    		}
+    		catch(e) {
+    			Ti.API.error(e.message);
+    		}	
+            Ti.API.info('event.media.file.nativePath: ' + event.media.file.nativePath);   
+        }
+	});
+};
+
+$.index.open();
+
+</pre></code>
+
+3. Select a picture (using Google Photos, now the default on Android L) that has been backed up to the Cloud
+
+<h4>Logs </h4>
+
+Output for a picture before it has been backed up / local picture:
+<code><pre>
+[INFO] :   event.media.nativePath: file:///storage/emulated/0/DCIM/Camera/IMG_20141210_232913.jpg
+[INFO] :   event.media.file.nativePath: content://media/external/images/media/20559
+</pre></code>
+
+Output for a picture after it has been backed up / remote picture:
+<code><pre>
+[ERROR] :  Attempt to invoke virtual method 'char[] java.lang.String.toCharArray()' on a null object reference
+[INFO] :   event.media.file.nativePath: content://com.google.android.apps.photos.content/0/https%3A%2F%2Flh6.googleusercontent.com%2FxAiJOX8hSsSutQeA6X96og8RzpRo2PyOtWi_49FaNSMv%3Ds0-d
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Felipe Knaesel Koch 2014-12-10
+
+   I've searched through the QA and I've found this unanswered question, where the user seems to be having the same problem:
+   
+   <a href="http://developer.appcelerator.com/question/176856/nullpointerexception-when-uploading-a-file" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/176856/nullpointerexception-when-uploading-a-file</a>
+   
+   As you can see, the cause of the problem seems to be trying to get the path of a remote image (either Picasa or backed up Google Photos).</li>
+<li>Mike Stancliffe 2015-01-12
+
+   I get the same crash while trying to resize an image with imageAsResized. I found a work around, by saving the image to the filesystem and reading it back in as a blob you are then able to use imageAsResized without a crash.  Not 100% sure this is that same bug but it seems to be.</li>
+<li>grebulon 2015-02-03
+
+   That's the way to handle this: <a href="http://dimitar.me/how-to-get-picasa-images-using-the-image-picker-on-android-devices-running-any-os-version/" rel="nofollow" target="_blank">http://dimitar.me/how-to-get-picasa-images-using-the-image-picker-on-android-devices-running-any-os-version/</a>
+   I added something like this to titanium locally.</li>
+<li>Aviram Zagorie 2015-03-30
+
+   Hi,
+   
+   I'm having the same issue. Any ETA on this fix or any advice on a workaround?
+   
+   Thanks,
+   
+   Avi</li>
+<li>Felipe Knaesel Koch 2015-04-12
+
+   @grebulon Would you mind sharing your work around?
+   
+   Yeah an ETA on this fix would be great since it's been four months already.</li>
+<li>Aviram Zagorie 2015-04-12
+
+   I have a really hacky work around. It will break if Google changes the scheme for their content url.
+   
+    if(OS_ANDROID) {
+       var regex = /content\:\/\/com\.google\.android\.apps\.photos\.content\/\d\/(http.+)/i;
+       
+       var fileNativePath = event.media.file.nativePath;
+       var match = fileNativePath.match(regex); 
+       
+       if(match && match.length > 0) {
+         var remoteImageUrl = decodeURIComponent(match[1]);
+         imageView.setImage(remoteImageUrl);
+       } else {
+         imageView.setImage(event.media);
+       }
+     }</li>
+<li>Anders Dahl Pape 2015-04-29
+
+   @aviram Thanks! Using your work around now which works great for now.
+   
+   Hope the bug gets fixed before the work around stops working.</li>
+<li>Manuel Lehner 2015-10-02
+
+   [~rtlechuga] Why was this closed as fixed?</li>
+</ol>
+
+
+<p><a href="/AC/AC-1474.json">JSON Source</a></p>

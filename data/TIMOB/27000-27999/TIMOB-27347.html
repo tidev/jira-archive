@@ -1,0 +1,114 @@
+---
+title: "[TIMOB-27347] Ti.UI.WebView not playing embed vimeo video"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>engSchedule, ios, player, vimeo, webview</td></tr>
+<tr><th>Reporter</th><td>Antje Schattat</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2019-07-18T15:19:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-09-10T15:42:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have a webview with embedded vimeo player. The video will be displayed but will not play in iOS. For Android it works without problem. 
+
+Further tests have shown that it no longer works with Youtube. The integration of the player via Javascript does not play the video.
+
+<code><pre>
+$.webview.html = "<html><head><body><iframe src=\"<a href="https://player.vimeo.com/video/" rel="nofollow" target="_blank">https://player.vimeo.com/video/</a><code> video_id </code>\" width=\"350\" height=\"200\" frameborder=\"0\" allow=\"autoplay; fullscreen\" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></body></head></html>";
+</pre></code>
+
+I can not explain this anymore and would be grateful for a tip.
+
+regards
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-07-18
+
+   </li>
+<li>Antje Schattat 2019-07-19
+
+   Thank you for your prompt reply.
+   
+   I found the cause. The window got a swipe event and after that the start of the Youtube / Vimeo video stops working. If I remove the swipe event, it works again. The problem is only with iOS, with Android, the video still works.
+   
+   Is there possibly a solution here, so that both works (video and swipe event)?
+   
+   The problem is with the integration as iFrame or directly through the URL.
+   
+   <code><pre>
+   $.wvVideo.url = '<a href="https://player.vimeo.com/video/" rel="nofollow" target="_blank">https://player.vimeo.com/video/</a>' + video;
+   </pre></code>
+   
+   <code><pre>
+   $.wvVideo.setHtml(html, { baseURL: "<a href="https://player.vimeo.com" rel="nofollow" target="_blank">https://player.vimeo.com</a>" });
+   </pre></code></li>
+<li>Joshua Quick 2019-07-19
+
+   Hmm... I know that Apple's <code>WKWebView</code> will navigate forward/back when you swipe it horizontally. But you would have to have navigation history for it to do that.
+   
+   Out of curiosity, does the iframe video work okay when building with Titanium 7.5.x?
+   I ask because we changed iOS' <code>Ti.UI.WebView</code> implementation from Apple's deprecated <code>UIWebView</code> to <code>WKWebView</code> as of Titanium 8.0.0 and there might be a behavior difference.
+   
+   _(I don't have an iOS device/simulator available to me at the moment. So, I hope you don't mind me asking.)_</li>
+<li>Antje Schattat 2019-07-19
+
+   No, even with the SDK 7.5.2.GA the video does not work as soon as the swipe event is in there.</li>
+<li>Vijay Singh 2019-07-19
+
+   [~aschattat] Can you check if setting property [willHandleTouches](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.WebView-property-willHandleTouches)  helps? If no, can you please share complete test case to reproduce issue? Thanks!</li>
+<li>Antje Schattat 2019-07-20
+
+   _WillHandleTouches_ does not help, see example. The sample code can be copied to a new Alloy project for testing. Thanks.
+   
+   *index.xml*
+   <code><pre>
+   <Alloy>
+   	<Window class="container">
+   		<WebView id="webview" willHandleTouches="true"></WebView>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   *index.js*
+   <code><pre>
+   var html = "<html><head><meta name=\"viewport\" content=\"initial-scale=1.0, maximum-scale=1.0, user-scalable=no\" />";
+   			html = html + "<style>body { margin: 0; }</style><body>";
+   			html = html + "<iframe src=\"<a href="http://player.vimeo.com/video/158243063" rel="nofollow" target="_blank">http://player.vimeo.com/video/158243063</a>\" width=\"350\" height=\"200\" frameborder=\"0\" allow=\"autoplay; fullscreen\" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>";
+   			html = html + "</body></head></html>";
+   			$.webview.setHtml(html, { baseURL: "<a href="http://player.vimeo.com" rel="nofollow" target="_blank">http://player.vimeo.com</a>" });
+   		
+   $.index.addEventListener('swipe', function(e) {
+   	console.log('swipe');
+   });
+   
+   $.index.open();
+   </pre></code>
+   
+   Without the swipe event the video starts. So, if I comment out this code:
+   <code><pre>
+   $.index.addEventListener('swipe', function(e) {
+   	console.log('swipe');
+   });
+   </pre></code></li>
+<li>Sharif AbuDarda 2019-08-22
+
+   Hello [~aschattat], [~vijaysingh], I was able to verify the issue with the above sample code in iOS platform using the latest SDK 8.1.0.GA. It seems using the swipe event is causing the issue. Without it, there is no issue of the video playing in the webview. Thanks.</li>
+<li>Antje Schattat 2019-08-22
+
+   Exactly, without swipe event it works. However, my client would like both - Swipe for the Window and Vimeo video in the WebView (part of the window-content). Thanks.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27347.json">JSON Source</a></p>

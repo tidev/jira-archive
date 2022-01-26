@@ -1,0 +1,201 @@
+---
+title: "[TIMOB-15747] Android: Images do not scale UP properly on Android (parity issue)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-29T00:50:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, module_imageview, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Brad Ball</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2013-11-12T18:55:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-01-14T20:37:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+The 320x180 image in the testcase should be scaled UP to fill the width of the window (left: 0, right: 0) with it's height automatically adjusted to maintain the image aspect ratio. 
+
+This is exactly what happens on iOS. On android, the ImageViewHeight is contstrained to the original image height, and the image's aspect ratio is maintained, thus leaving a large unfilled area to the left and right of the image. 
+
+Since the size is set to Ti.UI.SIZE, the expected behaviour would be that the image is scaled up to fit the full width of the ImageView and it's size adjusted upward to fit the contents of the scaled up image. Again, on iOS this expected behaviour is exactly what happens. But on Android, you get the unexpected result of an image with limited width.
+
+<h4>Steps to reproduce</h4>
+1. Create a new mobile project
+2. Add Android to the supported platforms
+3. Add this testcase to app.js
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor:'white',
+});
+
+var TestImage = Ti.UI.createImageView({
+	image: '<a href="http://placehold.it/320x180" rel="nofollow" target="_blank">http://placehold.it/320x180</a>',
+	left: 0,
+	right: 0,
+	//height: Ti.UI.SIZE,
+	top: 40,
+	backgroundColor: '#ff0000'
+});
+
+win.add(TestImage);
+
+win.open();
+</pre></code>
+4. If you run this in Android, you will see red next to the image. If you run this in iOS it will be nicely filling the space, no red in the screen. 
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15747_43830/TestApp.zip">TestApp.zip</td></td><td>2013-11-12T18:55:01.000+0000</td><td>3103990</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sunila 2013-11-24
+
+   Use CENTER_CROP for scaletype to scale and fit the image
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/5019" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5019</a></li>
+<li>Ping Wang 2013-12-03
+
+   Another test case:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor:'white',
+   });
+    
+   var TestImage = Ti.UI.createImageView({
+       image: '<a href="http://placehold.it/320x180" rel="nofollow" target="_blank">http://placehold.it/320x180</a>',
+       left: 0,
+       right: 0,
+       height: '100%',
+       top: 40,
+       backgroundColor: '#ff0000'
+   });
+    
+   win.add(TestImage);
+    
+   win.open();
+   </pre></code></li>
+<li>Michael DeGiovanni 2013-12-20
+
+   Why not expose in the sdk what kind of scaling type the user wants to perform on android? (<a href="http://developer.android.com/reference/android/widget/ImageView.ScaleType.html)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/widget/ImageView.ScaleType.html)</a> . As it is at the moment,
+   if even the user for example sets a width (say 96% of the platformWidth) and no height. The image is not scaled to that width. By exposing the scaling types the user can select how images are scaled in the view.</li>
+<li>Brad Ball 2013-12-31
+
+   Any progress on this issue?</li>
+<li>Alex Peckham 2014-01-07
+
+   Any progress? Is there actually any way to have an image fill a given container now? Using Ti.UI.FILL as the ImageView width doesn't seem to work either? Android devices have loads of different screen sizes so this is essential functionality. 
+   
+   EDIT: It seems that if one uses Ti.UI.FILL for both width and height then the image will fill a container view, however it is then up to the developer to size the container view correctly, which means to make an image fill the screen width without distorting one has to calculate the aspect ratio of the image and then multiply the screen width by this ratio to obtain the correct height for the container. I should just be able to set the width to 100%, rather than having to mess around with wrapper views and so forth just to work around missing functionality in the API </li>
+<li>Brad Ball 2014-01-07
+
+   What I've been doing to work around the issue is setting my ImageView width to 100%, then using the original image's aspect ratio along with the Ti.Platform.displayCaps.platformWidth (or platformHeight, depending on orientation) to calculate the exact pixel height of the image when displayed at full width, and then set the height on the ImageView to the calculated pixel height. 
+   
+   Agreed that all of these calculations and workarounds should not be necessary. width of FILL and height of SIZE should handle it it automatically as the docs indicate and as it works on iOS.</li>
+<li>Alex Peckham 2014-01-07
+
+   That's similar to what I've been doing, except I use a wrapper view and set the width/height on those and just leave width and height of image set to Ti.UI.FILL. When I tried width as just 100% or Ti.UI.FILL with an explicit height it didn't seem to always work - this seems robust but I don't like having to use a wrapper.
+   
+   Yes, the worst thing is I recall it did work in earlier versions of Ti and this is a regression from another bug fix. It's not ideal to have to keep fixing code that was tested and working due to API bugs :/</li>
+<li>Paul Hamilton 2014-01-28
+
+   Any chance this could get in the next release? This breaks my UI with no real work-around. The image needs to scale to the width of the screen as well as preserve aspect ratio.
+   
+   The image could be smaller OR larger then the screen.</li>
+<li>Paul Hamilton 2014-01-28
+
+   This stackoverflow question should be similiar to what is happening
+   
+   <a href="http://stackoverflow.com/questions/2521959/how-to-scale-an-image-in-imageview-to-keep-the-aspect-ratio" rel="nofollow" target="_blank">http://stackoverflow.com/questions/2521959/how-to-scale-an-image-in-imageview-to-keep-the-aspect-ratio</a>
+   
+   {quote}
+   If you want an ImageView that both scales up and down while keeping the proper aspect ratio, add this to your XML:
+   
+   android:adjustViewBounds="true"
+   android:scaleType="fitCenter"
+   Add this to your code:
+   <code><pre>
+   // We need to adjust the height if the width of the bitmap is
+   // smaller than the view width, otherwise the image will be boxed.
+   final double viewWidthToBitmapWidthRatio = (double)image.getWidth() / (double)bitmap.getWidth();
+   image.getLayoutParams().height = (int) (bitmap.getHeight() * viewWidthToBitmapWidthRatio);
+   It took me a while to get this working, but this appears to work in the cases both where the image is smaller than the screen width and larger than the screen width, and it does not box the image.
+   </pre></code>
+   {quote}</li>
+<li>Raymond Verbruggen 2014-03-12
+
+    Could you please solve this soon? This issues has already som duplicates, and is very troublesome</li>
+<li>Randy Casey 2014-03-16
+
+    I'm having this exact problem. Spent half a day trying to figure out why my image would not scale properly. (Works fine on iOS as everyone has mentioned).
+    
+    Would be nice if this could be addressed in a timely manner.
+    </li>
+<li>Sunila 2014-04-11
+
+    Updated PR with new fix.</li>
+<li>Mark Mokryn 2014-08-21
+
+    This was is incredibly annoying and not so trivial to work around - please fix, thanks.</li>
+<li>Tim Richardson 2014-09-30
+
+    How is this still not fixed!? It's ridiculously annoying</li>
+<li>Ping Wang 2014-10-24
+
+    Actually, the original ticket is a duplicate of TIMOB-14395. The issue is due to a bug in the fix of TIMOB-14395 (<a href="https://github.com/appcelerator/titanium_mobile/pull/4738)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4738).</a></li>
+<li>Tim Richardson 2014-10-24
+
+    [~pwang] so if this was fixed over a year ago, why has it not been included in the latest SDK releases?!</li>
+<li>Ping Wang 2014-10-24
+
+    It's not completely fixed one year ago because there's a bug in that fix. </li>
+<li>Mark Mokryn 2014-10-29
+
+    Marked as resolved but not seeing the PR in 3_4_X - thanks.</li>
+<li>Fabio 2014-10-29
+
+    This is not solved in the SDK 3.4.0. Please fix this annoying issue.</li>
+<li>Paul Hamilton 2014-10-29
+
+    it is marked as resolved in 3.5, have you tried a nightly build?</li>
+<li>Hieu Pham 2014-10-30
+
+    3.4.X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6293" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6293</a></li>
+<li>Mark Mokryn 2014-11-06
+
+    </li>
+<li>Visalakshi Chidambaram 2014-11-25
+
+    Test environment:
+    Appc-Studio: 3.4.1.201410281743
+    Titanium SDK: 3.5.0.v20141124155715 
+    Titanium CLI: 3.4.1 GA
+    Alloy : 1.5.1 GA
+    Device: Samsung Galaxy Tab 3 (4.4.2)</li>
+<li>Andrew Royce 2015-01-14
+
+    Works for me in 3.5.0 GA
+    
+    Test environment:
+    Appc-Studio: 3.4.1.201410281727
+    Titanium SDK: 3.5.0 GA
+    Device: HTC One M8</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15747.json">JSON Source</a></p>

@@ -1,0 +1,103 @@
+---
+title: "[TIMOB-27874] TiAPI: Add Ti.Locale.parseDecimal() method"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-08-07T10:46:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.1.0</td></tr>
+<tr><th>Components</th><td>Android, iOS</td></tr>
+<tr><th>Labels</th><td>android, decimal, ios, locale, parse</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2020-04-30T05:33:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-08-07T10:46:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Titanium has APIs to turn numbers into localized strings, but there are no APIs to convert a localized numeric string back to a number type.
+
+*Proposed Solution:*
+Add the following method.
+<code>Ti.Locale.parseDecimal(text \[, locale \]); // Returns number type.</code>
+
+If the above was given an invalid string, then it will return <code>NaN</code> (Not-a-Number), which matches JavaScript's standard <code>Number.parseFloat()</code> method behavior.
+
+*Main Use-Case:*
+A <code>TextField</code> using a decimal keyboard type will be using the device's current locale for the decimal separator. This means the decimal separator will be a comma <code>,</code> in Europe. It will can also be a unicode decimal separator for Arabic locales. When reading the <code>TextField</code> string "value" property, the app developer will need an easy means of parsing the localized numeric string back to a JS number type.
+
+*Test Cases:*
+Converting a number to localized string and then back to a number.
+<code><pre>
+var oldNumericValue = 123.456;
+var stringValue = String.formatDecimal(oldNumericValue);
+var newNumericValue = Ti.Locale.parseDecimal(stringValue);
+if (Math.abs(newNumericValue - oldNumericValue) < Number.EPSILON) {
+ 	console.log('Parsed number matches original number.');
+}
+</pre></code>
+
+Parsing equivalent numbers from 2 different locales.
+<code><pre>
+var number1 = Ti.Locale.parseDecimal('1,234,567.8', 'en-US');
+var number2 = Ti.Locale.parseDecimal('1.234.567,8', 'de-DE');
+if (Math.abs(number1 - number2) < Number.EPSILON) {
+	console.log('Parsed numbers match.');
+}
+</pre></code>
+
+Strings that cannot be converted to a number will return NaN.
+<code><pre>
+var result = Ti.Locale.parseDecimal('Invalid');
+if (Number.isNaN(result)) {
+	console.log('Invalid string returned NaN.');
+}
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2020-04-30
+
+   What would the relation be to the Intl APIs for NumberFormat (<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat)" rel="nofollow" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat)</a>, I believe we don't polyfill Intl right now (core-js skips it due to the size of it), but I think we should deal with this in a spec'd manner rather than our own APIs
+   
+   Edit:
+   
+   Ignore this comment, I totally misread the intention here</li>
+<li>Joshua Quick 2020-04-30
+
+   [~eharris], I'm pretty sure we do support the <code>Intl</code> APIs on iOS, but we definitely don't on Android. If we were to <code>#if</code> it into V8, then it would add a huge 20 MB ICU (International Components for Unicode) library for just a single architecture... and we would need to include at least 2 architectures. This is not mobile friendly. Especially since the max APK size you can upload to Google Play is 100 MB.
+   
+   I didn't see any official JS APIs that support parsing localized numeric strings, so, I came up with the above. I named them similar to the existing <code>toLocaleString()</code>, <code>toLocaleTimeString()</code>, <code>toLocaleDateString()</code>, etc. Although it turns out those APIs on Android ignore the current locale and only do the default "en-us" locale. (That should be a separate ticket. We have to localize the strings ourselves on the Java side since Android NDK does not support locale on the C/C++ side.)
+   </li>
+<li>Joshua Quick 2020-04-30
+
+   Maybe instead of extending the <code>Number</code> type and risking future collisions, we should add these APIs to our <code>Ti.Locale</code> module instead.</li>
+<li>Joshua Quick 2020-05-05
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11683" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11683</a></li>
+<li>Samir Mohammed 2020-07-09
+
+   FR Passed, Waiting on Jenkins build. </li>
+<li>Christopher Williams 2020-07-13
+
+   merged to master for 9.1.0 target</li>
+<li>Joshua Quick 2020-07-15
+
+   Below PR improves handling for locales that use whitespace chars for thousands separator like French.
+   
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11824" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11824</a>
+   </li>
+<li>Sohail Saddique 2020-08-07
+
+   Fix verified on build 9.1.0.v20200804082025. Ticket closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27874.json">JSON Source</a></p>

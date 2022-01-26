@@ -1,0 +1,305 @@
+---
+title: "[TIMOB-24368] Ti.TouchID module accessibilityMode constants not working as expected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-11T21:24:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, keychain-access, keychains, touchid</td></tr>
+<tr><th>Reporter</th><td>Nikita Radaev</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-02-02T15:58:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-14T21:19:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I believe I just found some irregularities with this module. I've tried using it this way:
+     
+<code><pre>
+var keychainItem = TouchID.createKeychainItem({
+    identifier: "mypassword",
+    accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK,
+});
+	
+keychainItem.addEventListener("save", function(e) {
+    if (!e.success) {
+        alert("Error saving to the keychain: " + e.error);
+        return;
+    }
+	
+    alert("Successfully saved!" + e);
+});
+	
+btnSave.addEventListener("click", function() {
+    keychainItem.save("s3cr3t_p4$$w0rd");
+});
+</pre></code>
+
+When I try to read the value back I am consistently being asked for password. Same goes for ACCESSIBLE_ALWAYS, ACCESSIBLE_WHEN_UNLOCKED, ACCESSIBLE_WHEN_UNLOCKED_THIS_DEVICE_ONLY, ACCESSIBLE_ALWAYS_THIS_DEVICE_ONLY.
+According to <a href="https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants" rel="nofollow" target="_blank">https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants</a> I should not be asked the password... Tested with TouchID module v 2.1.0 Ti.SDK 6.0.1 GA on iPhone 7 os 10.2.
+Please reopen the ticket.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-02-02
+
+   Hey [~nradaev],
+   
+   does this test-case match your issue:
+   <code><pre>
+   var TouchID = require("ti.touchid");
+   
+   var win = Ti.UI.createWindow();
+   
+   var btn1 = Ti.UI.createButton({
+       title: 'save',
+       top: 40
+   });
+   
+   var btn2 = Ti.UI.createButton({
+       title: 'read',
+       top: 80
+   });
+   
+   var keychainItem = TouchID.createKeychainItem({
+       identifier: "mypassword",
+       accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK
+   });
+   
+   keychainItem.addEventListener("save", function(e) {
+       if (!e.success) {
+           Ti.API.error("Error saving to the keychain: " + e.error);
+           return;
+       }
+   
+       alert("Successfully saved!" + e);
+   });
+   
+   keychainItem.addEventListener("read", function(e) {
+       if (!e.success) {
+           Ti.API.error("Error reading from the keychain: " + e.error);
+           return;
+       }
+       Ti.API.info(e);
+   });
+   
+   btn1.addEventListener('click', function() {
+       keychainItem.save("s3cr3t_p4$$w0rd");
+   });
+   
+   btn2.addEventListener('click', function() {
+       keychainItem.read();
+   });
+   
+   win.add(btn1);
+   win.add(btn2);
+   win.open();
+   </pre></code>
+   I'm preparing it already.</li>
+<li>Nikita Radaev 2017-02-03
+
+   looks correct. I did some more testing yesterday and it looks like if you dont pass accessibilityMode at all, it falls back to ACCESSIBLE_AFTER_FIRST_UNLOCK  (I was able to read keychain item without having to enter password)</li>
+<li>Hans Knöchel 2017-02-03
+
+   If you don't pass anything *in a clean keychain item*, then it will ignore the accessibility mode [here](<a href="https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L202)." rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L202).</a> I think I have to remove [this value](<a href="https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L208)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L208)</a> to not force the UI dialog and let the accessibility mode decide.
+   
+   *EDIT*: [The apple docs](<a href="https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants)" rel="nofollow" target="_blank">https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants)</a> do not state when the auth-dialog should be shown. The accessibility rather is responsible for deciding when the whole data is accessible. In this case, constants like <code>kSecAttrAccessibleAfterFirstUnlock</code> are used to ensure data protection in background-modes. To control when to show the auth dialog, you need to set one of the <code>ACCESS_CONTROL_\*</code> constants, the default one is  <code>ACCESS_CONTROL_USER_PRESENCE</code> which *will prompt*. And also note that the <code>accessGroup</code> property is also used when the <code>accessibilityMode</code> property is set, since they are depending on each other.
+   
+   I'll need to check a native example again.</li>
+<li>Hans Knöchel 2017-02-03
+
+   Ok, here is the updated example along with a PR.
+   
+   PR: <a href="https://github.com/appcelerator-modules/ti.touchid/pull/26" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/pull/26</a>
+   Module 2.1.1: <a href="https://github.com/appcelerator-modules/ti.touchid/files/750982/ti.touchid-iphone-2.1.1.zip" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/files/750982/ti.touchid-iphone-2.1.1.zip</a>
+   
+   Demo:
+   <code><pre>
+   var TouchID = require("ti.touchid");
+   
+   var win = Ti.UI.createWindow();
+   
+   var btn1 = Ti.UI.createButton({
+       title: 'save',
+       top: 40
+   });
+   
+   var btn2 = Ti.UI.createButton({
+       title: 'read',
+       top: 80
+   });
+   
+   var btn3 = Ti.UI.createButton({
+       title: 'delete',
+       top: 120
+   });
+   
+   
+   var keychainItem = TouchID.createKeychainItem({
+       identifier: "mypassword",
+       accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK,
+       accessControlMode: TouchID.ACCESS_CONTROL_TOUCH_ID_ANY
+   });
+   
+   keychainItem.addEventListener("save", function(e) {
+       if (!e.success) {
+           Ti.API.error("Error saving to the keychain: " + e.error);
+           return;
+       }
+   
+       alert("Successfully saved!" + e);
+   });
+   
+   keychainItem.addEventListener("read", function(e) {
+       if (!e.success) {
+           Ti.API.error("Error reading from the keychain: " + e.error);
+           return;
+       }
+       Ti.API.info(e);
+   });
+   
+   keychainItem.addEventListener("reset", function(e) {
+       if (!e.success) {
+           Ti.API.error("Error deleting from the keychain: " + e.error);
+           return;
+       }
+       Ti.API.info(e);
+   });
+   
+   btn1.addEventListener('click', function() {
+       keychainItem.save("s3cr3t_p4$$w0rd");
+   });
+   
+   btn2.addEventListener('click', function() {
+       keychainItem.read();
+   });
+   
+   btn3.addEventListener('click', function() {
+       keychainItem.reset();
+   });
+   
+   win.add(btn1);
+   win.add(btn2);
+   win.add(btn3);
+   win.open();
+   </pre></code>
+   Before, there was a default value "kSecAccessControlUserPresence" causing the auth dialog to always show. Now we're passing <code>NULL</code> if no <code>accessControlMode</code> is set. In the above example, it will prompt for the auth dialog, but if you remove the <code>accessControlMode</code> property, it won't (by default). Also, changing it to something else from the <code>ACCESS_CONTROL_\*</code> namespace will change the behavior as documented. Please try it out!</li>
+<li>Nikita Radaev 2017-02-06
+
+   Hi Hans,
+   
+   Sorry for taking my sweet time with testing this. I've done some preliminary testing today - so far so good. I will finish up tomorrow and provide an update. Thanks for quick turnaround on this.</li>
+<li>Hans Knöchel 2017-02-07
+
+   [~nradaev] Can you confirm the final test? I'd move it to review then :-).</li>
+<li>Nikita Radaev 2017-02-07
+
+   Hi Hans, 
+   
+   TouchID.ACCESSIBLE_WHEN_UNLOCKED doesnt seem to work as described. I was able to retrieve keychain item when device was locked. 
+   TouchID.ACCESSIBLE_WHEN_PASSCODE_SET_THIS_DEVICE_ONLY is invalidated once passcode is removed. However, when passcode is turned back on, keychain item is still inaccessible. Not sure if this behavior is by design. 
+   
+   Just a small note - looks like TouchID.ACCESSIBLE_ALWAYS has been deprecated in iOS9, Thought it was worth mentioning...
+   
+   Everything else seems to be in order.
+   </li>
+<li>Nikita Radaev 2017-06-15
+
+   Hi Hans,
+   
+   Found another irregularity with TouchID module v2.1.2  - deviceCanAuthenticate() does not seem to return correct error codes when passcode is not provided.
+   
+   Here is my test code:
+   
+   
+   <code><pre>
+   var TouchID = require("ti.touchid");
+   var res = TouchID.deviceCanAuthenticate();
+   Ti.API.info(res);
+   </pre></code>
+   
+   
+   Test scenario:
+   
+   1) User has passcode setup but no fingerprints.
+   2) User has fingerprints setup but passcode has been turned off.
+   
+   Both scenarios produce same output: 
+   
+   
+   <code><pre>
+   [INFO] :   {
+   [INFO] :       canAuthenticate = 0;
+   [INFO] :       code = "-7";
+   [INFO] :       error = "No fingers are enrolled with Touch ID.";
+   [INFO] :   }
+   </pre></code>
+   
+   
+   It would be great if we could have something like TouchID.hasFingerprints() and TouchId.hasPasscode() methods.
+   
+   Thank you, 
+   
+   Nikita.
+   </li>
+<li>Hans Knöchel 2017-06-16
+
+   Hey there!
+   
+   This is a whole different issue and should not be discussed in this ticket, but here is the solution: Since Ti.TouchID 2.1.0, you can set the <code>authenticationPolicy</code> to specify the policy used to authenticate and validate the authentication-status. Example:
+   {code:js
+   // One of <code>AUTHENTICATION_POLICY_PASSCODE</code> or <code>AUTHENTICATION_POLICY_BIOMETRICS </code> (default)
+   TouchID.setAuthenticationPolicy(TouchID.AUTHENTICATION_POLICY_PASSCODE);
+   ``<code>
+   Setting that before, </code>deviceCanAuthenticate` will evaluate that policy internally. Give it a try.</li>
+<li>Nikita Radaev 2017-06-16
+
+    Hi Hans, 
+    
+    Thank you. Works exactly as described. Looks like I gotta read API doc more closely next time.
+    
+    Nikita.</li>
+<li>Nikita Radaev 2017-06-22
+
+    Hi,
+    
+    I've done some additional testing and got to the root of the problem identified in the ticket. It appears that accessControlMode always falls back to USER_PRESENSE even though its a non-required value making these constants completely useless (device always requires passcode or fingeprint):
+    
+    ACCESSIBLE_ALWAYS, 
+    ACCESSIBLE_ALWAYS_THIS_DEVICE_ONLY ,
+    ACCESSIBLE_WHEN_UNLOCKED, 
+    ACCESSIBLE_WHEN_UNLOCKED_THIS_DEVICE_ONLY, 
+    ACCESSIBLE_AFTER_FIRST_UNLOCK,
+    ACCESSIBLE_AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+    
+    Links to module code where accessControlMode is being set: 
+    
+    <a href="https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/TiTouchidKeychainItemProxy.m#L171" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/TiTouchidKeychainItemProxy.m#L171</a>
+    <a href="https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L202" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/blob/master/ios/Classes/KeychainItemWrapper/APSKeychainWrapper.m#L202</a>
+    
+    Please provide a fix. 
+    
+    Thank you.</li>
+<li>Eric Wieber 2017-08-11
+
+    FR Passed, using:
+    MacOS 10.12.6 (16G24b)
+    Studio 4.9.0.201705302345
+    Ti SDK 6.1.2.GA
+    Appc NPM 4.2.9
+    Appc CLI 6.2.3
+    Alloy 1.9.13
+    Xcode 8.3.3 (8E3004b)
+    
+    Tested using the provided sample code as well as customer tests and the touchID suite/past tests</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24368.json">JSON Source</a></p>

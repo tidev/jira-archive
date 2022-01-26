@@ -1,0 +1,169 @@
+---
+title: "[AC-2467] ACS push notification with registered app not receiving"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-14T06:09:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jayme Fishman</td></tr>
+<tr><th>Assignee</th><td>Marco Cota</td></tr>
+<tr><th>Created</th><td>2014-01-27T11:27:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have uploaded my iOS keys from the keychain to the ACS manager (dev and prod).  They keys are for a push enabled application.  I used the code in the ACS example to receive push notifications.  I re-installed the app I am writing with the new provision profile.  I don't get an error on startup (which I did before I started using the new profile). I can see the application in the iOS settings as an app that can receive push notifications.  I then went to test sending a push notice several times from dev and then once eventually from prod after dev did not work and none of them went through - but I am not getting any errors.  I should also mention that the documentation in the Titanium Push Notification Guide is a bit unclear as to the necessity of creating a user and/or registering to a channel as well as the use of tokens.  The documentation makes most of those steps seem like optional alternatives to a general push registration.  That said, I did create a user but am not logging that user in because the example was unclear and I would prefer not to have every user login if avoidable.  
+
+The code I have in app.js to register for push notices is as follows (am I missing something):
+<code><pre>
+Ti.Network.registerForPushNotifications({
+    // Specifies which notifications to receive
+    types: [
+        Ti.Network.NOTIFICATION_TYPE_BADGE,
+        Ti.Network.NOTIFICATION_TYPE_ALERT,
+        Ti.Network.NOTIFICATION_TYPE_SOUND
+    ],
+    success: deviceTokenSuccess,
+    error: deviceTokenError,
+    callback: receivePush
+});
+// Process incoming push notifications
+function receivePush(e) {
+    alert('Received push: ' + JSON.stringify(e));
+}
+// Save the device token for subsequent API calls
+function deviceTokenSuccess(e) {
+    deviceToken = e.deviceToken;
+}
+
+function deviceTokenError(e) {
+    alert('Failed to register for push notifications! ' + e.error);
+}
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jayme Fishman 2014-01-29
+
+   Just thought I would bump this as it is a blocking issue for me.  Please let me know if I am missing something or if this is a bug.
+   
+   Thanks.</li>
+<li>Jayme Fishman 2014-01-30
+
+   Just checking in again.  Please let me know if this is an ACS issue.</li>
+<li>Marco Cota 2014-02-01
+
+   The code you are providing is only intended to enable the device and the app to receive Push Notifications, either from ACS or a third party service, in order to use the ACS as you mention you will need to create a user and subscribe to a channel.
+   
+   Related wiki: <a href="http://docs.appcelerator.com/titanium/3.0/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/3.0/#</a>!/guide/Push_Notifications
+   API: <a href="http://docs.appcelerator.com/titanium/3.0/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/3.0/#</a>!/api/Titanium.Cloud.PushNotifications
+   
+   This is the sample code of how to implement and subscribe to the ACS push notification service.
+   
+   <code><pre>
+   var Cloud = require('ti.cloud');
+   var deviceToken;
+    
+   var win = Titanium.UI.createWindow({
+       title:'ACS iOS App',
+       backgroundColor:'#fff'
+   });
+   
+    
+   var registerPush = Ti.UI.createButton({
+       width:260,
+       height:30,
+       top:30,
+       title:"REGISTER PUSH NOTIFICATION"
+   });
+   win.add(registerPush);
+    
+   registerPush.addEventListener('click',registerUser);
+   
+   //user login on cloud using default credential
+   function loginUser(){
+       Cloud.Users.login({
+           login: 'push123x',
+           password: 'push123x'
+       }, function (e) {
+       if (e.success) {
+       var user = e.users[0];
+   			alert("Loggin successfully");
+               getDeviceToken();
+           } else {
+               alert("Error :"+e.message);
+           }
+       });
+   }
+   
+   // getting device token
+   function getDeviceToken(){
+       Titanium.Network.registerForPushNotifications({
+           types: [
+               Titanium.Network.NOTIFICATION_TYPE_BADGE,
+               Titanium.Network.NOTIFICATION_TYPE_ALERT,
+               Titanium.Network.NOTIFICATION_TYPE_SOUND
+           ],
+       success:function(e)
+       {
+           deviceToken = e.deviceToken;
+           alert("deviceToken = "+deviceToken);
+           registerForPush();
+       },
+       error:function(e)
+       {
+           alert("Error: "+e.message);
+       },
+       callback:function(e)
+       {
+           alert("push notification received"+JSON.stringify(e.data));
+       }
+       });
+   }
+   
+   // register for push notification on cloud server
+   function registerForPush(){
+       Cloud.PushNotifications.subscribe({
+           channel: 'demo_alert',
+           type:'ios',
+           device_token: deviceToken
+       }, function (e) {
+           if (e.success) {
+               alert('Success :'+((e.error && e.message) || JSON.stringify(e)));
+           } else {
+               alert('Error:' + ((e.error && e.message) || JSON.stringify(e)));
+           }
+       });
+   }
+   
+   win.open();
+   </pre></code></li>
+<li>Jayme Fishman 2014-02-01
+
+   That is very helpful.  The piece that is still unclear is how does one programmatically create a user?  I can see how to do it from the ACS panel but that would not be practical OR can you share a single "user" across multiple devices?</li>
+<li>Ritu Agrawal 2014-02-09
+
+   Please take a look at the following documentation that describes how to create a user programatically.
+   
+   <a href="http://docs.appcelerator.com/cloud/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/cloud/latest/#</a>!/api/Users-method-create
+   </li>
+<li>Jayme Fishman 2014-02-14
+
+   I got this working now - you can close the ticket if you want.</li>
+<li>Ritu Agrawal 2014-02-14
+
+   Closing this ticket based on reporter's latest comment.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2467.json">JSON Source</a></p>

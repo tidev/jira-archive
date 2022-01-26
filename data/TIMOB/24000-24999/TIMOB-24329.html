@@ -1,0 +1,296 @@
+---
+title: "[TIMOB-24329] iOS: setting additional request header disallows POST form requests"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-02-09T14:22:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, qe-6.1.0, regression</td></tr>
+<tr><th>Reporter</th><td>Christoph Eck</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-01-19T13:44:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-15T13:26:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem*
+Setting additional request headers disallows POST form requests to the same page. The 'load' event is not fired.
+
+_actual behavior_
+<h4>click on 'open local page'</h4>
+<h4>in the log is shown 'beforeload' and 'load' event</h4>
+<h4>click on Submit button</h4>
+<h4>in the log is shown 'beforeload'</h4>
+
+_expected behavior_
+<h4>click on 'open local page'</h4>
+<h4>in the log is shown 'beforeload' and 'load' event</h4>
+<h4>click on Submit button</h4>
+<h4>in the log is shown 'beforeload' and 'load' event</h4>
+
+*Test case*
+file index.js
+{noformat}
+var win = Ti.UI.createWindow({
+    backgroundColor:'white'
+});
+ 
+var buttonGoogle = Ti.UI.createButton({
+    title:'Open local page',
+    top:'20%',
+    height:'30%',
+    left:'10%',
+    right:'10%'
+});
+ 
+buttonGoogle.addEventListener('click', function(){
+    Ti.Network.removeAllHTTPCookies( );
+    var webView = Ti.UI.createWebView();
+    
+    webView.setBasicAuthentication("username", "password");
+    var requestHeaders = {
+       "Accept-Language": "en",
+       "X-Agent" : "Mobile"
+   };
+    webView.setRequestHeaders(requestHeaders);
+    
+    webView.addEventListener('load', function(){
+        Ti.API.info('load: ' + webView.url);
+        });
+    
+    webView.addEventListener('beforeload', function(){
+        Ti.API.info('beforeload: ' + webView.url);
+        });
+        
+    webView.addEventListener('error', function(){
+        Ti.API.info('error: ' + webView.url);
+        });
+        
+    win.add(webView);
+    
+    var button = Ti.UI.createButton({
+        title:'Close',
+        right:0,
+        bottom:0,
+        height:'10%',
+        width:'20%'
+    });
+    
+    button.addEventListener('click', function(){
+        win.remove(webView);
+    });
+    
+    webView.add(button);
+    var url = "web/index.html";
+    webView.setUrl(url);
+});
+ 
+win.add(buttonGoogle);
+  
+win.open();
+{noformat}
+
+file app/assets/web/index.html
+
+{noformat}
+<html>
+	<head>
+		<script>
+		</script>
+	</head>
+	<body>
+		<table width="100%" height="100%">
+			<tr>
+			<td top="50%">
+			<form method="post" action="index.html">
+				<input name="name" value="3" />
+				<input type="submit" name="" title="Submit" />
+			</form>
+			</td>
+			</tr>
+		</table>
+	</body>
+</html>
+{noformat}
+
+*Log*
+_actual behavior_
+
+{noformat}
+[INFO] :   beforeload: web/index.html
+[INFO] :   load: web/index.html
+[INFO] :   beforeload: web/index.html
+{noformat}
+
+_expected behavior_
+{noformat}
+[INFO] :   beforeload: web/index.html
+[INFO] :   load: web/index.html
+[INFO] :   beforeload: web/index.html
+[INFO] :   load: web/index.html
+{noformat}
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24329_61288/index.html">index.html</td></td><td>2017-01-19T13:42:06.000+0000</td><td>305</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24329_61290/index.js">index.js</td></td><td>2017-01-19T14:18:15.000+0000</td><td>1296</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-01-19
+
+   Hey Chirs (you should change your username to have something linkable :-),
+   
+   I see you tested with master (6.1.0), did this not happen in earlier versions of the SDK? If not, in which one did it work? I have a suspicion.</li>
+<li>Christoph Eck 2017-01-19
+
+   Hi Hans
+   
+   The additional request header setting is new in Ti SDK 6.1.0. I am using request headers and catch load and beforeload events. The issue only appears with additional request headers. I have already a solution for this. Give me a second to create a pull request.
+   
+   To your questions "did this not happen in earlier versions of the SDK?"
+   No, because of the new additional request header feature.</li>
+<li>Hans Knöchel 2017-01-19
+
+   Gotcha! I was just able to reproduce this issue an moved it to Engineering for further investigation. Thank you! 
+   
+   *EDIT*: What I observed so far is, that the headers are different from loading the native webview request and the html-based request.
+   
+   - webview-request-headers: Upgrade-Insecure-Requests, X-Titanium-Local-Id, Authorization
+   - html-submit-request-headers:  Origin, Content-Type
+   
+   So after adding your 2 request headers, they are added to the list. For some reason, iOS then decides to not allow the request anymore. This will require more investigation.
+   
+   *EDIT 2*: Fixed it, the issue was that there is an internal flag that checks for the URL status. This needs to be reset before loading the updated request with the new headers. The fix is ready and will come asap.</li>
+<li>Christoph Eck 2017-01-19
+
+   -I could see that the problem happens also on Android.-</li>
+<li>Hans Knöchel 2017-01-19
+
+   Mhh, on Android we only pass it to the native methods, so if it doesn't fire from there, we can't really intercept it.</li>
+<li>Christoph Eck 2017-01-19
+
+   I tried it with a different test setup and it works on Android. So my first try and guess was wrong. Here are the test files:
+   
+   *index.js*
+   {noformat}
+   var win = Ti.UI.createWindow({
+       backgroundColor:'white'
+   });
+    
+   var buttonGoogle = Ti.UI.createButton({
+       title:'Open local page',
+       top:'200',
+       height:Ti.UI.SIZE,
+       left:'30',
+   });
+    
+   buttonGoogle.addEventListener('click', function() {
+       
+       
+       var ldf = Ti.Platform.displayCaps.logicalDensityFactor;
+       var webView = Ti.UI.createWebView({
+           height: Math.floor(Ti.Platform.displayCaps.platformHeight / ldf),
+           width: Math.floor(Ti.Platform.displayCaps.platformWidth / ldf),
+           backgroundColor: "white",
+       });
+       
+       webView.setBasicAuthentication("username", "password");
+       var requestHeaders = {
+          "Accept-Language": "en",
+          "X-Agent" : "Mobile"
+      };
+       webView.setRequestHeaders(requestHeaders);
+       
+       webView.addEventListener('load', function(){
+           Ti.API.info('load: ' + webView.url);
+           });
+       
+       webView.addEventListener('beforeload', function(){
+           Ti.API.info('beforeload: ' + webView.url);
+           });
+           
+       webView.addEventListener('error', function(){
+           Ti.API.info('error: ' + webView.url);
+           });
+           
+       win.add(webView);
+       
+       var button = Ti.UI.createButton({
+           title:'Close',
+           top:25,
+           bottom:0,
+           height:Ti.UI.SIZE,
+           width:100
+       });
+       
+       button.addEventListener('click', function(){
+           win.remove(webView);
+       });
+       
+       webView.add(button);
+       var url = "/web/index.html";
+       webView.setUrl(url);
+   });
+    
+   win.add(buttonGoogle);
+     
+   win.open();
+   {noformat}
+   
+   *assets/web/index.html*
+   {noformat}
+   <html>
+   	<head>
+   		<script>
+   		</script>
+   	</head>
+   	<body>
+   		<table width="200" height="200">
+   			<tr>
+   			<td top="50">
+   			<form method="post" action="index.html">
+   				<input name="name" value="3" />
+   				<input type="submit" name="" title="Submit" />
+   			</form>
+   			</td>
+   			</tr>
+   		</table>
+   	</body>
+   </html>
+   {noformat}</li>
+<li>Harry Bryant 2017-02-15
+
+   Verified as fixed, ran an app with the provided demo code firstly with an affected 6.1.X build to confirm that the error is reproducible in my environment. Subsequently built the app with a 6.1.X build containing PR #8765 and was able to receive the expected behaviour. Tested with:
+   
+   iPhone 7 (10.2) Device & Simulator
+   iPhone 6S (9.3) Simulator
+   iPhone 5S (9.3) Device
+   Mac OS Sierra (10.12.2)
+   Ti SDK: 6.1.0.v20170213134957
+   Appc Studio: 4.8.1.201701192045
+   Appc NPM: 4.2.9-1
+   App CLI: 6.1.0
+   Xcode 8.2.1
+   Node v4.4.7
+   
+   *Closing ticket.*
+   
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24329.json">JSON Source</a></p>

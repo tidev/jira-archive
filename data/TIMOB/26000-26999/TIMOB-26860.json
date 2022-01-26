@@ -1,0 +1,497 @@
+{
+	"id": "173003",
+	"key": "TIMOB-26860",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-03-07T14:27:50.000+0000",
+		"created": "2019-02-14T23:22:19.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"WebView",
+			"html",
+			"ios",
+			"regression"
+		],
+		"versions": [
+			{
+				"id": "19882",
+				"name": "Release 8.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-03-14"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "vijaysingh",
+			"key": "vijaysingh",
+			"displayName": "Vijay Singh",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-03-13T02:00:48.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "*Summary:*\r\nWhen loading an HTML string to a {{WebView}} via its \"html\" property, it is no longer able to access the app's local files under the \"Resources\" directory as of Titanium 8.0.0.RC.\r\n\r\n*Steps to reproduce:*\r\n# Create a Classic \"Default Project\" app.\r\n# Replace the \"app.js\" code with the below code.\r\n# Build with Titanium 8.0.0 and run on iOS.\r\n# Notice that an image failed to load within the web view.\r\n# Build with Titanium 7.5.x and run on iOS.\r\n# Notice that the image successfully loaded within the web view.\r\n\r\n{code:javascript}\r\nvar htmlText =\r\n\t\t'<!DOCTYPE html>' +\r\n\t\t'<html>' +\r\n\t\t'\t<head>' +\r\n\t\t'\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">' +\r\n\t\t'\t</head>' +\r\n\t\t'\t<body>' +\r\n\t\t'\t\t<p>Local Image File</p>' +\r\n\t\t'\t\t<img src=\"assets/images/tab1.png\"/>' +\r\n//\t\t'\t\t<img src=\"app://Resources/images/tab1.png\"/>' +\r\n\t\t'\t</body>' +\r\n\t\t'</html>';\r\n\r\nvar window = Ti.UI.createWindow();\r\nvar webView = Ti.UI.createWebView({\r\n\thtml: htmlText,\r\n});\r\nwindow.add(webView);\r\nwindow.open();\r\n{code}\r\n\r\n*Note:*\r\nLoading local resource files via {{app://Resources/}} also fails to load on iOS in Titanium 8.0.0.RC, but worked in older versions. Note that this URL scheme is undocumented and is not supported on Android.\r\n\r\n*Work-Around:*\r\nOn iOS, the {{WebView.setHtml()}} method supports a 2nd argument where you can provide a \"baseURL\" parameter. This parameter allows you to set the directory (or URL) that file paths should be relative to. So, the below will work-around the problem.\r\n\r\n{code:javascript}\r\nvar htmlText =\r\n\t\t'<!DOCTYPE html>' +\r\n\t\t'<html>' +\r\n\t\t'\t<head>' +\r\n\t\t'\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">' +\r\n\t\t'\t</head>' +\r\n\t\t'\t<body>' +\r\n\t\t'\t\t<p>Local Image File</p>' +\r\n\t\t'\t\t<img src=\"assets/images/tab1.png\"/>' +\r\n//\t\t'\t\t<img src=\"app://Resources/images/tab1.png\"/>' +\r\n\t\t'\t</body>' +\r\n\t\t'</html>';\r\n\r\nvar window = Ti.UI.createWindow();\r\nvar webView = Ti.UI.createWebView({\r\n// Don't do this.\r\n//\thtml: htmlText,\r\n});\r\n// Do this. It will work-around the 8.0.0.RC bug.\r\nwebView.setHtml(htmlText, {\r\n\tbaseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath,\r\n});\r\nwindow.add(webView);\r\nwindow.open();\r\n{code}\r\n\r\n\\\\\r\n----\r\n*Original Bug Report Below*\r\n----\r\nThe upcoming change in 8.0 from UIWebView to WKWebView is major and because of my reliance on the WebView I wanted to start testing this. There is a ticket TIMOB-26095 that indicates the transition is complete and tested, but there are so many use cases that are not included in the sample tests provided that I have major concerns.\r\n\r\nFor example, I cannot get local resources like images to be rendered inside the WebView.\r\n\r\nTest case:\r\n{code:javascript}\r\nvar win = Ti.UI.createWindow();\r\n\r\nvar html = '<html><body><img src=\"app://Resources/images/logo.png\" /></body></html>';\r\n\r\nvar webview = Ti.UI.createWebView({\r\n  html: html\r\n});\r\n\r\nwin.add(webview);\r\nwin.open();\r\n{code}\r\n\r\nWorks fine in SDK 7.5.1, but the image does not load in 8.0.\r\nAm I doing something wrong? Is there a low-level change that I should know about for this?",
+		"attachment": [
+			{
+				"id": "66184",
+				"filename": "Screen Shot 2019-02-24 at 9.54.23 AM.png",
+				"author": {
+					"name": "chrishaff@gmail.com",
+					"key": "chrishaff@gmail.com",
+					"displayName": "chrishaff@gmail.com",
+					"active": true,
+					"timeZone": "America/New_York"
+				},
+				"created": "2019-02-24T15:14:33.000+0000",
+				"size": 745880,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: HTML assigned to WebView \"html\" property is unable to access app's local files as of 8.0.0.RC",
+		"creator": {
+			"name": "mdelmarter",
+			"key": "mdelmarter",
+			"displayName": "Matthew Delmarter",
+			"active": true,
+			"timeZone": "Pacific/Auckland"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "mdelmarter",
+			"key": "mdelmarter",
+			"displayName": "Matthew Delmarter",
+			"active": true,
+			"timeZone": "Pacific/Auckland"
+		},
+		"environment": "Ti SDK 8.0.0.v20190130052111",
+		"closedSprints": [
+			{
+				"id": 1118,
+				"state": "closed",
+				"name": "2019 Sprint 5",
+				"startDate": "2019-02-24T18:36:06.435Z",
+				"endDate": "2019-03-08T18:36:00.000Z",
+				"completeDate": "2019-03-07T22:19:47.057Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "446191",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~mdelmarter], I was able to verify the issue here. Tested with SDK 8.0.0.v20190219113758  and 7.5.1.v20190124152315(where it works). [~jquick], [~vijaysingh], [~jvennemann], Is any change made on how the webview handle local resources? Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2019-02-20T16:59:27.000+0000",
+					"updated": "2019-02-20T16:59:27.000+0000"
+				},
+				{
+					"id": "446201",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~sdarda], the iOS {{Ti.UI.WebView}} implementation in Titanium has completely changed in 8.0.0 to use the native {{WKWebView}} instead of Apple's now deprecated {{UIWebView}}. So, yes, everything has changed.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-20T18:41:55.000+0000",
+					"updated": "2019-02-20T18:41:55.000+0000"
+				},
+				{
+					"id": "446217",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~mdelmarter], I recommend that you use the following path instead. The below will work on both Android and iOS in Titanium 8.0.0 and older versions.\r\n{code}\r\n<img src=\"assets/images/logo.png\" />\r\n{code}\r\n\r\nI have verified that \"app://Resources/...\" broke on iOS in Titanium 8.0.0. It used to work in 7.5.1. So, yes it's a bug. But... I also want to note that this never worked on Android either. This was an iOS only feature. The portable way to do it is via a relative path as shown above.\r\n\r\nAlso, make sure to set the following in your \"tiapp.xml\" to make sure that your PNGs do not get archived. Otherwise, the PNGs will be unreachable by the {{WebView}}.\r\n{code:xml}\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ti:app xmlns:ti=\"http://ti.appcelerator.org\">\r\n\t<ios>\r\n\t\t<use-app-thinning>false</use-app-thinning>\r\n\t</ios>\r\n</ti:app>\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-20T23:56:56.000+0000",
+					"updated": "2019-02-20T23:56:56.000+0000"
+				},
+				{
+					"id": "446218",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I don't think \"app://\" is publicly documented.\r\nThis URL scheme is used internally, but the documented portable way to do this is via relative paths.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-21T00:26:29.000+0000",
+					"updated": "2019-02-21T00:26:29.000+0000"
+				},
+				{
+					"id": "446265",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "I appreciate the comments [~jquick], thank you. However even when I change the `src` as suggested it still does not work for me. And yes I do have `use-app-thinning` set to false.\r\n\r\nNote that I am testing this with a classic app, not alloy. The image is inside the `Resources/images` folder. I have moved the image around to the root folder etc but it does not seem to help.\r\n\r\nHere is my latest code:\r\n\r\n{code}\r\nvar win = Ti.UI.createWindow();\r\n\r\nvar html = '<html><body><img src=\"images/logo.png\" /></body></html>';\r\n\r\nvar webview = Ti.UI.createWebView({\r\n  html: html\r\n});\r\n\r\nwin.add(webview);\r\nwin.open();\r\n{code}\r\n\r\nAny other suggestions? I am at a stalemate on my new app until I can get this working :(",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-02-23T23:02:03.000+0000",
+					"updated": "2019-02-23T23:03:00.000+0000"
+				},
+				{
+					"id": "446266",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "Further to my previous comment, I just discovered that if I move the `html` code into a file, and then call that file url in the WebView then all works ok.\r\n\r\nSo this works ok and displays the image...\r\n\r\n{code}\r\nvar win = Ti.UI.createWindow();\r\n\r\nvar webview = Ti.UI.createWebView({\r\n  url: 'test.html' // contains the same html as the previous code sample\r\n});\r\n\r\nwin.add(webview);\r\nwin.open();\r\n{code}\r\n\r\nBut when the HTML is provided via the webview `html` property, it does not work.",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-02-23T23:10:19.000+0000",
+					"updated": "2019-02-23T23:10:19.000+0000"
+				},
+				{
+					"id": "446268",
+					"author": {
+						"name": "chrishaff@gmail.com",
+						"key": "chrishaff@gmail.com",
+						"displayName": "chrishaff@gmail.com",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "I will second everything @Matthew Delmarter is reporting.  \r\n\r\nI am using the 8.0GA but had the same issue with the pre release version.\r\n\r\n# Links to any local files (.png, .jpg, .css, .js, .jslocal) do not work if the HTML is provided as a string to the html property.\r\n# The same links work if same string is provided via a local file.  Unfortunately the content must be generated dynamically so this is not a workaround.\r\n\r\n !Screen Shot 2019-02-24 at 9.54.23 AM.png|thumbnail! ",
+					"updateAuthor": {
+						"name": "chrishaff@gmail.com",
+						"key": "chrishaff@gmail.com",
+						"displayName": "chrishaff@gmail.com",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-02-24T15:15:47.000+0000",
+					"updated": "2019-02-24T15:15:47.000+0000"
+				},
+				{
+					"id": "446270",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "Also if I wanted tooad an html file that is not in the Resources directory but in other iOS directories such as the temp or document directory how would I do this? If this could be clarified it would be helpful.",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-02-24T18:38:43.000+0000",
+					"updated": "2019-02-24T18:38:43.000+0000"
+				},
+				{
+					"id": "446277",
+					"author": {
+						"name": "chrishaff@gmail.com",
+						"key": "chrishaff@gmail.com",
+						"displayName": "chrishaff@gmail.com",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "@matthew, near the top the [documentation for the WebView|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.UI.WebView] does state\r\n\r\nbq. When running local web content (that is, *content that is included in the application's {color:red}resources{color}*),...\r\n\r\nYou can't read content from the temp or other local directories. It's always been that way (I started with SDK 1.6). I'm pretty sure that's an OS level security concern to prevent you from accessing/executing data on the phone that has not shipped with your app. As they now have changed the underlying webview on iOS I thought I'd try what you are asking about and confirmed that this still does not work.  \r\n\r\nI image you are trying to come up with a workaround for this embarrassing oversight?  It's gross, but you could do the browser's work: Concatenate what you want from the local system into one big string that you throw at the webview. (i.e. read  .js or .css from disk and in the case of an image base64 encode it and inject). If you wanted to make changes after the load you could use fireEvent/addEventListener retrieve resources.\r\n\r\nI'm not going to bother with this. I will wait for Axway will fix this - assuming that they will get on this asap...?\r\n",
+					"updateAuthor": {
+						"name": "chrishaff@gmail.com",
+						"key": "chrishaff@gmail.com",
+						"displayName": "chrishaff@gmail.com",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-02-25T15:16:59.000+0000",
+					"updated": "2019-02-25T15:16:59.000+0000"
+				},
+				{
+					"id": "446305",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "When loading a local HTML file via the {{WebView}} \"url\" property, then file paths are relative to that HTML file... just like how it works on the web.\r\n\r\nWhen setting the {{WebView}} \"html\" property to a string, file paths are relative to the app's root \"resources\" directory on all platforms (Android, iOS, and Windows). Although I have confirmed that this is now a bug on iOS in Titanium 8.0.0.RC and relative paths no longer work in this case.\r\n\r\n\r\nBut there is a solution...\r\n\r\nOn iOS, you can change what the file paths are relative to via the [WebView.setHtml()|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.UI.WebView-method-setHtml] method's 2nd argument via a \"baseURL\" dictionary setting. All other platforms currently ignore this 2nd argument. The below will set the \"baseURL\" to the resources directory and will work with a JS file in any subdirectory.\r\n{code:javascript}\r\nvar htmlText =\r\n\t\t'<!DOCTYPE html>' +\r\n\t\t'<html>' +\r\n\t\t'\t<head>' +\r\n\t\t'\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">' +\r\n\t\t'\t</head>' +\r\n\t\t'\t<body>' +\r\n\t\t'\t\t<p>Local Image File</p>' +\r\n\t\t'\t\t<img src=\"assets/images/tab1.png\"/>' +\r\n\t\t'\t</body>' +\r\n\t\t'</html>';\r\nvar window = Ti.UI.createWindow();\r\nvar webView = Ti.UI.createWebView();\r\nwebView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });\r\nwindow.add(webView);\r\nwindow.open();\r\n{code}\r\n\r\nThe above will work-around the 8.0.0.RC iOS bug you two are seeing.\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-25T23:01:02.000+0000",
+					"updated": "2019-02-25T23:01:02.000+0000"
+				},
+				{
+					"id": "446309",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "[~chrishaff@gmail.com] - thanks for your response.\r\n\r\nIt is not totally correct however. I have loaded images and other files from the Documents directory into a WebView for many years. My first app that did this was released in 2012 and I have used this in several apps since then. It is the only way to have the user download a file, such as an EPUB file, and to then load the HTML and images from that EPUB into a WebView. It has always worked fine. The secret with the old WebView was to prefix the image path with the path to the full `Titanium.Filesystem.applicationDataDirectory` - i.e. the apps Documents directory.\r\n\r\nHowever, again since SDK 8.0+ and the change to WKWebView, this is not working. I was initially hoping that it was similar to the `app://' suggestion from [~jquick] above where he mentioned that this was not the suggested approach and there was another way. I am hoping that there is just another way to achieve the required end result. \r\n\r\nOverall I am sure that it can all work as expected - the developers just have not fully tested for these scenarios. The WebView is the core to so much functionality, and I have been using Ti WebView to the full inside my apps for many years. I am sure they will not let me down now. At the moment the issues in this ticket are a major roadblock for me to switch my existing apps over to 8.0 and to my carrying on with a new app I am working on that allows users to save web pages offline (including images) and to display them inside a WebView.\r\n\r\nWe will get there!",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-02-25T23:10:38.000+0000",
+					"updated": "2019-02-25T23:14:47.000+0000"
+				},
+				{
+					"id": "446310",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "[~jquick] thanks so much for the workaround I will give it a go.\r\n\r\nJust further to the above comments, should I be able to open an HTML file and related resources (CSS/images) from the Documents directory? As I mentioned above I do this with a live app at the moment that loads EPUB files that the user has downloaded...\r\n\r\nCan the baseURL property be used for this as well maybe? To define base path inside the Documents folder?",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-02-25T23:14:22.000+0000",
+					"updated": "2019-02-25T23:47:46.000+0000"
+				},
+				{
+					"id": "446311",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Yes, you can point the \"baseURL\" to the Documents directory. I tested the following on Titanium 8.0.0 and it definitely works. Just note that this is an iOS only feature for the moment.\r\n{code:javascript}\r\nvar sourceFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, \"assets/images/tab1.png\");\r\nvar targetFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, \"tab1.png\");\r\nsourceFile.copy(targetFile.nativePath)\r\n\r\nvar htmlText =\r\n\t\t'<!DOCTYPE html>' +\r\n\t\t'<html>' +\r\n\t\t'\t<head>' +\r\n\t\t'\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">' +\r\n\t\t'\t</head>' +\r\n\t\t'\t<body>' +\r\n\t\t'\t\t<p>Local Image File</p>' +\r\n\t\t'\t\t<img src=\"tab1.png\"/>' +\r\n\t\t'\t</body>' +\r\n\t\t'</html>';\r\n\r\nvar window = Ti.UI.createWindow();\r\nvar webView = Ti.UI.createWebView();\r\nwebView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory).nativePath });\r\nwindow.add(webView);\r\nwindow.open();\r\n{code}\r\n\r\nWhat's important is that you need to tell the web view which directory files should be relative to. The \"baseURL\" can be set to a web URL or a local filesystem directory path.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-26T00:26:31.000+0000",
+					"updated": "2019-02-26T00:29:07.000+0000"
+				},
+				{
+					"id": "446312",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Also note that we want to add \"baseURL\" support to Android in the future. The other thing that feature is needed for is iframes because they need to be told which website their resources are relative to. It's especially needed for playing YouTube videos in iframes. Please see: [TIMOB-26848]",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-02-26T00:33:31.000+0000",
+					"updated": "2019-02-26T00:33:31.000+0000"
+				},
+				{
+					"id": "446539",
+					"author": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR(8_0_X): https://github.com/appcelerator/titanium_mobile/pull/10750\r\nPR(master): https://github.com/appcelerator/titanium_mobile/pull/10751\r\n\r\n[~mdelmarter] and [~chrishaff@gmail.com]\r\nUIWebView support custom NSURLProtocol, to load a custom url scheme which we were using to implement TiUIWebView till 7.5.x. We were using above protocol to load resources for url scheme \"app\".\r\n\r\nFrom 8.0.0 we have moved to WKWebView to implement TiUIWebView. WKWebview doesn’t support custom NSURLProtocol. \r\n\r\nBut in iOS 11+ Apple added WKURLSchemeHandler. It works same as NSURLProtocol.\r\nSo I have integrated WKURLSchemeHandler  to load custom url scheme for iOS 11.0+ only via above PR. \r\n\r\nIf your app supports  iOS 11+ only, this PR will fix your issue.\r\n\r\nOtherwise workaround given by [~jquick], is recommended.\r\nThanks!",
+					"updateAuthor": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-05T10:42:24.000+0000",
+					"updated": "2019-03-05T10:47:32.000+0000"
+				},
+				{
+					"id": "446582",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed, waiting on Jenkins builds. ",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-06T14:09:02.000+0000",
+					"updated": "2019-03-06T14:09:02.000+0000"
+				},
+				{
+					"id": "446787",
+					"author": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"body": "[~jquick] and [~vijaysingh] thank you so much for the detailed responses. Joshua, the sample code works as advertised and has allowed me to continue with my project. I really appreciate the quality support and the quick turnaround on these important tickets.",
+					"updateAuthor": {
+						"name": "mdelmarter",
+						"key": "mdelmarter",
+						"displayName": "Matthew Delmarter",
+						"active": true,
+						"timeZone": "Pacific/Auckland"
+					},
+					"created": "2019-03-12T21:11:17.000+0000",
+					"updated": "2019-03-12T21:11:17.000+0000"
+				},
+				{
+					"id": "446792",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Happy to help [~mdelmarter]. And thank you for reporting the issue.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-03-13T02:00:48.000+0000",
+					"updated": "2019-03-13T02:00:48.000+0000"
+				}
+			],
+			"maxResults": 22,
+			"total": 22,
+			"startAt": 0
+		}
+	}
+}

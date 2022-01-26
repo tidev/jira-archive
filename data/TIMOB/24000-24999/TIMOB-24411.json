@@ -1,0 +1,450 @@
+{
+	"id": "166129",
+	"key": "TIMOB-24411",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "17608",
+				"name": "Release 6.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-05-26"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2017-04-20T17:47:44.000+0000",
+		"created": "2017-02-17T13:23:06.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android",
+			"animated",
+			"merge-6.1.0",
+			"scrollTo",
+			"scrollview",
+			"smoothScrollTo"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2017-05-15T18:09:51.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			},
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Add support for smoothScrollTo() method on ScrollView component:\r\nhttps://developer.android.com/reference/android/widget/ScrollView.html#smoothScrollTo(int,%20int)\r\n\r\nIt should use *{animated:true}* option for a better cross-platform implementation\r\n\r\nDon't know how to implement the options this is what I have so far on ScrollViewProxy.java:\r\n\r\n{code:java}\r\n         @Kroll.method\r\n\tpublic void scrollTo(int x, int y, @Kroll.argument(optional=true) KrollDict options) {\r\n\t\tif (!TiApplication.isUIThread()) {\r\n\t\t\tTiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SCROLL_TO, x, y), getActivity());\r\n\r\n\t\t\t//TiApplication.getInstance().getMessageQueue().sendBlockingMessage(getMainHandler().obtainMessage(MSG_SCROLL_TO, x, y), getActivity());\r\n\t\t\t//sendBlockingUiMessage(MSG_SCROLL_TO, getActivity(), x, y);\r\n\t\t} else {\r\n\t\t\thandleScrollTo(x,y,options);\r\n\t\t}\r\n\t}\r\n\r\n//...\r\n\r\n        @Override\r\n\tpublic boolean handleMessage(Message msg) {\r\n\t\tif (msg.what == MSG_SCROLL_TO) {\r\n\r\n//I think the problem is here, since we're creating an empty KrollDict, ignoring the options. But I'm not sure =/\r\n\r\n\t\t\tKrollDict options = new KrollDict();\r\n\t\t\thandleScrollTo(msg.arg1, msg.arg2, options);\r\n\t\t\tAsyncResult result = (AsyncResult) msg.obj;\r\n\t\t\tresult.setResult(null); // signal scrolled\r\n\t\t\treturn true;\r\n\t\t} else if (msg.what == MSG_SCROLL_TO_BOTTOM) {\r\n\t\t\thandleScrollToBottom();\r\n\t\t\tAsyncResult result = (AsyncResult) msg.obj;\r\n\t\t\tresult.setResult(null); // signal scrolled\r\n\t\t\treturn true;\r\n\t\t}\r\n\t\treturn super.handleMessage(msg);\r\n\t}\r\n\r\n\tpublic void handleScrollTo(int x, int y, KrollDict options) {\r\n\t\tif (TiConvert.toBoolean(options, TiC.PROPERTY_ANIMATED, false)) {\r\n\t\t\tgetScrollView().smoothScrollTo(x, y);\r\n\t\t}else{\r\n\t\t\tgetScrollView().scrollTo(x, y);\r\n\t\t}\r\n\t}\r\n{code}\r\n\r\nI think that every time I call `scroll.scrollTo()` on JS it calls the `handleMessage` on scrollViewProxy.java and I don't know of a good way to propagate the `options` to `scrollTo` method.\r\nOf course, in the TiUIScrollView.java file I have the implementation of the smoothScrollTo() method:\r\n\r\n{code:java}\r\npublic void smoothScrollTo(int x, int y)\r\n\t{\r\n\t\tView view = getNativeView();\r\n\t\tif (view instanceof TiHorizontalScrollView) {\r\n\t\t\tTiHorizontalScrollView scrollView = (TiHorizontalScrollView) view;\r\n\t\t\tscrollView.smoothScrollTo(x, y);\r\n\t\t} else if (view instanceof TiVerticalScrollView) {\r\n\t\t\tTiVerticalScrollView scrollView = (TiVerticalScrollView) view;\r\n\t\t\tscrollView.smoothScrollTo(x, y);\r\n\t\t}\r\n\t\tgetNativeView().computeScroll();\r\n\t}\r\n{code}\r\n\r\nAnd it does work and scrolls smoothly =)\r\n\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "TiAPI: Enable ScrollView.smoothScrollTo(x,y) method",
+		"creator": {
+			"name": "chmiiller",
+			"key": "chmiiller",
+			"displayName": "Carlos Henrique Zinato",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "chmiiller",
+			"key": "chmiiller",
+			"displayName": "Carlos Henrique Zinato",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "SDK 6.1, Android SDK >= 21",
+		"comment": {
+			"comments": [
+				{
+					"id": "407285",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Thanks for submitting the ticket. Our engineering team will look into it. ",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-02-17T14:45:55.000+0000",
+					"updated": "2017-02-17T14:45:55.000+0000"
+				},
+				{
+					"id": "407295",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "We should do the same for iOS. Couldn't we just add the {{animated}} parameter to the existing {{scrollTo}} method, like this:\r\n\r\n{code:js}\r\nmyScrollView.scrollTo({\r\n    x: 0,\r\n    y: 100,\r\n    animated: true // default: false, for backwards compatibility\r\n});\r\n{code}\r\n\r\niOS would be easy to implement as well.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-17T15:46:52.000+0000",
+					"updated": "2017-02-17T15:46:52.000+0000"
+				},
+				{
+					"id": "407401",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "https://github.com/appcelerator/titanium_mobile/pull/8841\r\n\r\nChanging parameter to an object and adding animated parameter. Also keeping  the normal scrollTo(x,y) for legacy support!\r\n\r\nExample:\r\n\r\n{code:javascript}\r\nvar win = Ti.UI.createWindow({\r\n    backgroundColor: 'white',\r\n    title: 'ScrollView Demo'\r\n});\r\n\r\nvar scrollView = Ti.UI.createScrollView({\r\n    showVerticalScrollIndicator: true,\r\n    showHorizontalScrollIndicator: true,\r\n    top: 0,\r\n    bottom: 40,\r\n    left: 5,\r\n    right: 5,\r\n    scrollType: \"horizontal\"\r\n});\r\nvar view = Ti.UI.createView({\r\n    backgroundGradient: {\r\n        type: 'linear',\r\n        startPoint: {\r\n            x: '0%',\r\n            y: '0%'\r\n        },\r\n        endPoint: {\r\n            x: '100%',\r\n            y: '0%'\r\n        },\r\n        colors: [{\r\n            color: 'red',\r\n            offset: 0.0\r\n        }, {\r\n            color: 'green',\r\n            offset: 0.5\r\n        }, {\r\n            color: 'blue',\r\n            offset: 1.0\r\n        }]\r\n    },\r\n    top: 10,\r\n    left: 10,\r\n    width: 2000,\r\n    height: 400\r\n});\r\nvar btn1 = Ti.UI.createButton({\r\n    title: \"normal\",\r\n    bottom: 0,\r\n    left: 0\r\n});\r\nvar btn2 = Ti.UI.createButton({\r\n    title: \"smooth\",\r\n    bottom: 0,\r\n    right: 0\r\n});\r\nvar btn3 = Ti.UI.createButton({\r\n    title: \"normal back\",\r\n    bottom: 0\r\n});\r\n\r\nbtn1.addEventListener(\"click\", function() {\r\n    // legacy\r\n    scrollView.scrollTo(4000, 0);\r\n});\r\nbtn2.addEventListener(\"click\", function() {\r\n    // new smooth\r\n    scrollView.scrollTo(\r\n        4000,\r\n        0, {\r\n            animated: true\r\n        });\r\n});\r\nbtn3.addEventListener(\"click\", function() {\r\n    // new normal\r\n    scrollView.scrollTo(\r\n        0,\r\n        0, {\r\n            animated: false\r\n        });\r\n});\r\nscrollView.add(view);\r\nwin.add(scrollView);\r\nwin.add(btn1);\r\nwin.add(btn2);\r\nwin.add(btn3);\r\nwin.open();\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T18:08:47.000+0000",
+					"updated": "2017-02-18T20:43:14.000+0000"
+				},
+				{
+					"id": "407402",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Making a TiAPI ticket so we can have both iOS and Android together (or even Windows if it supports it). iOS PR will come later today.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T18:14:14.000+0000",
+					"updated": "2017-02-18T18:14:14.000+0000"
+				},
+				{
+					"id": "407403",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "About the documentation:\r\nSince it is possible to have two parameters for scrollTo now:\r\n* scrollTo(x,y) \r\n* scrollTo(dict)\r\nwhat do I need to add? Just a second method with the new parameters?",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T18:16:26.000+0000",
+					"updated": "2017-02-18T18:16:26.000+0000"
+				},
+				{
+					"id": "407404",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Shit, so when it has 2 params, we would probably need to expose it as a third one for now. ",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T20:12:53.000+0000",
+					"updated": "2017-02-18T20:12:53.000+0000"
+				},
+				{
+					"id": "407405",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "\r\n{code:java}\r\nscrollTo(x,y,bool)\r\n{code}\r\n or  \r\n\r\n{code:java}\r\nscrollTo(x,y, {animated:true}) \r\n{code}\r\n?",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T20:16:05.000+0000",
+					"updated": "2017-02-18T20:16:05.000+0000"
+				},
+				{
+					"id": "407406",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "{code}scrollTo(x,y, {animated:true}) {code} is better I guess. Just like the listview animation options.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T20:20:58.000+0000",
+					"updated": "2017-02-18T20:21:26.000+0000"
+				},
+				{
+					"id": "407407",
+					"author": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Changed the properties and updated the example. Will do some more testing tomorrow but the example is working already",
+					"updateAuthor": {
+						"name": "michael",
+						"key": "michael",
+						"displayName": "Michael Gangolf",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T20:45:01.000+0000",
+					"updated": "2017-02-18T20:45:01.000+0000"
+				},
+				{
+					"id": "407408",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "You can use 6.1.0 as the version. iOS is done, but i realized that iOS animates per default, which is different to Android I guess. We should leave a note for that in the docs. I will commit by changes to your branch on Monday, so we have a unified PR.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-18T21:54:32.000+0000",
+					"updated": "2017-02-18T21:54:32.000+0000"
+				},
+				{
+					"id": "407425",
+					"author": {
+						"name": "chmiiller",
+						"key": "chmiiller",
+						"displayName": "Carlos Henrique Zinato",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Thank you guys for your effort on that! ScrollView implementation on Android was a bit tricky for me. Glad you guys found a solution and a nice implementation on iOS as well!",
+					"updateAuthor": {
+						"name": "chmiiller",
+						"key": "chmiiller",
+						"displayName": "Carlos Henrique Zinato",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-02-20T13:07:21.000+0000",
+					"updated": "2017-02-20T13:07:21.000+0000"
+				},
+				{
+					"id": "417714",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR Passed for master branch, waiting for backport to 6.1.0.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-04-19T21:29:30.000+0000",
+					"updated": "2017-04-19T21:29:30.000+0000"
+				},
+				{
+					"id": "419334",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Backport: https://github.com/appcelerator/titanium_mobile/pull/9034",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-05-08T21:09:49.000+0000",
+					"updated": "2017-05-08T21:09:49.000+0000"
+				},
+				{
+					"id": "419426",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR passed for both master & backport PR's.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-05-09T23:26:47.000+0000",
+					"updated": "2017-05-09T23:26:47.000+0000"
+				},
+				{
+					"id": "419550",
+					"author": {
+						"name": "chmiiller",
+						"key": "chmiiller",
+						"displayName": "Carlos Henrique Zinato",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Guys, I'm bit confused now, what SDK version should had this smoothScrollTo implemented? 6.1 and ?\r\nThanks",
+					"updateAuthor": {
+						"name": "chmiiller",
+						"key": "chmiiller",
+						"displayName": "Carlos Henrique Zinato",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-05-11T13:50:41.000+0000",
+					"updated": "2017-05-11T13:50:41.000+0000"
+				},
+				{
+					"id": "419555",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "It's in 6.1.0. The backport was missing, because it was merged after 6_1_X was branched. Always rely on the {{Fix-Version}} of a ticket.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-05-11T14:48:27.000+0000",
+					"updated": "2017-05-11T14:48:27.000+0000"
+				},
+				{
+					"id": "419709",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix in  6.1.0.v20170514022959.\r\n{{animated}} in {{scrollView}} works as expected in Android & IOS.\r\n\r\nClosing.\r\n\r\nStudio Ver:     4.9.0.201705110256\r\nSDK Ver:        6.1.0.v20170514022959\r\nOS Ver:         10.12.3\r\nXcode Ver:      Xcode 8.3.2\r\nAppc NPM:       4.2.9\r\nAppc CLI:       6.2.1\r\nTi CLI Ver:     5.0.13\r\nAlloy Ver:      1.9.11\r\nNode Ver:       6.10.1\r\nJava Ver:       1.8.0_101\r\nDevices:        ⇨ google Nexus 6 --- Android 6.0.1\r\n                ⇨ google Nexus 6P --- Android 7.1.1\r\nIOS Simulator: Iphone 6S IOS 10.3                \r\n",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-05-15T18:08:57.000+0000",
+					"updated": "2017-05-15T18:08:57.000+0000"
+				}
+			],
+			"maxResults": 18,
+			"total": 18,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-19665] Android java error when making HTTP request to endpoint that returns 'true' or 'false'"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-19T22:14:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Seth Toda</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-10-03T00:31:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-19T22:14:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Steps to reproduce</h4>
+<h4>Create xhr that pings an endpoint that returns 'true' or 'false</h4>
+<code><pre>
+function doit() {
+    var xhr = Ti.Network.createHTTPClient({
+        onload: function onLoad(e) {
+            alert("Received: Status = " + e.status + ", Value = " + e.responseText);
+        },
+        onerror: function onError(e) {
+            alert("Error: Status = " + e.status + ", Value = " + e.responseText);
+        }
+    });
+
+    xhr.open("GET", "<a href="https://13b6379a34068a7bb6c483d30f362f550675a41c.cloudapp-enterprise.appcelerator.com/t" rel="nofollow" target="_blank">https://13b6379a34068a7bb6c483d30f362f550675a41c.cloudapp-enterprise.appcelerator.com/t</a>");
+    xhr.send();
+}
+</pre></code>
+
+<h4>Error generated</h4>
+<code><pre>
+[ERROR] TiHTTPClient: (TiHttpClient-1) [3054,3054] HTTP Error (java.lang.NullPointerException): Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+[ERROR] TiHTTPClient: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.handleResponse(TiHTTPClient.java:195)
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.access$1200(TiHTTPClient.java:84)
+[ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1194)
+[ERROR] TiHTTPClient: 	at java.lang.Thread.run(Thread.java:818)
+</pre></code>
+
+<h4>Endpoint</h4>
+<code><pre>
+function t(req, res){
+    res.end((((new Date()).getTime() & 1) == 1).toString());
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ashraf Abu 2015-10-23
+
+   </li>
+<li>Seth Toda 2015-10-23
+
+   thanks [~msamah]
+   </li>
+<li>Ashraf Abu 2015-10-29
+
+   Resolving issue as <code>Won't Fix</code>
+   
+   Reason being the endpoint is not being detected as there is no header <code>Content-Type</code>. iOS and Android behaviour are the same.
+   HTTP protocols docs <a href="https://tools.ietf.org/html/rfc7231#section-3.1.1.5" rel="nofollow" target="_blank">https://tools.ietf.org/html/rfc7231#section-3.1.1.5</a>
+   
+   {quote}
+      A sender that generates a message containing a payload body SHOULD
+      generate a Content-Type header field in that message unless the
+      intended media type of the enclosed representation is unknown to the
+      sender.  If a Content-Type header field is not present, the recipient
+      MAY either assume a media type of "application/octet-stream"
+      ([RFC2046], Section 4.5.1) or examine the data to determine its type.
+   {quote}
+   
+   Thus the endpoint should set the header for iOS and Android client to get the proper payload.</li>
+<li>Ashraf Abu 2015-10-29
+
+   Will look into this further.</li>
+<li>Ashraf Abu 2015-10-30
+
+   Please run this code. This code will make it work.
+   
+   <code><pre>
+   // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+   Titanium.UI.setBackgroundColor('#000');
+    
+   var win = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+    
+    
+   var button = Titanium.UI.createButton({
+   	title:'Press to click'
+   });
+    
+   win.add(button);
+    
+   button.addEventListener('click', function(e) {
+   	
+   	var xhr = Ti.Network.createHTTPClient({
+           onload: function(e) {
+               alert("Received: Status = " + this.status + ", Value = " + this.responseText);
+               Ti.API.info("Received: Status = " + this.status + ", Value = " + this.responseText);
+           },
+           onerror: function(e) {
+               alert("Error: Status = " + this.status + ", Value = " + this.responseText, " error:" + e.error);
+           }
+       });
+    
+    	var args = {
+    		name: 'filename',
+    		file: Ti.Filesystem.getFile("mytestfile.txt")
+    	};
+    
+       xhr.open("GET", "<a href="https://13b6379a34068a7bb6c483d30f362f550675a41c.cloudapp-enterprise.appcelerator.com/t" rel="nofollow" target="_blank">https://13b6379a34068a7bb6c483d30f362f550675a41c.cloudapp-enterprise.appcelerator.com/t</a>");
+       xhr.send();
+       
+   
+       
+   });
+    
+   win.open();
+    
+       </pre></code>
+   
+   Resolving this as invalid as the code above will make it work.</li>
+<li>Ashraf Abu 2015-10-30
+
+   Also, you can run <code>appc ti sdk install -d -b 5_0_X</code> to get the branch 5.0.3 which contains 5.0.2.GA with the fixes to the first error issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19665.json">JSON Source</a></p>

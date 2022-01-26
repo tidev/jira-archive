@@ -1,0 +1,176 @@
+---
+title: "[TIMOB-20421] ti.cloud module methods are not responding on MobileWeb when building from Windows"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-29T18:51:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.2, Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>MobileWeb</td></tr>
+<tr><th>Labels</th><td>mobileweb, windows</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2016-02-17T20:58:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-04T23:20:20.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description</h4>
+Can't get response from ti.cloud module methods running as mobile web preview in browser on windows environment, the same code running from a Mac OS system is working as expected. 
+
+<h4>Steps to reproduce</h4>
+
+<h4>Create a new classic default project application on studio with cloud services enabled</h4>
+<h4>Replace the code inside app.js with the next simple test case: </h4>
+<code><pre>
+// this sets the background color of the master UIView (when there are no windows/tab groups on it)
+Titanium.UI.setBackgroundColor('#000');
+
+// create tab group
+var tabGroup = Titanium.UI.createTabGroup();
+
+
+//
+// create base UI tab and root window
+//
+var win1 = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+var tab1 = Titanium.UI.createTab({  
+    icon:'KS_nav_views.png',
+    title:'Tab 1',
+    window:win1
+});
+
+var label1 = Titanium.UI.createLabel({
+	color:'#999',
+	text:'I am Window 1',
+	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+	textAlign:'center',
+	width:'auto'
+});
+
+win1.add(label1);
+
+//
+// create controls tab and root window
+//
+var win2 = Titanium.UI.createWindow({  
+    title:'Tab 2',
+    backgroundColor:'#fff'
+});
+var tab2 = Titanium.UI.createTab({  
+    icon:'KS_nav_ui.png',
+    title:'Tab 2',
+    window:win2
+});
+
+var label2 = Titanium.UI.createLabel({
+	color:'#999',
+	text:'I am Window 2',
+	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+	textAlign:'center',
+	width:'auto'
+});
+
+win2.add(label2);
+
+
+
+//
+//  add tabs
+//
+tabGroup.addTab(tab1);  
+tabGroup.addTab(tab2);  
+
+
+// open tab group
+tabGroup.open();
+
+
+// added during app creation. this will automatically login to
+// ACS for your application and then fire an event (see below)
+// when connected or errored. if you do not use ACS in your
+// application as a client, you should remove this block
+(function(){
+var ACS = require('ti.cloud'),
+    env = Ti.App.deployType.toLowerCase() === 'production' ? 'production' : 'development',
+    username = Ti.App.Properties.getString('acs-username-'+env),
+    password = Ti.App.Properties.getString('acs-password-'+env);
+
+// if not configured, just return
+if (!env || !username || !password) { return; }
+/**
+ * Appcelerator Cloud (ACS) Admin User Login Logic
+ *
+ * fires login.success with the user as argument on success
+ * fires login.failed with the result as argument on error
+ */
+ACS.Users.login({
+	login:username,
+	password:password,
+}, function(result){
+	if (env==='development') {
+		Ti.API.info('ACS Login Results for environment <code>'+env+'</code>:');
+		Ti.API.info(result);
+		alert(JSON.stringify(result));
+	}
+	if (result && result.success && result.users && result.users.length){
+		Ti.App.fireEvent('login.success',result.users[0],env);
+	} else {
+		Ti.App.fireEvent('login.failed',result,env);
+	}
+});
+
+})();
+</pre></code>
+<h4>The alert or Ti info's from the ACS variable are not executed on windows.</h4>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-02-17
+
+   This is a MobileWeb/Studio issue, not a Windows SDK issue. I'm not sure if the bug is in the MobileWeb SDK (if it is, then that'd be [~cbarber]'s ticket); or in Studio for whatever browser/webserver the IDE is using/starting (then it'd be [~kkolipaka]'s ticket in TISTUD)
+   
+   </li>
+<li>Christopher Williams 2016-02-17
+
+   [~rramirez] It'd be pretty easy to try and narrow this down by trying to run the app from the CLI (outside Studio) and see if the bug persists. If so, then it's likely an issue in MobileWeb or maybe even the ACS cloud module. If it _only_ happens inside Studio, then it's a Studio ticket.</li>
+<li>Ewan Harris 2016-03-02
+
+   I can reproduce this issue using
+   
+   Windows 10 Pro
+   Appc NPM: 4.2.3
+   Appc Core: 5.2.0
+   Ti SDK: 5.2.0.GA, 5.1.2.GA
+   Appcelerator Studio: 4.5.0.201602170821
+   
+   
+   When building from both Studio and the CLI on Windows for MobileWeb there are no alerts show, additionally there the following error in the browser console <code>Uncaught TypeError: Cannot read property 'login' of undefined</code>.
+   
+   The ti.cloud module appears to be copied to the build folder just fine, it is seen in the <code>build/mobileweb/modules/ti.cloud</code> folder
+   
+   This appears to be a MobileWeb specific issue as the following platforms, built on Windows, work as expected(that is an alert is shown with the login information):
+   * Android emulator
+   * Android device
+   * Windows Phone emulator
+   * Windows Phone device
+   * Winstore local</li>
+<li>Lee Morris 2017-06-29
+
+   Resolving as "Won't Fix" as MobileWeb has been deprecated.</li>
+<li>Eric Merriman  2018-04-04
+
+   Closing as will not fix.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20421.json">JSON Source</a></p>

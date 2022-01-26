@@ -1,0 +1,272 @@
+---
+title: "[TIMOB-1786] (Partner) iPad out of mem crash on rotation"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:57:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>crash, defect, ipad, partner</td></tr>
+<tr><th>Reporter</th><td>Thomas Huelbert</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:02:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:57:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>this came from a partner as helpdesk item 41851, while we have
+other mem crashes for ipad, it seemed prudent to be sure this was
+not a sperate issue.</p>
+<p>resources and crash logs located on the internal drive @
+Data/Users/Thomas/bugs/41851</p>
+<p>1.install and launch app in any orientation.<br>
+2.once the app loads, tap the first item ("frontpage")<br>
+3.rotate device<br>
+4.tap "overview" along the bottom of the screen<br>
+5.if you've not yet crashed, rotate the device again</p>
+<p>results:out of mem crash</p></div>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-1786_18062/saxologduringcrash.txt">saxologduringcrash.txt</td></td><td>2011-04-15T03:02:18.000+0000</td><td>11803</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-1786_18060/screen-shot-2010-10-03-at-30457-pm.png">screen-shot-2010-10-03-at-30457-pm.png</td></td><td>2011-04-15T03:02:18.000+0000</td><td>371719</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-1786_18061/screen-shot-2010-10-03-at-30555-pm.png">screen-shot-2010-10-03-at-30555-pm.png</td></td><td>2011-04-15T03:02:18.000+0000</td><td>394049</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Thor Svensson 2011-04-15
+
+   <div><p>Nay news on this?</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+   <div><p>Should of course be: "Any news on this?"</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Gah. I'm sorry for not getting back sooner on this. Since the
+   10th, there's been a lot of memory leaks fixed that may solve this
+   issue, but I need to meet with Thomas on whether or not the crash
+   still happens.</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+   <div><p>Soon as I open a scrollable view containing webviews with remote
+   pages and change an orientation, the xCode console shows a Low
+   memory warning. I tried 1.4.1.1 but all the same. (1.4.1.1 actually
+   dies completely on opening a view!)<br>
+   I can send you the project resource folder to try it out.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>1.4.1.1 actually is the same as 1.4.0 in terms of leaks and the
+   like. But I'm still looking into if there's any other leaks that
+   stand out or could be contributing.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Okay, there were a few crashers I was able to catch and fix, but
+   there's still a problem that is not as solvable: Webviews are
+   expensive. Or rather, they can be very expensive with loaded
+   pages.</p>
+   <p>If you load enough pages in Safari on an iPad, you'll notice
+   that the pages you return to reload. This is because iPad with
+   Apple's own Safari ran out of memory with web pages, and had to
+   jettison some web views. In Safari, when you zoom out to see all
+   pages, they're just thumbnail images. This way, Safari only needs
+   one web view in case memory gets tight. We can't do that.</p>
+   <p>Because there is no way to save state (text fields filled,
+   javascript values in the web view, etc) for a web view, we can't
+   jettison them like we can image views, even if they're offscreen.
+   This means that multiple web views can add up very quickly,
+   compared to any other view. 1.4.0 and 1.4.1.1 have</p>
+   <p>So what is happening is that there's 6 web views for the
+   sections, I assume another web view to actually read, and overview
+   has another dozen web views. With so many pages loaded, especially
+   since the images are still full size, it's no wonder that the
+   device ran out of memory.</p>
+   <p>I don't suppose you have any control over the content server?
+   That is, the most effective solution is for the server to prerender
+   the pages into images that can be used as image views in sections
+   and overview. You'll also see a performance boost with this.</p>
+   <p>If this is unfeasible, then we'll have to figure out a custom
+   view or new properties to mitigate the load of web views.</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+   <div><p>I was aware of loading all web views in the overview part (in
+   one scroll view) was probably to much it could handle. But even
+   though I leave the overview part out and only create 5-6 web views
+   in the Scrollable view (Where I thought only 2-3 should be loaded
+   at the time) it comes up with memory warning as soon as you swipe
+   through or rotate the device. But maybe this is one of the fix you
+   made.</p>
+   <p>I guess I can live without the overview in this form. I was
+   though hoping I could create thumbnail images in the app, but then
+   every web view have to be displayed. I have some control over the
+   backend. But I'm not sure if there is a possibility to pre-render
+   the pages on the server. But again, that will only be feasible
+   solution for the overview. We need real web pages in the sections
+   views.</p>
+   <p>What is strange, is it was first in version 1.4.x that we
+   discovered this memory problems. There was some instability in some
+   of the earlier versions, but not all of them.</p>
+   <p>Is it possible to get a version with the fixes you have made, so
+   I can try it out?</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>In speaking with others, there are some more possible
+   measures.</p>
+   <p>The first thing noticed is that the images could be reduced.
+   That is, the carnival photo is 1024 * 576 pixels in size, despite
+   the web page having it be half that size onscreen. With reduced
+   resolution, that could save a lot of RAM.</p>
+   <p>The second thing is that, instead of thumbnail images of pages,
+   which admittedly is nontrivial, perhaps thumbnail or mobile pages
+   could be used in places where the page would otherwise be scaled
+   down. That is, for sections and especially overview, the pages
+   themselves are simpler versions, no javascript, no videos, no ads
+   (The ads would be unreadable at that size anyways) and
+   thumbnail-sized versions of the images and perhaps a summary of the
+   articles that are on the page.</p>
+   <p>By the way, the version with the fixes, or really, any version,
+   is on our continuous build server:</p>
+   <p><a href=
+   "<a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html</a>"><a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html</a></a></p></div></li>
+<li>Thor Svensson 2011-04-15
+
+   <div><p>That is actually a very god idea of having a lighter version of
+   the pages in the overview! That will definitely be considered as a
+   possible solution. But do you then mean, that web view in it self
+   is not the memory heavy part but rather the content i.e. the web
+   page it self?</p>
+   <p>I'm aware of the instrument possibility in xCode, but that is
+   very difficult way of measure actual memory usage in a running app.
+   Is there a any way to write actual memory usage by the app in
+   log?</p>
+   <p>The main worries is of course the scrollable view (the
+   sections). That is where the articles are viewed and read. I was
+   convinced that web view was jettison when needed in the scrollable
+   view, but if I understand your earlier post, they are not! Is that
+   correctly understood? that would be a big problem and actually ruin
+   the main idea behind this solution! So what are the possibilities
+   for a new properties to mitigate the load of web views when close
+   to memory limits as you mentioned?</p>
+   <p>Thank you very much for the access to the daily build site. I
+   will go right on and download the latest build, that will be
+   mobilesdk-1.4.2-20100924104824-osx.zip I suppose?</p>
+   <p>Hope you can respond to this post before the weekend is over us,
+   so I have some news at the monday status meeting.</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+    <div><p>As you suggested, we have reduced the size of the webpages,
+    images and made some changes to the app, remove the scaled down
+    previews in the overview etc. So now the app is little bit more
+    stable. But we will definitely need the possibility to jettison
+    offscreen web views as it still crashes in the section views. The
+    "Days in pictures" section which have image views instead of web
+    views also crashes with low memory with only few images.</p>
+    <p>Can you provide an e-mail address so I can send you the revised
+    app code?</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+    <div><p>Sure. <a href=
+    "mailto:bhamon@appcelerator.com">bhamon@appcelerator.com</a> ,
+    although sending to Thomas would also work. With image views, it
+    might be because we have to hold onto remote images, and don't have
+    an on-disk cache. I'll look into what can be done to mitigate
+    it.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+    <div><p>Okay, I've done some more researching and here's a few
+    techniques:</p>
+    <p>toImage() is a function of views (Including webviews) that
+    generates an image based on the view at that moment. Images that
+    are stored only in memory have to stay in memory. Images that are
+    stored as files can be purged because the file is on disk.</p>
+    <p>So, the avenues you have open are to save remote images to disk
+    (The temporary folder if need be) and then point the image views to
+    the file paths. For small web views like in overview, after a page
+    loads, you could call toImage, and replace the web view with an
+    image view. The scroll views without clipping example has something
+    similar with table views. If there still is too much memory issues,
+    I suppose you could move these images to files as well.</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+    <div><p>Thank you for the suggestion. I was aware of most of these
+    technics and have experiment a great deal with it. (Scroll views
+    without clipping, I'm not sure what that is) Downloading images
+    using image views are only possible when images are in view. And in
+    addition, quite a heavy process.<br></p>
+    <p>Web views converted to images are only feasible for a preview
+    purpose. (i have removed the overview possibility, so we don't need
+    it there) - Our solution needs active web views! And we desperately
+    need a possibility to purge/mitigate offscreen web views and remote
+    images. This is vital for our solution.</p>
+    <p>It was my conviction that offscreen web views and image views
+    was purged. So I was quite amazed when I found out that was not the
+    case. What are the possibilities to have a property for purging
+    remote content from memory?</p>
+    <p>Thank you in advance.</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+    <div><p>Blain</p>
+    <p>I have changed the way web views are loaded and displayed in the
+    app. A Scrollable view is created with known count of standard
+    views. For every scroll in the view, a Web view with remote link is
+    added to the current view. Before that happens, the previous Web
+    view is removed, null'ed and overwritten with the new Web View.
+    That is done in the certain, that web views are destroyed after the
+    are null'ed (That should be the case, is in it?).</p>
+    <p>Now the app can run extensible longer, but eventually memory
+    warning, level 1 and 2, appears and the app is killed.</p>
+    <p>Debugging and running Allocation and Leak trace instruments in
+    XCode does not seems to show any heavy leaks or memory use! Or are
+    what? (Check the attached screen dumps from XCode and the Console
+    log).</p>
+    <p>Any idea what's going on here?</p></div></li>
+<li>Thor Svensson 2011-04-15
+
+    <div><p>Support case no 48561 <a href=
+    "<a href="http://developer.appcelerator.com/helpdesk/view/48561" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/48561</a>"><a href="http://developer.appcelerator.com/helpdesk/view/48561" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/48561</a></a>
+    is related to this ticket.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+    <div><p>Rotating and scrolling the page do not crash the iPad any more.
+    Marking fixed for Thomas to verify.</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+    <div><p>quite a but of work around this. Thor, have you had a chance to
+    try the latest CI build?</p></div></li>
+<li>Ralf Pfeiffer 2011-04-15
+
+    <div><p>This is quite a long defect (and related HD ticket)</p>
+    <p>There has been a deep technical investigation and collaboration
+    between engineering and a customer, and many helpful pointers and
+    app restructuring.</p>
+    <p>It seems from my reading that we have even looked at performance
+    of native code which has the same symptoms.</p>
+    <p>The last action is for Thomas to verify, and I don't think we
+    should leave it open as needs-more-info.</p>
+    <p>If we cannot repro, as our problem and not an issue that also
+    occurs when writing native apps, then I want to see this
+    closed.</p>
+    <p>I am placing this back to "fixed-in-qa", under the 1.5.1
+    release.</p>
+    <p>~Ralf</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+    <div><p>not crashing in todays 1.6.0 pull <a href=
+    "/projects/32238/changesets/INFO" title=
+    "Changeset [INFO]">[INFO]</a> Titanium SDK version: 1.6.0 (01/13/11
+    08:11 7ca73a3)</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1786.json">JSON Source</a></p>

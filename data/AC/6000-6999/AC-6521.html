@@ -1,0 +1,512 @@
+---
+title: "[AC-6521] Android view performance tests slower with 9.0.0.GA"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2020-04-17T18:16:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>android, performance, test</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2020-04-04T18:21:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-04-17T18:16:34.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I was doing some tests with the SDK (e.g. optimizing some many for-loops and some keySet() -> entryMap() changes) and was looking to find some performance tests. I found and old page from shockoe where they did some performance testing. I used that code 
+<code><pre>
+// Proxy creation - Sequential Sets
+function createViews() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView();
+
+			newView.top = 5;
+			newView.height = 40;
+			newView.width = Ti.UI.FILL;
+			newView.left = 5;
+			newView.right = 5;
+			newView.backgroundColor = 'red';
+
+			theWindow.add(newView);
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('added 1000 views w/o/ creation dict in ' + delta + 'ms');
+		createViewsWithDict()
+	});
+
+	theWindow.open();
+}
+
+
+
+// Proxy creation - Creation dict
+
+function createViewsWithDict() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('added 1000 views w/ creation dict in ' + delta + 'ms');
+		updateViews();
+	});
+
+	theWindow.open();
+}
+
+// Proxy update - Sequential Sets
+
+function updateViews() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var children = theWindow.children;
+
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			children[ii].height = 80;
+			children[ii].backgroundColor = 'blue';
+			children[ii].left = 10;
+			children[ii].right = 10;
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('updated 1000 views sequentially in ' + delta + 'ms');
+		updateViewsApplyProperties();
+	});
+
+	theWindow.open();
+}
+
+function updateViewsApplyProperties() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var children = theWindow.children;
+
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			children[ii].applyProperties({
+				height: 80,
+				backgroundColor: 'blue',
+				left: 10,
+				right: 10
+			});
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('updated 1000 views via applyProperties in ' + delta + 'ms');
+		createViewsWithDict();
+	});
+
+	theWindow.open();
+}
+
+
+
+// Proxy creation - Creation dict
+
+function createViewsWithDict() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('added 1000 views w/ creation dict in ' + delta + 'ms');
+		populateTableViewSequential();
+	});
+
+	theWindow.open();
+}
+
+
+
+// Table population - sequential
+function populateTableViewSequential() {
+	var theWindow = Ti.UI.createWindow();
+
+	var theTable = Ti.UI.createTableView({
+		width: Ti.UI.FILL,
+		height: Ti.UI.FILL
+	});
+
+	theWindow.add(theTable);
+
+	theWindow.addEventListener('open', function() {
+		var startTime = new Date();
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newRow = Ti.UI.createTableViewRow({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theTable.appendRow(newRow);
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('added 1000 rows sequentially in ' + delta + 'ms');
+		populateTableViewEnMasse();
+	});
+
+	theWindow.open();
+}
+
+// Table population - bulk
+function populateTableViewEnMasse() {
+	var theWindow = Ti.UI.createWindow();
+
+	var theTable = Ti.UI.createTableView({
+		width: Ti.UI.FILL,
+		height: Ti.UI.FILL
+	});
+
+	theWindow.add(theTable);
+
+	theWindow.addEventListener('open', function() {
+		var startTime = new Date();
+
+		var tableData = [];
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newRow = Ti.UI.createTableViewRow({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			tableData.push(newRow);
+		}
+
+		theTable.data = tableData;
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('added 1000 rows en masse in ' + delta + 'ms');
+		removeViews();
+	});
+
+	theWindow.open();
+}
+
+
+// View removal - sequential
+
+function removeViews() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var startTime = new Date();
+
+		var children = theWindow.children;
+
+		for (var ii = 0, numChildren = children.length; ii < numChildren; ++ii) {
+			theWindow.remove(children[ii]);
+		}
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('removed 1000 views in ' + delta + 'ms');
+		removeViewsEnMasse();
+	});
+
+	theWindow.open();
+}
+
+// View removal - bulk
+
+function removeViewsEnMasse() {
+	var theWindow = Ti.UI.createWindow({
+		layout: 'vertical'
+	});
+
+	theWindow.addEventListener('open', function() {
+
+		for (var ii = 0; ii < 1000; ++ii) {
+			var newView = Ti.UI.createView({
+				top: 5,
+				height: 40,
+				width: Ti.UI.FILL,
+				left: 5,
+				right: 5,
+				backgroundColor: 'red'
+			});
+
+			theWindow.add(newView);
+		}
+
+		var startTime = new Date();
+
+		theWindow.removeAllChildren();
+
+		var endTime = new Date();
+		var delta = endTime - startTime;
+
+		theWindow.close();
+
+		console.log('removed 1000 views en masse in ' + delta + 'ms');
+		eventFiringTitanium();
+	});
+
+	theWindow.open();
+}
+
+//Events - Ti.App events
+
+function eventFiringTitanium() {
+	var startTime;
+
+	var handledCount = 0;
+
+	function testListener() {
+		handledCount++;
+
+		if (handledCount === 10000) {
+			var endTime = new Date();
+			var delta = endTime - startTime;
+
+			console.log('fired 10000 Ti.APP events in ' + delta + 'ms');
+
+			Ti.App.removeEventListener('testEvent', testListener);
+			eventFiringBackbone();
+		}
+	}
+
+	Ti.App.addEventListener('testEvent', testListener);
+
+	startTime = new Date();
+
+	for (var ii = 0; ii < 10000; ++ii) {
+		Ti.App.fireEvent('testEvent');
+	}
+}
+
+//Events - Backbone
+function eventFiringBackbone() {
+	var startTime;
+
+	//since events fire asynchronously, we need to keep track of how many were handled.
+	var handledCount = 0;
+	var eventingObj = _.extend({}, Backbone.Events);
+
+	eventingObj.on('testEvent', function() {
+		handledCount++;
+
+		if (handledCount === 10000) {
+			var endTime = new Date();
+			var delta = endTime - startTime;
+
+			console.log('fired 10000 Backbone events in ' + delta + 'ms');
+		}
+	});
+
+	startTime = new Date();
+
+	for (var ii = 0; ii < 10000; ++ii) {
+		eventingObj.trigger('testEvent');
+	}
+}
+
+var w = Ti.UI.createWindow({});
+w.addEventListener("open", function() {
+	createViews();
+})
+w.open();
+</pre></code>
+
+It looks like 9.0.0.GA got slower in some parts.
+
+*8.3.1.GA:*
+added 1000 views w/o/ creation dict in 1229ms
+added 1000 views w/ creation dict in 1206ms
+added 1000 rows sequentially in 1796ms
+added 1000 rows en masse in 1187ms
+removed 1000 views in 61ms
+removed 1000 views en masse in 21ms
+fired 10000 Ti.APP events in 99ms
+fired 10000 Backbone events in 44ms
+
+*9.0.0.GA:*
+added 1000 views w/o/ creation dict in 2364ms
+added 1000 views w/ creation dict in 2077ms
+added 1000 rows sequentially in 2414ms
+added 1000 rows en masse in 1626ms
+removed 1000 views in 369ms
+removed 1000 views en masse in 21ms
+fired 10000 Ti.APP events in 148ms
+fired 10000 Backbone events in 46ms
+
+Are there any other performance tests for more options/tests? 
+Why are the view creation numbers slower?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-04-07
+
+   As of Titanium 9.0.0, we now build a "debug" version of the APK when your deployment type is "development" or "test". This is new and will cause the app to be a bit slower at runtime.
+   
+   If you build for "production", then Titanium 9.0.0 will build a "release" version of the APK like before. This will provide the faster results you are looking for.</li>
+<li>Michael Gangolf 2020-04-12
+
+   I see. Thanks for the hint! Here are the production numbers:
+   
+   *8.3.1.GA*
+   added 1000 views w/o/ creation dict in 378ms
+   added 1000 views w/ creation dict in 359ms
+   added 1000 rows sequentially in 486ms
+   added 1000 rows en masse in 303ms
+   removed 1000 views in 10ms
+   removed 1000 views en masse in 6ms
+   fired 10000 Ti.APP events in 19ms
+   fired 10000 Backbone events in 9ms
+   
+   *9.0.0.GA*
+   added 1000 views w/o/ creation dict in 406ms
+   added 1000 views w/ creation dict in 378ms
+   added 1000 rows sequentially in 606ms
+   added 1000 rows en masse in 315ms
+   removed 1000 views in 43ms
+   removed 1000 views en masse in 3ms
+   fired 10000 Ti.APP events in 20ms
+   fired 10000 Backbone events in 10ms
+   
+   can be closed :)</li>
+</ol>
+
+
+<p><a href="/AC/AC-6521.json">JSON Source</a></p>

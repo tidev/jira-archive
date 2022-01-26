@@ -1,0 +1,189 @@
+---
+title: "[TIMOB-11322] iOS: Filesystem - Console output returns unexpected characters during DB migration ( iPad only)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2012-12-04T01:43:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>2012 Sprint 25, 2012 Sprint 25 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, ipad, qe-ios100112, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Olga Romero</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-10-09T20:36:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:44:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Description:
+While testing Filesystem Module I noticed a different output in console for iPad and iPhone.
+It is not a regression, exists on 2.1.3
+
+Test steps:
+1. Run this code below
+<code><pre>
+var win = Ti.UI.createWindow({
+    title:'db testing',
+});
+ 
+var db = Titanium.Database.open('mydb');
+ 
+var l3 = Titanium.UI.createLabel({
+    text:'unicode placeholder',
+    width:300,
+    height:40,
+    top:160
+});
+win.add(l3);
+ 
+var l = Titanium.UI.createLabel({
+    text:'See Log for output',
+    top:10,
+    left:10,
+    height:'auto',
+    width:'auto'
+});
+win.add(l);
+ 
+var b1 = Titanium.UI.createButton({
+    title:'Create the DB',
+    width:200,
+    height:40,
+    top:40
+});
+win.add(b1);
+ 
+b1.addEventListener('click', function()
+{   var l1 = Titanium.UI.createLabel({
+        text:'2nd context test - see log.',
+        color:'#fff',
+        font:{fontSize:14},
+        width:'auto',
+        height:'auto'
+    });
+     
+    win.add(l1);
+var db = Titanium.Database.open('mydb');
+db.execute('CREATE TABLE IF NOT EXISTS DATABASETEST  (ID INTEGER, NAME TEXT)');
+db.execute('DELETE FROM DATABASETEST');
+ 
+db.execute('INSERT INTO DATABASETEST (ID, NAME ) VALUES(?,?)',1,'Name 1');
+db.execute('INSERT INTO DATABASETEST (ID, NAME ) VALUES(?,?)',2,'Name 2');
+db.execute('INSERT INTO DATABASETEST (ID, NAME ) VALUES(?,?)',3,'Name 3');
+db.execute('INSERT INTO DATABASETEST (ID, NAME ) VALUES(?,?)',4,'Name 4');
+db.execute('INSERT INTO DATABASETEST (ID, NAME ) VALUES(?,?)', 5, '\u2070 \u00B9 \u00B2 \u00B3 \u2074 \u2075 \u2076 \u2077 \u2078 \u2079');
+var updateName = 'I was updated';
+var updateId = 4;
+db.execute('UPDATE DATABASETEST SET NAME = ? WHERE ID = ?', updateName, updateId);
+ 
+db.execute('UPDATE DATABASETEST SET NAME = "I was updated too" WHERE ID = 2');
+ 
+db.execute('DELETE FROM DATABASETEST WHERE ID = ?',1);
+ 
+Titanium.API.info('JUST INSERTED, rowsAffected = ' + db.rowsAffected);
+Titanium.API.info('JUST INSERTED, lastInsertRowId = ' + db.lastInsertRowId);
+db.close();
+});
+ 
+var b2 = Titanium.UI.createButton({
+    title:'Select on the db',
+    width:200,
+    height:40,
+    top:100
+});
+win.add(b2);
+ 
+b2.addEventListener('click', function()
+{
+var db = Titanium.Database.open('mydb');
+var rows = db.execute('SELECT * FROM DATABASETEST');
+Titanium.API.info('ROW COUNT = ' + rows.getRowCount());
+Titanium.API.info('ROW COUNT = ' + rows.getRowCount());
+Titanium.API.info('ROW COUNT = ' + rows.getRowCount());
+ 
+while (rows.isValidRow())
+{
+    Titanium.API.info('ID: ' + rows.field(0) + ' NAME: ' + rows.fieldByName('name') + ' COLUMN NAME ' + rows.fieldName(0));
+    if (rows.field(0)==5)
+    {
+        l3.text = rows.fieldByName('name');
+    }
+ 
+    rows.next();
+}
+rows.close();
+db.close(); // close db when you're done to save resources
+    var l2= Titanium.UI.createLabel({
+        text:'Check the select - see log.',
+        color:'#fff',
+        font:{fontSize:14},
+        width:'auto',
+        height:'auto',
+        top:400,
+    });
+    win.add(l2);
+});
+var l3 = Titanium.UI.createLabel({
+    text:'unicode placeholder',
+    width:300,
+    height:40,
+    top:160
+});
+ 
+win.open();
+</pre></code>
+
+2. See log for output
+
+Expected result:
+
+You should see the following output: 
+[INFO] ROW COUNT = 4 
+[INFO] ROW COUNT = 4 
+[INFO] ROW COUNT = 4 
+[INFO] ID: 2 NAME: I was updated too COLUMN NAME ID 
+[INFO] ID: 3 NAME: Name 3 COLUMN NAME ID 
+[INFO] ID: 4 NAME: I was updated COLUMN NAME ID 
+*[INFO] ID: 5 NAME: ⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ COLUMN NAME ID*
+
+Actual result, for iPad only:
+ [INFO] ROW COUNT = 4
+ [INFO] ROW COUNT = 4
+ [INFO] ROW COUNT = 4
+ [INFO] ID: 2 NAME: I was updated too COLUMN NAME ID
+ [INFO] ID: 3 NAME: Name 3 COLUMN NAME ID
+ [INFO] ID: 4 NAME: I was updated COLUMN NAME ID
+ *[INFO] ID: 5 NAME: ⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ -C-O-L-U-M-N -N-A-M-E -I-D*
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2012-12-04
+
+   Tried Reproducing with the following devices/sim (TISDK- 3.0.0 build :f65ebe623c4e6522e67ce8fcf8fc30eb96f03ccb as on December 3, 2012)
+    ** on iPad 3 running iOS6, iPhone 4S running 5.1 - Cannot Reproduce.
+    ** On iPad 5.1 simulator, iPhone 5.1 simulator - Cannot Reproduce. 
+    ** on iPad 3 running 5.1.1 (device on which the bug was reported)- Can Reproduce.
+   
+   Tried Debugging the bug through Xcode build on the same device - Cannot Reproduce.
+   
+   This could be a device problem </li>
+<li>Olga Romero 2013-03-07
+
+   @Sabil will keep in mind iPad3 iOS 5.1.1
+   
+   Im closing this issue. Cannot reproduce with:
+   Titanium Studio, build: 3.0.2.201302191606
+   Titanium SDK, build: 3.1.0.v20130306145654
+   Devices:
+   iPad mini iOS 6.0
+   iPad3 iOS 6.0.1
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11322.json">JSON Source</a></p>

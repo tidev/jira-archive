@@ -1,0 +1,84 @@
+---
+title: "[TIMOB-12368] CLI: There's no way to set the build SDK from the new CLI"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>cb-tooling, ft</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-01-22T03:08:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-26T20:55:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>problem</h4>
+
+The new CLI has an option for specifying a Titanium SDK, but this option doesn't actually use this SDK to build, only to bootstrap. No matter what value you use for --sdk, or any other option, it will only use the SDK set in the project's tiapp.xml. This makes testing multiple versions cumbersome and automation near impossible. 
+
+<h4>proposed solution</h4>
+
+The --sdk option should actually use the specified SDK to build the project.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-08-12
+
+   Is it possible to instead just make this generic and provide an option to override any tiapp.xml value? Or is this value common enough that we'd want a special shortcut for this?</li>
+<li>Tony Lukasavage 2014-08-12
+
+   I can't think of a practical app developer situation in which I'd want to specify a different CLI SDK vs a tiapp.xml SDK. It seems most logical to have <code>--sdk</code> change both, and to provide a new option(s) to configure the individual CLI or tiapp.xml SDKs in the rare cases you'd actually want them to be different.</li>
+<li>Tim Poulsen 2014-08-25
+
+   As a workaround: What I found while investigating the linked ticket is that if you remove the <sdk-version> tag from the tiapp.xml then your app will be built using either the version selected with <code>ti sdk select</code> or the version you specify with the <code>--sdk</code> arg. In either case, whatever is set with <code>ti sdk select</code> is used by the CLI to bootstrap.</li>
+<li>Chris Barber 2014-08-25
+
+   The problem here is the tiapp.xml parsing is done in the SDK, not the CLI. We designed it so that the SDK would always know how to parse the tiapp.xml. That way if TiSDK 3.4.0 added some new tiapp.xml tags, it could properly interpret them and it wouldn't matter if your Titanium CLI was up-to-date.
+   
+   As it turns out, nearly everybody has the latest Titanium CLI and the Titanium CLI is almost always shipped at the same time Titanium SDK.
+   
+   To properly solve this, we should create proxy commands for "build", "clean", "create", and "project" in the Titanium CLI and have the "build" proxy command do the tiapp.xml parsing. This is not trivial, but also isn't hard. If we're going to make this change, we may want to sit down and think things through and consider any other design changes such as the possible introduction of a daemon.</li>
+<li>Tim Poulsen 2014-08-25
+
+   Not nearly so involved, I just submitted <a href="https://github.com/appcelerator/titanium_mobile/pull/5987" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5987</a>
+   
+   Functional review:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor: 'white'
+   });
+   var lbl = Ti.UI.createLabel({
+       text: "Titanium version: " + Ti.version,
+       wordWrap: true,
+       top: 20, left: 10, right: 10
+   });
+   win.add(lbl);
+   win.open();
+   </pre></code>
+   
+   1. Create an app with the code above
+   2. Set the sdk-version in tiapp.xml to some arbitrary version
+   2. Run from the CLI with <code>ti build -p android --sdk 3.4.0</code> (other platforms should work, too). Log messages during the build will indicate that 3.4.0 was used to build, as should the label once the app launches.</li>
+<li>Chris Barber 2014-08-25
+
+   I commented on the pull request, but the proposed solution will not work. It ALWAYS overrides the tiapp.xml's <code><sdk-version></code> with the selected SDK.
+   
+   The whole point of the <code><sdk-version></code> in the tiapp.xml is so that you can have certain apps designed to work with a specific version of the Titanium SDK. If you build an app that is designed for Titanium SDK 3.2.0, then it should not be using 3.3.0 or 3.1.0 or any version other than 3.2.0.
+   
+   This ticket should be closed as "Won't Fix", but it may be acceptable to add a <code>\-\-force\-sdk <ver></code>, but I'm not sold that this is a good idea.</li>
+<li>Tim Poulsen 2014-08-26
+
+   You can close that PR. I didn't think that it would be the best or correct solution, just a hack that works in some cases. Please don't close this ticket. The linked ticket, which I created, was a feature request. I closed it because this ticket had more activity & watchers. Please change this ticket to a feature request. I don't care if overriding uses the --sdk arg or a new --force-sdk flag.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12368.json">JSON Source</a></p>

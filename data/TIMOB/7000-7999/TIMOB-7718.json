@@ -1,0 +1,434 @@
+{
+	"id": "86693",
+	"key": "TIMOB-7718",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "12593",
+				"name": "Release 2.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2012-03-30"
+			},
+			{
+				"id": "13170",
+				"name": "Sprint 2012-06",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-03-25"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2012-03-16T12:39:08.000+0000",
+		"created": "2012-02-18T10:57:31.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"module_network",
+			"qe-testadded"
+		],
+		"versions": [
+			{
+				"id": "12677",
+				"description": "Release 1.8 Service Pack 1",
+				"name": "Release 1.8.1",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-01-31"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "36350",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "128579",
+					"key": "TIMOB-16795",
+					"fields": {
+						"summary": "Android: Uncaught TypeError: Illegal invocation",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Low",
+							"id": "4"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "stephentramer",
+			"key": "stephentramer",
+			"displayName": "Stephen Tramer",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2014-04-01T21:33:31.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "h2. Problem\r\n\r\nApp crashes after several calls to the socket running on the app. Sometimes it crashes after 2-3 requests, but I have seen it take up to 30.\r\n\r\nh2. Test case\r\n\r\n{code:lang=javascript|title=app.js}\r\nvar info = Ti.API.info;\r\n\r\n///=====================\r\nvar socket = undefined;\r\nvar connectedSockets = [];\r\n\r\nfunction connect()\r\n{\r\n    if(socket === undefined || socket.state === Ti.Network.Socket.CLOSED)\r\n    {\r\n        socket = Titanium.Network.Socket.createTCP({\r\n            host:Ti.Platform.address,\r\n            port:8080,\r\n            listenQueueSize:100,\r\n            accepted: accepted,\r\n            closed: function(e)\r\n            {\r\n                info(\"Closed listener\");\r\n            },\r\n            error: function(e)\r\n            {\r\n                Ti.API.error(\"Socket encountered error when listening\");\r\n                Ti.API.error(\" error code '\" + e.errorCode + \"'\");\r\n                Ti.API.error(\" error description '\" + e.error + \"'\");\r\n            }\r\n        });\r\n        try\r\n        {\r\n            socket.listen();\r\n            info(\"###Listening on \" + socket.host + \":\" + socket.port);\r\n            socket.accept(acceptedCallbacks);\r\n        } catch (e)\r\n        {\r\n            info('Exception: ' + e);\r\n        }\r\n    }\r\n\r\n}\r\n\r\nfunction accepted(e)\r\n{\r\n    var sock = e.inbound;\r\n    info('ACCEPTED: ' + sock.host + ':' + sock.port);\r\n    Ti.Stream.pump(sock, pumpCallback, 1024, true);\r\n    socket.accept(acceptedCallbacks);\r\n}\r\n\r\n\r\nfunction pumpCallback(e)\r\n{\r\n    var sock = e.source;\r\n\r\n    if(e.bytesProcessed == -1)\r\n    { // EOF\r\n        info(\"<EOF> - Closing the remote socket!\");\r\n\r\n        removeSocket(sock);\r\n        sock.close();\r\n    }\r\n    else\r\n    {\r\n        if(e.errorDescription === undefined || e.errorDescription === \"\")\r\n        {\r\n            info(\"DATA: \" + e.buffer.toString());\r\n            //--\r\n            try\r\n            {\r\n                var s = \"Sup world!\";\r\n\r\n                var msg = \"HTTP/1.1 200 OK\\n\";\r\n                msg += \"Date: Fri, 31 Dec 1999 23:59:59 GMT\\n\";\r\n                msg += \"Connection: close\\n\";\r\n                msg += \"Content-Type: text/html\\n\";\r\n                msg += \"Content-Length: \" + s.length + \"\\n\";\r\n                msg += \"\\n\";\r\n                msg += s;\r\n\r\n                sock.write(Ti.createBuffer({value: msg}));\r\n                sock.close();\r\n\r\n            } catch (e)\r\n            {\r\n                info('Exception: ' + e);\r\n            }\r\n\r\n            //--\r\n        }\r\n        else\r\n        {\r\n            info(\"READ ERROR: \" + e.errorDescription);\r\n        }\r\n    }\r\n}\r\n\r\nvar acceptedCallbacks = {\r\n    error : function(e)\r\n    {\r\n        Ti.API.info(e.error);\r\n        Ti.UI.createAlertDialog({\r\n            title:\"Socket error: \" + e.socket.host,\r\n            message:e.error\r\n        }).show();\r\n    }\r\n};\r\n\r\n\r\nexports.start = function() {\r\n    connect();\r\n}\r\n{code}\r\n\r\nh2. Logs\r\n\r\n{code:lang=none|title=console}\r\n2012-02-18 13:51:20.345 Kiosk[69478:1be07] -[KrollObject getCFRunLoop]: unrecognized selector sent to instance 0x9d7f790\r\n\r\n[ERROR] The application has crashed with an unhandled exception. Stack trace:\r\n\r\n\r\n\r\n0   CoreFoundation                      0x030b1052 __exceptionPreprocess + 178\r\n\r\n1   libobjc.A.dylib                     0x03242d0a objc_exception_throw + 44\r\n\r\n2   CoreFoundation                      0x030b2ced -[NSObject doesNotRecognizeSelector:] + 253\r\n\r\n3   CoreFoundation                      0x03017f00 ___forwarding___ + 432\r\n\r\n4   CoreFoundation                      0x03017ce2 _CF_forwarding_prep_0 + 50\r\n\r\n5   Kiosk                               0x001c32b8 -[AsyncSocket attachStreamsToRunLoop:error:] + 104\r\n\r\n6   Kiosk                               0x001c2b8f -[AsyncSocket doAcceptFromSocket:withNewNativeSocket:] + 607\r\n\r\n7   Kiosk                               0x001cb2b8 -[AsyncSocket doCFSocketCallback:forSocket:withAddress:withData:] + 488\r\n\r\n8   Kiosk                               0x001c1fd4 MyCFSocketCallback + 196\r\n\r\n9   CoreFoundation                      0x0301fe44 __CFSocketPerformV0 + 948\r\n\r\n10  CoreFoundation                      0x0308597f __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 15\r\n\r\n11  CoreFoundation                      0x02fe8b73 __CFRunLoopDoSources0 + 243\r\n\r\n12  CoreFoundation                      0x02fe8454 __CFRunLoopRun + 1012\r\n\r\n13  CoreFoundation                      0x02fe7db4 CFRunLoopRunSpecific + 212\r\n\r\n14  CoreFoundation                      0x02fe7ccb CFRunLoopRunInMode + 123\r\n\r\n15  Foundation                          0x0103041f -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 300\r\n\r\n16  Kiosk                               0x0020bac5 -[TiNetworkSocketTCPProxy socketRunLoop] + 325\r\n\r\n17  Kiosk                               0x0020c27b -[TiNetworkSocketTCPProxy startListeningSocket] + 699\r\n\r\n18  Foundation                          0x00ffc4e6 -[NSThread main] + 76\r\n\r\n19  Foundation                          0x00ffc457 __NSThread__main__ + 1258\r\n\r\n20  libsystem_c.dylib                   0x931e9ed9 _pthread_start + 335\r\n\r\n21  libsystem_c.dylib                   0x931ed6de thread_start + 34\r\n\r\n2012-02-18 13:51:20.349 Kiosk[69478:1be07] *** Terminating app due to uncaught exception 'NSInvalidArgumentException', reason: '-[KrollObject getCFRunLoop]: unrecognized selector sent to instance 0x9d7f790'\r\n\r\n*** First throw call stack:\r\n\r\n(0x30b1052 0x3242d0a 0x30b2ced 0x3017f00 0x3017ce2 0x1c32b8 0x1c2b8f 0x1cb2b8 0x1c1fd4 0x301fe44 0x308597f 0x2fe8b73 0x2fe8454 0x2fe7db4 0x2fe7ccb 0x103041f 0x20bac5 0x20c27b 0xffc4e6 0xffc457 0x931e9ed9 0x931ed6de)\r\n\r\nterminate called throwing an exception\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Network.Socket - app crashes with exception when listening for http requests",
+		"creator": {
+			"name": "mattapperson",
+			"key": "mattapperson",
+			"displayName": "me@gmail.com",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "mattapperson",
+			"key": "mattapperson",
+			"displayName": "me@gmail.com",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "* TiMobile 1.8.0.1, 1.8.1 and 2.0.0 (02/17/12 15:16 2d34487)\r\n* iPad device 4.3 and 5.0\r\n* simulator 4.3 and 5.0\r\n* Xcode 4.2\r\n* OSX 10.7.3",
+		"comment": {
+			"comments": [
+				{
+					"id": "184956",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Unfortunately, with the given test, app.js needed fixing (removing the exports.start) and we're not finding any prematurely-released sockets. Instead, they're being held about. Can you refine the test case and ensure it works?",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-02T16:54:13.000+0000",
+					"updated": "2012-03-02T16:54:13.000+0000"
+				},
+				{
+					"id": "184960",
+					"author": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{code}\r\nvar info = Ti.API.info;\r\n\r\n///=====================\r\nvar socket = undefined;\r\nvar connectedSockets = [];\r\n\r\nfunction connect()\r\n{\r\n    if(socket === undefined || socket.state === Ti.Network.Socket.CLOSED)\r\n    {\r\n        socket = Titanium.Network.Socket.createTCP({\r\n            host:Ti.Platform.address,\r\n            port:8080,\r\n            listenQueueSize:100,\r\n            accepted: accepted,\r\n            closed: function(e)\r\n            {\r\n                info(\"Closed listener\");\r\n            },\r\n            error: function(e)\r\n            {\r\n                Ti.API.error(\"Socket encountered error when listening\");\r\n                Ti.API.error(\" error code '\" + e.errorCode + \"'\");\r\n                Ti.API.error(\" error description '\" + e.error + \"'\");\r\n            }\r\n        });\r\n        try\r\n        {\r\n            socket.listen();\r\n            info(\"###Listening on \" + socket.host + \":\" + socket.port);\r\n            socket.accept(acceptedCallbacks);\r\n        } catch (e)\r\n        {\r\n            info('Exception: ' + e);\r\n        }\r\n    }\r\n\r\n}\r\n\r\nfunction accepted(e)\r\n{\r\n    var sock = e.inbound;\r\n    info('ACCEPTED: ' + sock.host + ':' + sock.port);\r\n    Ti.Stream.pump(sock, pumpCallback, 1024, true);\r\n    socket.accept(acceptedCallbacks);\r\n}\r\n\r\n\r\nfunction pumpCallback(e)\r\n{\r\n    var sock = e.source;\r\n\r\n    if(e.bytesProcessed == -1)\r\n    { // EOF\r\n        info(\"<EOF> - Closing the remote socket!\");\r\n\r\n        removeSocket(sock);\r\n        sock.close();\r\n    }\r\n    else\r\n    {\r\n        if(e.errorDescription === undefined || e.errorDescription === \"\")\r\n        {\r\n            info(\"DATA: \" + e.buffer.toString());\r\n            //--\r\n            try\r\n            {\r\n                var s = \"Sup world!\";\r\n\r\n                var msg = \"HTTP/1.1 200 OK\\n\";\r\n                msg += \"Date: Fri, 31 Dec 1999 23:59:59 GMT\\n\";\r\n                msg += \"Connection: close\\n\";\r\n                msg += \"Content-Type: text/html\\n\";\r\n                msg += \"Content-Length: \" + s.length + \"\\n\";\r\n                msg += \"\\n\";\r\n                msg += s;\r\n\r\n                sock.write(Ti.createBuffer({value: msg}));\r\n                sock.close();\r\n\r\n            } catch (e)\r\n            {\r\n                info('Exception: ' + e);\r\n            }\r\n\r\n            //--\r\n        }\r\n        else\r\n        {\r\n            info(\"READ ERROR: \" + e.errorDescription);\r\n        }\r\n    }\r\n}\r\n\r\nvar acceptedCallbacks = {\r\n    error : function(e)\r\n    {\r\n        Ti.API.info(e.error);\r\n        Ti.UI.createAlertDialog({\r\n            title:\"Socket error: \" + e.socket.host,\r\n            message:e.error\r\n        }).show();\r\n    }\r\n};\r\n\r\n\r\nconnect();\r\n{code}\r\n\r\njust run this code in an iOS app, and paste the IP address found in the console into a browser and refresh the browser a few times.\r\n\r\nAlso, while normally I have found the above code will crash after 2-3 requests, it can at times take about 10-20",
+					"updateAuthor": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-02T20:11:43.000+0000",
+					"updated": "2012-03-02T20:11:43.000+0000"
+				},
+				{
+					"id": "185058",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Still can't recreate this and the test JS has a bug:\r\n{quote}\r\nline = 57;\r\nmessage = \"Can't find variable: removeSocket\";\r\n{quote}\r\nIn other words, the removeSocket function referenced isn't in the test suite.\r\n\r\nCan you recreate the crash using the latest build? It might have already been fixed in the last two weeks since the most recently reported build it was tested.",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-05T12:15:17.000+0000",
+					"updated": "2012-03-05T12:15:17.000+0000"
+				},
+				{
+					"id": "185059",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Please reopen when reproduced on most recent builds.",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-05T12:16:11.000+0000",
+					"updated": "2012-03-05T12:16:11.000+0000"
+				},
+				{
+					"id": "185576",
+					"author": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Sorry, that method was no longer used...\r\n\r\n{code}\r\nvar info = Ti.API.info;\r\n\r\n///=====================\r\nvar socket = undefined;\r\nvar connectedSockets = [];\r\n\r\nfunction connect()\r\n{\r\n    if(socket === undefined || socket.state === Ti.Network.Socket.CLOSED)\r\n    {\r\n        socket = Titanium.Network.Socket.createTCP({\r\n            host:Ti.Platform.address,\r\n            port:8080,\r\n            listenQueueSize:100,\r\n            accepted: accepted,\r\n            closed: function(e)\r\n            {\r\n                info(\"Closed listener\");\r\n            },\r\n            error: function(e)\r\n            {\r\n                Ti.API.error(\"Socket encountered error when listening\");\r\n                Ti.API.error(\" error code '\" + e.errorCode + \"'\");\r\n                Ti.API.error(\" error description '\" + e.error + \"'\");\r\n            }\r\n        });\r\n        try\r\n        {\r\n            socket.listen();\r\n            info(\"###Listening on \" + socket.host + \":\" + socket.port);\r\n            socket.accept(acceptedCallbacks);\r\n        } catch (e)\r\n        {\r\n            info('Exception: ' + e);\r\n        }\r\n    }\r\n\r\n}\r\n\r\nfunction accepted(e)\r\n{\r\n    var sock = e.inbound;\r\n    info('ACCEPTED: ' + sock.host + ':' + sock.port);\r\n    Ti.Stream.pump(sock, pumpCallback, 1024, true);\r\n    socket.accept(acceptedCallbacks);\r\n}\r\n\r\n\r\nfunction pumpCallback(e)\r\n{\r\n    var sock = e.source;\r\n\r\n    if(e.bytesProcessed == -1)\r\n    { // EOF\r\n        info(\"<EOF> - Closing the remote socket!\");\r\n\r\n        sock.close();\r\n    }\r\n    else\r\n    {\r\n        if(e.errorDescription === undefined || e.errorDescription === \"\")\r\n        {\r\n            info(\"DATA: \" + e.buffer.toString());\r\n            //--\r\n            try\r\n            {\r\n                var s = \"Sup world!\";\r\n\r\n                var msg = \"HTTP/1.1 200 OK\\n\";\r\n                msg += \"Date: Fri, 31 Dec 1999 23:59:59 GMT\\n\";\r\n                msg += \"Connection: close\\n\";\r\n                msg += \"Content-Type: text/html\\n\";\r\n                msg += \"Content-Length: \" + s.length + \"\\n\";\r\n                msg += \"\\n\";\r\n                msg += s;\r\n\r\n                sock.write(Ti.createBuffer({value: msg}));\r\n                sock.close();\r\n\r\n            } catch (e)\r\n            {\r\n                info('Exception: ' + e);\r\n            }\r\n\r\n            //--\r\n        }\r\n        else\r\n        {\r\n            info(\"READ ERROR: \" + e.errorDescription);\r\n        }\r\n    }\r\n}\r\n\r\nvar acceptedCallbacks = {\r\n    error : function(e)\r\n    {\r\n        Ti.API.info(e.error);\r\n        Ti.UI.createAlertDialog({\r\n            title:\"Socket error: \" + e.socket.host,\r\n            message:e.error\r\n        }).show();\r\n    }\r\n};\r\n\r\nconnect();\r\n\r\n{code}\r\n\r\nAnd I just tried with the latest build - Titanium SDK version: 2.0.0 (03/08/12 12:47 4bc31b0)\r\n\r\nThe issue still exists",
+					"updateAuthor": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-08T13:18:38.000+0000",
+					"updated": "2012-03-08T13:18:38.000+0000"
+				},
+				{
+					"id": "186330",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This sample code includes information only about one endpoint of the socket system (the listener). To resolve and test the issue we will also need information about the data being pushed over the wire and a method to do so.",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-13T15:35:13.000+0000",
+					"updated": "2012-03-13T15:35:25.000+0000"
+				},
+				{
+					"id": "186332",
+					"author": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I am just visiting the ip address / port from a browser... No data is being posted to the app beyond browser headers",
+					"updateAuthor": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-13T15:42:55.000+0000",
+					"updated": "2012-03-13T15:42:55.000+0000"
+				},
+				{
+					"id": "186334",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "OK, thanks for the information. That's what I'll use for testing.",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-13T15:48:32.000+0000",
+					"updated": "2012-03-13T15:48:32.000+0000"
+				},
+				{
+					"id": "186342",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Note that this bug only appears on non-local (no loopback, no simulator) testing. This appears to be a timing issue related to bad runloop management, which can be resolved by switching sockets to another mechanism (GCD!).",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-13T16:16:28.000+0000",
+					"updated": "2012-03-13T16:16:28.000+0000"
+				},
+				{
+					"id": "186766",
+					"author": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "h4. TESTING\r\n----\r\n\r\nThis ticket should be tested with the code in the comment above, by doing the following:\r\n\r\n# The test *MUST* be run on a device, which is connected to the same LAN (wifi access point) as the machine(s) which will connect to it.\r\n# Using a browser (any) on the testing machine(s), connect to the endpoint the device is listening on (IP address/port are printed in the console log)\r\n# *PASS 1*: A plain HTML page with \"Sup world!\" on it.\r\n# NOW: Slam the reload button in the browser as hard and fast as you can, repeatedly, for as long as you want.\r\n# *PASS 2*: The page continuously loads, the listening socket continues to listen, and there are no crashes on the device.\r\n\r\nTesting of this ticket should also run the drillbit Socket.TCP test.",
+					"updateAuthor": {
+						"name": "stephentramer",
+						"key": "stephentramer",
+						"displayName": "Stephen Tramer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-16T00:03:55.000+0000",
+					"updated": "2012-03-16T00:04:12.000+0000"
+				},
+				{
+					"id": "186847",
+					"author": {
+						"name": "vduggal",
+						"key": "vduggal",
+						"displayName": "Vishal Duggal",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Resolved by PR 1703",
+					"updateAuthor": {
+						"name": "vduggal",
+						"key": "vduggal",
+						"displayName": "Vishal Duggal",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-16T12:39:08.000+0000",
+					"updated": "2012-03-16T12:39:08.000+0000"
+				},
+				{
+					"id": "186863",
+					"author": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Thanks guys!",
+					"updateAuthor": {
+						"name": "mattapperson",
+						"key": "mattapperson",
+						"displayName": "me@gmail.com",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-16T13:25:29.000+0000",
+					"updated": "2012-03-16T13:25:29.000+0000"
+				},
+				{
+					"id": "187245",
+					"author": {
+						"name": "dhyde",
+						"key": "dhyde",
+						"displayName": "Dustin Hyde",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "dhyde",
+						"key": "dhyde",
+						"displayName": "Dustin Hyde",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-03-19T15:54:31.000+0000",
+					"updated": "2012-03-19T15:54:31.000+0000"
+				},
+				{
+					"id": "281105",
+					"author": {
+						"name": "jithinv@exalture.com",
+						"key": "jithinv@exalture.com",
+						"displayName": "jithinpv",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Anvil test case added.\nPR link:\nhttps://github.com/appcelerator/titanium_mobile/pull/5011",
+					"updateAuthor": {
+						"name": "jithinv@exalture.com",
+						"key": "jithinv@exalture.com",
+						"displayName": "jithinpv",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-11-25T08:22:17.000+0000",
+					"updated": "2013-11-25T08:22:17.000+0000"
+				}
+			],
+			"maxResults": 14,
+			"total": 14,
+			"startAt": 0
+		}
+	}
+}

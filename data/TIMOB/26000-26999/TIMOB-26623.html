@@ -1,0 +1,59 @@
+---
+title: "[TIMOB-26623] iOS: APSHTTP resources are not freed correctly."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Christopher Kimber</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2018-11-21T21:47:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-30T23:56:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I've noticed that the resources attached to a network request are not freed correctly.
+
+I took the demo ‘ti create’ app.js and extended it to make a web request based on the example found at: <a href="https://wiki.appcelerator.org/display/guides2/HTTPClient+and+the+Request+Lifecycle" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/HTTPClient+and+the+Request+Lifecycle</a>
+
+You can see after 15mins the memory is still associated with these requests, which should have given GC plenty of time to collect. (instruments.png)
+
+If we look at the memory graph associated with these objects we can see that the reference at first is held by both the JS stack via TINetworkNettpClientProxy and the NSURLSession (memorygraph1.png)
+
+After a while the GC runs and the JS side of things is correctly freed up just leaving an instance linked to the NSURLSession. (memorygraph2.png) and from then on never gets freed.
+
+From Apples docs:
+{quote}If you no longer need a session, you can invalidate it by calling either invalidateAndCancel() (to cancel outstanding tasks) or finishTasksAndInvalidate() (to allow outstanding tasks to finish before invalidating the object). If you don’t invalidate the session, it automatically goes away when your app is terminated (unless it’s a background session with active tasks). After invalidating the session, when all outstanding tasks have been canceled or have finished, the session calls the delegate’s urlSession(_:didBecomeInvalidWithError:) method. When that delegate method returns, the session disposes of its strong reference to the delegate.{quote}
+<a href="https://developer.apple.com/documentation/foundation/urlsession" rel="nofollow" target="_blank">https://developer.apple.com/documentation/foundation/urlsession</a>
+
+Looking through the source for APSHTTPRequest I think I can see 2 issues:
+* The NSURLSession that is created is never “finished” allowing for a memory leak
+* The NSURLSession delegate method “didBecomeInvalidWithError” is treated as purely an error state, but instead should be considered as a success unless the error object is present
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26623_65892/app.js">app.js</td></td><td>2018-11-21T21:46:27.000+0000</td><td>1518</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26623_65896/instruments.png">instruments.png</td></td><td>2018-11-21T21:46:28.000+0000</td><td>123902</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26623_65894/memorygraph1.png">memorygraph1.png</td></td><td>2018-11-21T21:46:35.000+0000</td><td>96382</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26623_65893/memorygraph2.png">memorygraph2.png</td></td><td>2018-11-21T21:46:36.000+0000</td><td>59037</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26623_65895/tiapp.xml">tiapp.xml</td></td><td>2018-11-21T21:46:47.000+0000</td><td>1959</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-26623.json">JSON Source</a></p>

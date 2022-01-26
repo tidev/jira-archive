@@ -1,0 +1,96 @@
+---
+title: "[TIMOB-25887] Android: Ti.Geolocation - Exception when calling Ti.Geolocation.hasLocationPermissions()"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-03-21T21:43:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.1.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>7.1.0.GA, regression</td></tr>
+<tr><th>Reporter</th><td>Victor Vazquez Montero</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-03-19T22:18:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-10T09:25:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue</h4>
+Customer's app has an android service to get location data in the background. It is encountering an exception when it calls Ti.Geolocation.hasLocationPermissions(): 
+
+They are receiving the following error:
+{quote}03-19 08:43:48.855 2764 2764 E TiApplication: (main) [6,1875] No valid root or current activity found for application instance 
+03-19 08:43:48.855 2764 2764 E KrollProxy: (main) [0,1875] Error creating proxy 
+03-19 08:43:48.855 2764 2764 E KrollProxy: java.lang.NullPointerException: Attempt to invoke virtual method 'android.content.pm.PackageManager android.content.Context.getPackageManager()' on a null object reference 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at com.google.android.gms.common.zzo.isGooglePlayServicesAvailable(Unknown Source:4) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at com.google.android.gms.common.zze.isGooglePlayServicesAvailable(Unknown Source:0) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at com.google.android.gms.common.GoogleApiAvailability.isGooglePlayServicesAvailable(Unknown Source:0) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at ti.modules.titanium.geolocation.android.FusedLocationProvider$PlayServices.available(FusedLocationProvider.java:184) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at ti.modules.titanium.geolocation.android.FusedLocationProvider.hasPlayServices(FusedLocationProvider.java:80) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at ti.modules.titanium.geolocation.android.FusedLocationProvider.<init>(FusedLocationProvider.java:61) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at ti.modules.titanium.geolocation.GeolocationModule.<init>(GeolocationModule.java:219) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at java.lang.Class.newInstance(Native Method) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at org.appcelerator.kroll.KrollProxy.createProxy(KrollProxy.java:137) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:187) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:325) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at android.os.Handler.dispatchMessage(Handler.java:102) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at android.os.Looper.loop(Looper.java:164) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at android.app.ActivityThread.main(ActivityThread.java:6494) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at java.lang.reflect.Method.invoke(Native Method) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:438) 
+03-19 08:43:48.855 2764 2764 E KrollProxy: at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:807) 
+03-19 08:43:48.855 2764 2764 E JavaObject: !!! OH NO! We tried to grab a Java Object back out of the reference table, but it must have been GC'd, because it's null! Key: 15 
+03-19 08:43:48.855 2764 2764 I TiAPI : We do not have location permissions. Exiting. {quote}
+
+The exception does not seem to make the service crash, but it doesn't think that it has location permissions (which it definitely does). So they are not getting any location data. 
+
+<h4>Code to create Android service: </h4>
+<code><pre>var location_service_intent = Ti.Android.createServiceIntent( { url: 'LocationService.js' } ); 
+location_service_intent.putExtra('interval', 600000); 
+
+if (!Ti.Android.isServiceRunning(location_service_intent)) { 
+Ti.Android.startService(location_service_intent); 
+} </pre></code>
+
+<h4>Service Code: </h4>
+Uses a module to do all the location detection and updating with the back-end service provider.
+<code><pre>Titanium.API.info("[LocationService] loaded"); 
+
+var WxAlertSubscriptionUpdater = require ('/util/WxAlertSubscriptionUpdater'); 
+WxAlertSubscriptionUpdater.register(); 
+</pre></code>
+
+<h4>Additional information </h4>
+- issue not in SDK 7.0.2 
+- the WxAlertSubscriptionUpdater module is shared by the app and the service; the app doesn't have this problem when it talks to the Geolocation module 
+- They have been unable to replicate this problem with a minimal test app; it's possible that a test app is too small to make garbage collection happen? 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2018-03-20
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9950" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9950</a></li>
+<li>Lokesh Choudhary 2018-03-21
+
+   Backport: <a href="https://github.com/appcelerator/titanium_mobile/pull/9951" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9951</a></li>
+<li>Lokesh Choudhary 2018-03-21
+
+   FR Passed.
+   PR's merged.</li>
+<li>Samir Mohammed 2018-03-27
+
+   Verified fix in SDK version 7.1.1.v20180326111446 and SDK Version 7.2.0.v20180326104918
+   
+   Test and other information can be found at: 
+   Master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9950" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9950</a>
+   7_1_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9951" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9951</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25887.json">JSON Source</a></p>

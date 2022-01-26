@@ -1,0 +1,202 @@
+---
+title: "[TIMOB-16560] iOS: Window focus/blur events do not fire after animating the navigation window"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-10-19T14:15:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>3.2.1, blur, bug, events, focus, ios, iphone, navigationWindow</td></tr>
+<tr><th>Reporter</th><td>Felipe Mathies</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2014-03-01T03:08:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-29T17:53:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After my app refactoring to use navigationWindow instead navGroup, all the focus/blur events on the windows inside the navigationWindow stopped to fire up, after doing alot tests, i think i found what is causing the problem...
+
+on my app theres 2 active window on the screen one window is the sideMenu thats stays behind and the other is the navigationWindow, with this setup the events dosent fireup like i described, but when i remove the sideMenu window all the events starts to fire up as usual
+
+so when theres 2 top level windows(window, navigationWindow) on the screen the views inside navigationWindow dosent got focus/blur events fired up, on the moment theres only one window, all backs to normal
+
+<code><pre>
+var height = Ti.Platform.displayCaps.platformHeight;
+var width = Ti.Platform.displayCaps.platformWidth;
+var isToggled = false;
+
+var win = Ti.UI.createWindow({ width : width, height : height, backgroundColor : "pink" });
+
+var nextWin = Ti.UI.createWindow({ width : width, height : height, backgroundColor : "blue" });
+
+var buttonNext = Ti.UI.createButton({ title : "next window" });
+
+var buttonMenu = Ti.UI.createButton({ title : "MENU", top : 60, left : 10 });
+
+win.add(buttonMenu);
+win.add(buttonNext);
+
+var navigation = Titanium.UI.iOS.createNavigationWindow({ backgroundColor : 'grey', window : win, width : width, height : height, });
+
+win.addEventListener('focus', function() { Ti.API.log("win focus"); });
+
+nextWin.addEventListener('focus', function() { Ti.API.log("next win focus"); });
+
+buttonNext.addEventListener('click', function() { navigation.openWindow(nextWin); });
+
+buttonMenu.addEventListener('click', function() { toggleMenu(); });
+
+var animateLeft = Ti.UI.createAnimation({ left : 180, curve : Ti.UI.ANIMATION_CURVE_EASE_OUT, duration : 500 });
+var animateRight = Ti.UI.createAnimation({ left : 0, curve : Ti.UI.ANIMATION_CURVE_EASE_OUT, duration : 500 });
+
+var toggleMenu = function() {
+if (!isToggled) { navigation.animate(animateLeft); isToggled = true; } else { navigation.animate(animateRight); isToggled = false; }
+};
+
+navigation.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-03-03
+
+   Can you please attach a simple runnable test case so that we can take a look and try to reproduce the issue in-house.</li>
+<li>Felipe Mathies 2014-03-05
+
+   yes sure, after isolating the problem i discovery that the problem is with the animation, on me moment when you apply an animation to the navigationWindow the events focus/blur stop firing, so heres the example:
+   
+   Instructions 
+   
+   First click on "next window" button and the events focus from the next window fires up just fine, go back, and press "MENU" twice to move the window right/left, and after that if you go "next window" again the focus event dosent fire up anymore...
+   
+   <code><pre> 
+   
+   var height = Ti.Platform.displayCaps.platformHeight;
+       	var width = Ti.Platform.displayCaps.platformWidth;
+       	var isToggled = false;
+     			
+   		var win = Ti.UI.createWindow({
+   			width : width,
+   			height : height,
+   			backgroundColor : "pink"
+   		});
+   
+   		var nextWin = Ti.UI.createWindow({
+   			width : width,
+   			height : height,
+   			backgroundColor : "blue"
+   		});
+   
+   		var buttonNext = Ti.UI.createButton({
+   			title : "next window"
+   		});
+   		
+   		var buttonMenu = Ti.UI.createButton({
+   			title : "MENU",
+   			top : 60,
+   			left : 10
+   		});
+   
+   		win.add(buttonMenu);
+   		win.add(buttonNext);
+   
+   		var navigation = Titanium.UI.iOS.createNavigationWindow({
+   			backgroundColor : 'grey',
+   			window : win,
+   			width : width,
+   			height : height,
+   		});
+   		
+   		win.addEventListener('focus', function() {
+   			Ti.API.log("win focus");
+   		});
+   
+   		nextWin.addEventListener('focus', function() {
+   			Ti.API.log("next win focus");
+   		});
+   
+   		buttonNext.addEventListener('click', function() {
+   			navigation.openWindow(nextWin);
+   		}); 
+   		
+   		buttonMenu.addEventListener('click', function() {
+   			toggleMenu();
+   		}); 
+   		
+   		var animateLeft = Ti.UI.createAnimation({
+   			left : 180,
+   			curve : Ti.UI.ANIMATION_CURVE_EASE_OUT,
+   			duration : 500
+   		});
+   		var animateRight = Ti.UI.createAnimation({
+   			left : 0,
+   			curve : Ti.UI.ANIMATION_CURVE_EASE_OUT,
+   			duration : 500
+   		});
+   		
+   		var toggleMenu = function() {
+   			if (!isToggled) {
+   				navigation.animate(animateLeft);
+   				isToggled = true;
+   			} else {
+   				navigation.animate(animateRight);
+   				isToggled = false;
+   			}
+   		};
+   		
+     		navigation.open();
+   </pre></code></li>
+<li>Ritu Agrawal 2014-03-06
+
+   Moving this ticket to engineering as I can reproduce this issue with 3.2.1 release.</li>
+<li>Christian Clare 2014-04-01
+
+   Having the identical issue with 3.2.2.GA release - reproduced with example above and also with my own code. Focus events no longer fire after navigation window is animated.
+   
+   Affects me the same way - have a sliding top window and menu underneath. Moving the navigation window causing app to fail after focus events don't fire.
+   
+   Tested with iOS 7.1</li>
+<li>Jeff Bonnes 2014-07-14
+
+   Also happens with TabGroups.  After you animate a TabGroup, if you open in window in the active Tab [activeTab.openWindow(newWindow);] the focus event on the newWindow never fires.
+   
+   Tested with 3.3.0RC2 and iOS7.1 Simulator.  Let me know if you need a simple runnable test case.</li>
+<li>Shameer Jan 2014-08-14
+
+   Issue reproduces 
+   Titanium Command-Line Interface, 
+   CLI version 3.3.0, 
+   Titanium SDK version 3.3.0.GA 
+   iOS SDK: 7.1 
+   iOS iPhone Simulator: 7.1</li>
+<li>Kaffel Mehdi 2016-07-06
+
+   Issue reproduces 
+   Appcelerator Studio version 4.6.0,  
+   Titanium SDK version 5.2.3.GA
+   iOS SDK: 9.3
+   iOS iPhone Simulator: 9.3
+   
+   This bug will be fixed one day ?</li>
+<li>Hans Knöchel 2016-08-03
+
+   Ok, here is the thing: When you are animating a window (manually), it never loses the technical focus, because it is just moved on the x-axis like in this case. It may become invisible to the currently visible area of the user, but it never loses focus to another window / top-level-container. The exactly same would happen to a native <code>UINavigationController</code> if you animate it like this. 
+   
+   I actually came across this "issue" a few years ago and I fixed it quite quickly by using callbacks that listen to the animations and click-events of the toggle-button. If someone needs the above example demonstrated with clean callbacks, let me know. But I would highly suggest to close this issue afterwards, since it's a matter of programming-style to get the proper trigger when needing them. Thanks!</li>
+<li>Hans Knöchel 2016-10-19
+
+   Since we didn't receive any feedback regarding this, I think the stated reasons make sense here. Resolving ticket for now, thx!</li>
+<li>Lee Morris 2017-03-29
+
+    Closing ticket as "Won't Fix", with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16560.json">JSON Source</a></p>

@@ -1,0 +1,596 @@
+---
+title: "[TIMOB-20181] iOS: HTTPClient multipart/form-data produces bad content-type headers for individual parts"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-26T03:29:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Henry David Spells III</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-07-24T17:55:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-11-11T22:11:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Appcelerator Command-Line Interface, version 4.1.2
+Appcelerator Studio, build: 4.1.1.201507141126
+Mac OS X 10.10.4 IDE
+iOS issue only. I'm using iOS SDK 8.4.
+Xcode Version 6.4 (6E35b)
+Android works differently and the web service calls sends out headers that our server understands.
+
+Titanium SDK 4.1.0.GA HTTPClient breaks my calls to multipart/form-data web services on my server by adding a "Content-Type" to text parameters that it did not add in SDK 3.5.1.GA.
+
+Here is the code that I use. Please note that you will need to create your own "requestb.in" to test this
+
+<code><pre>
+function getLoader(cbfn, fn)
+{
+	var loader = Titanium.Network.createHTTPClient();
+    var response = { success: false, data: null, errors: [] };
+    if (fn != null && fn != "")
+    	loader.setFile(fn);
+	loader.onload = function()
+	{
+		loaderResponseInfo(this);
+	    Titanium.API.info('Data request succeeded');
+	    
+	    response.data = this.responseData;
+
+	    cbfn(this, response);
+	};
+	loader.onerror = function()
+	{
+		loaderResponseInfo(this);
+	    Titanium.API.info('Data request failed');
+
+    	response.success = false;
+    	if (!('errors' in response))
+    		response.errors = [];
+	    response.errors.push("Error calling webservice");
+
+	    cbfn(this, response);
+	};
+	return loader;
+}
+
+function multipartdata(url, cbfn, params, httpmethod, fn)
+{
+	var loader = getLoader(cbfn, fn);
+
+	loader.open(httpmethod, url);
+	loader.onreadystatechange = function()
+	{
+        if (loader.readyState === 4)
+        {
+            Ti.API.info("onreadystatechange(" + loader.responseText + ")");
+        }
+    };
+	loader.send(params);
+}
+
+function setProfileImage( paramsobj, cbfn )
+{
+	paramsobj.imageType = 'profile-image';
+	paramsobj.ticket = _qtp.ticket(); // temporary ticket created at login
+	var url;
+	// debug sent to a requestbin
+	url = "<a href="http://requestb.in/11w0o7p1" rel="nofollow" target="_blank">http://requestb.in/11w0o7p1</a>";
+	multipartdata(url, cbfn, paramsobj, 'POST', "");
+	// Actual web service call
+	// url = '<a href="https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm" rel="nofollow" target="_blank">https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm</a>';
+	// multipartdata(url, cbfn, paramsobj, 'POST', "");
+}
+</pre></code>
+
+*This is the requestb.in output from Titanium SDK 4.1.0.GA*:
+<code><pre>
+<a href="http://requestb.in" rel="nofollow" target="_blank">http://requestb.in</a>
+POST /11w0o7p1  multipart/form-data; boundary=0xTibOuNdArY_1437747270
+ 414.37 kB 13m ago  
+From 173.57.154.232
+FORM/POST PARAMETERS
+
+ticket: 8423D076MA0D1MECA5MF8C9D5A5F043C66B
+imageType: profile-image
+HEADERS
+
+Connect-Time: 1
+X-Request-Id: be4c0ddb-a4d6-4b7f-b291-4bf38719a98b
+Accept: */*
+X-Titanium-Id: a2feff7e-fa06-4eb9-9555-81a1dbfd5849
+Content-Type: multipart/form-data; boundary=0xTibOuNdArY_1437747270
+Host: requestb.in
+User-Agent: Appcelerator Titanium/4.1.0 (iPhone Simulator/8.4; iPhone OS; en_US;)
+Accept-Language: en-us
+Accept-Encoding: gzip, deflate
+Via: 1.1 vegur
+Connection: close
+X-Requested-With: XMLHttpRequest
+Content-Length: 424315
+Total-Route-Time: 0
+RAW BODY
+
+--0xTibOuNdArY_1437747270
+Content-Disposition: form-data; name="ticket"
+Content-Type:text/plain;charset="utf-8"
+
+8423D076MA0D1MECA5MF8C9D5A5F043C66B
+--0xTibOuNdArY_1437747270
+Content-Disposition: form-data; name="imageType"
+Content-Type:text/plain;charset="utf-8"
+
+profile-image
+--0xTibOuNdArY_1437747270
+Content-Disposition: form-data; name="imageFile"; filename="01437747270.jpeg"
+Content-Type: image/jpeg
+</pre></code>
+
+*Here is the requestb.in output for Titanium SDK 3.5.1.GA*:
+<code><pre>
+<a href="http://requestb.in" rel="nofollow" target="_blank">http://requestb.in</a>
+POST /11w0o7p1  multipart/form-data; charset=utf-8; boundary=0xTibOuNdArY_1437748068
+ 414.29 kB 32s ago  
+From 173.57.154.232
+FORM/POST PARAMETERS
+
+ticket: 849D5625MA0D1MECA5MF8BB1805CBA271F6
+imageType: profile-image
+HEADERS
+
+Connect-Time: 1
+X-Request-Id: 9ea9915b-0ca1-4a0b-8c91-baa39b1e777c
+Accept: */*
+Via: 1.1 vegur
+Content-Type: multipart/form-data; charset=utf-8; boundary=0xTibOuNdArY_1437748068
+Host: requestb.in
+User-Agent: Appcelerator Titanium/3.5.1 (iPhone Simulator/8.4; iPhone OS; en_US;)
+Accept-Language: en-us
+Accept-Encoding: gzip, deflate
+X-Titanium-Id: a2feff7e-fa06-4eb9-9555-81a1dbfd5849
+Connection: close
+X-Requested-With: XMLHttpRequest
+Content-Length: 424233
+Total-Route-Time: 0
+RAW BODY
+
+--0xTibOuNdArY_1437748068
+Content-Disposition: form-data; name="ticket"
+
+849D5625MA0D1MECA5MF8BB1805CBA271F6
+--0xTibOuNdArY_1437748068
+Content-Disposition: form-data; name="imageType"
+
+profile-image
+--0xTibOuNdArY_1437748068
+Content-Disposition: form-data; name="imageFile"; filename="01437748068.jpeg"
+Content-Type: image/jpeg
+</pre></code>
+
+Is there a way to control the individual content-types on a multipart/form-data post? Specifically can I change the text parameters to have "no Content-Type" like it did in 3.5.1?
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Henry David Spells III 2015-09-17
+
+   This is now a blocking / critical issue. I can't ship the "Profile" page on iOS 9 because of this issue. Can anybody at least give me some feedback on this?</li>
+<li>Henry David Spells III 2015-09-17
+
+   Here is a console dump of what our server is returning if this is helpful.
+   
+   [INFO] onreadystatechange(<html><head><title>Apache Tomcat/7.0.54 - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;} P {font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1>HTTP Status 500 - Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</h1><HR size="1" noshade="noshade"><p><b>type</b> Exception report</p><p><b>message</b> <u>Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</u></p><p><b>description</b> <u>The server encountered an internal error that prevented it from fulfilling this request.</u></p><p><b>exception</b> <pre>java.io.IOException: Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;
+   	com.oreilly.servlet.multipart.MultipartParser.extractContentType(MultipartParser.java:425)
+   	com.oreilly.servlet.multipart.MultipartParser.readNextPart(MultipartParser.java:285)
+   	coldfusion.filter.FormScope.fillForm(FormScope.java:314)
+   	coldfusion.filter.FusionContext.SymTab_initForRequest(FusionContext.java:466)
+   	coldfusion.filter.GlobalsFilter.invoke(GlobalsFilter.java:33)
+   	coldfusion.filter.DatasourceFilter.invoke(DatasourceFilter.java:22)
+   	coldfusion.filter.CachingFilter.invoke(CachingFilter.java:62)
+   	coldfusion.filter.RequestThrottleFilter.invoke(RequestThrottleFilter.java:151)
+   	coldfusion.CfmServlet.service(CfmServlet.java:219)
+   	coldfusion.bootstrap.BootstrapServlet.service(BootstrapServlet.java:89)
+   	coldfusion.monitor.event.MonitoringServletFilter.doFilter(MonitoringServletFilter.java:42)
+   	coldfusion.bootstrap.BootstrapFilter.doFilter(BootstrapFilter.java:46)
+   </pre></p><p><b>note</b> <u>The full stack trace of the root cause is available in the Apache Tomcat/7.0.54 logs.</u></p><HR size="1" noshade="noshade"><h3>Apache Tomcat/7.0.54</h3></body></html>)
+   [INFO] onreadystatechange(<html><head><title>Apache Tomcat/7.0.54 - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;} P {font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1>HTTP Status 500 - Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</h1><HR size="1" noshade="noshade"><p><b>type</b> Exception report</p><p><b>message</b> <u>Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</u></p><p><b>description</b> <u>The server encountered an internal error that prevented it from fulfilling this request.</u></p><p><b>exception</b> <pre>java.io.IOException: Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;
+   	com.oreilly.servlet.multipart.MultipartParser.extractContentType(MultipartParser.java:425)
+   	com.oreilly.servlet.multipart.MultipartParser.readNextPart(MultipartParser.java:285)
+   	coldfusion.filter.FormScope.fillForm(FormScope.java:314)
+   	coldfusion.filter.FusionContext.SymTab_initForRequest(FusionContext.java:466)
+   	coldfusion.filter.GlobalsFilter.invoke(GlobalsFilter.java:33)
+   	coldfusion.filter.DatasourceFilter.invoke(DatasourceFilter.java:22)
+   	coldfusion.filter.CachingFilter.invoke(CachingFilter.java:62)
+   	coldfusion.filter.RequestThrottleFilter.invoke(RequestThrottleFilter.java:151)
+   	coldfusion.CfmServlet.service(CfmServlet.java:219)
+   	coldfusion.bootstrap.BootstrapServlet.service(BootstrapServlet.java:89)
+   	coldfusion.monitor.event.MonitoringServletFilter.doFilter(MonitoringServletFilter.java:42)
+   	coldfusion.bootstrap.BootstrapFilter.doFilter(BootstrapFilter.java:46)
+   </pre></p><p><b>note</b> <u>The full stack trace of the root cause is available in the Apache Tomcat/7.0.54 logs.</u></p><HR size="1" noshade="noshade"><h3>Apache Tomcat/7.0.54</h3></body></html>)
+   [INFO] Status: 500
+   [INFO] ResponseText: <html><head><title>Apache Tomcat/7.0.54 - Error report</title><style><!--H1 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:22px;} H2 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:16px;} H3 {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;font-size:14px;} BODY {font-family:Tahoma,Arial,sans-serif;color:black;background-color:white;} B {font-family:Tahoma,Arial,sans-serif;color:white;background-color:#525D76;} P {font-family:Tahoma,Arial,sans-serif;background:white;color:black;font-size:12px;}A {color : black;}A.name {color : black;}HR {color : #525D76;}--></style> </head><body><h1>HTTP Status 500 - Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</h1><HR size="1" noshade="noshade"><p><b>type</b> Exception report</p><p><b>message</b> <u>Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;</u></p><p><b>description</b> <u>The server encountered an internal error that prevented it from fulfilling this request.</u></p><p><b>exception</b> <pre>java.io.IOException: Content type corrupt: Content-Type:text/plain;charset=&quot;utf-8&quot;
+   	com.oreilly.servlet.multipart.MultipartParser.extractContentType(MultipartParser.java:425)
+   	com.oreilly.servlet.multipart.MultipartParser.readNextPart(MultipartParser.java:285)
+   	coldfusion.filter.FormScope.fillForm(FormScope.java:314)
+   	coldfusion.filter.FusionContext.SymTab_initForRequest(FusionContext.java:466)
+   	coldfusion.filter.GlobalsFilter.invoke(GlobalsFilter.java:33)
+   	coldfusion.filter.DatasourceFilter.invoke(DatasourceFilter.java:22)
+   	coldfusion.filter.CachingFilter.invoke(CachingFilter.java:62)
+   	coldfusion.filter.RequestThrottleFilter.invoke(RequestThrottleFilter.java:151)
+   	coldfusion.CfmServlet.service(CfmServlet.java:219)
+   	coldfusion.bootstrap.BootstrapServlet.service(BootstrapServlet.java:89)
+   	coldfusion.monitor.event.MonitoringServletFilter.doFilter(MonitoringServletFilter.java:42)
+   	coldfusion.bootstrap.BootstrapFilter.doFilter(BootstrapFilter.java:46)
+   </pre></p><p><b>note</b> <u>The full stack trace of the root cause is available in the Apache Tomcat/7.0.54 logs.</u></p><HR size="1" noshade="noshade"><h3>Apache Tomcat/7.0.54</h3></body></html>
+   [INFO] connectionType: POST
+   [INFO] location: <a href="https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm" rel="nofollow" target="_blank">https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm</a>
+   [INFO] Data request failed
+   [INFO] profileTab.js::uploadImage::http::{"url":"<a href="https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm" rel="nofollow" target="_blank">https://app.qbos.com/ws/QTP/cs/de9r/v2/imgUpload.cfm</a>","method":"POST"}
+   [INFO] profileTab.js::uploadImage::response::{"success":false,"data":null,"errors":["Error calling webservice"]}
+   </li>
+<li>Sharif AbuDarda 2015-12-24
+
+   Hello, Can you provide a full code and description of what you are trying to achieve. Provide a full test code which generates the issue. Also provide a full step to reporduce. Also, please specify the full platform information node, java, CLI, SDK etc. Thanks.</li>
+<li>Henry David Spells III 2015-12-24
+
+   I'm uploading an image after acquiring it from the camera or gallery api's. Hopefully I have stripped the code down properly so that you can setup a project and run it. You will not be able to post an image to our servers but you should be able to see the request posted to requestb.in
+   
+   The nod version is 0.12.7
+   
+   The CLI version was given in the very first line of the bug. What are you asking for it again?
+   "Appcelerator Command-Line Interface, version 4.1.2"
+   
+   The SDK's being used were mentioned in the first few lines of the bug also. The code in question worked properly in iOS in 3.5.1.GA and changes were made that broke the code in 4.1.0.GA"
+   "Titanium SDK 4.1.0.GA HTTPClient breaks my calls to multipart/form-data web services on my server by adding a "Content-Type" to text parameters that it did not add in SDK 3.5.1.GA." I will test the bug in the latest SDK to see if it still reproduces and post the results. This was taking to long to fix so we created a new API that doesn't use multipart/form-data encoding to work around the issue.
+   
+   This bug is so old now that I don't know what version of java I was using at the time. However here is the version that I am currently using.
+   "java version "1.7.0_80"
+   Java(TM) SE Runtime Environment (build 1.7.0_80-b15)
+   Java HotSpot(TM) 64-Bit Server VM (build 24.80-b11, mixed mode)"
+   
+   I apologize but I can never figure out how to make JIRA show javascript code properly despite adding the javascript code tags
+   
+   <code><pre>
+   function uploadImage(event, aicbfn)
+   {
+   	setProfileImage({imageFile: event.media}, function(http, response)
+   	{
+   		if (!showErrDialogIfNeeded(response))
+   		{
+   			// $.profileImageId.image = event.media;
+   			// social.updateMemberPicture(qtp.memberid(), event.media);
+   		}
+   		Titanium.API.info('profileTab.js::uploadImage::http::' + JSON.stringify(http));
+   		Titanium.API.info('profileTab.js::uploadImage::response::' + JSON.stringify(response));
+   		aicbfn();
+   	});
+   }
+   
+   var imageAcquireFunctions =
+   {
+   	success:function(event)
+   	{
+   		// called when media returned from the camera
+   		Ti.API.debug('Our type was: '+event.mediaType);
+   		if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO)
+   		{
+   			uploadImage(event, aicbfn);;
+   		}
+   		else
+   		{
+   			alert("got the wrong type back ="+event.mediaType);
+   		}
+   	},
+   	cancel:function()
+   	{
+   		// called when user cancels taking a picture
+   	},
+   	error:function(error)
+   	{
+   		// called when there's an error
+   		var a = Titanium.UI.createAlertDialog({title:'Camera'});
+   		if (error.code == Titanium.Media.NO_CAMERA)
+   		{
+   			a.setMessage('Please run this test on a device with a camera');
+   		}
+   		else
+   		{
+   			a.setMessage('Unexpected error: ' + error.code);
+   		}
+   		a.show();
+   	},
+   	// set this value before calling image acquisition function
+   //	saveToPhotoGallery:true,
+       // allowEditing and mediaTypes are iOS-only settings
+   	allowEditing:true,
+   	mediaTypes:[Ti.Media.MEDIA_TYPE_PHOTO]
+   };
+   
+   function doAcquireCameraImage()
+   {
+   	imageAcquireFunctions.saveToPhotoGallery = true;
+   	Titanium.Media.showCamera(imageAcquireFunctions);
+   }
+   
+   function doAcquireGalleryImage()
+   {
+   	imageAcquireFunctions.saveToPhotoGallery = false;
+   	Ti.Media.openPhotoGallery(imageAcquireFunctions);
+   }
+   </pre></code></li>
+<li>Sharif AbuDarda 2015-12-27
+
+   Hello, I have edited your post. Can you try to test the issue in the latest release SDK 5.1.1.GA. You said it was working on iOS in 3.5.1.GA. Try with the latest release. Reply with your findings, Thanks.</li>
+<li>Henry David Spells III 2015-12-28
+
+   This is still broken on iOS in SDK 5.1.1.GA. It still works on Android in SDK 5.1.1.GA.</li>
+<li>Mahlon Gumbs 2015-12-28
+
+   @Sharif, when we ran into this problem, it looked like it was because of the charset on the text and json parts of our multipart posts had their charset wrapped in quotes. Can you try looking at [APSHTTPPostForm.m](<a href="https://github.com/appcelerator/APSHTTPClient/blob/master/APSHTTPClient/APSHTTPPostForm.m)" rel="nofollow" target="_blank">https://github.com/appcelerator/APSHTTPClient/blob/master/APSHTTPClient/APSHTTPPostForm.m)</a> and removing the quotes around the charset on lines 69 and 90 according to the snippets below?
+   
+   <code><pre>
+   [self appendStringData: [NSString stringWithFormat:@"Content-Type:application/json;charset=\"%@\"\r\n", charset]];
+   </pre></code>
+   <code><pre>
+   [self appendStringData: [NSString stringWithFormat:@"Content-Type:application/json;charset=%@\r\n", charset]];
+   </pre></code>
+   
+   <code><pre>
+   [self appendStringData: [NSString stringWithFormat:@"Content-Type:text/plain;charset=\"%@\"\r\n", charset]];
+   </pre></code>
+   <code><pre>
+   [self appendStringData: [NSString stringWithFormat:@"Content-Type:text/plain;charset=%@\r\n", charset]];
+   </pre></code>
+   
+   Hope that helps.</li>
+<li>Henry David Spells III 2015-12-28
+
+   Nice catch Mahlon. I will try this fix in the next beta or GA release of the SDK.</li>
+<li>Silambarasan Raman Anubavam 2016-06-30
+
+   Hi Appcelerator Team,
+   
+   Still the same issue (image uploading not working) occurs with Ti SDK 5.2.2 GA. We had push our store release because of this issue, Its been long times @Mahlon Gumbs answered the solution above. Can you let us know the solution?</li>
+<li>Silambarasan Raman Anubavam 2016-06-30
+
+    I have checked with Ti SDK 5.3.0 GA, Still the same issue occurs. Can you reply for the solution?
+    
+    Getting this error response: this.status=500
+    500 Internal Server Error,
+    
+    Note:
+    Same server working fine for Android ( with 5.3.0 GA) and also on iOS with Ti SDK 3.5.1 GA, But Issue for iOS with Latest SDK ( >4.1.0 GA)
+    </li>
+<li>Chee Kiat Ng 2016-08-08
+
+    [~simbu-anubavam] Is your charset on the text and json parts of your multipart posts wrapped in quotes? Try removing them to see if it solves the issue? Trying to identify if your error is the same as what the ticket describes.</li>
+<li>Silambarasan Raman Anubavam 2016-08-08
+
+    @Chee Kiat Ng,
+    
+    Tried by removing quotes on JSON part of post params and for Content-type i am passing like this,
+    xhr.setRequestHeader("Content-Type", "multipart/form-data");
+    
+    Image upload is still not working</li>
+<li>Chee Kiat Ng 2016-08-10
+
+    [~simbu-anubavam] I am not sure if the issue you are facing is exactly the same as what the ticket has described. If at all possible, it will help us greatly if you could provide a reproducible test case (as exact as the code you are using now) so we can investigate better? Appreciate it very much.</li>
+<li>Silambarasan Raman Anubavam 2016-08-10
+
+    @Chee Kiat Ng
+    I have posted my code here, The same code working fine with Ti SDK 3.5.1 GA but not with Latest SDK
+    
+    <code><pre>
+    /*
+     * Method for uploading image file to the server.
+     */
+    function uploadFile(claimID, filename, tenant, onSuccessCallback, onErrorCallBack) {
+        var uploadingFile = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, filename);
+        var xhr = Titanium.Network.createHTTPClient({
+            onload: function() {
+                uploadingFile = null;
+                onSuccessCallback(JSON.parse(this.responseText));
+            },
+            onerror: function(data) {
+                Ti.API.info('error data=' + data);
+                Ti.API.info('this.status=' + this.status);
+                uploadingFile = null;
+    
+                onErrorCallBack(this.status);
+            }
+        });
+    
+        xhr.open('POST', httpClient.getUserDomainInfo(config.URLs.imageupload, tenant));
+        xhr.setRequestHeader("Content-Type", "multipart/form-data");
+    
+        xhr.send({
+            file: uploadingFile.read(),
+            claimId: claimID,
+            filename: filename,
+            description: ''
+        });
+    };
+    
+    /*
+     * Method to update the image database when upload is successful.
+     */
+    var uploadSuccessCallback = function(resp) {
+        alert("image upload is succeeded and resp =" + resp);
+    };
+    
+    /*
+     * Method to update the image database when upload is failed.
+     */
+    var uploadErrorCallback = function(statuscode) {
+        alert("upload is failed and status is " + statuscode);
+    };
+    
+    //Sending the server request to start the upload to the server.
+    uploadFile(currentImage.claimid, currentImage.filename, currentImage.tenant, uploadSuccessCallback, uploadErrorCallback);
+    </pre></code></li>
+<li>Chee Kiat Ng 2016-08-17
+
+    [~simbu-anubavam] Do you have the log of what the server received? Can you show what the server expects to receive vs what this code produced? 
+    Then we can see what's malformed. Because the code looks about right to me. </li>
+<li>Silambarasan Raman Anubavam 2016-08-17
+
+    @Chee Kiat Ng
+    
+    FYI:
+    
+    Image upload is working fine with below SDK versions
+    
+    Ti SDK 3.5.1 GA Working
+    Ti SDK 4.1.0 GA - Working
+    
+    Image upload is NOT working with below SDK versions
+    
+    Ti SDK 5.1.1 GA
+    Ti SDK 5.1.2 GA
+    Ti SDK 5.2.0 GA
+    Ti SDK 5.2.2 GA
+    Ti SDK 5.3.0 GA
+    and Latest
+    
+    Also for Android image upload is working fine on All the SDK version, Problem is only with iOS on specific Ti SDK versions , So surely there is no issues with our server part,  And we don't have access to server part to show the log what server received.</li>
+<li>Chee Kiat Ng 2016-08-18
+
+    [~simbu-anubavam] what if you comment out this line?
+    <code><pre>
+    // xhr.setRequestHeader("Content-Type", "multipart/form-data");
+    </pre></code>
+    as explained here:
+    <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Network.HTTPClient
+    {quote}
+    On the Android and iOS platforms:
+    
+    If you are sending a JavaScript object, the content type is set to multipart/form-data automatically.
+    {quote}
+    Sometimes there's loopholes in earlier versions that gave false correct results, that we may have fixed in a later version, that's why i needed as much info as possible. especially since a working version was so long ago.</li>
+<li>Silambarasan Raman Anubavam 2016-08-18
+
+    @Chee Kiat Ng
+    I have tested by removing the below line
+    xhr.setRequestHeader("Content-Type", "multipart/form-data");
+    
+    And the same server error code 500 returned.</li>
+<li>Hans Knöchel 2016-08-20
+
+    Ok, I'd like to get this sorted before taking it under further investigation. Can you please show an example using <code><a href="https://httpbin.org/" rel="nofollow" target="_blank">https://httpbin.org/</a></code> as the API endpoint that reproduces your issue (expected vs. actual behavior)? The above discussion looks a bit scattered.</li>
+<li>Silambarasan Raman Anubavam 2016-09-07
+
+    Hi @Hans Knoechel, 
+    Can you let me know what parameter i need to send along with the image upload call(<a href="https://httpbin.org/image)" rel="nofollow" target="_blank">https://httpbin.org/image)</a>,
+    
+    Because i just tried by passing image as key with value as image object, and got the below error response:
+    {"success":false,"code":405,"source":{"url":"<a href="https://httpbin.org/image" rel="nofollow" target="_blank">https://httpbin.org/image</a>","method":"POST"},"type":"error","error":"HTTP error"}</li>
+<li>Silambarasan Raman Anubavam 2016-09-13
+
+    Hi @Hans Knoechel, 
+    What is the status of this ticket, It seems to be your Sprint 18 SDK  date also ended on Sep 9, 2016,
+    We are waiting for this ticket to be resolved for submit our app to stores. 
+    Hope we will get the good response from you</li>
+<li>Hans Knöchel 2016-09-14
+
+    [~simbu-anubavam] The last weeks has been entirely blocked for iOS 10 and Xcode 8 support. As we just 5.5.0.GA, I can schedule a further investigation for this sprint. Thanks!</li>
+<li>Hans Knöchel 2016-09-20
+
+    [~simbu] -Can you try to revert [this line](<a href="https://github.com/appcelerator/titanium_mobile/pull/7010/files)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7010/files)</a> and see if it changes something? The change was made for 4.1.1, so it might causing it and we need to go from there.- Guess that's not it.
+    
+    *EDIT*: And when I see it correctly, <code>ticket</code> and <code>imageType</code> should not have a <code>Content-Type</code>, but have <code>text/plain</code> that causes problems? If so, [this line](<a href="https://github.com/cheekiatng/APSHTTPClient/blob/9fb593f475a36f77e95e38ec0a70c040730dce11/APSHTTPClient/APSHTTPPostForm.m#L90)" rel="nofollow" target="_blank">https://github.com/cheekiatng/APSHTTPClient/blob/9fb593f475a36f77e95e38ec0a70c040730dce11/APSHTTPClient/APSHTTPPostForm.m#L90)</a> will likely cause the problems. What do you think? Try to replace [this library](<a href="https://www.dropbox.com/s/exb8z2ax9p5wmco/libAPSHTTPClient.a?dl=1)" rel="nofollow" target="_blank">https://www.dropbox.com/s/exb8z2ax9p5wmco/libAPSHTTPClient.a?dl=1)</a> in your SDK (_iphone/Classes/APSHTTPClient/libAPSHTTPClient.a_) and tell me about your findings. It would be cool if we both use the same sample (the above one linked in the ticket) to discuss on code-level.
+    
+    *EDIT2*: Reading the official multipart-content-type specification ([RFC1341(MIME)](<a href="https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html)" rel="nofollow" target="_blank">https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html)</a>, providing a <code>Content-Type: text/plain</code> looks valid for text-parts:
+    <code><pre>
+         Content-type: multipart/mixed; boundary="simple 
+         boundary" 
+    
+         This is the preamble.  It is to be ignored, though it 
+         is a handy place for mail composers to include an 
+         explanatory note to non-MIME compliant readers. 
+         --simple boundary 
+    
+         This is implicitly typed plain ASCII text. 
+         It does NOT end with a linebreak. 
+         --simple boundary 
+         Content-type: text/plain; charset=us-ascii 
+    
+         This is explicitly typed plain ASCII text. 
+         It DOES end with a linebreak. 
+    
+         --simple boundary-- 
+         This is the epilogue.  It is also to be ignored.
+    </pre></code>
+    
+    Another example:
+    - <a href="http://stackoverflow.com/a/23517227/5537752" rel="nofollow" target="_blank">http://stackoverflow.com/a/23517227/5537752</a></li>
+<li>Silambarasan Raman Anubavam 2016-09-21
+
+    Hi @Hans Knoechel 
+    
+    Thanks for the sharing of [library files](<a href="https://www.dropbox.com/s/exb8z2ax9p5wmco/libAPSHTTPClient.a?dl=1)" rel="nofollow" target="_blank">https://www.dropbox.com/s/exb8z2ax9p5wmco/libAPSHTTPClient.a?dl=1)</a>      After replaced this file with Ti SDK 5.1.2 GA 's  (iphone/Classes/APSHTTPClient/libAPSHTTPClient.a) file, Image upload was working fine, 
+    
+    We are happy to see the image upload is working perfectly, 
+    
+    I am expecting this changes on the Latest SDK files. So that we don't need to change the file (iphone/Classes/APSHTTPClient/libAPSHTTPClient.a) manually. When we can expect this?</li>
+<li>Chee Kiat Ng 2016-09-21
+
+    [~hansknoechel] bumped priority to 6.0.0.</li>
+<li>Hans Knöchel 2016-09-21
+
+    [~simbu] The library is not meant to be used in SDK-versions < 5.5.0, since it incorporates with SDK-related logic that may changed between 5.1.x and 5.5.x. I can do a PR for it, sure, but the more I think about it, the more I think we should not remove the content-type for individual parts, because:
+    - Every part should have a proper content-type
+    - If we provide a text-parameter, it should get the content-type "text/plain"
+    - The official specification suggests the same
+    - A native example with the #1 request-framework for Swift (Alamofire) suggests the same (I made an example project [here](<a href="https://www.dropbox.com/s/hm9eydpux7oxtkz/formdata_test.zip?dl=0))" rel="nofollow" target="_blank">https://www.dropbox.com/s/hm9eydpux7oxtkz/formdata_test.zip?dl=0))</a>
+    
+    So I would rather see an issue with the webserver that it can't understand the content-type for individual parts OR you need to provide more details on why providing the content-type for individual parts (text-parts) does not make sense. I mean, we already supply the content-type for the image (image/jpeg), so why would we want to leave it out for the text-parts?</li>
+<li>Silambarasan Raman Anubavam 2016-09-21
+
+    Hi Hans Knoechel,
+    
+    Yes i am agree with you and we should not remove the content-type as per the official suggestion,
+    But why the image is not uploading even  while not passing content-type and also with content-type as image/jpeg,
+    
+    Can you clarify this? And we are just tested by replace the library file as you asked, 
+    
+    When we can expect the 6.0.0 release? we are holding our apps update to store due to this issue only. If you share the expected release date of 6.0.0, we will plan accordingly.</li>
+<li>Hans Knöchel 2016-09-24
+
+    Ok, after going through the logs again and checking the previous comments, [~mgumbs] was correct that we need to remove the quotes from the <code>charset</code>, different to the required ones in the <code>Content-Disposition</code>. -PR's coming.- The PR's are added below.
+    
+    [~simbu-anubavam] Please check the binary from the below PR and replace it with yours. The binary should work the same for 5.5.0, so you could replace it before we release 6.0.0 in November.</li>
+<li>Hans Knöchel 2016-09-24
+
+    PR (APSHTTPClient/master): <a href="https://github.com/appcelerator/APSHTTPClient/pull/37" rel="nofollow" target="_blank">https://github.com/appcelerator/APSHTTPClient/pull/37</a>
+    
+    PR (titanium_mobile/master): <a href="https://github.com/appcelerator/titanium_mobile/pull/8430" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8430</a>
+    PR (titanium_mobile/6_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8431" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8431</a>
+    
+    See the above code-snipper for an example. Expected behavior when checking the requestb.in logs: The content-type of the individual parts is now <code>Content-Type:text/plain;charset=utf-8</code> instead of <code>Content-Type:text/plain;charset="utf-8"</code> and therefore can be accepted by the server again.</li>
+<li>Chee Kiat Ng 2016-09-26
+
+    APPROVED</li>
+<li>Eric Wieber 2016-11-11
+
+    Verified fixed, using:
+    MacOS 10.12 (16A323)
+    Studio 4.8.0.201611020954
+    Ti SDK 6.0.0.v20161111062138
+    Appc NPM 4.2.8-9
+    Appc CLI 6.0.0-69
+    Alloy 1.9.4
+    Xcode 8.1 (8B62)
+    
+    The charset portion of the Content-type header is no longer in quotes. Images and other data is able to be POSTed to the server. Tested by using the provided test cases and verifying that the data/headers are correct in the server logs.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20181.json">JSON Source</a></p>

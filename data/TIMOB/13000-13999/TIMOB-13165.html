@@ -1,0 +1,104 @@
+---
+title: "[TIMOB-13165] Ti.UI.createView({}) takes significantly longer than Ti.UI.createView()"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-22T23:11:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2013 Sprint 06 API, 2013 Sprint 06</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2013-03-22T19:03:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-08T23:36:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Measure Ti.UI.createView(). Measure Ti.UI.createView({}). Note that the latter takes over twice if not three times the time than the former.
+
+Find other expenses due to ddms analysis.
+
+Expenses turn out due to style sheet handling, even when there is no style sheet, and in string building, especially debug statements that require expensive string building without anything logged.
+
+<code><pre>
+// this sets the background color of the master UIView (when there are no windows/tab groups on it)
+Titanium.UI.setBackgroundColor('#000');
+
+// create base UI tab and root window
+var win = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+
+var label1 = Titanium.UI.createLabel({
+	color:'#999',
+	text:'I am Window 1',
+	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+	textAlign:'center',
+	width:'100%',
+	height:400,
+	top:0
+});
+
+win.add(label1);
+
+function measureFunction(workFunct,name,loopCount,sampleSize){
+	if(!loopCount) loopCount = 500;
+	if(!sampleSize) sampleSize = 20;
+	if(!name) name = "test";
+	var results = [];
+	var sum = 0;
+	var i,j;
+
+	for(j=0;j<sampleSize;j++){
+		label1.text = 'Testing '+Ti.version+' ('+Ti.buildDate+') with '+name+' (' + 100 * j / sampleSize + '%)...';
+		var startTime = Date.now();
+		for(i=0;i<loopCount;i++){
+			workFunct();
+		}
+		var endTime = Date.now();
+		results[j]=endTime-startTime;
+		sum += results[j];
+	}
+	label1.text = 'Results for ' + name + ' (Avg ' + (sum/sampleSize) + '): ' + results.join(', ');
+	Ti.API.debug(label1.text);	
+}
+
+var btn1 = Ti.UI.createButton({width:200,height:60,left:10,top:410,title:'()'});
+btn1.addEventListener('click',function(){
+	measureFunction(function(){Ti.UI.createView();},'no object');
+})
+win.add(btn1);
+
+var btn2 = Ti.UI.createButton({width:200,height:60,left:10,top:490,title:'({})'});
+btn2.addEventListener('click',function(){
+	measureFunction(function(){Ti.UI.createView({});},'empty object');
+})
+win.add(btn2);
+
+var btn3 = Ti.UI.createButton({width:200,height:60,left:10,top:570,title:'({top:5})'});
+btn3.addEventListener('click',function(){
+	measureFunction(function(){Ti.UI.createView({top:5});},'simple object');
+})
+win.add(btn3);
+
+
+win.open();
+
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Lee Morris 2017-03-08
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13165.json">JSON Source</a></p>

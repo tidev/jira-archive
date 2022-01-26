@@ -1,0 +1,180 @@
+---
+title: "[TIMOB-19920] Android Lifecycle State (onPause, onCreate and others) not getting called"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-23T05:06:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Community, activity, android</td></tr>
+<tr><th>Reporter</th><td>Bhavin Bhavsar</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-09-29T06:58:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T17:56:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi, i am working on an titanium but i have problems getting android activity life-cycle state.
+
+I have gone through <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Android.Activity adding of 
+<property name="ti.android.root.reappears.restart" type="bool">true</property> also in tiapp.xml.
+
+Added the eventListners.
+var appActivity = Ti.Android.currentActivity;
+appActivity.addEventListener('onResume, function() {
+	    Ti.API.info('Tha applicaiton was onResume'');
+});
+Just like this i have added onPause, onStart', onRestart and onStop. But still i am not getting any required output. 
+
+I want to get the state of android activity and if possible also without adding any other 3rd party module.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Amimul Hossain 2015-09-29
+
+   Hello, See pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5701" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5701</a>
+   See test application below.
+   Explanation:
+   1. Added onCreate, onStart, onResume, onRestart, onPause, onStop, and onDestroy properties to the tab group or window activity property.
+   2. For Window, you must set these properties prior to window.open() called.
+   3. For TabGroup, you can set these only after the open event (it's unfortunate that the two APIs are different in this, but that's outside the scope of this PR). 
+   
+   <code><pre>
+   
+   Titanium.UI.setBackgroundColor('#000');
+    
+   // create tab group
+   var tabGroup = Titanium.UI.createTabGroup();
+    
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+   var tab1 = Titanium.UI.createTab({  
+       icon:'KS_nav_views.png',
+       title:'Tab 1',
+       window:win1
+   });
+    
+   var label1 = Titanium.UI.createLabel({
+   	color:'#999',
+   	text:'Click to open window',
+   	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+   	textAlign:'center',
+   	width:'auto'
+   });
+    
+   function openWin() {
+   	var childWin = Ti.UI.createWindow({});
+   	// For windows we set the activity lifecycle callback prior to calling open()
+   	// We cannnot call childWin.activity.addEventListener yet since the method is undefined
+   	// And if we call childWin.activity.addEventListener during the open event
+   	// we can miss the create, start, restart and resume events.
+   	// This is device and timing dependent.
+   	// Thus for windows we must define the callbacks here, and events should be deprecated.
+   	childWin.activity.onCreateOptionsMenu = function(e){
+   		Ti.API.info('childWin onCreateOptionsMenu called');
+   	};	
+   	childWin.activity.onStart = function(){
+   		Ti.API.info('childWin onStart called');
+   		// In the "onStart, etc callbacks this refers to the activity
+   		Ti.API.info('apiName: ' + this.apiName);     
+   	};
+   	childWin.activity.onRestart = function(){
+   		Ti.API.info('childWin onRestart called');
+   	};
+   	childWin.activity.onCreate = function(){
+   		Ti.API.info('childWin onCreate called');
+   	};
+   	childWin.activity.onResume = function(){
+   		Ti.API.info('childWin onResume called');
+   	};
+   	childWin.activity.onPause = function(){
+   		Ti.API.info('childWin onPause called');
+   	};
+   	childWin.activity.onStop = function(){
+   		Ti.API.info('childWin onStop called');
+   	};
+   	childWin.activity.onDestroy = function(){
+   		Ti.API.info('childWin onDestroy called');
+   	};
+   	childWin.open();
+   }
+   label1.addEventListener('click', openWin);
+   win1.add(label1);
+    
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'#fff'
+   });
+   var tab2 = Titanium.UI.createTab({  
+       icon:'KS_nav_ui.png',
+       title:'Tab 2',
+       window:win2
+   });
+    
+   var label2 = Titanium.UI.createLabel({
+   	color:'#999',
+   	text:'I am Window 2',
+   	font:{fontSize:20,fontFamily:'Helvetica Neue'},
+   	textAlign:'center',
+   	width:'auto'
+   });
+    
+   win2.add(label2);
+    
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+    
+   tabGroup.addEventListener('open', function() {
+   	// The tabGroup.activity property is valid only after open
+   	// we can set activity properties for synchronous callbacks
+   	// or tabGroup.activity.addEventListener() will also work
+   	tabGroup.activity.onCreateOptionsMenu = function(e){
+   		Ti.API.info('tabGroup onCreateOptionsMenu called');
+   	};	
+   	tabGroup.activity.onStart = function(){
+   		Ti.API.info('tabGroup onStart called');
+   	};
+   	tabGroup.activity.onRestart = function(){
+   		Ti.API.info('tabGroup onRestart called');
+   	};
+   	tabGroup.activity.onCreate = function(){
+   		Ti.API.info('tabGroup onCreate called');
+   	};
+   	tabGroup.activity.onResume = function(){
+   		Ti.API.info('tabGroup onResume called');
+   	};
+   	tabGroup.activity.onPause = function(){
+   		Ti.API.info('tabGroup onPause called');
+   	};
+   	tabGroup.activity.onStop = function(){
+   		Ti.API.info('tabGroup onStop called');
+   	};
+   	tabGroup.activity.onDestroy = function(){
+   		Ti.API.info('tabGroup onDestroy called');
+   	};	
+   });
+    
+   tabGroup.open();
+   </pre></code>
+   
+   Thanks.</li>
+<li>Ashraf Abu 2015-11-20
+
+   [~bhavin2887] The comment written earlier works and you do get the lifecycle.
+   
+   I'll close this ticket as invalid if there is nothing else. :) </li>
+<li>Lee Morris 2017-03-24
+
+    Closing ticket as invalid with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19920.json">JSON Source</a></p>

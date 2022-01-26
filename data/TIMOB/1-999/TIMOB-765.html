@@ -1,0 +1,147 @@
+---
+title: "[TIMOB-765] Table View crash on second load"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:54:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Nolan Wright</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:35:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:54:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>after initial load, click button to load next set of data. table
+view crashes</p>
+<p>from premium ticket:</p>
+<p><a href=
+"<a href="http://helpdesk.appcelerator.net/tickets/1847" rel="nofollow" target="_blank">http://helpdesk.appcelerator.net/tickets/1847</a>"><a href="http://helpdesk.appcelerator.net/tickets/1847" rel="nofollow" target="_blank">http://helpdesk.appcelerator.net/tickets/1847</a></a></p>
+<p>here's the code:</p>
+<p>//Variable storing when the platform is android var android =
+(Ti.Platform.name == "android");</p>
+<p>//BG Color to White
+//Titanium.UI.setBackgroundColor(android?<a href=
+"">#181818</a>;</p>
+<p>//Create 5 individual windows var win1 =
+Ti.UI.createWindow();</p>
+<p>//Create the table view and set the data var tableview =
+Titanium.UI.createTableView({top:50});<br>
+win1.add(tableview);</p>
+<p>//Set data counter to keep track of getData calls var dataCount
+= 0;<br>
+var epicFail = false;<br>
+//Make client var xhr = Ti.Network.createHTTPClient();</p>
+<p>//This function loads the game data function getData(window,
+platform) {</p>
+<pre>
+<code>//Data failure
+xhr.onerror = function (e) { 
+    if (!epicFail) { 
+        alert("A Net Load failed! Best to check your connection and reload app later!"); 
+    } 
+    epicFail = true; 
+};
+//Upon data load
+xhr.onload = function( ) {
+    //Create clean data array
+    var data = [];        
+    //Get the JSON out
+    var resp = eval("(" + this.responseText + ")");
+
+    //Set img width, if DS, make it bigger
+    var imgWidth = 50;
+    if (platform == "Nintendo%20DS") {
+        imgWidth = 75;
+    }
+
+    Ti.API.info('PRODUCT COUNT = ' + resp.products.length);
+
+    //Loop through and create rows for every product pulled
+    for (var i=0;i &lt; resp.products.length;i++) {
+        var row = Ti.UI.createTableViewRow({
+            height:70
+            //backgroundColor:"white"
+        });
+        //Get the game name
+        var gamename = resp.products[i].name;
+        //Replace unwanted data in name
+        gamename = gamename.replace("- " + resp.products[i].platform,"");
+        gamename = gamename.replace(/&amp;#37;/g,"&amp;");
+        gamename = gamename.replace(/&amp;#252;/g,"&uuml;");
+        gamename = gamename.replace(/&amp;#233;/g,"&eacute;");
+        gamename = gamename.replace(/&amp;#33;/g,"&copy;");
+
+        //Create an image for the cell using the thumbnail image
+
+        var img = Ti.UI.createImageView({
+            url:resp.products[i].thumbnailImage,
+            left:5,width:50,height:67
+        });
+        //Create a label for the cell using the game name
+        var lbl = Ti.UI.createLabel({
+            text:gamename,
+            top:5,left:imgWidth + 10,
+            textAlign:"left",
+            font:{fontWeight:"bold",fontSize:12} 
+        });
+        //Add the label and image to the row          
+        row.add(lbl);
+        row.add(img);
+        Ti.API.info('IMAGE ' + img + ' url ' + img.url + ' i ' + i);
+
+        data[i] = row;
+    }
+  tableview.setData(data);
+
+};//End onload
+xhr.open("GET","<a href="http://api.remix.bestbuy.com/v1/products(type=game&amp" rel="nofollow" target="_blank">http://api.remix.bestbuy.com/v1/products(type=game&amp</a>;platform=" + platform +")?sort=salesRankShortTerm&amp;format=json&amp;apiKey=sexdfjckv6be3gq49rpt4jby");
+xhr.send();</code>
+</pre>
+<p>}</p>
+<p>//Get the desired data getData(win1,"Xbox%20360");</p>
+<p>btn1 = Ti.UI.createButton({<br></p>
+<pre>
+<code>title:"Next platform",
+width:120,height:40,top:0</code>
+</pre>
+<p>});</p>
+<p>btn1.addEventListener("click",function(e) {<br></p>
+<pre>
+<code>//getData(win1, "Nintendo%20DS");
+getData(win1, "Xbox");</code>
+</pre>
+<p>});</p>
+<p>win1.add(btn1);</p>
+<p>win1.open();</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>kosso 2011-04-15
+
+   <div><p>I've been having the same issue since yesterday's 'trying to
+   speed up tableviews' commit.</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/9fda09a034a68971fc1d249500663703afc3bba6"
+   title=
+   "Changeset [9fda09a034a68971fc1d249500663703afc3bba6]">[9fda09a034a68971fc1d249500663703afc3bba6]</a>)
+   Closes <a href="/projects/32238/tickets/765" title=
+   "Ticket #765">#765</a>: New proxy needed to be retained (may be
+   freed twice). Checking with instruments confirms no memory leak.
+   <a href=
+   "<a href="http://github.com/appcelerator/titanium_mobile/commit/9fda09a034a68971fc1d249500663703afc3bba6" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/9fda09a034a68971fc1d249500663703afc3bba6</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/commit/9fda09a034a68..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/9fda09a034a68...</a></a></p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-765.json">JSON Source</a></p>

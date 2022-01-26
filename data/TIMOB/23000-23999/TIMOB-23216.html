@@ -1,0 +1,138 @@
+---
+title: "[TIMOB-23216] Windows: Data binding: returning false displays false"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, iOS, Windows</td></tr>
+<tr><th>Labels</th><td>parity</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2016-04-14T16:09:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-06-02T18:53:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I have data binding set up on a ListSection with a transform function. When my transform function return false (not a string, but a boolean) as a variable the databinding actually displays a string "false" instead of nothing like it does on iOS and Android
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23216_58975/iPhone_6s_Plus_OS_9_2.png">iPhone_6s_Plus_OS_9_2.png</td></td><td>2016-04-18T06:36:13.000+0000</td><td>16337</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23216_58976/Nexus_One_API_23.png">Nexus_One_API_23.png</td></td><td>2016-04-18T06:36:13.000+0000</td><td>30033</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23216_58977/Windows_8_1.png">Windows_8_1.png</td></td><td>2016-04-18T06:36:13.000+0000</td><td>16025</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2016-04-15
+
+   [~topener] I don't quite get the issue but you mean you did transform the ListView? Could you give us a sample code so we can reproduce the issue on our side? </li>
+<li>Rene Pot 2016-04-15
+
+   <code><pre>
+   function transform(model){
+    return {
+        description: false
+   }
+   }
+   </pre></code>
+   
+   When using this in the view:
+   
+   <code><pre>
+   <ListItem description:text="{description}" />
+   </pre></code>
+   
+   it will display the string "false" instead of nothing</li>
+<li>Christopher Williams 2016-04-15
+
+   Hmm, interesting. And the other platforms just display nothing rather than coercing the boolean to a string value? That seems like our behavior is "more correct" here. I mean if you didn't want the description shown, wouldn't you use an empty string?</li>
+<li>Rene Pot 2016-04-15
+
+   iOS and Android display nothing indeed. "false" shouldn't be displayed imho as it does on both other platforms</li>
+<li>Kota Iguchi 2016-04-18
+
+   I don't think we have parity across platforms. I have created a sample code to test how <code>true</code> and <code>false</code> rendered in <code>ListView</code>, <code>Label</code> and <code>Button</code> 
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({ backgroundColor: 'green', layout:'vertical' });
+   var listView = Ti.UI.createListView({
+       width: Ti.UI.FILL,
+       height: '50%'
+   });
+   var label_t = Ti.UI.createLabel({
+       width: Ti.UI.FILL,
+       height: '10%',
+       text: true
+   });
+   var label_f = Ti.UI.createLabel({
+       width: Ti.UI.FILL,
+       height: '10%',
+       text: false
+   });
+   var button_t = Ti.UI.createButton({
+       width: Ti.UI.FILL,
+       height: '10%',
+       title: true
+   });
+   var button_f = Ti.UI.createButton({
+       width: Ti.UI.FILL,
+       height: '10%',
+       title: false
+   });
+   var sections = [];
+   
+   var vegSection = Ti.UI.createListSection({ headerTitle: 'Vegetables' });
+   var vegDataSet = [
+       { properties: { title: true } },
+       { properties: { title: false } },
+   ];
+   vegSection.setItems(vegDataSet);
+   sections.push(vegSection);
+   
+   listView.sections = sections;
+   win.add(listView);
+   win.add(label_t);
+   win.add(label_f);
+   win.add(button_t);
+   win.add(button_f);
+   
+   win.open();
+   </pre></code>
+   
+   So here's how it's rendered.
+   
+   !iPhone_6s_Plus_OS_9_2.png|thumbnail! 
+   !Nexus_One_API_23.png|thumbnail! 
+   !Windows_8_1.png|thumbnail! 
+   
+   As you can see in the screenshot, 
+   
+   * iOS renders <code>1</code> for <code>true</code>, and <code>0</code> for <code>false</code> in every cases.
+   * Android renders <code>empty string</code> on ListView for either <code>true</code> and <code>false</code>
+   * Android renders <code>"true"</code> for <code>true</code>, <code>"false"</code> for <code>false</code> on Label and Button
+   * Windows renders <code>"true"</code> for <code>true</code>, <code>"false"</code> for <code>false</code> in every cases.
+   
+   So it's obviously a parity issue here but I'm not sure what is the "right" way for this.</li>
+<li>Fokke Zandbergen 2016-04-18
+
+   Be aware of how ALOY-1355 and ALOY-1480 influence these findings.</li>
+<li>Christopher Williams 2016-05-04
+
+   Given the freeze date for 5.4.0 and the fact that this needs more attention from the iOS/Android guys to get parity right, I need to bump it out.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23216.json">JSON Source</a></p>

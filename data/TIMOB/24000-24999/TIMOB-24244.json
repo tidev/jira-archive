@@ -1,0 +1,240 @@
+{
+	"id": "165076",
+	"key": "TIMOB-24244",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "17608",
+				"name": "Release 6.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-05-26"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2017-01-03T15:16:54.000+0000",
+		"created": "2016-12-20T11:34:21.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android"
+		],
+		"versions": [
+			{
+				"id": "16980",
+				"description": "New V8",
+				"name": "Release 6.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2016-11-15"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "gmathews",
+			"key": "gmathews",
+			"displayName": "Gary Mathews",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2017-01-13T18:11:58.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "h2. Problem\r\n\r\nSummary: Uploading files larger than appx. 10 MB on older Android devices results in java.lang.OutOfMemoryError either called within httpclient.onerror, or as an uncaught exception viewable in LogCat before upload even starts.\r\n\r\nExpected behavior: Being able to upload the attached 50 MB file with no errors. Perhaps it doesn't upload in chunks?\r\n\r\nActual behavior: httpclient.onerror is called with e.error: java.lang.OutOfMemoryError, or uncaught exception, depending on how much RAM device has.\r\n\r\n\r\nh2. Test findings\r\n\r\nI've done a lot of testing to narrow this down. \r\nFor simulators I exclusively used intel x86 images.\r\nI've tested exclusively with no apps running in the background.\r\n\r\n\r\nHere's my findings:\r\n\r\n\r\nOK: No error - the file is uploaded OK.\r\nError 1: Out of memory error in httpclient.onerror\r\nError 2: Uncaught exception, error in LogCat (generel output at bottom of this post)\r\n\r\nAndroid 4.1.2\r\n{color:red}- Simulator, RAM: 200 MB RAM, Error 2\r\n- Simulator, RAM: 768 MB RAM, Error 1\r\n- Samsung Galaxy S3, RAM: 2GB, Error 1{color}\r\n\r\nAndroid 4.2.2\r\n{color:green}- Simulator, RAM: 768 MB RAM, OK{color}\r\n{color:red}- Simulator, RAM: 600 MB RAM, Error 1\r\n- Simulator, RAM: 200/400 MB RAM, Error 2{color}\r\n\r\nAndroid 4.3.1 or 4.3\r\n{color:red}- Galaxy Nexus, Android 4.3, RAM: 1GB, Error 2\r\n- Samsung Galaxy S3, Android 4.3, RAM: 2GB, Error 1\r\n- Simulator, RAM: 600 MB, Error 1\r\n- Simulator, RAM: 400 MB, Error 2{color}\r\n\r\nAndroid 4.4.2\r\n{color:red}- Simulator, RAM: 400 MB, Error 1\r\n- Simulator, RAM: 200 MB, emulator hangs completely on splash screen of app when launched{color}\r\n{color:green}- Simulator, RAM: 768 MB, OK{color}\r\n\r\nAndroid 5.0.1\r\n{color:green}- Simulator, RAM: 400 MB, OK\r\n- Simulator, RAM: 200 MB, OK{color}\r\n\r\nAndroid 6.0\r\n{color:green}- Simulator, Android 6.0, RAM: 200 MB, OK{color}\r\n\r\nAndroid 7\r\n{color:green}- OnePlus 3, Android 7, RAM: 6 GB RAM, OK\r\n- Simulator, Android 7, RAM: 768 MB RAM, OK\r\n- Simulator, Android 7, RAM: 200 MB RAM, OK{color}\r\n\r\n\r\n\r\n\r\nh2. Test conclusion\r\n\r\nOn Android SDK versions below 5, for devices with little RAM, all uploads will fail with out of memory errors.\r\n\r\n\r\nh2. Possible fix suggestion \r\n\r\nPerhaps detect Android versions below 5 when sending large files via httpclient, and upload those files in chunks instead of reading it all to memory.\r\nIf httpclient is already using chunked uploads, maybe decrease chunk sizes.\r\n\r\n\r\nh2. Test case\r\nCompiled APK here: https://bitfabrikken.dk/testapp.apk\r\nTest file for downloading here: https://bitfabrikken.dk/50mb_file.mp4 (just a linux dd-generated file with lots of dots)\r\n{code:lang=javascript|title=app.js}\r\nvar win = Ti.UI.createWindow({\r\n    backgroundColor: \"black\",\r\n});\r\nwin.addEventListener('open',function listener(){\r\n    win.removeEventListener('open', listener);\r\n    testupload();\r\n});\r\n\r\n\r\nvar progressLabel = Ti.UI.createLabel({\r\n    text: \"0%\",\r\n    color: \"white\",\r\n    font: { fontSize: 50},\r\n    bottom: 10,\r\n    left: 10,\r\n});\r\nwin.add(progressLabel);\r\n\r\n\r\nwin.open();\r\n\r\n\r\nfunction testupload(){\r\n\r\n    //any resolvable hostname will do for this test, but I setup a simple php file that simply prints \"OK\" on any request\r\n    var url = \"https://bitfabrikken.dk/testupload.php\"; \r\n    var xhr = Ti.Network.createHTTPClient({\r\n\t\t//various parameters below I've tried that don't work \r\n        //enableKeepAlive: false,\r\n        //keepAlive:  false,\r\n        //autoEncodeUrl: false,\r\n        //validatesSecureCertificate: true,\r\n        //timeout: 10000000,\r\n    });     \r\n    xhr.onsendstream = function(e){\r\n        progressLabel.text = parseInt(e.progress * 100)+\"%\";\r\n    };\r\n    xhr.onerror = function(e){\r\n        console.log(\"xhr.onerror:\");\r\n        console.log(e);\r\n        alert(JSON.stringify(e));\r\n    }; \r\n    xhr.onload = function(e){\r\n        //this.responseText should be \"OK\"\r\n        alert(\"SUCCESS!\");\r\n        console.log(\"SUCCESS!\");\r\n    };   \r\n       \r\n    xhr.open(\"POST\", url); \r\n    \r\n    var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, \"50mb_file.mp4\");\r\n    if (!file.exists()){\r\n        alert(\"file not found\");\r\n        return; \r\n    }    \r\n\r\n    //various different headers I've tried, same error\r\n        //xhr.setRequestHeader(\"Connection\",\"Close\");\r\n        //xhr.setRequestHeader(\"Content-Type\", \"application/x-www-form-urlencoded\");\r\n        //xhr.setRequestHeader(\"enctype\", \"multipart/form-data\");\r\n    \r\n    console.log(\"SENDING FILE, size: \"+(file.size/1024/1024)+\" MB\");\r\n    \r\n    xhr.send({\r\n        file: file\r\n    });\r\n    \r\n    \r\n}    \r\n{code} \r\n\r\n\r\nh2. Logs\r\n\r\nhttpclient.onerror is called with the following:\r\n{code:lang=none|title=console}\r\n{\r\n    \"code\": -1,\r\n    \"source\": {\r\n        \"responseText\": \"\",\r\n        \"location\": \"http://website.com/\",\r\n        \"status\": 0,\r\n        \"domain\": null,\r\n        \"readyState\": 1,\r\n        \"tlsVersion\": 3,\r\n        \"connectionType\": \"POST\",\r\n        \"validatesSecureCertificate\": true,\r\n        \"statusText\": null,\r\n        \"username\": null,\r\n        \"password\": null,\r\n        \"allResponseHeaders\": \"\",\r\n        \"responseXML\": null,\r\n        \"responseData\": null,\r\n        \"autoRedirect\": true,\r\n        \"apiName\": \"Ti.Network.HTTPClient\",\r\n        \"autoEncodeUrl\": true,\r\n        \"connected\": false,\r\n        \"bubbleParent\": true,\r\n        \"_events\": {\r\n            \"disposehandle\": {}\r\n        }\r\n    },\r\n    \"error\": \"java.lang.OutOfMemoryError\",\r\n    \"success\": false\r\n}\r\n{code} \r\n\r\nBuild log\r\n{code:lang=none|title=build_log}\r\n2016-12-20T09:36:55.012Z | TRACE  | set environment to {\"registry\":\"https://software.appcelerator.com\",\"security\":\"https://security.appcelerator.com\",\"baseurl\":\"https://platform.appcelerator.com\"}\r\n2016-12-20T09:36:55.013Z | TRACE  | checking credentials for existing session\r\n2016-12-20T09:36:55.236Z | TRACE  | Attempting to load session info from config file\r\n2016-12-20T09:36:55.240Z | TRACE  | check if session is invalidated\r\n2016-12-20T09:36:56.102Z | TRACE  | registry result 200 application/json undefined undefined false undefined\r\n2016-12-20T09:36:56.130Z | TRACE  | registry returned { expiry: 1482831414645 }\r\n2016-12-20T09:36:56.130Z | TRACE  | refresh session expiry to:  1482831414645\r\n2016-12-20T09:36:56.133Z | TRACE  | session expiry 1482831414645 false\r\n2016-12-20T09:36:56.134Z | TRACE  | Arrow Cloud config file: C:\\Users\\kronholm\\.acs\r\n2016-12-20T09:36:56.135Z | TRACE  | found Arrow Cloud login { mid: 'CENSORED',\r\n  publishPort: 443,\r\n  publishHost: 'https://admin.cloudapp-enterprise.appcelerator.com',\r\n  username: 'CENSORED',\r\n  cookie: [ 'connect.sid=CENSORED; Path=/; Expires=Tue, 03 Jan 2017 07:45:16 GMT; HttpOnly' ],\r\n  defaultEP: \r\n   { publishHost: 'https://admin.cloudapp-enterprise.appcelerator.com',\r\n     publishPort: 443 } } , checking nodeACSEndpoint= https://admin.cloudapp-enterprise.appcelerator.com\r\n2016-12-20T09:36:56.137Z | TRACE  | Arrow Cloud cookie expiry [ 1483429516000 ]\r\n2016-12-20T09:36:56.137Z | TRACE  | session already loaded in opts.session\r\n2016-12-20T09:36:56.139Z | TRACE  | getCredentials() session:\r\n{\r\n  \"ipaddress\": \"10.0.0.6\",\r\n  \"username\": \"CENSORED\",\r\n  \"password\": \"<OMITTED>\",\r\n  \"session\": \"<OMITTED>\",\r\n  \"nonce\": \"<OMITTED>\",\r\n  \"environment\": {\r\n    \"name\": \"production\",\r\n    \"isProduction\": true,\r\n    \"acsBaseUrl\": \"https://api.cloud.appcelerator.com\",\r\n    \"acsAuthBaseUrl\": \"https://secure-identity.cloud.appcelerator.com\",\r\n    \"nodeACSEndpoint\": \"https://admin.cloudapp-enterprise.appcelerator.com\"\r\n  },\r\n  \"token\": \"<OMITTED>\",\r\n  \"fingerprint\": \"CENSORED\",\r\n  \"fingerprint_description\": \"Windows Machine ID: CENSORED\",\r\n  \"org_id\": 100008383,\r\n  \"expiry\": 1482831414645\r\n}\r\n2016-12-20T09:36:56.140Z | TRACE  | loading plugins for command \"run\"\r\n2016-12-20T09:36:56.181Z | TRACE  | run search paths:\r\n[\r\n  \"C:\\\\Users\\\\kronholm\\\\.appcelerator\\\\install\\\\6.1.0\\\\package\",\r\n  \"C:\\\\Users\\\\kronholm\\\\.appcelerator\\\\install\\\\6.1.0\\\\package\\\\node_modules\",\r\n  \"C:\\\\Windows\\\\system32\\\\node_modules\",\r\n  \"C:\\\\Windows\\\\node_modules\",\r\n  \"C:\\\\node_modules\",\r\n  \"C:\\\\Users\\\\kronholm\\\\.appcelerator\\\\.npm\\\\lib\\\\node_modules\"\r\n]\r\n2016-12-20T09:36:56.182Z | DEBUG  | [PLUGIN-LOAD] 0ms C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\appc.js\r\n2016-12-20T09:36:56.407Z | DEBUG  | [PLUGIN-LOAD] 224ms C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\node_modules\\appc-cli-titanium\\appc.js\r\n2016-12-20T09:36:56.407Z | DEBUG  | run plugin: C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\node_modules\\appc-cli-titanium\r\n2016-12-20T09:36:56.408Z | DEBUG  | [PLUGIN-LOAD] 0ms C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\node_modules\\arrow\\appc.js\r\n2016-12-20T09:36:56.410Z | DEBUG  | run plugin: C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\node_modules\\arrow\r\n2016-12-20T09:36:56.413Z | TRACE  | plugin \"arrow\" failed its \"when\" function check, skipping...\r\n2016-12-20T09:36:56.414Z | TRACE  | loading plugin \"titanium\" for command \"run\" CLI options via function\r\n2016-12-20T09:36:56.414Z | TRACE  | loading plugin \"titanium\" for command \"run\" CLI options via array\r\n2016-12-20T09:36:56.415Z | TRACE  | executing command \"run\" with the following plugins:\r\n[\"titanium\"]\r\n2016-12-20T09:36:56.416Z | TRACE  | Attempting to load session info from config file\r\n2016-12-20T09:36:56.418Z | TRACE  | check if session is invalidated\r\n2016-12-20T09:36:57.077Z | TRACE  | registry result 200 application/json undefined undefined false undefined\r\n2016-12-20T09:36:57.078Z | TRACE  | registry returned { expiry: 1482831415635 }\r\n2016-12-20T09:36:57.078Z | TRACE  | refresh session expiry to:  1482831415635\r\n2016-12-20T09:36:57.080Z | TRACE  | session expiry 1482831415635 false\r\n2016-12-20T09:36:57.080Z | TRACE  | session already loaded in opts.session\r\n2016-12-20T09:36:57.105Z | DEBUG  | Titanium Downloads Last Checked: 1482225107758\r\n2016-12-20T09:36:57.128Z | TRACE  | No project alloy hook; skipping update to 1.0.0\r\n2016-12-20 10:37:00\r\nOperating System\r\n  Name                        = Microsoft Windows 10 Pro\r\n  Version                     = 10.0.14393\r\n  Architecture                = 32bit\r\n  # CPUs                      = 8\r\n  Memory                      = 34270777344\r\nNode.js\r\n  Node.js Version             = 4.5.0\r\n  npm Version                 = 2.15.9\r\nTitanium CLI\r\n  CLI Version                 = 5.0.11\r\nTitanium SDK\r\n  SDK Version                 = 6.0.0.GA\r\n  SDK Path                    = C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\r\n  Target Platform             = android\r\nCommand\r\n  C:\\Program Files (x86)\\nodejs\\node.exe C:\\Users\\kronholm\\.appcelerator\\install\\6.1.0\\package\\node_modules\\titanium\\lib\\titanium.js build run --platform android --sdk 6.0.0.GA --log-level trace --project-dir C:\\Dropbox\\apps\\testapp --deploy-type production --target dist-playstore --android-sdk C:\\android --output-dir C:\\Dropbox\\apps\\testapp --api-level 13 --alias tidev --keystore C:\\Dropbox\\apps\\testapp\\dev_keystore --store-password tirocks --key-password tirocks --no-colors --no-progress-bars --no-prompt --no-banner --prompt-type socket-bundle --prompt-port 60573 --username dan@bitfabrikken.dk --password khpcvnwr --config-file C:\\Users\\kronholm\\AppData\\Local\\Temp\\build-1482226617081.json --no-banner --project-dir C:\\Dropbox\\apps\\testapp\r\n[INFO] :   Deploy type: production\r\n[INFO] :   Building for target: dist-playstore\r\n[INFO] :   Targeting Android SDK API: 23\r\n[INFO] :   Building for the following architectures: armeabi-v7a, x86\r\n[INFO] :   Signing with keystore: C:\\Dropbox\\apps\\testapp\\dev_keystore (tidev)\r\n[INFO] :   Debugging disabled\r\n[INFO] :   Profiler disabled\r\n[INFO] :   Forcing rebuild: JavaScript files need to be re-encrypted\r\n[INFO] :   JavaScript files need to be encrypted\r\n[INFO] :   Processing JavaScript files\r\n[INFO] :   Encrypting JavaScript files: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\titanium_prep.win32.exe \"dk.bitfabrikken.testapp\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\assets\" \"app.js\" \"_app_props_.json\"\r\n[INFO] :   Writing C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\assets\\app.json\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-analytics.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-android.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-filesystem.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-app.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-media.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-locale.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-network.res.zip\r\n[INFO] :   Extracting module resources: C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-xml.res.zip\r\n[INFO] :   No aidl files to compile, continuing\r\n[INFO] :   Generating i18n files\r\n[INFO] :   Generating C:\\Dropbox\\apps\\testapp\\build\\android\\res\\values\\theme.xml\r\n[INFO] :   Packaging application: C:\\android\\build-tools\\23.0.3\\aapt.exe \"package\" \"-f\" \"-m\" \"-J\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\gen\" \"-M\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\AndroidManifest.xml\" \"-A\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\assets\" \"-S\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\res\" \"-I\" \"C:\\android\\platforms\\android-23\\android.jar\" \"-F\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\app.ap_\" \"--auto-add-overlay\" \"--extra-packages\" \"ti.modules.titanium.ui:android.support.v7.appcompat:android.support.v7.cardview\" \"-S\" \"C:\\Users\\kronholm\\AppData\\Local\\Temp\\1161120-5884-1wr5l8w/res\" \"-S\" \"C:\\Users\\kronholm\\AppData\\Local\\Temp\\1161120-5884-62j53h/res\" \"-S\" \"C:\\Users\\kronholm\\AppData\\Local\\Temp\\1161120-5884-1t1lh48/res\"\r\n[INFO] :   Building Java source files: c:\\Program Files (x86)\\Java\\jdk1.8.0_111\\bin\\javac.exe \"-J-Xmx1024M\" \"-encoding\" \"utf8\" \"-bootclasspath\" \"C:\\android\\platforms\\android-23\\android.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\kroll-v8.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-analytics.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\aps-analytics.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-android.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\jaxen-1.1.1.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\ti-commons-codec-1.3.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\kroll-common.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\titanium.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-multidex.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-filesystem.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-app.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-ui.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\nineoldandroids-appc-2.4.0.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-media.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-appcompat.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-v4.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-v7-appcompat.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-cardview.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\cardview-v7-23.0.1.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-locale.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-network.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-xml.jar;C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\lib\\titanium-verify.jar;R.class;AssetCryptImpl.class;TestappActivity.class;TestappAppInfo.class;TestappApplication.class\" \"-d\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\classes\" \"-proc:none\" \"-target\" \"1.6\" \"-source\" \"1.6\" \"@C:\\Dropbox\\apps\\testapp\\build\\android\\java-sources.txt\"\r\n[INFO] :   Running dexer: c:\\Program Files (x86)\\Java\\jdk1.8.0_111\\bin\\java.exe \"-Xmx1024M\" \"-XX:-UseGCOverheadLimit\" \"-Djava.ext.dirs=C:\\android\\platform-tools\" \"-jar\" \"C:\\android\\build-tools\\23.0.3\\lib\\dx.jar\" \"--dex\" \"--multi-dex\" \"--output=C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\dexfiles\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\classes\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\lib\\titanium-verify.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\kroll-v8.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-analytics.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\aps-analytics.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-android.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\jaxen-1.1.1.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\ti-commons-codec-1.3.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\kroll-common.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\titanium.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-multidex.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-filesystem.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-app.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-ui.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\nineoldandroids-appc-2.4.0.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-media.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-appcompat.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-v4.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\android-support-v7-appcompat.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-cardview.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\cardview-v7-23.0.1.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-locale.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-network.jar\" \"C:\\ProgramData\\Titanium\\mobilesdk\\win32\\6.0.0.GA\\android\\modules\\titanium-xml.jar\"\r\n[INFO] :   Creating unsigned apk\r\n[INFO] :   Processing C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\dexfiles\r\n[INFO] :   Processing C:\\Dropbox\\apps\\testapp\\build\\android\\src\r\n[INFO] :   Writing unsigned apk: C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\app-unsigned.apk\r\n[INFO] :   Using MD5withRSA signature algorithm\r\n[INFO] :   Signing apk: c:\\Program Files (x86)\\Java\\jdk1.8.0_111\\bin\\jarsigner.exe \"-sigalg\" \"MD5withRSA\" \"-digestalg\" \"SHA1\" \"-keystore\" \"C:\\Dropbox\\apps\\testapp\\dev_keystore\" \"-storepass\" \"*******\" \"-keypass\" \"tirocks\" \"-signedjar\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\testapp.apk\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\app-unsigned.apk\" \"tidev\"\r\n[INFO] :   Aligning zip file: C:\\android\\build-tools\\23.0.3\\zipalign.exe \"-v\" \"4\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\testapp.apk\" \"C:\\Dropbox\\apps\\testapp\\build\\android\\bin\\testapp.apkz\"\r\n[INFO] :   Writing build manifest: C:\\Dropbox\\apps\\testapp\\build\\android\\build-manifest.json\r\n[INFO] :   Packaging complete\r\n[INFO] :   Package location: C:\\Dropbox\\apps\\testapp\\testapp.apk\r\n[INFO] :   Project built successfully in 18s 889ms\r\n{code}\r\n\r\n\r\n\r\n\r\nLogcat error when httpclient.error is not triggered - this usually happens before upload can get going\r\n{code:lang=none|title=logcat_error}\r\n12-20 11:39:41.244: E/dalvikvm-heap(4508): Out of memory on a 52428816-byte allocation.\r\n12-20 11:39:41.244: I/dalvikvm(4508): \"main\" prio=5 tid=1 RUNNABLE\r\n12-20 11:39:41.244: I/dalvikvm(4508):   | group=\"main\" sCount=0 dsCount=0 obj=0x4187b578 self=0x417e61c0\r\n12-20 11:39:41.244: I/dalvikvm(4508):   | sysTid=4508 nice=0 sched=0/0 cgrp=apps handle=1075089404\r\n12-20 11:39:41.244: I/dalvikvm(4508):   | state=R schedstat=( 0 0 0 ) utm=450 stm=226 core=1\r\n12-20 11:39:41.244: I/dalvikvm(4508):   at java.io.ByteArrayOutputStream.toByteArray(ByteArrayOutputStream.java:~122)\r\n12-20 11:39:41.252: I/dalvikvm(4508):   at org.appcelerator.kroll.util.KrollStreamHelper.toByteArray(KrollStreamHelper.java:81)\r\n12-20 11:39:41.252: I/dalvikvm(4508):   at org.appcelerator.titanium.TiBlob.getBytes(TiBlob.java:327)\r\n12-20 11:39:41.252: I/dalvikvm(4508):   at ti.modules.titanium.network.TiHTTPClient.addTitaniumFileAsPostData(TiHTTPClient.java:866)\r\n12-20 11:39:41.252: I/dalvikvm(4508):   at ti.modules.titanium.network.TiHTTPClient.send(TiHTTPClient.java:1036)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at ti.modules.titanium.network.HTTPClientProxy.send(HTTPClientProxy.java:148)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:872)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1095)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:354)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at org.appcelerator.titanium.proxy.TiWindowProxy.handleMessage(TiWindowProxy.java:116)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at ti.modules.titanium.ui.WindowProxy.handleMessage(WindowProxy.java:453)\r\n12-20 11:39:41.260: I/dalvikvm(4508):   at android.os.Handler.dispatchMessage(Handler.java:95)\r\n12-20 11:39:41.268: I/dalvikvm(4508):   at android.os.Looper.loop(Looper.java:137)\r\n12-20 11:39:41.268: I/dalvikvm(4508):   at android.app.ActivityThread.main(ActivityThread.java:5103)\r\n12-20 11:39:41.268: I/dalvikvm(4508):   at java.lang.reflect.Method.invokeNative(Native Method)\r\n12-20 11:39:41.268: I/dalvikvm(4508):   at java.lang.reflect.Method.invoke(Method.java:525)\r\n12-20 11:39:41.276: I/dalvikvm(4508):   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:737)\r\n12-20 11:39:41.276: I/dalvikvm(4508):   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:553)\r\n12-20 11:39:41.276: I/dalvikvm(4508):   at dalvik.system.NativeStart.main(Native Method)\r\n12-20 11:39:41.284: W/System.err(4508): java.lang.OutOfMemoryError\r\n12-20 11:39:41.291: W/System.err(4508): \tat java.io.ByteArrayOutputStream.toByteArray(ByteArrayOutputStream.java:122)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.kroll.util.KrollStreamHelper.toByteArray(KrollStreamHelper.java:81)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.titanium.TiBlob.getBytes(TiBlob.java:327)\r\n12-20 11:39:41.291: W/System.err(4508): \tat ti.modules.titanium.network.TiHTTPClient.addTitaniumFileAsPostData(TiHTTPClient.java:866)\r\n12-20 11:39:41.291: W/System.err(4508): \tat ti.modules.titanium.network.TiHTTPClient.send(TiHTTPClient.java:1036)\r\n12-20 11:39:41.291: W/System.err(4508): \tat ti.modules.titanium.network.HTTPClientProxy.send(HTTPClientProxy.java:148)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:872)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1095)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:354)\r\n12-20 11:39:41.291: W/System.err(4508): \tat org.appcelerator.titanium.proxy.TiWindowProxy.handleMessage(TiWindowProxy.java:116)\r\n12-20 11:39:41.291: W/System.err(4508): \tat ti.modules.titanium.ui.WindowProxy.handleMessage(WindowProxy.java:453)\r\n12-20 11:39:41.291: W/System.err(4508): \tat android.os.Handler.dispatchMessage(Handler.java:95)\r\n12-20 11:39:41.291: W/System.err(4508): \tat android.os.Looper.loop(Looper.java:137)\r\n12-20 11:39:41.291: W/System.err(4508): \tat android.app.ActivityThread.main(ActivityThread.java:5103)\r\n12-20 11:39:41.291: W/System.err(4508): \tat java.lang.reflect.Method.invokeNative(Native Method)\r\n12-20 11:39:41.291: W/System.err(4508): \tat java.lang.reflect.Method.invoke(Method.java:525)\r\n12-20 11:39:41.299: W/System.err(4508): \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:737)\r\n12-20 11:39:41.299: W/System.err(4508): \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:553)\r\n12-20 11:39:41.299: W/System.err(4508): \tat dalvik.system.NativeStart.main(Native Method)\r\n12-20 11:39:41.307: E/TiExceptionHandler(4508): (main) [2763,2763] ----- Titanium Javascript Runtime Error -----\r\n12-20 11:39:41.307: E/TiExceptionHandler(4508): (main) [0,2763] - In ti:/httpclient.js:28,9\r\n12-20 11:39:41.307: E/TiExceptionHandler(4508): (main) [1,2764] - Message: Uncaught Java Exception occurred\r\n12-20 11:39:41.307: E/TiExceptionHandler(4508): (main) [0,2764] - Source: \t\t_send.call(this, options);\r\n12-20 11:39:41.307: E/V8Exception(4508): Exception occurred at ti:/httpclient.js:28: Uncaught Java Exception occurred\r\n12-20 11:39:41.307: E/V8Exception(4508): Java Exception occurred{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Large file uploads fail with java.lang.OutOfMemoryError",
+		"creator": {
+			"name": "kronholm",
+			"key": "kronholm",
+			"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "kronholm",
+			"key": "kronholm",
+			"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Titanium SDK 6.0.0.GA and 5.5.1.GA",
+		"closedSprints": [
+			{
+				"id": 787,
+				"state": "closed",
+				"name": "2017 Sprint 01 SDK",
+				"startDate": "2016-12-31T02:15:33.446Z",
+				"endDate": "2017-01-14T02:15:00.000Z",
+				"completeDate": "2017-01-15T00:00:19.006Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "403677",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Very good test-case and logs, thanks you! Moving to engineering.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-12-20T12:54:51.000+0000",
+					"updated": "2016-12-20T12:54:51.000+0000"
+				},
+				{
+					"id": "403678",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Thanks Hans, it took many hours to narrow it down and test, but in making a good case I hope to expedite the fixing :)",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-12-20T12:56:01.000+0000",
+					"updated": "2016-12-20T12:56:01.000+0000"
+				},
+				{
+					"id": "403774",
+					"author": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "master: https://github.com/appcelerator/titanium_mobile/pull/8710",
+					"updateAuthor": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-12-22T01:13:07.000+0000",
+					"updated": "2016-12-22T01:13:07.000+0000"
+				},
+				{
+					"id": "404563",
+					"author": {
+						"name": "amukherjee",
+						"key": "amukherjee",
+						"displayName": "Abir Mukherjee",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Tested using environment:\r\nNPM Version: 2.15.9\r\nNode Version: 4.5.0\r\nMac OS: 10.12.1\r\nXCode 8.2\r\nAppc CLI: 6.1.0\r\nAppc CLI NPM: 4.2.8\r\nTitanium SDK version: 6.1.0.v20170112013001\r\nAppcelerator Studio, build: 4.8.1.201612050850\r\nAndroid Device (New): 6.0.1\r\nAndroid Device (Old): 4.4.2\r\n\r\nI tested with both an old Android device 4.4.2, and with the new device 6.0.1. In both cases, the app appeared to work as expected. OutOfMemory errors weren't seen. When the app launched, a test 50MB file was uploaded, and an alert window popped up after a request was made to the website that is shown in the demo code.\r\nAlthough the usage of the app did not appear impacted, a repeating error was seen in the console for the older Android version only (4.4.2) It was not seen for 6.0.1:\r\n\r\n[~hansknoechel] I'm not sure if this error is related to this ticket, but in the console window, this error was seen repeating itself from the time the app was launched and continued on throughout the usage of the app.\r\n\r\n{code}\r\n[ERROR] :  W/QuickConnect[1.2.1882032][4] ( 6647): BleHelper.getSConnectDataFromBLE - can not resolve length info\r\n[ERROR] :  D/BtGatt.btif( 4685): btif_gattc_upstreams_evt: Event 4096\r\n[ERROR] :  D/BtGatt.GattService( 4685): onScanResult() - address=4F:03:E4:61:85:01, rssi=-70\r\n[ERROR] :  D/BtGatt.ContextMap( 4685): sendScanResult for app id 5 is server : 0\r\n[ERROR] :  W/QuickConnect[1.2.1882032][4] ( 6647): BleHelper.getSConnectDataFromBLE - can not resolve length info\r\n[ERROR] :  D/BtGatt.btif( 4685): btif_gattc_upstreams_evt: Event 4096\r\n[ERROR] :  D/BtGatt.GattService( 4685): onScanResult() - address=7F:72:27:83:16:54, rssi=-63\r\n[ERROR] :  D/BtGatt.ContextMap( 4685): sendScanResult for app id 5 is server : 0\r\n[ERROR] :  W/QuickConnect[1.2.1882032][4] ( 6647): BleHelper.getSConnectDataFromBLE - can not resolve length info\r\n[ERROR] :  D/BtGatt.btif( 4685): btif_gattc_upstreams_evt: Event 4096\r\n[ERROR] :  D/BtGatt.GattService( 4685): onScanResult() - address=7F:72:27:83:16:54, rssi=-65\r\n[ERROR] :  D/BtGatt.ContextMap( 4685): sendScanResult for app id 5 is server : 0\r\n[ERROR] :  W/QuickConnect[1.2.1882032][4] ( 6647): BleHelper.getSConnectDataFromBLE - can not resolve length info\r\n[ERROR] :  D/BtGatt.btif( 4685): btif_gattc_upstreams_evt: Event 4096\r\n[ERROR] :  D/BtGatt.GattService( 4685): onScanResult() - address=7F:72:27:83:16:54, rssi=-64\r\n[ERROR] :  D/BtGatt.ContextMap( 4685): sendScanResult for app id 5 is server : 0\r\n[ERROR] :  W/QuickConnect[1.2.1882032][4] ( 6647): BleHelper.getSConnectDataFromBLE - can not resolve length info\r\n{code}",
+					"updateAuthor": {
+						"name": "amukherjee",
+						"key": "amukherjee",
+						"displayName": "Abir Mukherjee",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-01-13T00:44:06.000+0000",
+					"updated": "2017-01-13T00:44:06.000+0000"
+				},
+				{
+					"id": "404582",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "The error you see is related to an internal Bluetooth LE (BLE) method called in the background (pretty sure it's Android itself). So probably the 4.4.1 device had Bluetooth on and was searching for results. Maybe there is a Bluetooth / Beacon related app on that testing device? But it's surely not related to this PR - [~gmathews] to confirm.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-01-13T11:09:42.000+0000",
+					"updated": "2017-01-13T11:09:42.000+0000"
+				},
+				{
+					"id": "404596",
+					"author": {
+						"name": "amukherjee",
+						"key": "amukherjee",
+						"displayName": "Abir Mukherjee",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "No, it doesn't seem related to this PR. I tried two other 4.4.2 phones, and those messages were not seen. I believe it is something wrong with that particular phone. ",
+					"updateAuthor": {
+						"name": "amukherjee",
+						"key": "amukherjee",
+						"displayName": "Abir Mukherjee",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-01-13T18:11:20.000+0000",
+					"updated": "2017-01-13T18:11:20.000+0000"
+				}
+			],
+			"maxResults": 8,
+			"total": 8,
+			"startAt": 0
+		}
+	}
+}

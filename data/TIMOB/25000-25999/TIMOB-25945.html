@@ -1,0 +1,223 @@
+---
+title: "[TIMOB-25945] Android: Elevation disappear on change of view dynamically"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-06T15:54:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.3.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>engSchedule, regression</td></tr>
+<tr><th>Reporter</th><td>Mostafizur Rahman</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2018-04-06T20:44:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-06-30T11:10:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi, 
+
+In our application, we have a requirement where the view should have a shadow effect. For iOS, we are using viewShadowRadius, viewShadowColor and viewShadowOffset properties for getting the shadow effect behavior. For Android, we are using the *elevation* property. 
+When the view gets changed dynamically(i.e., if we add any view to existing view which has the elevation), the elevation for the existing view is disappeared. 
+We tried to add the elevation property in 'post layout' event callback but it is not working. 
+
+*Steps to reproduce:* 
+1. Create a sample classic app 
+2. Place the attached app.js code in the app.js file 
+3. Run the app on the android device 
+4. Click on "change the second view" label and observe the shadow for the second view. 
+
+*Test Code:*
+ app.js
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor : '#EAEAEA',
+	layout : 'vertical'
+});
+var secondWinLbl = Ti.UI.createLabel({
+	top : 30,
+	text : 'change the second view',
+	color : 'black'
+});
+win.add(secondWinLbl);
+function getView() {
+	//Create a container view
+	var container = Ti.UI.createView({
+			layout : 'vertical',
+			width : '95%',
+			height : 50, //Ti.UI.SIZE,
+			top : 10,
+			borderRadius : 5,
+			backgroundColor : 'white',
+			viewShadowRadius : 3,
+			viewShadowColor : '#8AA0AE',
+			viewShadowOffset : {
+				x : 0,
+				y : 4
+			},
+			elevation : 10
+		});
+	container.add(Ti.UI.createLabel({
+		text : "Here is some content",
+		textAlign : Ti.UI.TEXT_ALIGNMENT_CENTER,
+		color : "#000"
+	}));
+	container.add(Ti.UI.createView({
+		height : 1,
+		borderWidth : 1,
+		top : 5,
+		borderColor : 'red',
+		id : 'titleline'
+	}));
+	container.addEventListener('postlayout', function(e) {
+		Ti.API.info('in post layout');
+		e.source.applyProperties({
+			elevation : 10
+		});
+	});
+	return container;
+}
+
+var scrollView = Ti.UI.createScrollView({
+	top : 20,
+	layout : 'vertical',
+	height : Ti.UI.FILL,
+	width : Ti.UI.FILL
+});
+scrollView.add(getView());
+var v2 = getView();
+scrollView.add(v2);
+scrollView.add(getView());
+win.add(scrollView);
+win.open();
+secondWinLbl.addEventListener('click', function() {
+	v2.height = Ti.UI.SIZE;
+	v2.add(Ti.UI.createView({
+		height : 50,
+		top : 5,
+		width : '100%'
+	}));
+});
+</pre></code>
+*Test Environment:*
+7.0.1.GA Ti SDK and Appcelerator Command-Line Interface, version 7.0.0 
+7.1.0.GA Ti SDK and Appcelerator Command-Line Interface, version 7.0.2 also 
+Thanks
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25945_65032/demo.mp4">demo.mp4</td></td><td>2018-04-06T20:42:19.000+0000</td><td>2030174</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-04-09
+
+   This looks like a bug on Google's end where it's not redrawing the elevation's shadow when the view resizes.
+   
+   The view's elevation drop-shadow is always 1 frame behind. For example, if you rotate the app to landscape, notice that the drop-shadow is still using the previous portrait width. If you rotate back to portrait, the drop-shadow now uses landscape width and is drawn offscreen. It's always 1 frame behind.
+   
+   A work-around will have to be found.</li>
+<li>Rene Pot 2018-04-11
+
+   I've tested the code and was able to reproduce.
+   
+   Removing the <code>borderRadius</code> property fixes the problem for me as a workaround. I've not been able to work around the issue by disabling/enabling the borderRadius temporary or wrapping the view again. 
+   
+   Best workaround for now seems to be to add an extra view right after (with a tiny delay) with a small height (I used 1, 0.1 was too small to trigger a re-render)
+   
+   Altered code that doesn't show the issue
+   
+   <code><pre>
+   secondWinLbl.addEventListener('click', function() {
+     v2.height = Ti.UI.SIZE;
+     v2.add(Ti.UI.createView({
+       height : 50,
+       top : 4,
+       width : '100%'
+     }));
+     setTimeout(function(){
+       v2.add(Ti.UI.createView({
+         height : 1,
+         top : 0,
+         width : '100%'
+       }));
+     },10);
+   });
+   </pre></code></li>
+<li>Joshua Quick 2018-04-11
+
+   [~topener] is right. If I comment out the "borderRadius" property from the test code [~mrahman] gave us, then it works-around the issue.
+   
+   Our "borderRadius" uses Google's Java <code>Canvas.clipPath()</code> feature, which has been proven to be notoriously buggy on Google's end. Google typically displays UI with rounded corners via a 9-patch background image instead, like how it works with buttons. But unfortunately this is an Android only feature.</li>
+<li>Mostafizur Rahman 2018-04-12
+
+   [~jquick], Thanks for the information. We have provided this solution to the customer and waiting for his reply.</li>
+<li>Yordan Banev 2019-09-20
+
+   Investigating the issue, I found that changing the container to CardView works around the issue. I will keep looking for a solution for the default View class..</li>
+<li>Gary Mathews 2019-10-14
+
+   Looks like the outline is not being invalidated when the child views are changed. We can do something like this:
+   
+   *TiBorderWrapperView.java*
+   <code><pre>
+   @Override
+   public void onDescendantInvalidated(View child, View target) {
+   		
+   	// Also invalidate outline to recalculate drop shadow.
+   	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+   		invalidateOutline();
+   	}
+   	super.onDescendantInvalidated(child, target);
+   }
+   </pre></code></li>
+<li>Yordan Banev 2019-10-15
+
+   Thanks for checking it out!
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/11280" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11280</a>
+   
+   </li>
+<li>Samir Mohammed 2019-12-12
+
+   FR Passed, waiting on Jenkins build.</li>
+<li>Christopher Williams 2019-12-16
+
+   merged to master for 9.0.0</li>
+<li>Samir Mohammed 2020-01-06
+
+    Closing ticket, fix verified in SDK version <code>9.0.0.v20200103081513</code>. 
+    
+    Test and other information can be found at:
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/11280" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11280</a></li>
+<li>Yordan Banev 2020-01-09
+
+    PR (8_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/11424" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11424</a></li>
+<li>Samir Mohammed 2020-01-09
+
+    FR Passed for 8_3_X. Waiting on Jenkins build.</li>
+<li>Christopher Williams 2020-01-09
+
+    merged to 8_3_X for 8.3.1</li>
+<li>Samir Mohammed 2020-01-10
+
+    Verified fix in SDK version 8.3.1.v20200110021712
+    
+    </li>
+<li>Ewan Harris 2020-02-26
+
+    Removing from fixVersion 9.0.0 as this shipped in 8.3.1.GA</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25945.json">JSON Source</a></p>

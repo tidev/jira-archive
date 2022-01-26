@@ -1,0 +1,224 @@
+---
+title: "[TIMOB-6833] Android:  Cached notification data on android"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-10T00:12:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5, Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-02, Release 2.0.0, Release 1.8.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_notification_manager, parity, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2011-12-21T15:41:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-03-04T21:54:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>PROBLEM DESCRIPTION</h4>
+The data I get from notifications I create remains cached on Android.
+
+<h4>STEPS TO REPRODUCE</h4>
+0. Create new mobile project with Android support.
+1. Paste the above code into app.js
+2. Compile.
+3. Put a value in the field on the window
+4. Click the button, we create a pending notification with the data you typed
+5. Find the notification in the Android notification bar and click it
+6. The app instance alread open is found and the "newintent" event correctly fires
+7. The data we get back from the event is correct if this is the first try
+8. Do steps 1 - 4 again with a different value in the textfield
+
+<h4>ACTUAL RESULTS</h4>
+You will get a cached value
+
+<h4>EXPECTED RESULTS</h4>
+The latest value.
+
+<h4>CODE</h4>
+
+<code><pre>
+var win = Ti.UI.createWindow({navBarHidden:true});
+
+//create some simple UI
+var textfield = Ti.UI.createTextField({width:300, height:'auto', top:40, left:20, hintText:'enter message'});
+var button = Ti.UI.createButton({title:'Send Notification', width:'auto', top:120, left:20, height:'auto'});
+var label = Ti.UI.createLabel({width:'auto', top:200, left:20, height:'auto', width:200, text:'Message from intent:'});
+var msgLabel = Ti.UI.createLabel({width:'auto', top:240, left:20, height:'auto', width:200, backgroundColor:'lightgrey', text:'---'});
+
+win.add(textfield);
+win.add(button);
+win.add(label);
+win.add(msgLabel);
+
+win.addEventListener("open", function(evt) {
+	button.addEventListener("click", function(evt) {
+		
+		Ti.UI.Android.hideSoftKeyboard();
+		msgLabel.text = "---"; //reset any previous text value
+
+		//grab the user input
+		var message = textfield.value;
+		if (!message) {
+			alert('you must provide a message');
+			return;
+		} else {
+			//clear out what was typed
+			textfield.value = '';
+		}
+		
+		//put some custom data into an intent
+	    var intent = Ti.Android.createIntent(
+	    {
+	        action: Ti.Android.ACTION_MAIN,
+	        flags: Ti.Android.FLAG_ACTIVITY_CLEAR_TOP | Ti.Android.FLAG_ACTIVITY_SINGLE_TOP,
+	        className: "org.appcelerator.titanium.TiActivity",
+	        packageName: Ti.App.id
+	    });
+	    intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+	    intent.putExtra("pushReceived", message); //***** PUT
+	
+		//a pending intent to send open an activity when launched                        
+	    var pending = Ti.Android.createPendingIntent(
+	    {
+	        activity: Ti.Android.currentActivity,
+	        intent: intent,
+	        type: Ti.Android.PENDING_INTENT_FOR_ACTIVITY
+	    });
+	
+		//put a notification in the notification bar                        
+	    var notification = Ti.Android.createNotification(
+	    {
+	        contentIntent: pending,
+	        contentTitle: "New Notification",
+	        contentText: "Msg: " + message,
+	        tickerText: "New Notification",
+	        icon: Ti.App.Android.R.drawable.statusbaricon
+	    });
+	    Ti.Android.NotificationManager.notify(1, notification);
+	});
+
+	//handle the pending intent from the notification bar
+    Titanium.Android.currentActivity.addEventListener("newIntent", function(evt)
+    {
+        var pushObjStr = evt.intent.getStringExtra("pushReceived"); //***** GET
+        if (pushObjStr) {
+            Ti.API.debug("received data: " + pushObjStr);
+            msgLabel.text = pushObjStr;
+        } else {
+        	Ti.API.debug("no data received");
+        	msgLabel.text = "no data received";
+        }
+    });
+});
+
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hieu Pham 2012-01-13
+
+   Testing steps: Run this code instead
+   <code><pre>
+   var win = Ti.UI.createWindow({fullscreen:false});
+   
+   //create some simple UI
+   var textfield = Ti.UI.createTextField({width:300, height:'auto', top:40, left:20, hintText:'enter message'});
+   var button = Ti.UI.createButton({title:'Send Notification', width:'auto', top:120, left:20, height:'auto'});
+   var label = Ti.UI.createLabel({width:'auto', top:200, left:20, height:'auto', width:200, text:'Message from intent:'});
+   var msgLabel = Ti.UI.createLabel({width:'auto', top:240, left:20, height:'auto', width:200, backgroundColor:'lightgrey', text:'---'});
+   
+   win.add(textfield);
+   win.add(button);
+   win.add(label);
+   win.add(msgLabel);
+   
+   win.addEventListener("open", function(evt) {
+   	 button.addEventListener("click", function(evt) {
+   		//handle the pending intent from the notification bar
+        win.activity.addEventListener("newIntent", function(evt)
+           {
+               var pushObjStr = evt.intent.getStringExtra("pushReceived"); //  ***** GET
+               if (pushObjStr) {
+                   Ti.API.debug("received data: " + pushObjStr);
+                   msgLabel.text = pushObjStr;
+               } else {
+                   Ti.API.debug("no data received");
+                   msgLabel.text = "no data received";
+               }
+           });
+           
+   		Ti.UI.Android.hideSoftKeyboard();
+   		msgLabel.text = "---"; //reset any previous text value
+   
+   		//grab the user input
+   		var message = textfield.value;
+   		if (!message) {
+   			alert('you must provide a message');
+   			return;
+   		} else {
+   			//clear out what was typed
+   			textfield.value = '';
+   		}
+   		
+   		//put some custom data into an intent
+   	    var intent = Ti.Android.createIntent(
+   	    {
+   	        action: Ti.Android.ACTION_MAIN,
+   	        flags: Ti.Android.FLAG_ACTIVITY_CLEAR_TOP | Ti.Android.FLAG_ACTIVITY_SINGLE_TOP,
+   	        className: "org.appcelerator.titanium.TiActivity",
+   	        packageName: Ti.App.id
+   	    });
+   	    intent.addCategory(Ti.Android.CATEGORY_LAUNCH);
+   	    intent.putExtra("pushReceived", message); //***** PUT
+   	
+   		//a pending intent to send open an activity when launched                        
+   	    var pending = Ti.Android.createPendingIntent(
+   	    {
+   	        activity: win.activity,
+   	        intent: intent,
+               updateCurrentIntent: false,
+   	        type: Ti.Android.PENDING_INTENT_FOR_ACTIVITY
+   	    });
+   	
+   		//put a notification in the notification bar                        
+   	    var notification = Ti.Android.createNotification(
+   	    {
+   	        contentIntent: pending,
+   	        contentTitle: "New Notification",
+   	        contentText: "Msg: " + message,
+   	        tickerText: "New Notification"
+           });
+   	    Ti.Android.NotificationManager.notify(1, notification);
+       });
+   
+   });
+   
+   win.open();
+   </pre></code>
+   NOTE: This code provides a workaround for Ti.Android.currentActivity (which doesn't work as it should atm- it returns the context activity, which is not necessarily the current activity). The workaround uses win.activity instead </li>
+<li>Opie Cyrus 2012-01-14
+
+   Ti.Android.currentActivity will continue to only report the activity that is associated with a current context (url).  This is not currently something that can be changed at the platform level without major impact to other areas.  Ti.UI.Window.activity will continue to be the suggested mechanism for addressing this type of use case.</li>
+<li>Wilson Luu 2012-01-17
+
+   Closing bug. Verified fix on:
+   
+   SDK build: 1.9.0.v20120117144634
+   Runtime: V8, Rhino
+   Titanium Studio, build: 1.0.8.201201131907
+   OS: Mac OS X Lion (10.7.1)
+   Device: Droid 3 (2.3.4)
+   
+   Note: To test, comment out *updateCurrentIntent* on line 58 from Hieu test code.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6833.json">JSON Source</a></p>

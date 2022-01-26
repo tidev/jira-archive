@@ -1,0 +1,336 @@
+---
+title: "[TIMOB-7674] iOS: CFBundleShortVersionString not set correctly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-03-06T15:11:29.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1, Release 2.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-05, Release 2.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_build, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>tom quas</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-01-25T01:39:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-04-28T17:04:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+actual: putting <version>2</version> in tiapp.xml generates the following xcode project properties:
+
+    <key>CFBundleVersion</key>
+    <string>2</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+
+expected: allow additional setting for short version in tiapp.xml
+
+<h3>Comments</h3>
+
+<ol>
+<li>tom quas 2012-01-25
+
+   additional info here: <a href="http://stackoverflow.com/questions/6876923/difference-between-xcode-version-cfbundleshortversionstring-and-build-cfbundl" rel="nofollow" target="_blank">http://stackoverflow.com/questions/6876923/difference-between-xcode-version-cfbundleshortversionstring-and-build-cfbundl</a></li>
+<li>Neeraj Gupta 2012-02-15
+
+   We need the customer information in this ticket in order to set the customer priority to Immedate.</li>
+<li>Mark Burggraf 2012-02-17
+
+   Since Titanium is not updating CFBundleShortVersionString, builds in TestFlightApp look like this:
+   
+   App Name 1.0 (2.2.8)
+   
+   Where the actual version number in tiapp.xml looks like this:
+   
+       <version>2.2.8</version></li>
+<li>Stephen Feather 2012-02-24
+
+   Just came across this in 1.8.2v20120217x
+   (we are just about to release an update and will have to make a custom info.plist, hoping our other bug on that issue - TIMOB-6905 doesn't get in the way)
+   
+   1.7.6 builds out as:
+   !<a href="http://content.screencast.com/users/Stephen_Feather/folders/Jing/media/93e796cd-9598-4a07-b90f-5a1daec06160/00000333.png" rel="nofollow" target="_blank">http://content.screencast.com/users/Stephen_Feather/folders/Jing/media/93e796cd-9598-4a07-b90f-5a1daec06160/00000333.png</a>!
+   
+   Which is what is expected
+   </li>
+<li>Stephen Feather 2012-02-24
+
+   Ignore that, the code there deals with how we report a version to the xcode archive.
+   
+   -- edit --
+   
+   I think this is the commit you may want to take a look at:
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/a13cb00fe3916670617d3ee18bde04f1d5f08ffa" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/a13cb00fe3916670617d3ee18bde04f1d5f08ffa</a>
+   
+   </li>
+<li>Neeraj Gupta 2012-02-24
+
+   Thanks, Stephen. Your information here is very valuable. We will fix this issue shortly.</li>
+<li>Sabil Rahim 2012-02-25
+
+   Stephen,
+      Can you please verify to me whether the CFBundleShortVersionString is not being updated properly during distribution builds or development builds. 
+   </li>
+<li>Stephen Feather 2012-02-25
+
+   Sabil,
+   
+   Apologies for the delay.  Did not receive an email notification of your comment and happened to log in and see it.
+   
+   On 1.8.x CFBundleShortVersionString is always equal to 1.0 when passing it out through "Distribute - Apple iTunes Store".
+   In 1.7.6 and previous, was CFBundleShortVersionString actually used?  I'll go share out some IPAs from the archives and take a look at the info.plists.  Problem is, we don't markup the archives to know the TiSDK that they were built with.
+   
+   TIMOB-6558 also raises this issue.
+   
+   
+   -- Edit --
+   Let me go build out an app against an AdHoc and a Distro provprof to see if there is a difference.
+   
+    </li>
+<li>Stephen Feather 2012-02-25
+
+   Build out for the simulator 1.8.2x:
+   CFBundleShortVersion always = 1.0
+   CFBundleVersion = app version from TiAPP.xml
+   
+   No difference between development or distro.
+   No difference between adhoc/distro provprofs
+   </li>
+<li>Stephen Feather 2012-02-25
+
+    Ok, some more information:
+    
+    In 1.7.5 and 1.7.6, CFBundleShortVersionString doesn't even show up in the exported/shared IPA coming out of the Organizer - Archives.  
+    
+    In those IPAs, only CFBundleVersion exists and it has a format of x.y.zzzzzzz.
+    This matches our release notes that show the version in TiAPP.xml was 1.2 (x.y) and I assume that zzzzzz was an auto-incremented or time-stamped addition.
+    
+    The code segment I referenced earlier does seem to have a problem (in addition to CFBundleShortVersionString never actually updating).
+    
+    If version = 1.2
+    then after the code runs
+    version = 1.2
+    CFBundleShortVersionString = 1
+    
+    If version = 1.2.3
+    then after the code runs
+    version = 1.2.3
+    CFBundleShortVersionString = 1.2
+    
+    If version = 1.2.3.4
+    then after the code runs
+    version = 123
+    CFBundleShortVersionString = 123
+     
+    
+    
+    
+    
+     </li>
+<li>Sabil Rahim 2012-02-25
+
+    Stephen,
+           Thank you for the very detailed testing that you did.  Can you please give me some information about your testing environment, i.e the SDK version that you are using and whether these were build for device or Simulator or distribution.  </li>
+<li>Stephen Feather 2012-02-25
+
+    xcode 4.2
+    OSX 10.7.3
+    TiStudio 1.0.8
+    
+    I have TiMobile SDK 1.7.5, 1.7.6, 1.8.0.1, 1.8.1, and 1.8.2 installed.
+    
+    Using an .xarchive of a project built with 1.7.6 and already in the app store, produced an IPA (Organizer Share Option), unzipped it, checked the info.plist.  The IPA produced would mirror the one submitted to ITC.  This file did not have a CFBundleShortVersion string and the CFBundleVersion was 1.2.1321724995.  This would be distribution.
+    
+    Give me some time to build out a simple project to test with.
+    
+    </li>
+<li>Stephen Feather 2012-02-25
+
+    Simple Project.
+    Project cleaned between each run (as it seems that version changes in tiapp.xml not always being picked up without a project clean).
+    _Note: changed the testing version number from 1.2.3 to 3.2.1 as 1.y.z could be made into 1.0_
+    <code><pre>
+    Titanium.UI.setBackgroundColor('#000');
+    Ti.API.info('ApplicationDirectory: '+Ti.Filesystem.applicationDirectory);
+    Ti.API.info('ApplicationDataDirectory: '+Ti.Filesystem.applicationDataDirectory);
+    Ti.API.info('ApplicationSupportDirectory: '+Ti.Filesystem.applicationSupportDirectory);
+    Ti.API.info('ResourcesDirectory: '+Ti.Filesystem.resourcesDirectory);
+    Ti.API.info('TempDirectory:  '+Ti.Filesystem.tempDirectory);
+    </pre></code>
+    
+    Information comes from info.plist extracted from the app.
+    
+    
+    +1.7.5 simulator+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString does not exist
+    
+    +1.7.6 simulator+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString does not exist
+    
+    +1.8.0.1 simulator+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0
+    
+    +1.8.1 simulator+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0 
+    
+    +1.8.2 simulator+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0
+    
+    +1.7.6 distribution+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1.1330232524
+    CFBundleShortVersionString doesn't exist 
+    
+    +1.8.0.1 distribution+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0
+    
+    +1.8.1 distribution+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0
+    
+    +1.8.2 distribution+
+    Version in TiApp.xml = 3.2.1
+    CFBundleVersion = 3.2.1
+    CFBundleShortVersionString = 1.0</li>
+<li>Stephen Feather 2012-02-25
+
+    Sabil, 
+    
+    I ran a diff using DeltaWalker against 1.7.6v20111112141108 and 1.8.0.1
+    Take a look at
+    builder.py
+    1.7.6 line 356 compare to 1.8.0.1 line 346 _this is where CFBundleShortVersionString makes its appearance_
+    1.7.6 line 754 compare to 1.8.0.1 line 862 _this is where the changes in CFBundleVersion were made to drop time append to version_
+    </li>
+<li>Stephen Feather 2012-02-25
+
+    
+    Source: [Core Foundation Keys](<a href="https://developer.apple.com/library/mac/#documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html#//apple_ref/doc/uid/TP40009249-SW1)" rel="nofollow" target="_blank">https://developer.apple.com/library/mac/#documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html#//apple_ref/doc/uid/TP40009249-SW1)</a>
+    
+    <h4>CFBundleShortVersionString</h4>
+    
+    CFBundleShortVersionString (String - iOS, Mac OS X) specifies the release version number of the bundle, which identifies a released iteration of the application. The release version number is a string comprised of three period-separated integers. The first integer represents major revisions to the application, such as revisions that implement new features or major changes. The second integer denotes revisions that implement less prominent features. The third integer represents maintenance releases.
+    
+    The value for this key differs from the value for “CFBundleVersion,” which identifies an iteration (released or unreleased) of the application. This key can be localized by including it in your InfoPlist.strings files.
+    
+    <h4>CFBundleVersion</h4>
+    
+    CFBundleVersion (String - iOS, Mac OS X) specifies the build version number of the bundle, which identifies an iteration (released or unreleased) of the bundle. This is a monotonically increased string, comprised of one or more period-separated integers. This key is not localizable.
+    
+    
+    -------
+    With that in mind, we know that apple requires the CFBundle to be a period separated list of non-negative integers.  The method used prior to 1.8.x met those needs.  We took the version from TiAPP.xml (3.2.1) and appended an incremental number to the end (time.time()) to create a 'monotonically increased string' (3.2.1.7834783463487).
+    
+    CFBundleShortVersionString was added to the builds (although not working) and was supposed to take a subset of our longer string and create (3.2.1).
+    
+    Upon submission to iTunes, BOTH numbers must be incremented from previous submitted version.
+    
+    From what I see, the code that was added for CFBundleShortVersion (even if it had worked) would not meet the apple documentation as it couldn't produce a string of three period-separated integers. 
+    </li>
+<li>Stephen Feather 2012-02-25
+
+    Ok, that was a little heavy.  Ignore that...
+    
+    Looking through 1.8.2.v20120217114657 _(as reference)_:
+    
+    Your code sits in distribute_xc4() which only ever writes to the ArchiveInfo.plist
+    
+    The CFBundleShortStringVersion appears to only ever be written to the ArchiveInfo.plist from builder.py
+    
+    It is TiApp.py that writes out the updated version (from TiAPP.xml) to the Info.plist.
+    
+    So, your code needs to be added to TiApp.py around line 460 similar to the way CFBundleVersion is updated:
+    
+    <code><pre>
+    <h4>replace the version in case it's changed</h4>
+    i = plist.index('CFBundleVersion')
+    if i:
+        i = plist.index('<string>',i+1)
+        e = plist.index('</string>',i+1)
+        st = plist[0:i+8]
+        fn = plist[e:]
+        version = self.properties['version']
+        plist = st + version + fn
+    </pre></code>
+    
+    <code><pre>
+    <h4>replace the CFBundleShortVersionString in case it's changed</h4>
+    i = plist.index('CFBundleShortVersionString')
+    if i:
+        i = plist.index('<string>',i+1)
+        e = plist.index('</string>',i+1)
+        st = plist[0:i+8]
+        fn = plist[e:]
+        CFBundleShortVersionString = self.properties['version']
+        app_version_ = CFBundleShortVersionString.split('.')
+        if(len(app_version_) > 3):
+          CFBundleShortVersionString = app_version_[0]+app_version_[1]+app_version_[2]
+        plist = st + CFBundleShortVersionString + fn
+    </pre></code>
+    
+    
+    Tested: Simulator
+    Result: CFBundleShortVersionString now appears as 3.2.1 (equal to CFBundleVersion) and (equal to value in TiApp.xml)
+    
+    Tested: Distribution
+    Result: CFBundleShortVersionString now appears as 3.2.1 (equal to CFBundleVersion) and (equal to value in TiApp.xml)</li>
+<li>Stephen Feather 2012-02-26
+
+    Pull request added to github
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/1516" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/1516</a></li>
+<li>Stephen Feather 2012-02-26
+
+    Looking at this fresh this morning, I realized I kind of miss having the time automagically added to the end of my CFBundleVersion.  It makes each build unique, easier to quickly look at an .ipa or .app or .xarchive file to see if it was different from another.</li>
+<li>Stephen Tramer 2012-02-26
+
+    Stephen -
+    
+    We had to remove that information from the CFBundleVersion because Apple was rejecting apps for having the version be too long.</li>
+<li>Stephen Feather 2012-02-26
+
+    Stephen,
+    
+    I understand.  Apple's (often arbitrary, undocumented, unspecified) criteria don't affect Titanium alone.
+    
+    Let me tell you where I am.
+    We have over a dozen pieces of iOS test kit (hardware+iOS variances) to test on.
+    During development, most testing is run against the simulator.
+    But, to ensure compatibility on hardware, we push it out to the devices.
+    There is no way we are going to tether a dozen devices to the development system and pass the ipa through itunes.
+    So we used to use a custom AdHoc manager on our own servers until TestFlight came along with a great solution.
+    
+    But now, we have to update the version in TiApp.xml manually so that CFBundleVersion is changed.
+    Every time I make a change we want to test on the devices, I have to save the file, have to update the TiApp.xml, have to save the TiApp.xml.  Have to clean the project (because TiApp.xml changes don't seem to always be picked up)
+    
+    The release notes for 1.8.0.1 stated that the time stamping was in place for AdHoc builds (<a href="http://developer.appcelerator.com/apidoc/mobile/1.8.0.1/changelog.html)" rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/1.8.0.1/changelog.html)</a> but that does not appear to be the case (the distribution tests above used an AdHoc provisioning profile. 
+    
+    This may be a feature request eligible suggestion, but TiStudio needs to have autoincrementation of some sort (or a hook so we can hack in our own tool).  Even xcode ships with a utility to handle that in the build process.  MS Visual Studio, IBM Websphere, ditto.
+    
+    I also understand how difficult it is to design tools that generically meet as many needs as possible.
+      
+    
+    
+    </li>
+<li>Natalie Huynh 2012-03-16
+
+    Tested with 2.0.0.v20120315091738 with version 2, 2.1.3, and 2.1.3.4</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7674.json">JSON Source</a></p>

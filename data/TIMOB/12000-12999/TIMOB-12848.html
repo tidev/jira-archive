@@ -1,0 +1,2644 @@
+---
+title: "[TIMOB-12848] Android: Using the camera on certain devices causes the app to crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-29T21:08:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>2013 Sprint 09 Core, 2013 Sprint 09, Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 05, 2014 Sprint 05 Core, Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.3.0, triage</td></tr>
+<tr><th>Reporter</th><td>Justin Lewis</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2012-12-17T05:46:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-31T14:32:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Call Ti.Media.showCamera and the camera opens up fine, takes the picture fine, then click ok, and the app crashes before reaching the success function.
+
+The picture does manage to get saved into the photo gallery.
+
+Sample code. Paste this into a new Android application.
+
+<code><pre>
+var win = Titanium.UI.createWindow();
+var imageView = Ti.UI.createImageView({height: Ti.UI.FILL, width: Ti.UI.Fill});
+win.add(imageView);
+	Titanium.Media.showCamera({
+ 
+		success:function(event)
+		{
+			Ti.API.info('#### Camera Success');
+			var cropRect = event.cropRect;
+			var image = event.media;
+			Ti.API.info(image.length);
+			var filename = Titanium.Filesystem.tempDirectory + "/"+ 'camera_photo' + new Date().getTime() + ".png";
+			Ti.API.info(filename);
+			var f = Titanium.Filesystem.getFile(filename);
+			Ti.API.info(f.nativePath);
+			if (f.exists()) {
+				Ti.API.info('The file exist , trying to delete it before using it :' + f.deleteFile());
+				f = Titanium.Filesystem.getFile(filename);
+			}
+			f.write(image);
+			alert('Camera Success! The file size is '+f.size+' bytes.\n Now trying to assign it to an image on the screen (this may fail for hi res images)')
+			imageView.image = f.nativePath;
+		},
+		cancel:function()
+		
+		{
+			Ti.API.info('#### Camera Cancel');
+		},
+		error:function(error)
+		{
+			// create alert
+			Ti.API.info('#### Camera Error');
+			var a = Titanium.UI.createAlertDialog({title:'Camera'});
+ 
+			// set message
+			if (error.code == Titanium.Media.NO_CAMERA)
+			{
+				a.setMessage('Device does not have video recording capabilities');
+			}
+			else
+			{
+				a.setMessage('Unexpected error: ' + error.code);
+			}
+ 
+			// show alert
+			a.show();
+		},
+		allowEditing:true
+	});
+win.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-12848_61446/camera_crash_android.txt">camera_crash_android.txt</td></td><td>2017-02-04T14:04:44.000+0000</td><td>432432</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2012-12-17
+
+   Hi Justin,
+   
+   Thanks for the report. If you could provide a reproducible test case then I'll see about escalating this.
+   
+   Cheers.</li>
+<li>Justin Lewis 2012-12-29
+
+   The KitchenSink app shows this behavior on my Motorola Droid HD Maxx.</li>
+<li>Stephen Feather 2013-01-11
+
+   Allow me to help a little:
+   
+   <a href="http://developer.appcelerator.com/question/143949/camera-shuts-down-application" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/143949/camera-shuts-down-application</a>
+   
+   </li>
+<li>Stephen Feather 2013-01-15
+
+   The success event is never fired.  The app restarts, no exception is thrown, coming back from the media intent.  This occurs with the camera and from the gallery both.
+   
+   Sometimes the device logs shows an error about the intent being 'out-of-order'.
+   
+   Used Kitchen sink code in full from github.
+   
+   Used a stripped down single file sample of the kitchen sink code (added image view since on high end systems, an out of memory error is tossed when trying to load a 3mb image as the window background) <a href="https://gist.github.com/4527649" rel="nofollow" target="_blank">https://gist.github.com/4527649</a>
+   
+   Client is testing on a Razr Maxx running 4.1.2
+   Sample code built with 2.1.4 and 3.0.0GA</li>
+<li>Justin Lewis 2013-02-23
+
+   Is there any update, or ETA on this?</li>
+<li>Stephen Feather 2013-02-23
+
+   Lost a client over this...</li>
+<li>Daniel Sefton 2013-02-25
+
+   I will escalate this now. Sorry for the inconvenience.</li>
+<li>Ingo Muschenetz 2013-03-15
+
+   I see this is marked as a regression. When did it last work for people (if known)?</li>
+<li>Justin Lewis 2013-03-18
+
+   I've never seen this functionality work.  I've been developing with Appcelerator since November of 2012, I don't remember the released API version then.  Since then I've used tried every released version of the API, and I've tried several development versions with no luck.</li>
+<li>Stephen Feather 2013-03-18
+
+    Ingo,
+    
+    Sample code listed above works on some devices, but fails consistently on the Razr Maxx, occasionally on the DroidX, never on an S3, Droid Pro, or a Droid 2.
+    One client dumped Titanium curses Appcelerator's name at every opportunity because of this, and the MULTI-MONTH queue delay didn't help.
+    
+    
+    sf
+    
+    </li>
+<li>Lokesh Choudhary 2013-03-18
+
+    Verified the issue on Motorola droid Razr HD running android 4.0.4 & I am able to reproduce the issue.
+    The kitchensink app crashes & restarts as soon as we take the pic & finalize it. Also, pic taken gets saved in the picture gallery of the device.
+    I noticed that after taking the pic we have to finalize it by taping on a tick mark, which is not so common on many phones.Not sure whether this would be causing the crash.
+    
+    Verified the issue on the environment below:
+    Ti sdk : 3.0.0 GA
+    Ti studio : 3.0.2 stable
+    App used : kitchensink
+    </li>
+<li>Allen Yeung 2013-03-20
+
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/3992" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3992</a></li>
+<li>Jeromy Waldron 2013-03-27
+
+    Was this tested on a RAZR Maxx?  I pulled the latest SDK (3.1.0.v20130327075056) from the CI builds and found that the camera crashes as soon as our app calls it.  Other non-Moto devices that we tried seem to work properly.  That is slightly different than the symptoms which created the ticket but it certainly doesn't appear usable yet either.</li>
+<li>Allen Yeung 2013-03-27
+
+    This was only tested on a Droid Razr HD.  We don't have a droid RAZR MAXX available.  Do you have a log the error that occurred?</li>
+<li>Stephen Feather 2013-03-27
+
+    So glad I didnt email the client we lost and tell then you all had actually fixed this.
+    
+    'Motorola Droid HD Razr Maxx running Android 4.1.1' vs <code>We don't have a droid RAZR MAXX available.</code>
+    
+    
+    </li>
+<li>Allen Yeung 2013-04-02
+
+    I have tried this on the Droid Razr Maxx HD 4.1.2 (There isn't a easy way to downgrade to 4.1.1) and it worked fine for me.  I am able to take the picture, save it, and open the image according to the test case provided <a href="https://gist.github.com/4527649" rel="nofollow" target="_blank">https://gist.github.com/4527649</a>
+    
+    I also tried the Kitchen sink test and that worked fine as well.  [~jeromywaldron] Please use the build 3.1.0.v20130402092426 or later from the CI server and test again.  That was the build that I used to test.</li>
+<li>Renaud Delcoigne 2013-04-18
+
+    I confirm I encounter the same issue with Sony Xperia Z, Android 4.1.1 and SDK 3.1.0.</li>
+<li>Allen Yeung 2013-04-18
+
+    [~renaud] Can you please provide more information on this?
+    
+    Were you using 3.1.0.GA, or some custom build from CI? Which android version is your phone?  Do you have logs relating to the crash?  Which test case were you using?  What is the behavior, does it crash and exit... or just hang?</li>
+<li>Nezam Uddin 2013-05-17
+
+    I confirm the issue on my Nexus S(Android 4.2.2),built and application with the feature to choose pictures from the android gallery.It restarts the app sometimes without throwing any sort of exception
+    
+    Using the latest titanium SDK.Same happens on Sony Xperia U running on Gingerbread
+    
+    EDIT:
+    
+    I can't believe that such a critical bug still happens to exist in the SDK while the appcelerator people are busy marketing their service as high quality cross platform development!</li>
+<li>Nezam Uddin 2013-06-25
+
+    Why can't you people release an important fix for this bug!! I am still waiting for your supposed fix of 3.2.0!
+    
+    I downloaded the master and its not fixed in it.Cmon release a GA today!!!!!!</li>
+<li>Renaud Delcoigne 2013-06-25
+
+    Here how I fixed it programaticaly:
+    It's a bit specific to my app and it's not perfectly coded but it seems to work on all Android devices and iOS.
+    note: callback should be function with a blob parameter.
+    <code><pre>
+    showCamera = function(callback) {
+        if (Ti.Android) {
+            var intent = Ti.Android.createIntent({
+                action : "android.media.action.IMAGE_CAPTURE",
+            });
+    
+            var tmpfile = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory, "temp.jpg")
+    
+            intent.putExtraUri("output", tmpfile.nativePath);
+            Ti.Android.currentActivity.startActivityForResult(intent, function(e) {
+                var blob = tmpfile.read();
+                callback(blob);
+                tmpfile.deleteFile();
+                if (blob.length > 0) {
+                } else {
+                    callback(undefined);
+                }
+            });
+        } else {
+            Titanium.Media.showCamera({
+                success : function(event) {
+                    if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+                        callback(event.media);
+                    } else {
+                        alert("got the wrong type back =" + event.mediaType);
+                        callback(undefined);
+                    }
+                },
+                cancel : function() {
+                    callback(undefined);
+                },
+                error : function(error) {
+                    var a = Titanium.UI.createAlertDialog({
+                        title : 'Camera'
+                    });
+                    if (error.code == Titanium.Media.NO_CAMERA) {
+                        a.setMessage('Please run this test on device');
+                    } else {
+                        a.setMessage('Unexpected error: ' + error.code);
+                    }
+                    a.show();
+                    callback(undefined);
+                },
+                saveToPhotoGallery : false,
+                allowEditing : true,
+                mediaTypes : [Ti.Media.MEDIA_TYPE_PHOTO]
+            });
+        }
+    }
+    </pre></code></li>
+<li>Nezam Uddin 2013-06-25
+
+    </li>
+<li>Jose Luis Preciado 2013-06-26
+
+    Hi, I have encountered the same bug, I have tested my app at two different android devices, at Samsung Galaxy S2 with android 4.0 and at Samsung Galaxy Ace with android 2.3, everything works fine with Samsung Galaxy S2, but in Galaxy Ace the app restarts when I select an image from gallery or took a picture, I have tested with TI sdk 3.1.1.GA and 3.1.2 CI. I am wondering if it is a problem whit the latest upgrade of android sdk tools (android sdk tools 22)
+    
+    Such a shame that appcelerator have critical bugs like this unresolved from several months ago.</li>
+<li>Ingo Muschenetz 2013-06-26
+
+    Again, apologies for the delay. We can't pick up every Android device, nor do we have every device in every configuration. We are attempting to procure devices that reproduce the issue which is why it has taken as long as it has. If people are local to Mountain View, we welcome individuals to stop by our office with a device that causes the problem so we can figure it out. Alternately, if you can file a patch that you believe fixes it, great. However, so far, the patches we have gotten have solved it in certain circumstances, so we can't use them universally.</li>
+<li>Nezam Uddin 2013-06-27
+
+    @Ingo
+    
+    We can all see that this issue relates to four different issues and in all of the issues the person concerned comments to watch this thread.This means that this issue is *more critical* so it should have been taken seriously within few weeks of it being filed.I can't understand ,is the business of the company so slow that it can't invest on devices at the earliest ? 
+    
+    please excuse me for the bravity,but there are a lot of people who are {color:red}*loosing clients*{color} for this bug.That can be taken as a loss in business of developers who have chosen appcelerator over phonegap and native code.
+    
+    Please fix it as soon as you can.</li>
+<li>Shannon Hicks 2013-06-27
+
+    Ingo is saying they can't seem to procure the specific devices & configurations that cause the problem. If the problem is critical to you, and you can reproduce it, let them borrow your phone. UPS can even get it there overnight.</li>
+<li>Ingo Muschenetz 2013-06-27
+
+    [~nezam] As Shannon mentioned, we have tried this on many different devices, including the specific ones that people mention, and have been unable to reproduce the issue. We spend significant amounts of money each month on procuring existing and new mobile devices, but it is just not possible to have all devices in all configurations. Just yesterday we tried this on a Sony Xperia U with no success. This leads me to believe that it's either a problem where the test case we have is wrong, or the configuration is a mismatch.
+    
+    Your statement leads me to a few questions:
+    
+    <h4>If you try the test code in the description of the ticket, does it reproduce the problem. What are the exact steps you followed?</h4>
+    <h4>If not, what is the test case we can use that _does_ reproduce the problem for you?</h4>
+    <h4>In either case, we need any crash logs you can provide</h4>
+    
+    Thank you for your assistance.</li>
+<li>Eric Merriman  2013-06-27
+
+    Unable to reproduce on Sony Experia U running 2.3.7 and sample code in original post.
+    I did change line 2 from Ti.UI.Fill to Ti.UI.FILL.
+    
+    I tried various scenarios, sleep/wake, let the camera sit while active, took many photos. I could not reproduce but we did encounter some strange behavior
+    
+    The sample code does not have "save to gallery" set, so the images from the camera should not be saved to the gallery. In the first few shots while testing, what looked like sample images where shown instead of my photos. For these cases, the images were saved to the gallery. After around 3 shots like this, my photos began being displayed the actual photo after the photo was taken, and these photos were placed in the gallery in a "_tmp" file. These photos were not saved in the gallery, as upon revisiting the gallery the image was not there. 
+    
+    We will investigate these issues discovered and continue to try and reproduce the crash. Our device was delivered with no SIM, we will add one and retry, then discuss moving from 2.3.7 to another OS to continue trying to reproduce.</li>
+<li>Jose Luis Preciado 2013-07-03
+
+    Hi everybody, I have tested today again with the latest Titaniun sdk continuous build (3.1.2.v20130629) and looks like the bug of take a picture with the camera have been solved, at least at Samsung Galaxy Ace, but I still having problems when I want to select a picture from android gallery, the app open android native gallery but when I choose a picture it restarts my app at the same way that the bug of taking a picture did, I have also used Titanium SDK 3.1.1.GA and I have the same problem. What can I do? please I need help with this.
+    Device: Samsung galaxy Ace
+    TI SDK: 3.1.2.v20130629
+    Here's my code:
+    <code><pre>
+    self.addEventListener('open', function(e){
+    		Titanium.Media.openPhotoGallery({
+    			success:function(event)
+    			{
+    				imgPhoto.image = event.media;
+    			},
+    			cancel:function()
+    			{
+    				self.close();
+    			}
+    		});
+    	});
+    </pre></code>
+    
+    self is a window</li>
+<li>Francisco Tirado 2013-07-04
+
+    <h4>After many wasted days, this is the fix that works on emulator and device :)</h4>
+    
+    handle_listing is the function you can use to manage the image.
+    
+    <h4>Fix for Camera Snapshot</h4>
+    <code><pre>
+    	var intent = Ti.Android.createIntent({
+    		action : "android.media.action.IMAGE_CAPTURE"
+    	});
+    
+    	var tmpfile = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory, "temp.jpg")
+    
+    	intent.putExtraUri("output", tmpfile.nativePath);
+    
+    	Ti.Android.currentActivity.startActivityForResult(intent, function(e) {
+    
+    		if (e.error) {
+    			Ti.UI.createNotification({ message: 'Error: ' + e.error }).show();
+    		}else{
+    			if (e.resultCode === Titanium.Android.RESULT_OK) {
+    				handle_listing(tmpfile.read());
+    			}else {
+    				Ti.UI.createNotification({ message: 'Canceled/Error? Result code: ' + e.resultCode }).show();
+    			}
+    		}
+    		tmpfile.deleteFile();
+    		
+    	});
+    </pre></code> 
+    
+    <h4>Fix for Gallery Image</h4>
+    <code><pre>
+    	var intent = Ti.Android.createIntent({
+    		action: Ti.Android.ACTION_PICK,
+    		type: "image/*"
+    	});
+    
+    	Ti.Android.currentActivity.startActivityForResult(intent, function(e) {
+    
+    		if (e.error) {
+    			Ti.UI.createNotification({ message: 'Error: ' + e.error }).show();
+    		}else{
+    			if (e.resultCode === Titanium.Android.RESULT_OK) {
+    				
+    				// get file path from gallery as a file
+    				var tmpfile = Ti.Filesystem.getFile(e.intent.data);
+    
+    				// create a new temp file
+    				var tmpfile2 = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory, "temp.jpg")
+    					
+    				// copy the unaccesable file from gallery to the temp file
+    				tmpfile.copy(tmpfile2.nativePath);
+    				
+    				// send to the handler
+    				handle_listing(tmpfile2.read());
+    				
+    				tmpfile2.deleteFile();
+    				
+    			}else {
+    				Ti.UI.createNotification({ message: 'Canceled/Error? Result code: ' + e.resultCode }).show();
+    			}
+    		}
+    			            
+        });
+    </pre></code> </li>
+<li>Ingo Muschenetz 2013-10-04
+
+    Hi All. No matter how hard we try and what devices we purchase, we can't reproduce this. Does anyone have this issue and is located in the SF Bay Area who could drop by our office?</li>
+<li>Ygor Lemos 2013-10-04
+
+    </li>
+<li>Lokesh Choudhary 2014-01-29
+
+    Ran the code in the description on Sony Xperia J ST26i running android 4.1.2. We get a success alert & the app does not crash.Pics taken from the device camera are successfully saved in the gallery.
+    
+    Environment:
+    Appc Studio : 3.2.1.201401281409
+    Ti SDK : 3.2.1.v20140128171647
+    Mac OSX : 10.8.5
+    Alloy : 1.3.1-beta4 	
+    CLI - 3.2.1 beta3
+    Sony Xperia ST26i - android 4.1.2</li>
+<li>Lokesh Choudhary 2014-02-24
+
+    Ran the code in the description on Sony Xperia J ST26i running android 4.1.2. We get a success alert & the app does not crash.Pics taken from the device camera are successfully saved in the gallery.
+    
+    Environment:
+    Appc Studio : 3.2.1.201402061120
+    Ti SDK : 3.2.1.GA
+    Mac OSX : 10.8.5
+    Alloy : 1.3.1
+    CLI - 3.2.1
+    Sony Xperia ST26i - android 4.1.2</li>
+<li>Ingo Muschenetz 2014-02-24
+
+    So far, no matter what device we try, we can't reproduce it. If anyone has a device that they are willing to loan us, we will pay for shipping the device here and back, as well as some swag in the bogs. Otherwise, we will be forced to close this as "cannot reproduce".</li>
+<li>Ingo Muschenetz 2014-03-01
+
+    Given that a number of people (including us) with this issue can no longer reproduce it, I am going to call it fixed by previous commits to this ticket, or related tickets.
+    
+    There is a different, less severe behavior going on, as documented in TIMOB-16524. That ticket will be used for tracking this fix.
+    
+    If anyone still can reproduce this issue, we need the following:
+    
+    <h4>An exact test case</h4>
+    <h4>The specific device (make, model, OS) that reproduces the issue</h4>
+    <h4>A willingness to possibly loan us the device for a short time if we do not have it in house. We will pay for all expenses related to shipping.</h4>
+    
+    Thank you to all of those involved in helping us try and understand the cause of the issue here.</li>
+<li>Neha Mittal 2014-04-25
+
+    Verified fix with below environment:
+    
+    Appc Studio: 3.3.0.201404241755
+    SDK build: 3.3.0.v20140424130915
+    acs: 1.0.14
+    npm: 1.3.2
+    alloy: 1.4.0-dev
+    CLI: titanium-3.3.0-dev
+    titanium-code-processor:1.1.1-beta1
+    Xcode: 5.1.1
+    Osx: Mavericks(10.9.2)
+    Device: Nexus 5(4.4.2), Nexus 7(4.3) 
+    
+    App does not get crash using camera on above devices. Hence closing the issue.</li>
+<li>Malcolm Hollingsworth 2014-04-25
+
+    This appears to have been closed despite the tests to confirm it works being performed on devices that were not mentioned as causing the problem in the first place.
+    
+    Have any checks been made specifically on those devices mentioned above?  The problem appears to be related to devices that are not considered the gold standard - but rather those device with less sales.
+    
+    This problem was found on Motorola devices, but we also know that sony devices have also had Android camera issues.
+    
+    Given the length of time this ticket has been around and the number of camera related issues with Android devices over time - I imagine this ticket has been closed prematurely due to the lack of testing against those devices that actually exhibited the problems.  </li>
+<li>Ingo Muschenetz 2014-04-25
+
+    I'm going to instead resolve this to HOLD. [~core13], yes, we've tried it on the devices we have as all as specifically purchasing devices mentioned here as causing the issue. We are now down to asking someone to loan us one of their devices that cause the issue. We will PAY to ship it to us, and PAY to ship is back, AND include some nice swag in the process. I first made this offer a year ago, and no one has stepped forward. This leads me to believe that some other change we made in the meantime may have fixed the problem. But if anyone has a device, please let us know.</li>
+<li>Sergio Delgado 2014-09-04
+
+    Hi Ingo,
+    
+    I'm having the same problem with the camera in some devices. The app is crashing when clicking the save button in the image preview, the success event is never fired and the app restarts. In some devices works fine but in others not. Next you will see my development enviroment configuration and a list with devices with and without error.
+    
+    I can't send you any devices because the devices are from our customers. Sorry, I'll try to find a device with this error to send you, but it will be complicate.
+    
+    
+    
+    Environment:
+    ----------------
+    Titanium Studio, build: 3.3.0.201407100905
+    Titanium CLI: 3.3.0
+    Titanium SDK: 3.3.0 GA
+    
+    
+    Devices WITH ERROR:
+    -----------------------------
+    Samsung Galaxy FAME GT-S6810P
+    Sony XPERIA Z2
+    Samsung Young mini
+    Alcatel One Touch 4033x
+    
+    
+    Devices without error:
+    ---------------------------
+    Samsung Galaxy S3 mini GT-I8190N
+    Samsung Galaxy 4
+    Xiaomi Mi 3
+    Xiaomi Mi 2s
+    Sony XPERIA S
+    
+    
+    Any help/suggestions will be appreciated.
+    Thanks</li>
+<li>Ingo Muschenetz 2014-09-04
+
+    Thanks for the feedback. Yes, unfortunately, we need an actual device that can reproduce the issue. We've tried buying exact devices, and that hasn't even helped.</li>
+<li>Philipp Rieber 2014-09-19
+
+    Hi,
+    I can confirm this issue still exists, I can reproduce using the pure kitchen sink code: More often than not my app crashes/restarts after clicking the confirm/save button of the device camera - the success handler of my app never gets called.
+    
+    For Titanium, I'm using the latest SDK/Studio version at the time of writing: 3.3.0.201407100905
+    
+    It happens on my Samsung Galaxy S3 (Android 4.3 Jelly Bean) as well as on my brand new Moto G (2nd generation, Android 4.4 KitKat). It happens after a fresh install as well as after restarting the app and without being connected to Titanium Studio.
+    
+    Btw, I've the same issue with PhoneGap.
+    
+    Any news how to solve this? Seems to be some kind of memory issue, the app gets garbage collected in the background when the camera is active. In PhoneGap there are some inofficial plugins solving this issue with some kind of "foreground" magic keeping the app in the foreground so it does not go into onPause or onStop state and thus cannot be garbage collected.
+    
+    Issue seems to happen less when the phone is fresh booted and more frequently when a good number of apps are open.
+    
+    Cheers,
+    Philipp
+    </li>
+<li>Ingo Muschenetz 2014-09-19
+
+    [~bicpi] Thank you. As mentioned before, we're looking ideally for someone in the Mountain View area that can stop by our HQ and work with the engineers there to reproduce this.</li>
+<li>Philipp Rieber 2014-09-21
+
+    Hi, I would really love to come by and show you the issue on my devices, but I'm too far away in Europe ;-)
+    
+    But I've created a screen recording with the Moto G: <a href="http://youtu.be/1X47O6K5eqM" rel="nofollow" target="_blank">http://youtu.be/1X47O6K5eqM</a>
+    
+    Here's a thread about the same topic using PhoneGap; seems to be Anroid related, not PhoneGap or Titanium:
+    <a href="http://stackoverflow.com/questions/8368091/phonegap-camera-restarts-the-application/9524643#" rel="nofollow" target="_blank">http://stackoverflow.com/questions/8368091/phonegap-camera-restarts-the-application/9524643#</a>
+    
+    But it seems to be solvable with this (outdated) plugin: 
+    <a href="https://code.google.com/p/foreground-camera-plugin/" rel="nofollow" target="_blank">https://code.google.com/p/foreground-camera-plugin/</a>
+    or with this more recent adaption of the same plugin: 
+    <a href="https://github.com/shaithana/cordova-plugin-wezka-nativecamera" rel="nofollow" target="_blank">https://github.com/shaithana/cordova-plugin-wezka-nativecamera</a> 
+    I've checked with the latter and it worked.
+    
+    It's definitely something with the memory. After a fresh restart of my device, it worked fine. But one hour later, after using some other apps, the issue started again.
+    
+    The only intention of the app I'm currently developing is to take one or more pictures and send them to a server. So it's a real showstopper for me right now. Does it really never happen on your (low end) test devices?
+    
+    Thanks,
+    Philipp
+    </li>
+<li>Philipp Rieber 2014-09-22
+
+    I was able to improve my experience with this issue a little bit.
+    
+    First, while using a screen recorder I cannot take a single pictures, it always leads to a restart. So this is a bad idea.
+    
+    After deinstalling some Apps, including Skype, a restart and implementing some code to only show small thumbnails of the pictures, it worked quite well and I was able to take 20 pictures in a row without a crash. But after an uptime of some hours while using the phone normally, it startet again. I was only able to take 0-5 pictures before the crash.
+    
+    Philipp
+    </li>
+<li>Philipp Rieber 2014-10-14
+
+    For WebView, this is a confirmed behavior on a lot of devices, see <a href="https://code.google.com/p/android/issues/detail?id=53088" rel="nofollow" target="_blank">https://code.google.com/p/android/issues/detail?id=53088</a>
+    
+    => Open web app in browser
+    => Simple file input opens camera (no JS involved)
+    => Browser tab goes into background 
+    => Android kills Browser tab to free memory (because of Android's design)
+    => On return to the (web) application, Browser tab gets reloaded
+    => State of the app is lost, taken picture cannot be processed
+    
+    Maybe it's some kind of similiar behavior for Titanium.</li>
+<li>Paolo Casciello 2014-12-21
+
+    Guys PLEASE.
+    This is a showstopper problem for ALL developers using Titanium!
+    
+    The problem is easy explained:
+    
+     * titanium calls the native camera
+     * on low ram devices or on android versions more aggressive on memory management, android kills the background app waiting for the image.
+    
+    Simple as this.
+    
+    So, how do native developers manage this?
+    
+    There will be MORE AND MORE devices subject of this bug. My new Moto G second edition, a 2014 kitkat phone, kills the app as soon as the pic is taken, cause it needs ram to store the image. More devices will be like this, please Fix this thing. 
+    
+    Or a lot of developers will move away from Titanium.
+    
+    And, to Philipp, neither phonegap is immune. The "native" plugins are really buggy...  and unmaintained.
+    
+    Appcelerator guys, let us know something on this bug, PLEASE!
+    
+    </li>
+<li>Ingo Muschenetz 2014-12-21
+
+    [~xcash] Please read the above threads.
+    
+    <h4>It appears to be a native bug with Android.</h4>
+    <h4>We can't reproduce this on any device we have, and we have bought many to reproduce this bug.</h4>
+    
+    If you run into this issue and can send/ship us a phone (we'll pay for it), we would be grateful</li>
+<li>Ygor Lemos 2014-12-21
+
+    I agree!
+    
+    I have a 200k users App and the #1 major complaint is about Android crashing when taking pictures!
+    
+    This is long overlooked and really should be prioritized.</li>
+<li>Ygor Lemos 2014-12-21
+
+    I have just reproduced the test case of this issue on a brand new Moto G (2nd gen) (XT1069) running Android 4.4.4 (kitkat)
+    
+    The testcase was compiled using Titanium 3.4.1.GA with default tiapp.xml
+    
+    The device has some apps installed like Facebook,Twitter, Gmail, etc... it is under a "normal" usage pattern... (running latest firmware and all apps updated to latest version)
+    
+    I can send you guys the device, but I'm on Brazil and I'm afraid the shipping costs will be very high.
+    
+    If you guys want I can collect lower level logs with Android Monitor, run debug apps, etc...
+    
+    Any way I can help solve this?
+    </li>
+<li>Ygor Lemos 2014-12-21
+
+    On android monitor, logcat reports some low level camera related errors:
+    
+    <code><pre>
+    12-21 20:54:02.917: I/QCameraHalWatchdog(296): Starting Watchdog Thread...
+    12-21 20:54:02.917: E/QCamera2HWI(296): [KPI Perf] static void qcamera::QCamera2HardwareInterface::stop_preview(camera_device*): E PROFILE_STOP_PREVIEW
+    12-21 20:54:02.917: D/QCameraParameters(296): int32_t qcamera::QCameraParameters::setFaceDetection(bool): face process mask not changed, no ops here
+    12-21 20:54:02.918: D/QCamera2HWI(296): int qcamera::QCamera2HardwareInterface::stopPreview(): E
+    12-21 20:54:02.918: D/QCameraParameters(296): int32_t qcamera::QCameraParameters::AddSetParmEntryToBatch(void*, cam_intf_parm_type_t, uint32_t, void*): num_entry: 4, paramType: 33, paramLength: 4, aligned_size_req: 20
+    12-21 20:54:02.919: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 20:54:02.920: D/QCameraParameters(296): int32_t qcamera::QCameraParameters::commitSetBatch():waiting for commitSetBatch to complete
+    12-21 20:54:02.921: E/mm-camera(427): mct_pipeline_process_set: stream_type = 3
+    12-21 20:54:02.921: E/mm-camera-sensor(427): module_sensor_module_process_event:3106 ide 10003 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 20:54:02.921: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, STREAMOFF
+    12-21 20:54:02.922: E/mm-camera(427): isp_streamoff: E, session_id = 1, stream_id = 3, active_count = 2
+    12-21 20:54:02.922: E/mm-camera(427): isp_proc_streamoff: E,session_id = 1, stream_id= 3, stream_type= 3 meta 0
+    12-21 20:54:02.922: E/mm-camera(427): isp_hw_action: last pix stop, pix_cnt = 2, cnt = 2
+    12-21 20:54:02.922: E/mm-camera(427): isp_thread_proc_cmd: start/stop, thread_data = 0xb8fa3054, action_code = 2
+    12-21 20:54:02.922: E/mm-camera(427): isp_axi_util_subscribe_v4l2_event: event_type = 0x8000100, is_subscribe = 0
+    12-21 20:54:02.922: E/mm-camera(427): isp_ch_util_streamoff: session_id = 1, vfe_mask = 0x1, async streamoff, rc = 0
+    12-21 20:54:02.922: E/mm-camera(427): isp_hw_action: hw_thread for ack
+    12-21 20:54:02.927: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.PauseResumeTrigger.handleFrameworkEvent:53 com.motorola.motocare.internal.frameworkevents.FwEventMonitor$FrameworkListener.processFrameworkEvent:114 
+    12-21 20:54:02.962: D/WifiStateMachine(1080): handleMessage: E msg.what=151572
+    12-21 20:54:02.962: D/WifiStateMachine(1080): processMsg: ConnectedState
+    12-21 20:54:02.962: D/WifiStateMachine(1080): processMsg: L2ConnectedState
+    12-21 20:54:02.976: E/mm-camera(427): isp_axi_unreg_buf: session_id = 1, stream_id = 2, buf_handle = 0x10000
+    12-21 20:54:02.976: E/mm-camera(427): isp_axi_unreg_buf: session_id = 1, stream_id = 3, buf_handle = 0x20001
+    12-21 20:54:02.976: E/mm-camera(427): stats_action_buf_config: cfg = 0, stats_mask = 0x7b8
+    12-21 20:54:02.978: E/mm-camera(427): isp_thread_proc_cmd: start/stop ack done, thread_data = 0xb8fa3054, action_code = 3, rc = 0
+    12-21 20:54:02.978: E/mm-camera(427): isp_ch_util_streamoff: session_id = 1, sync ack done
+    12-21 20:54:02.978: E/mm-camera(427): isp_streamoff: X, session_id = 1, rc = 0
+    12-21 20:54:02.978: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, STREAMOFF, ret = 0
+    12-21 20:54:02.978: E/mm-camera(427): stream id 3, stream num_meta 0
+    12-21 20:54:02.982: D/WifiStateMachine(1080): handleMessage: X
+    12-21 20:54:02.997: D/WifiStateMachine(1080): handleMessage: E msg.what=131155
+    12-21 20:54:02.998: D/WifiStateMachine(1080): processMsg: ConnectedState
+    12-21 20:54:02.998: D/WifiStateMachine(1080): processMsg: L2ConnectedState
+    12-21 20:54:03.002: D/WifiStateMachine(1080): handleMessage: X
+    12-21 20:54:03.009: E/mm-camera(427): ispif_streamoff: session_id = 1, active_streams = 0
+    12-21 20:54:03.009: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_off:929 any bundle started 0
+    12-21 20:54:03.009: E/mm-camera(427): mct_pipeline_process_set: stream_type = 1
+    12-21 20:54:03.009: E/mm-camera-sensor(427): module_sensor_module_process_event:3106 ide 10002 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 20:54:03.009: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10002, STREAMOFF
+    12-21 20:54:03.010: E/mm-camera(427): c2d_module_handle_streamoff_event:1268, info: doing stream-off for identity 0x10002
+    12-21 20:54:03.015: E/mm-camera(427): module_faceproc_port_event_func:510] STREAMOFF 0
+    12-21 20:54:03.015: E/mm-camera-img(427): faceproc_comp_abort:608] state 2
+    12-21 20:54:03.023: E/mm-camera-img(427): faceproc_comp_abort:635] X
+    12-21 20:54:03.023: E/mm-camera(427): af_fdprio_process_fd_roi:440 Process FD_ROI data
+    12-21 20:54:03.023: E/mm-camera-CORE(427): aec_set_fd_roi: invalid CPP width and height (0, 0)!
+    12-21 20:54:03.024: E/mm-camera(427): c2d_module_handle_streamoff_event:1387, info: stream-off done for identity 0x10002
+    12-21 20:54:03.024: E/mm-camera(427): cpp_module_handle_streamoff_event:1989] iden:0x10002, linked_params:0x0
+    12-21 20:54:03.024: E/mm-camera(427): cpp_hardware_process_streamoff:510] skip_iden:0x0, duplicate_stream_status:0x0
+    12-21 20:54:03.024: E/mm-camera(427): isp_streamoff: E, session_id = 1, stream_id = 2, active_count = 0
+    12-21 20:54:03.025: E/mm-camera(427): isp_proc_streamoff: E,session_id = 1, stream_id= 2, stream_type= 1 meta 0
+    12-21 20:54:03.025: E/mm-camera(427): isp_streamoff: X, session_id = 1, rc = 0
+    12-21 20:54:03.025: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10002, STREAMOFF, ret = 0
+    12-21 20:54:03.025: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_off:929 any bundle started 0
+    12-21 20:54:03.025: E/mm-camera-sensor(427): module_sensor_module_process_event:3125 ide 10002 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 20:54:03.025: E/mm-camera-sensor(427): module_sensor_module_process_event: Sending stop bus message
+    12-21 20:54:03.025: E/mm-camera(427): stop_sof_check_thread: Stopping SOF timeout thread
+    12-21 20:54:03.025: E/mm-camera(427): mct_pipeline_process_set: stream_type = 7
+    12-21 20:54:03.026: D/QCameraStream(296): int32_t qcamera::QCameraStream::putBufs(mm_camera_map_unmap_ops_tbl_t*): wait for buf allocation thread dead
+    12-21 20:54:03.026: D/QCameraStream(296): int32_t qcamera::QCameraStream::putBufs(mm_camera_map_unmap_ops_tbl_t*): return from buf allocation thread
+    12-21 20:54:03.037: I/QCameraHWI_Mem(296): deallocate: E 
+    12-21 20:54:03.037: D/QCameraHWI_Mem(296): put buffer 0 successfully
+    12-21 20:54:03.037: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cd7e0
+    12-21 20:54:03.037: D/QCameraHWI_Mem(296): put buffer 1 successfully
+    12-21 20:54:03.038: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cda40
+    12-21 20:54:03.038: D/QCameraHWI_Mem(296): put buffer 2 successfully
+    12-21 20:54:03.038: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cdd48
+    12-21 20:54:03.038: D/QCameraHWI_Mem(296): put buffer 3 successfully
+    12-21 20:54:03.038: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cdfa8
+    12-21 20:54:03.039: D/QCameraHWI_Mem(296): put buffer 4 successfully
+    12-21 20:54:03.039: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73ce208
+    12-21 20:54:03.039: D/QCameraHWI_Mem(296): put buffer 5 successfully
+    12-21 20:54:03.039: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73ce468
+    12-21 20:54:03.039: D/QCameraHWI_Mem(296): put buffer 6 successfully
+    12-21 20:54:03.040: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73ce6c8
+    12-21 20:54:03.040: D/QCameraHWI_Mem(296): put buffer 7 successfully
+    12-21 20:54:03.040: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73ce950
+    12-21 20:54:03.040: D/QCameraHWI_Mem(296): put buffer 8 successfully
+    12-21 20:54:03.040: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cec58
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): put buffer 9 successfully
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73ceee0
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): put buffer 10 successfully
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cf168
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): put buffer 11 successfully
+    12-21 20:54:03.041: D/QCameraHWI_Mem(296): put buffer 12 successfully
+    12-21 20:54:03.042: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cf650
+    12-21 20:54:03.042: D/QCameraHWI_Mem(296): put buffer 13 successfully
+    12-21 20:54:03.042: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cf8d8
+    12-21 20:54:03.042: D/QCameraHWI_Mem(296): put buffer 14 successfully
+    12-21 20:54:03.043: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cfb60
+    12-21 20:54:03.043: D/QCameraHWI_Mem(296): put buffer 15 successfully
+    12-21 20:54:03.043: D/QCameraHWI_Mem(296): cancel_buffer: hdl =0xb73cfde8
+    12-21 20:54:03.043: D/QCameraHWI_Mem(296): put buffer 16 successfully
+    12-21 20:54:03.043: I/QCameraHWI_Mem(296):  deallocate : X 
+    12-21 20:54:03.046: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: stream type: 7
+    12-21 20:54:03.046: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: linked streams: 0xa
+    12-21 20:54:03.048: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 20:54:03.048: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 20:54:03.048: E/mm-camera-sensor(427): port_sensor_unlink_func:220 ide 10002
+    12-21 20:54:03.048: E/mm-camera-sensor(427): port_sensor_caps_unreserve:183 ide 10002
+    12-21 20:54:03.048: D/MotISP_VNR(427): LiveLux destroyed
+    12-21 20:54:03.049: E/mm-camera(427): c2d_port_check_caps_unreserve:170, identity=0x10002
+    12-21 20:54:03.049: E/mm-camera(427): c2d_port_check_caps_unreserve:179, identity=0x10002, unreserved
+    12-21 20:54:03.052: E/mm-camera(427): c2d_port_check_caps_unreserve:170, identity=0x10002
+    12-21 20:54:03.052: E/mm-camera(427): c2d_port_check_caps_unreserve:179, identity=0x10002, unreserved
+    12-21 20:54:03.052: E/mm-camera-img(427): faceproc_comp_abort:608] state 1
+    12-21 20:54:03.052: E/mm-camera-img(427): faceproc_save_album:795] Error No album 
+    12-21 20:54:03.052: E/mm-camera-img(427): faceproc_comp_eng_destroy: Album save failed -1
+    12-21 20:54:03.052: D/SensorListener(427): void android::SensorListener::disableSensor(android::SensorListener::sensor_type_t): SensorEventQueue disableSensor(TYPE_DISPLAY_ROTATE)
+    12-21 20:54:03.053: D/bsthal(1080): setDelay, handle: 1598182242 delay: 66667000
+    12-21 20:54:03.053: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: stream type: 1
+    12-21 20:54:03.053: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: linked streams: 0x8
+    12-21 20:54:03.054: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 20:54:03.054: E/mm-camera-sensor(427): port_sensor_unlink_func:220 ide 10003
+    12-21 20:54:03.054: E/mm-camera-sensor(427): port_sensor_caps_unreserve:183 ide 10003
+    12-21 20:54:03.054: E/mm-camera(427): q3a_thread_aecawb_stop:346 MSG_STOP_THREAD
+    12-21 20:54:03.054: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: stream type: 3
+    12-21 20:54:03.054: D/mm-camera(427): mct_pipeline_remove_stream_from_linked_streams: linked streams: 0x0
+    12-21 20:54:03.054: D/QCamera2HWI(296): int qcamera::QCamera2HardwareInterface::stopPreview(): CameraKpiTag: PREVIEW_STOP_TIME : 136
+    12-21 20:54:03.054: D/QCamera2HWI(296): int qcamera::QCamera2HardwareInterface::stopPreview(): X
+    12-21 20:54:03.055: D/QCamera2HWI(296): [KPI Perf] static void qcamera::QCamera2HardwareInterface::stop_preview(camera_device*): X
+    12-21 20:54:03.055: I/QCameraHalWatchdog(296): Stopped Watchdog Thread...
+    12-21 20:54:03.055: I/QCameraHalWatchdog(296): Starting Watchdog Thread...
+    12-21 20:54:03.055: D/QCameraStateMachine(296): int32_t qcamera::QCameraStateMachine::procEvtPreviewStoppedState(qcamera::qcamera_sm_evt_enum_t, void*): No ops for evt(20) in state(0)
+    12-21 20:54:03.056: I/QCameraHalWatchdog(296): Stopped Watchdog Thread...
+    12-21 20:54:03.056: I/QCameraHalWatchdog(296): Starting Watchdog Thread...
+    12-21 20:54:03.056: I/QCameraHalWatchdog(296): Stopped Watchdog Thread...
+    12-21 20:54:03.061: I/QCameraHalWatchdog(296): Starting Watchdog Thread...
+    12-21 20:54:03.061: I/QCameraHalWatchdog(296): Stopped Watchdog Thread...
+    12-21 20:54:03.070: I/CameraClient(296): Destroying camera 0
+    12-21 20:54:03.070: I/QCameraHalWatchdog(296): Starting Watchdog Thread...
+    12-21 20:54:03.070: D/QCamera2HWI(296): [KPI Perf] static int qcamera::QCamera2HardwareInterface::close_camera_device(hw_device_t*): E
+    12-21 20:54:03.070: D/QCamera2HWI(296): static void* qcamera::QCamera2HardwareInterface::defferedWorkRoutine(void*): stop data proc
+    12-21 20:54:03.080: D/hardware_info(296): hw_info_append_hw_type : device_name = speaker
+    12-21 20:54:03.080: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 20:54:03.088: E/qomx_image_core(296): OMX_Deinit:118] Complete
+    12-21 20:54:03.090: E/QCameraPostProc(296): int32_t qcamera::QCameraPostProcessor::deinit(): Jpeg closed, rc = 0, mJpegClientHandle = 600
+    12-21 20:54:03.090: I/Thermal-Lib(296): Thermal-Lib-Client: Unregisteration is successfull for handle:13
+    12-21 20:54:03.090: I/Thermal-Lib(296): Thermal-Lib-Client: Unregisteration is successfull for handle:14
+    12-21 20:54:03.090: E/mm-camera(427): mct_pipeline_get_stream: no children
+    12-21 20:54:03.090: E/mm-camera(427): mct_pipeline_process_set:1981: Couldn't find stream
+    12-21 20:54:03.091: E/mm-camera-sensor(427): module_sensor_stop_session:737 session 1
+    12-21 20:54:03.092: E/mm-camera(427): stats_module_stop_session: list =0xb8e0aaf0, remove port =0xb8e10f40 name=stats_sink from module=0xb8d6d330, name=stats
+    12-21 20:54:03.092: E/mm-camera(427): stats_module_stop_session: 1 port =0xb8e10f40 name=stats_sink 
+    12-21 20:54:03.092: E/mm-camera(427): stats_module_stop_session: 2 port =0xb8e10f40 name=stats_sink 
+    12-21 20:54:03.092: E/mm-camera-CORE(427): mot_af_deinit: E
+    12-21 20:54:03.093: E/mm-camera(427): is_module_stop_session: Enter
+    12-21 20:54:03.093: E/mm-camera(427): is_module_stop_session: Exit successful
+    12-21 20:54:03.094: E/mm-camera(427): stats_module_stop_session: 3 port =0xb8e10f40 name=stats_sink 
+    12-21 20:54:03.094: E/hdr(427): Port hdr_sink_0 destroyed
+    12-21 20:54:03.094: E/hdr(427): Port hdr_src_0 destroyed
+    12-21 20:54:03.094: E/hdr(427): Session id 0x1 stopped
+    12-21 20:54:03.094: E/mm-camera-img(427): module_imglib_free_port:1667 port 0xb8ff0c98 p_mct_mod 0xb8d720f8
+    12-21 20:54:03.096: D/QCameraStateMachine(296): static void* qcamera::QCameraStateMachine::smEvtProcRoutine(void*): X
+    12-21 20:54:03.096: D/QCamera2HWI(296): [KPI Perf] static int qcamera::QCamera2HardwareInterface::close_camera_device(hw_device_t*): X
+    12-21 20:54:03.096: E/mm-camera(427): c2d_module_stop_session:323, info: stopping session 1 ...
+    12-21 20:54:03.096: E/mm-camera(427): c2d_thread_process_pipe_message:716, C2D_THREAD_MSG_ABORT: c2d_thread exiting..
+    12-21 20:54:03.096: E/mm-camera(427): c2d_module_stop_session:365, info: session 1 stopped.
+    12-21 20:54:03.097: I/QCameraHalWatchdog(296): Stopped Watchdog Thread...
+    12-21 20:54:03.129: D/dalvikvm(1080): GC_EXPLICIT freed 1272K, 37% free 24428K/38544K, paused 4ms+16ms, total 170ms
+    12-21 20:54:03.133: I/MediaFocusControl(1080):  AudioFocus  abandonAudioFocus() from android.media.AudioManager@426bf020
+    12-21 20:54:03.135: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7366650 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7366598 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7366148 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb73b1860 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb73627b0 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb736a788 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7362288 successful
+    12-21 20:54:03.138: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7368490 successful
+    12-21 20:54:03.141: W/libutils.threads(296): Thread (this=0xb73650c0): don't call join() from this Thread object's thread. It's a guaranteed deadlock!
+    12-21 20:54:03.142: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb72fc3d0 successful
+    12-21 20:54:03.143: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb72fc318 successful
+    12-21 20:54:03.143: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb72fc248 successful
+    12-21 20:54:03.143: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb7352450 successful
+    12-21 20:54:03.143: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb73c5d88 successful
+    12-21 20:54:03.143: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb73c5c60 successful
+    12-21 20:54:03.144: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb72fc750 successful
+    12-21 20:54:03.144: I/OMXNodeInstance(296): OMX_FreeBuffer for buffer header 0xb72fc550 successful
+    12-21 20:54:03.145: W/libutils.threads(296): Thread (this=0xb72b69c0): don't call join() from this Thread object's thread. It's a guaranteed deadlock!
+    12-21 20:54:03.146: E/mm-camera-sensor(427): Got some events
+    12-21 20:54:03.146: E/mm-camera-sensor(427): sensor_thread_func:152 sensor_thread_func:Sensor thread is exiting
+    12-21 20:54:03.159: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.PauseResumeTrigger.handleFrameworkEvent:53 com.motorola.motocare.internal.frameworkevents.FwEventMonitor$FrameworkListener.processFrameworkEvent:114 
+    12-21 20:54:03.209: I/Adreno-EGL(1369): <qeglDrvAPI_eglInitialize:410>: EGL 1.4 QUALCOMM build: RGURRAM_AU_LINUX_ANDROID_LNX.LA.3.5.1_RB1.04.04.02.048.056+PATCH[ES]_msm8226_LNX.LA.3.5.1_RB1__release_ENGG ()
+    12-21 20:54:03.209: I/Adreno-EGL(1369): OpenGL ES Shader Compiler Version: E031.24.00.15
+    12-21 20:54:03.209: I/Adreno-EGL(1369): Build Date: 05/27/14 Tue
+    12-21 20:54:03.209: I/Adreno-EGL(1369): Local Branch: 
+    12-21 20:54:03.209: I/Adreno-EGL(1369): Remote Branch: quic/LNX.LA.3.5.1_RB1.2
+    12-21 20:54:03.209: I/Adreno-EGL(1369): Local Patches: f0931b5dfb60c536e5444f9053822ad191929528 ES2.0: Fix for seg fault in VBO validation
+    12-21 20:54:03.209: I/Adreno-EGL(1369):                  0c6f7c995c347b2eb54a9baa340cab69ba279634 es20: Remove extra-logging info
+    12-21 20:54:03.209: I/Adreno-EGL(1369): Reconstruct Branch: AU_LINUX_ANDROID_LNX.LA.3.5.1_RB1.04.04
+    12-21 20:54:03.240: W/HandlerScheduledExecuto(1369): Task does not implement UiTask. Consider using NamedUiRunnable for eww@425a1d90
+    12-21 20:54:03.290: V/RenderScript(1369): 0x6370c7d8 Launching thread(s), CPUs 4
+    12-21 20:54:03.301: V/AlarmManager(1080): sending alarm Alarm{437cdeb8 type 0 com.android.vending}
+    12-21 20:54:03.312: I/ActivityManager(1080): Start proc com.android.vending for service com.android.vending/com.google.android.finsky.services.ContentSyncService: pid=17903 uid=10039 gids={50039, 3003, 1028, 1015}
+    12-21 20:54:03.428: I/MicrophoneInputStream(1605): mic_starting fib@4259dca8
+    12-21 20:54:03.429: I/HotwordRecognitionRnr(1605): Starting hotword detection.
+    12-21 20:54:03.450: V/msm8974_platform(296): platform_update_usecase_from_source: input source :6
+    12-21 20:54:03.450: V/msm8974_platform(296): platform_get_input_snd_device: enter: out_device(0) in_device(0x4)
+    12-21 20:54:03.450: V/msm8974_platform(296): platform_get_input_snd_device: exit: in_snd_device(voice-rec-mic)
+    12-21 20:54:03.450: D/audio_hw_primary(296): select_devices: out_snd_device(0: ) in_snd_device(62: voice-rec-mic)
+    
+    </pre></code></li>
+<li>Ygor Lemos 2014-12-21
+
+    more logs:
+    
+    (there is some Android related trash along the relevant logs, but we can get a glimpse on several camera related stuff and some buffer error messages)
+    
+    <code><pre>
+    12-21 21:02:49.835: E/mm-camera-sensor(427): port_sensor_ext_link_func:198 ide 10003
+    12-21 21:02:49.836: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:49.836: E/mm-camera(427): isp_util_set_la: vfe not started yet
+    12-21 21:02:49.836: E/mm-camera-sensor(427): module_sensor_event_control_set_parm:2539 CAM_INTF_PARM_LED_MODE 0 
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:243 bundle_id=15104, num_streams=2
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:246 bundle stream id 2
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:246 bundle stream id 3
+    12-21 21:02:49.837: E/mm-camera(427): module_drsd_port_event_func:605] Invalid type for reprocess  
+    12-21 21:02:49.837: E/mm-camera(427): module_faceproc_port_event_func:541] Invalid type for reprocess 10002 10002
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:243 bundle_id=15104, num_streams=2
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:246 bundle stream id 2
+    12-21 21:02:49.837: E/mm-camera-sensor(427): sensor_util_assign_bundle_id:246 bundle stream id 3
+    12-21 21:02:49.838: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.839: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.839: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.840: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.840: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.841: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.841: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.842: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.843: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.845: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.845: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.846: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.846: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.847: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.847: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.853: E/mm-camera-intf(296): mm_stream_request_buf: buf_num = 15, stream type = 7
+    12-21 21:02:49.859: E/mm-camera(427): mct_pipeline_process_set: stream_type = 7
+    12-21 21:02:49.860: E/QCameraParameters(296): int qcamera::QCameraParameters::getPreviewHalPixelFormat() const: format 17
+    12-21 21:02:49.891: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:49.924: E/mm-camera-intf(296): mm_stream_request_buf: buf_num = 17, stream type = 1
+    12-21 21:02:49.929: E/mm-camera(427): mct_pipeline_process_set: stream_type = 1
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_stream_on:1494 ide 10002 SENSOR_START_STREAM
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:819 any bundle started 0
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:857 bundle_info->stream_on_count 1
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:859 bundle_info->bundle_config.num_of_streams 2
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:860 s_bundle->stream_on_count 0
+    12-21 21:02:49.929: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:861 is_bundle_started 0
+    12-21 21:02:49.929: E/mm-camera-sensor(427): modules_sensor_set_new_resolution:957 SENSOR_SET_RESOLUTION 3264*1836 mask a
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_set_resolution:1799 Enter
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_set_resolution:1823 Requested width 3264, height 1836
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_set_resolution:1825 Requested stream mask a hfr mode 0 Cur fps 30.000000
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1585 Enter
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1604 Height 1836 Width 3264
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1621 req_asp_ratio 177 stream type a
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1710 req_asp_ratio 177 sup_asp_ratio 133
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1714 fabs 44
+    12-21 21:02:49.929: E/mm-camera-sensor(427): sensor_pick_resolution:1724 pick res 0
+    12-21 21:02:49.930: E/mm-camera-sensor(427): sensor_pick_resolution:1776 Exit
+    12-21 21:02:49.930: E/mm-camera-sensor(427): sensor_set_resolution:1834 Curr Res ID 8 New Res ID 0 New FPS 30.000000
+    12-21 21:02:49.936: E/mm-camera-sensor(427): sensor_set_resolution:1980 Exit
+    12-21 21:02:49.936: E/mm-camera(427): decide_isp_nums_camif: num_isp = 1
+    12-21 21:02:49.936: E/mm-camera(427): decide_isp_nums_camif: num_isp = 1
+    12-21 21:02:49.936: E/mm-camera(427): port_isp_module_event: E, identity = 0x10002, IFACE_SET_STREAM_CONFIG
+    12-21 21:02:49.936: E/mm-camera(427): isp_sink_port_stream_config: E, session_id = 1, stream_id = 2, stream_type = 1
+    12-21 21:02:49.936: E/mm-camera(427): isp_sink_port_stream_config: session_id = 1, stream_id = 2, is_split = 0
+    12-21 21:02:49.936: E/mm-camera(427): isp_sink_port_stream_config: old vfe_id_mask = 0x0, new vfe_id_mask = 0x1
+    12-21 21:02:49.937: E/mm-camera(427): port_isp_module_event: E, identity = 0x10003, IFACE_SET_STREAM_CONFIG
+    12-21 21:02:49.938: E/mm-camera(427): isp_sink_port_stream_config: E, session_id = 1, stream_id = 3, stream_type = 3
+    12-21 21:02:49.938: E/mm-camera(427): isp_sink_port_stream_config: session_id = 1, stream_id = 3, is_split = 0
+    12-21 21:02:49.938: E/mm-camera(427): isp_sink_port_stream_config: old vfe_id_mask = 0x1, new vfe_id_mask = 0x1
+    12-21 21:02:49.938: E/mm-camera-CORE(427): af_get_params: Focus is not initialized yet
+    12-21 21:02:49.938: E/mm-camera-CORE(427): af_get_params: Focus is not initialized yet
+    12-21 21:02:49.939: E/mm-camera-sensor(427): chromatix_whitebalance_calibration:558 Calibrating WB for libchromatix_imx179_preview.so
+    12-21 21:02:49.939: E/mm-camera-sensor(427): chromatix_whitebalance_calibration:615 Calibration Factor: r_over_g_calib_factor = 1.012088, b_over_g_calib_factor = 1.023975
+    12-21 21:02:49.939: E/mm-camera(427): isp_tintless_config: tint_correction_strength updated to 4
+    12-21 21:02:49.939: E/mm-camera(427): isp_tintless_update_chromatix_params: lib returned config err=0
+    12-21 21:02:49.940: E/mm-camera-CORE(427): af_get_params: Focus is not initialized yet
+    12-21 21:02:49.940: E/mm-camera-CORE(427): af_get_params: Focus is not initialized yet
+    12-21 21:02:49.940: E/mm-camera-CORE(427): mot_af_deinit: E
+    12-21 21:02:49.940: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10002, STREAMON
+    12-21 21:02:49.962: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:49.986: E/mm-camera(427): module_faceproc_port_event_func:493] STREAMON 0
+    12-21 21:02:49.986: E/mm-camera(427): module_faceproc_client_exec:820] 1280x720
+    12-21 21:02:49.986: E/mm-camera-img(427): faceproc_comp_eng_config:1472] ###min_face_size 70
+    12-21 21:02:49.986: E/mm-camera-img(427): Face Album FILE EXISTS
+    12-21 21:02:49.987: E/mm-camera(427): c2d_module_handle_streamon_event:1222, identity=0x10002, stream-on done
+    12-21 21:02:49.987: E/AEC_PORT(427): ddd exp 0.032935 iso 158
+    12-21 21:02:49.987: E/mm-camera(427): cpp_hw_params_update_wnr_params:2891 invalid trigger input 0.000000
+    12-21 21:02:49.987: E/mm-camera(427): isp_streamon: E, session_id = 1, stream_id = 2, active_count = 0 flash=FALSE
+    12-21 21:02:49.987: E/mm-camera(427): isp_proc_streamon: E, session_id = 1, stream_id = 2, stream_type = 1
+    12-21 21:02:49.987: E/mm-camera(427): isp_util_get_user_streams: bundling use case - bundle mask = 0x3,streamon_bundle = 0x1, nop
+    12-21 21:02:49.987: E/mm-camera(427): isp_streamon: X, session_id = 1, rc = 0
+    12-21 21:02:49.987: E/mm-camera(427): port_isp_send_streamon_done_event_downstream: ignore this streamon, hal_bundling_mask = 0x3, streamon_mask = 0x1
+    12-21 21:02:49.987: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10002, STREAMON, ret = 0
+    12-21 21:02:49.988: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.991: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:49.995: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.009: E/mm-camera-intf(296): mm_stream_request_buf: buf_num = 9, stream type = 3
+    12-21 21:02:50.016: E/mm-camera(427): mct_pipeline_process_set: stream_type = 3
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_stream_on:1494 ide 10003 SENSOR_START_STREAM
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:819 any bundle started 0
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:857 bundle_info->stream_on_count 2
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:859 bundle_info->bundle_config.num_of_streams 2
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:860 s_bundle->stream_on_count 0
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:861 is_bundle_started 0
+    12-21 21:02:50.016: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_on:869 stream_on_count=2, w=3264, h=1836, stream_mask=a
+    12-21 21:02:50.016: E/mm-camera-sensor(427): modules_sensor_set_new_resolution:957 SENSOR_SET_RESOLUTION 3264*1836 mask a
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_set_resolution:1799 Enter
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_set_resolution:1823 Requested width 3264, height 1836
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_set_resolution:1825 Requested stream mask a hfr mode 0 Cur fps 30.000000
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1585 Enter
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1604 Height 1836 Width 3264
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1621 req_asp_ratio 177 stream type a
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1710 req_asp_ratio 177 sup_asp_ratio 133
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1714 fabs 44
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1724 pick res 0
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_pick_resolution:1776 Exit
+    12-21 21:02:50.016: E/mm-camera-sensor(427): sensor_set_resolution:1834 Curr Res ID 0 New Res ID 0 New FPS 30.000000
+    12-21 21:02:50.016: E/mm-camera(427): port_isp_module_event: E, identity = 0x10002, IFACE_SET_STREAM_CONFIG
+    12-21 21:02:50.016: E/mm-camera(427): isp_sink_port_stream_config: E, session_id = 1, stream_id = 2, stream_type = 1
+    12-21 21:02:50.016: E/mm-camera(427): isp_sink_port_stream_config: session_id = 1, stream_id = 2, is_split = 0
+    12-21 21:02:50.016: E/mm-camera(427): isp_sink_port_stream_config: old vfe_id_mask = 0x1, new vfe_id_mask = 0x1
+    12-21 21:02:50.017: E/mm-camera(427): port_isp_module_event: E, identity = 0x10003, IFACE_SET_STREAM_CONFIG
+    12-21 21:02:50.017: E/mm-camera(427): isp_sink_port_stream_config: E, session_id = 1, stream_id = 3, stream_type = 3
+    12-21 21:02:50.017: E/mm-camera(427): isp_sink_port_stream_config: session_id = 1, stream_id = 3, is_split = 0
+    12-21 21:02:50.017: E/mm-camera(427): isp_sink_port_stream_config: old vfe_id_mask = 0x1, new vfe_id_mask = 0x1
+    12-21 21:02:50.017: E/mm-camera-sensor(427): chromatix_whitebalance_calibration:550 Calibrating WB for libchromatix_imx179_snapshot.so
+    12-21 21:02:50.017: E/mm-camera-sensor(427): chromatix_whitebalance_calibration:615 Calibration Factor: r_over_g_calib_factor = 1.012088, b_over_g_calib_factor = 1.023975
+    12-21 21:02:50.017: E/mm-camera(427): isp_tintless_config: same cfg as current
+    12-21 21:02:50.017: E/mm-camera(427): isp_tintless_update_chromatix_params: lib returned config err=0
+    12-21 21:02:50.017: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, STREAMON
+    12-21 21:02:50.018: E/mm-camera(427): isp_streamon: E, session_id = 1, stream_id = 3, active_count = 0 flash=FALSE
+    12-21 21:02:50.018: E/mm-camera(427): isp_proc_streamon: E, session_id = 1, stream_id = 3, stream_type = 3
+    12-21 21:02:50.018: E/mm-camera(427): isp_ch_util_sync_stream_cfg_to_channel: cannot find channel, Adding new channel for stream id 2
+    12-21 21:02:50.018: E/mm-camera(427): isp_add_meta_channel: no meta data, session_id = 1, stream_id = 2
+    12-21 21:02:50.018: E/mm-camera(427): isp_ch_util_sync_stream_cfg_to_channel: cannot find channel, Adding new channel for stream id 3
+    12-21 21:02:50.018: E/mm-camera(427): isp_add_meta_channel: no meta data, session_id = 1, stream_id = 3
+    12-21 21:02:50.018: E/mm-camera(427): isp_validate_buf_request: total 17 current buffer count 17 for stream 2
+    12-21 21:02:50.018: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 3 for stream 3
+    12-21 21:02:50.018: E/mm-camera(427): isp_fmt_to_pix_pattern: format 31
+    12-21 21:02:50.018: E/mm-camera(427): isp_fmt_to_pix_pattern: format 31
+    12-21 21:02:50.019: E/mm-camera(427): isp_axi_stream_set_skip_pattern: cannot find stream, session_id = 0, stream_id = 0
+    12-21 21:02:50.020: E/SchedPolicy(427): sched_setscheduler failed: tid 20976, errno=1
+    12-21 21:02:50.020: E/SchedPolicy(427): sched_setscheduler failed: tid 20977, errno=1
+    12-21 21:02:50.020: E/SchedPolicy(427): sched_setscheduler failed: tid 20978, errno=1
+    12-21 21:02:50.020: E/SchedPolicy(427): sched_setscheduler failed: tid 20979, errno=1
+    12-21 21:02:50.020: E/mm-camera(427): isp_hw_action: first start, hw thread for streamon/ack
+    12-21 21:02:50.020: E/mm-camera(427): isp_thread_proc_cmd: start/stop, thread_data = 0xb8fe6354, action_code = 0
+    12-21 21:02:50.021: E/mm-camera(427): isp_tintless_config: cfg: 10x13 mesh, 8x8 subgrid, subgrid sz 34x34
+    12-21 21:02:50.021: E/mm-camera(427): isp_tintless_mesh_config: lib returned mesh config err=0
+    12-21 21:02:50.021: E/mm-camera(427): isp_fmt_to_pix_pattern: format 31
+    12-21 21:02:50.021: E/mm-camera(427): color_xform_config_601_to_601 for stream Encoder
+    12-21 21:02:50.021: E/mm-camera(427): color_xform_config_601_to_601 for stream Viewfinder
+    12-21 21:02:50.021: E/mm-camera(427): linearization_set_params: param_id is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): mesh_rolloff_set_params: param_id is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): wb_set_params: param_id is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): demosaic_set_params: param_id 7, is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): demux_set_params: param_id 7, is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): color_correct_set_effect: saturation level = 1.000000, asd_saturae_adjust = 1.000000
+    12-21 21:02:50.021: E/mm-camera(427): gamma_set_spl_effect: Best shot enabled, skip set effect
+    12-21 21:02:50.021: E/mm-camera(427): vfe_gamma_set_contrast: Warning Best shot enabled, ignore contast
+    12-21 21:02:50.021: E/mm-camera(427): mce_set_params: param_id is not supported in this module
+    12-21 21:02:50.021: E/mm-camera(427): sce_set_params: param_id is not supported in this module
+    12-21 21:02:50.022: E/mm-camera(427): la_hist_trigger_update: luma target from AEC = 0! use default LA curve
+    12-21 21:02:50.022: E/mm-camera(427): isp_tintless_stat_config: pointer okay 
+    12-21 21:02:50.022: E/mm-camera(427): isp_tintless_config: cfg: camif 3264x2448, elem sz 102x102, elems 24x32
+    12-21 21:02:50.022: E/mm-camera(427): isp_tintless_stat_config: lib returned config err=0
+    12-21 21:02:50.022: E/mm-camera(427): isp_fmt_to_pix_pattern: format 31
+    12-21 21:02:50.024: E/mm-camera(427): stats_action_buf_config: cfg = 1, stats_mask = 0x7b8
+    12-21 21:02:50.024: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418109
+    12-21 21:02:50.024: E/mm-camera(427): isp_ch_util_streamon: session_id = 1, vfe_mask = 0x1, async streamon, rc = 0
+    12-21 21:02:50.024: E/mm-camera(427): isp_hw_action: hw_thread for ack
+    12-21 21:02:50.024: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418108
+    12-21 21:02:50.025: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418107
+    12-21 21:02:50.025: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418105
+    12-21 21:02:50.026: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418104
+    12-21 21:02:50.026: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418103
+    12-21 21:02:50.026: E/mm-camera(427): isp_validate_buf_request: total 4 current buffer count 4 for stream -2147418102
+    12-21 21:02:50.027: E/mm-camera(427): stats_action: stats mask = 0x7b8
+    12-21 21:02:50.029: E/mm-camera(427): isp_axi_util_subscribe_v4l2_event: event_type = 0x8000100, is_subscribe = 1
+    12-21 21:02:50.030: E/mm-camera(427): isp_ch_util_streamon: session_id = 1, sync ack done
+    12-21 21:02:50.030: E/mm-camera(427): isp_thread_proc_cmd: start/stop ack done, thread_data = 0xb8fe6354, action_code = 1, rc = 0
+    12-21 21:02:50.030: E/mm-camera(427): isp_streamon: X, session_id = 1, rc = 0
+    12-21 21:02:50.030: E/mm-camera(427): port_isp_send_streamon_done_event_downstream: notify stream done downstream
+    12-21 21:02:50.030: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, STREAMON, ret = 0
+    12-21 21:02:50.031: E/mm-camera(427): ispif_proc_streamon: ispif_hw_reset done
+    12-21 21:02:50.031: E/mm-camera(427): stream id 2, stream num_meta 0
+    12-21 21:02:50.031: E/mm-camera(427): ispif_streamon: session_id = 1, active_streams = 2
+    12-21 21:02:50.032: E/mm-camera-sensor(427): module_sensor_stream_on:1901 ide 10003 SENSOR_START_STREAM
+    12-21 21:02:50.032: E/mm-camera-sensor(427): module_sensor_stream_on: Sending start bus message
+    12-21 21:02:50.032: E/mm-camera(427): start_sof_check_thread: Starting SOF timeout thread
+    12-21 21:02:50.032: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.032: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:50.032: E/mm-camera-sensor(427): module_sensor_event_control_set_parm:2539 CAM_INTF_PARM_LED_MODE 0 
+    12-21 21:02:50.038: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.042: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.045: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.049: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.053: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:50.066: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.066: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 4 for stream 3
+    12-21 21:02:50.067: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.070: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.070: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 5 for stream 3
+    12-21 21:02:50.070: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.073: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.073: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 6 for stream 3
+    12-21 21:02:50.073: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.076: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.076: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 7 for stream 3
+    12-21 21:02:50.076: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.079: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.079: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 8 for stream 3
+    12-21 21:02:50.080: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.082: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, UPDATE_BUF_INFO
+    12-21 21:02:50.082: E/mm-camera(427): isp_validate_buf_request: total 9 current buffer count 9 for stream 3
+    12-21 21:02:50.083: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, UPDATE_BUF_INFO, ret = 0
+    12-21 21:02:50.135: E/mm-camera(427): la_hist_trigger_update: luma target from AEC = 0! use default LA curve
+    12-21 21:02:50.217: E/MotISP_GPU(296): int MotISP_GPU::Init(int, int): GPU resolution: 1280x720
+    12-21 21:02:50.217: E/QCamera2HWI(296): [KPI Perf] static void qcamera::QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t*, qcamera::QCameraStream*, void*) : PROFILE_FIRST_PREVIEW_FRAME
+    12-21 21:02:50.297: E/QCameraParameters(296): [KPI Perf] int32_t qcamera::QCameraParameters::setFaceDetection(bool): PROFILE_FACE_DETECTION_VALUE = 1 num_fd = 5
+    12-21 21:02:50.297: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:52.105: W/ActivityManager(1080): Scheduling restart of crashed service com.facebook.katana/com.facebook.push.mqtt.service.MqttPushService in 1000ms
+    12-21 21:02:52.579: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 21:02:53.353: W/dalvikvm(21090): VFY: unable to resolve static field 24031 (a) in Lcom/facebook/katana/app/WorkAppTypes;
+    12-21 21:02:53.353: W/dalvikvm(21090): VFY: unable to resolve static field 24032 (b) in Lcom/facebook/katana/app/WorkAppTypes;
+    12-21 21:02:53.483: E/dalvik-internals(21090): Failed to look up ladDumpProfiles
+    12-21 21:02:53.483: E/dalvik-internals(21090): Failed to look up ladResetProfiles
+    12-21 21:02:53.483: E/dalvik-internals(21090): Failed to look up ladPrintHeaderInfo
+    12-21 21:02:53.802: E/dalvik-internals(21090): Failed to find vmList in gDvm.  Going to brute-force search for LinearAllocHdr.
+    12-21 21:02:54.282: E/FbInjectorInitializer(21090): Multi-binding Key[type=com.facebook.bugreporter.BugReportExtraFileMapProvider, annotation=[none]] wasn't declared.
+    12-21 21:02:54.282: E/FbInjectorInitializer(21090): Multi-binding Key[type=com.facebook.gk.SessionlessGatekeeperSetProvider, annotation=[none]] wasn't declared.
+    12-21 21:02:54.282: E/FbInjectorInitializer(21090): Multi-binding Key[type=com.facebook.auth.privacy.IHaveUserData, annotation=[none]] wasn't declared.
+    12-21 21:02:54.282: E/FbInjectorInitializer(21090): Multi-binding Key[type=com.facebook.gk.GatekeeperSetProvider, annotation=[none]] wasn't declared.
+    12-21 21:02:54.282: E/FbInjectorInitializer(21090): Multi-binding Key[type=com.facebook.auth.component.AuthComponent, annotation=[none]] wasn't declared.
+    12-21 21:02:54.401: W/fb4a(:<default>):StaticBindingVerifier(21090): Verify
+    12-21 21:02:54.481: E/QCamera2HWI(296): [KPI Perf] static int qcamera::QCamera2HardwareInterface::auto_focus(camera_device*) : E PROFILE_AUTO_FOCUS
+    12-21 21:02:54.482: E/mm-camera-CORE(427): af_set_parameters: Unsupported parameter:0
+    12-21 21:02:54.866: E/dalvikvm(21090): Could not find class 'org.apache.harmony.xnet.provider.jsse.OpenSSLSocketImpl', referenced from method com.facebook.ssl.openssl.check.CheckOpenSSLImplHasRequiredMethods.<clinit>
+    12-21 21:02:54.866: W/dalvikvm(21090): VFY: unable to resolve const-class 10097 (Lorg/apache/harmony/xnet/provider/jsse/OpenSSLSocketImpl;) in Lcom/facebook/ssl/openssl/check/CheckOpenSSLImplHasRequiredMethods;
+    12-21 21:02:54.869: E/dalvikvm(21090): Could not find class 'org.apache.harmony.xnet.provider.jsse.OpenSSLSocketFactoryImpl', referenced from method com.facebook.ssl.openssl.reflect.SSLParametersGetter.<clinit>
+    12-21 21:02:54.869: W/dalvikvm(21090): VFY: unable to resolve const-class 10096 (Lorg/apache/harmony/xnet/provider/jsse/OpenSSLSocketFactoryImpl;) in Lcom/facebook/ssl/openssl/reflect/SSLParametersGetter;
+    12-21 21:02:54.870: E/dalvikvm(21090): Could not find class 'org.apache.harmony.xnet.provider.jsse.SSLParametersImpl', referenced from method com.facebook.ssl.openssl.reflect.SSLParametersGetter.a
+    12-21 21:02:54.870: W/dalvikvm(21090): VFY: unable to resolve check-cast 10099 (Lorg/apache/harmony/xnet/provider/jsse/SSLParametersImpl;) in Lcom/facebook/ssl/openssl/reflect/SSLParametersGetter;
+    12-21 21:02:54.873: E/dalvikvm(21090): Could not find class 'org.apache.harmony.xnet.provider.jsse.SSLParametersImpl', referenced from method com.facebook.ssl.openssl.reflect.SSLSessionTimeoutSetter.<clinit>
+    12-21 21:02:54.873: W/dalvikvm(21090): VFY: unable to resolve const-class 10099 (Lorg/apache/harmony/xnet/provider/jsse/SSLParametersImpl;) in Lcom/facebook/ssl/openssl/reflect/SSLSessionTimeoutSetter;
+    12-21 21:02:54.874: W/dalvikvm(21090): VFY: unable to find class referenced in signature (Lorg/apache/harmony/xnet/provider/jsse/SSLParametersImpl;)
+    12-21 21:02:54.875: E/dalvikvm(21090): Could not find class 'org.apache.harmony.xnet.provider.jsse.ClientSessionContext', referenced from method com.facebook.ssl.openssl.reflect.SSLSessionTimeoutSetter.a
+    12-21 21:02:54.875: W/dalvikvm(21090): VFY: unable to resolve check-cast 10095 (Lorg/apache/harmony/xnet/provider/jsse/ClientSessionContext;) in Lcom/facebook/ssl/openssl/reflect/SSLSessionTimeoutSetter;
+    12-21 21:02:54.877: W/dalvikvm(21090): VFY: unable to find class referenced in signature (Lorg/apache/harmony/xnet/provider/jsse/SSLParametersImpl;)
+    12-21 21:02:54.877: W/dalvikvm(21090): Unable to resolve superclass of Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketImplWrapper; (10098)
+    12-21 21:02:54.878: W/dalvikvm(21090): Link of class 'Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketImplWrapper;' failed
+    12-21 21:02:54.879: E/dalvikvm(21090): Could not find class 'com.facebook.ssl.openssl.TicketEnabledOpenSSLSocketImplWrapper', referenced from method com.facebook.ssl.openssl.TicketEnabledOpenSSLSocketFactoryHelper.a
+    12-21 21:02:54.879: W/dalvikvm(21090): VFY: unable to resolve new-instance 7319 (Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketImplWrapper;) in Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketFactoryHelper;
+    12-21 21:02:54.881: W/dalvikvm(21090): Unable to resolve superclass of Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketImplWrapper; (10098)
+    12-21 21:02:54.881: W/dalvikvm(21090): Link of class 'Lcom/facebook/ssl/openssl/TicketEnabledOpenSSLSocketImplWrapper;' failed
+    12-21 21:02:54.883: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:54.970: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:56.178: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:56.190: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:56.191: E/mm-camera-sensor(427): module_sensor_event_control_set_parm:2539 CAM_INTF_PARM_LED_MODE 0 
+    12-21 21:02:56.192: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:56.192: E/mm-camera-sensor(427): module_sensor_event_control_set_parm:2539 CAM_INTF_PARM_LED_MODE 0 
+    12-21 21:02:56.197: E/QCamera2HWI(296): [KPI Perf] static int qcamera::QCamera2HardwareInterface::take_picture(camera_device*): E PROFILE_TAKE_PICTURE
+    12-21 21:02:56.197: E/QCamera2HWI(296): int qcamera::QCamera2HardwareInterface::takePicture(): numSnapshot = 1
+    12-21 21:02:56.198: E/QCameraHWI_Mem(296): int qcamera::QCameraMemory::alloc(int, int, int) : No memory pool available
+    12-21 21:02:56.201: E/mm-camera(427): mct_pipeline_add_stream_to_linked_streams: linked streams: 0x28a
+    12-21 21:02:56.201: E/mm-camera(427): mct_stream_start_link: Starting offline stream linking 
+    12-21 21:02:56.201: E/mm-camera(427): mct_pproc_sink_port_caps_reserve:185] The port 0xb8d70f00 is not free
+    12-21 21:02:56.201: E/mm-camera-img(427): wd_comp_init:130] mode 0
+    12-21 21:02:56.201: E/mm-camera-img(427): module_imglib_create_port:1756 portname imglib_d2_i1
+    12-21 21:02:56.201: E/mm-camera-img(427): module_imglib_port_check_caps_reserve:1493 port already reserved or invalid identity 65540
+    12-21 21:02:56.201: E/mm-camera-img(427): module_imglib_port_check_caps_reserve:1557] Cap reserve failed 
+    12-21 21:02:56.202: E/QCameraHWI_Mem(296): int qcamera::QCameraMemoryPool::allocateBuffer(qcamera::QCameraMemory::QCameraMemInfo&, int, int, bool, cam_stream_type_t) : Buffer not found!
+    12-21 21:02:56.250: E/mm-camera-img(427): img_alloc_ion:780 Ion allocation success virtaddr : 2875600896 fd 126
+    12-21 21:02:56.256: E/mm-camera-intf(296): mm_stream_request_buf: buf_num = 1, stream type = 9
+    12-21 21:02:56.260: E/mm-camera(427): mct_pipeline_process_set: stream_type = 9
+    12-21 21:02:56.260: E/mm-camera(427): module_wnr_port_event_func:753] WNR STREAMON
+    12-21 21:02:56.264: E/QCameraParameters(296): [KPI Perf] int32_t qcamera::QCameraParameters::setFaceDetection(bool): PROFILE_FACE_DETECTION_VALUE = 0 num_fd = 5
+    12-21 21:02:56.266: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:56.476: E/mm-camera(427): isp_set_hal_stream_param: Type 68 not supported
+    12-21 21:02:56.477: E/mm-camera(427): isp_set_hal_stream_param: Type 136 not supported
+    12-21 21:02:56.477: E/mm-camera(427): isp_set_hal_stream_param: Type 68 not supported
+    12-21 21:02:56.477: E/mm-camera(427): module_drsd_port_event_func:605] Invalid type for reprocess  
+    12-21 21:02:56.477: E/mm-camera(427): module_faceproc_port_event_func:541] Invalid type for reprocess 10002 10002
+    12-21 21:02:56.477: E/mm-camera(427): isp_set_hal_stream_param: Type 136 not supported
+    12-21 21:02:56.478: E/mm-camera(427): module_drsd_port_event_func:605] Invalid type for reprocess  
+    12-21 21:02:56.478: E/mm-camera(427): module_faceproc_port_event_func:541] Invalid type for reprocess 10002 10002
+    12-21 21:02:56.478: E/mm-camera(427): pproc_module_handle_reprocess_online:1138 ###AEC update 381.727570 15.687500
+    12-21 21:02:56.478: E/mm-camera(427): pproc_module_handle_reprocess_online:1198 input buf index 3 input stream id 3
+    12-21 21:02:56.478: E/mm-camera(427): cpp_module_handle_set_parm_event:1537, CAM_INTF_PARM_ROTATION,rotation 2
+    12-21 21:02:56.478: E/mm-camera(427): cpp_module_set_parm_rotation:1346,SET UP STREAM ROTATION
+    12-21 21:02:56.478: E/mm-camera(427): pproc_module_handle_reprocess_online:1246 input buf fd 118 type 2 size 9089024
+    12-21 21:02:56.478: E/mm-camera(427): module_wnr_port_event_func:857] identity 10004
+    12-21 21:02:56.478: E/mm-camera(427): module_wnr_client_exec:583]CDS enabled 0
+    12-21 21:02:56.478: E/mm-camera(427): module_wnr_configure_client : IMG_COMP_SET_PARAM (QWD_EARLY_CB) rc 0
+    12-21 21:02:56.478: E/mm-camera-img(427): wd_comp_calibrate:547] new_gain 15.802854 
+    12-21 21:02:56.478: E/mm-camera-img(427): wd_comp_calibrate:560] WNR trigger mode= 1, calibration_level = 15.687500
+    12-21 21:02:56.478: E/mm-camera-img(427): wd_comp_calibrate:596] binStart = 5, binEnd = 5 
+    12-21 21:02:56.479: E/mm-camera-DENOISE(427): DSP enable
+    12-21 21:02:56.497: E/mm-camera(427): Signal Process, process ids 427 427
+    12-21 21:02:56.555: E/mm-camera-DENOISE(427): DSP Proc:47632, Seg W:3264, Seg H:528 rc 0
+    12-21 21:02:56.575: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 21:02:56.577: E/mm-camera-DENOISE(427): ARM Proc1:74534, Seg W:1632, Seg H:518
+    12-21 21:02:56.599: E/mm-camera-DENOISE(427): ARM Proc1:95172, Seg W:1632, Seg H:528
+    12-21 21:02:56.600: E/mm-camera(427): dynamic_work_partition_execute:555] Error while reading from queue
+    12-21 21:02:56.609: E/mm-camera-DENOISE(427): ARM Proc1:104364, Seg W:1632, Seg H:528
+    12-21 21:02:56.610: E/mm-camera(427): dynamic_work_partition_execute:555] Error while reading from queue
+    12-21 21:02:56.611: E/AudioSink(296): received unknown event type: 1 inside CallbackWrapper !
+    12-21 21:02:56.617: E/mm-camera-DENOISE(427): DSP Proc:56144, Seg W:3264, Seg H:592 rc 0
+    12-21 21:02:56.658: E/mm-camera-DENOISE(427): ARM Proc1:75755, Seg W:1632, Seg H:518
+    12-21 21:02:56.659: E/mm-camera(427): dynamic_work_partition_execute:555] Error while reading from queue
+    12-21 21:02:56.688: E/mm-camera-DENOISE(427): DSP Proc:62848, Seg W:3264, Seg H:592 rc 0
+    12-21 21:02:56.743: E/mm-camera-DENOISE(427): DSP Proc:49591, Seg W:3264, Seg H:508 rc 0
+    12-21 21:02:56.746: E/mm-camera(427): All segments received 
+    12-21 21:02:56.746: E/mm-camera(427): Segment recd count i 0  count 4
+    12-21 21:02:56.746: E/mm-camera(427): Segment recd count i 1  count 1
+    12-21 21:02:56.746: E/mm-camera(427): Segment recd count i 2  count 1
+    12-21 21:02:56.746: E/mm-camera(427): Segment recd count i 3  count 2
+    12-21 21:02:56.767: E/mm-camera-DENOISE(427): Reinterleave time 21245
+    12-21 21:02:56.769: E/mm-camera-img(427): wd_comp_invalidate_buffer: 1042:] buffer_size 9054336
+    12-21 21:02:56.770: E/mm-camera-img(427): wd_comp_invalidate_buffer: 1055:] Cache Invalidation Success
+    12-21 21:02:56.770: E/mm-camera-img(427): wd_comp_process_frame:1204] Wavelet Denoise Success
+    12-21 21:02:56.770: E/mm-camera(427): module_wnr_client_divert_exec:896] after wait rc 0
+    12-21 21:02:56.770: E/mm-camera(427): gjia module_wnr_client_divert_exec:915] p_client->early_cb_enabled0
+    12-21 21:02:56.793: E/mm-jpeg-intf(296): mm_jpeg_create_session:2152] >>>> Work bufs need 1
+    12-21 21:02:56.794: W/linker(296): libmmjpeg.so has text relocations. This is wasting memory and is a security risk. Please fix.
+    12-21 21:02:56.795: E/qomx_image_core(296): OMX_GetHandle:236] get instance pts is 0xb73a34f0
+    12-21 21:02:56.796: E/mm-still(296): OMX_ERRORTYPE qomx_component_set_callbacks(OMX_HANDLETYPE, OMX_CALLBACKTYPE*, OMX_PTR): 181: This ptr addr 0xb73a34f0
+    12-21 21:02:56.796: E/qomx_image_core(296): OMX_GetHandle:260] Success
+    12-21 21:02:56.796: E/mm-jpeg-intf(296): mm_jpeg_meta_enc_key:648] Key is invalid
+    12-21 21:02:56.798: E/jpeg_hw(296): jpege_lib_init:400] handler 0x0 0x0 0x0
+    12-21 21:02:56.798: E/QCamera2HWI(296): qcamera::QCameraExif* qcamera::QCamera2HardwareInterface::getExifData(): getExifGpsDataTimeStamp failed
+    12-21 21:02:56.822: E/QCameraPostProc(296): [KPI Perf] int32_t qcamera::QCameraPostProcessor::encodeData(qcamera::qcamera_jpeg_data_t*, uint8_t&) : PROFILE_JPEG_JOB_START
+    12-21 21:02:56.822: E/mm-jpeg-intf(296): mm_jpeg_start_job:2006] X
+    12-21 21:02:56.822: E/mm-jpeg-intf(296): mm_jpeg_get_session:55] client_idx 0 session_idx 0
+    12-21 21:02:56.823: E/mm-jpeg-intf(296): mm_jpeg_configure_job_params:1335] Work buffer 57 0xb0da7000 WorkBufSize: 12220416
+    12-21 21:02:56.825: E/mm-jpeg-intf(296): mm_jpeg_configure_job_params: config makernote data failed
+    12-21 21:02:56.825: E/mm-still(296): virtual OMX_ERRORTYPE OMXJpegEncoder::startEncode():389] startEncode()
+    12-21 21:02:56.825: E/jpeg_hw(296): jpege_lib_hw_config:583] Version 30000000
+    12-21 21:02:56.825: E/jpeg_hw(296): jpege_lib_hw_fe_buffer_cfg:304] w 1836 h 3264 stride 1856 scanline 3264
+    12-21 21:02:56.825: E/jpeg_hw(296): we_buffer_cfg PLN0_WR_BUFFER_SIZE = 67120798
+    12-21 21:02:56.825: E/jpeg_hw(296): we_buffer_cfg PLN0_WR_STRIDE = 11934
+    12-21 21:02:56.825: E/jpeg_hw(296): we_buffer_cfg PLN0_WR_HSTEP = 11934
+    12-21 21:02:56.825: E/jpeg_hw(296): we_buffer_cfg PLN0_WR_VSTEP = 1024
+    12-21 21:02:56.885: E/mm-jpeg-intf(296): [KPI Perf] : PROFILE_JPEG_FBD
+    12-21 21:02:56.885: E/mm-jpeg-intf(296): mm_jpegenc_destroy_job:2288] Exif entry count 24 6
+    12-21 21:02:56.885: E/mm-jpeg-intf(296): mm_jpeg_queue_remove_job_by_job_id:2776] found matching job id
+    12-21 21:02:56.888: E/QCameraPostProc(296): int32_t qcamera::QCameraPostProcessor::processJpegEvt(qcamera::qcamera_jpeg_evt_payload_t*) : Calling upperlayer callback to store JPEG image
+    12-21 21:02:56.888: E/QCameraPostProc(296): [KPI Perf] int32_t qcamera::QCameraPostProcessor::processJpegEvt(qcamera::qcamera_jpeg_evt_payload_t*): PROFILE_JPEG_CB 
+    12-21 21:02:56.888: E/mm-jpeg-intf(296): mm_jpeg_get_session:55] client_idx 0 session_idx 0
+    12-21 21:02:56.890: E/qomx_image_core(296): OMX_FreeHandle:331] 
+    12-21 21:02:56.890: E/qomx_image_core(296): get_idx_from_handle:290] comp_idx 0 inst_idx 0
+    12-21 21:02:56.890: E/qomx_image_core(296): OMX_FreeHandle:366] Success
+    12-21 21:02:56.890: E/mm-jpeg-intf(296): mm_jpeg_remove_session_idx:118] client_idx 0 session_idx 0
+    12-21 21:02:56.890: E/mm-camera(427): mct_pipeline_process_set: stream_type = 9
+    12-21 21:02:56.890: E/mm-camera-img(427): wd_comp_abort:1374] p_base->mode = 0
+    12-21 21:02:56.890: E/mm-camera(427): cpp_module_handle_streamoff_event:1989] iden:0x10004, linked_params:0x0
+    12-21 21:02:56.890: E/mm-camera(427): cpp_hardware_process_streamoff:510] skip_iden:0x0, duplicate_stream_status:0x0
+    12-21 21:02:56.891: E/mm-camera-img(427): wd_comp_abort:1374] p_base->mode = 0
+    12-21 21:02:56.895: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 21:02:56.895: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:58.475: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 21:02:58.519: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.PauseResumeTrigger.handleFrameworkEvent:53 com.motorola.motocare.internal.frameworkevents.FwEventMonitor$FrameworkListener.processFrameworkEvent:114 
+    12-21 21:02:58.540: E/bsthal(1080): <BST> disable accel, orig state: 1
+    12-21 21:02:58.548: E/QCamera2HWI(296): [KPI Perf] static void qcamera::QCamera2HardwareInterface::stop_preview(camera_device*): E PROFILE_STOP_PREVIEW
+    12-21 21:02:58.549: E/mm-camera(427): mct_pipeline_send_ctrl_events: Send Set Parm events
+    12-21 21:02:58.551: E/mm-camera(427): mct_pipeline_process_set: stream_type = 3
+    12-21 21:02:58.551: E/mm-camera-sensor(427): module_sensor_module_process_event:3106 ide 10003 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 21:02:58.551: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10003, STREAMOFF
+    12-21 21:02:58.551: E/mm-camera(427): isp_streamoff: E, session_id = 1, stream_id = 3, active_count = 2
+    12-21 21:02:58.552: E/mm-camera(427): isp_proc_streamoff: E,session_id = 1, stream_id= 3, stream_type= 3 meta 0
+    12-21 21:02:58.552: E/mm-camera(427): isp_hw_action: last pix stop, pix_cnt = 2, cnt = 2
+    12-21 21:02:58.552: E/mm-camera(427): isp_thread_proc_cmd: start/stop, thread_data = 0xb8fe6354, action_code = 2
+    12-21 21:02:58.552: E/mm-camera(427): isp_ch_util_streamoff: session_id = 1, vfe_mask = 0x1, async streamoff, rc = 0
+    12-21 21:02:58.552: E/mm-camera(427): isp_hw_action: hw_thread for ack
+    12-21 21:02:58.552: E/mm-camera(427): isp_axi_util_subscribe_v4l2_event: event_type = 0x8000100, is_subscribe = 0
+    12-21 21:02:58.682: E/mm-camera(427): isp_axi_unreg_buf: session_id = 1, stream_id = 2, buf_handle = 0x10000
+    12-21 21:02:58.683: E/mm-camera(427): isp_axi_unreg_buf: session_id = 1, stream_id = 3, buf_handle = 0x20001
+    12-21 21:02:58.683: E/mm-camera(427): stats_action_buf_config: cfg = 0, stats_mask = 0x7b8
+    12-21 21:02:58.687: E/mm-camera(427): isp_thread_proc_cmd: start/stop ack done, thread_data = 0xb8fe6354, action_code = 3, rc = 0
+    12-21 21:02:58.687: E/mm-camera(427): isp_ch_util_streamoff: session_id = 1, sync ack done
+    12-21 21:02:58.688: E/mm-camera(427): isp_streamoff: X, session_id = 1, rc = 0
+    12-21 21:02:58.688: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10003, STREAMOFF, ret = 0
+    12-21 21:02:58.688: E/mm-camera(427): stream id 3, stream num_meta 0
+    12-21 21:02:58.746: E/mm-camera(427): ispif_streamoff: session_id = 1, active_streams = 0
+    12-21 21:02:58.746: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_off:929 any bundle started 0
+    12-21 21:02:58.747: E/mm-camera(427): mct_pipeline_process_set: stream_type = 1
+    12-21 21:02:58.747: E/mm-camera-sensor(427): module_sensor_module_process_event:3106 ide 10002 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 21:02:58.747: E/mm-camera(427): port_isp_mct_ctrl_cmd: E, identity = 0x10002, STREAMOFF
+    12-21 21:02:58.748: E/mm-camera(427): c2d_module_handle_streamoff_event:1268, info: doing stream-off for identity 0x10002
+    12-21 21:02:58.754: E/mm-camera(427): module_faceproc_port_event_func:510] STREAMOFF 0
+    12-21 21:02:58.754: E/mm-camera-img(427): faceproc_comp_abort:608] state 2
+    12-21 21:02:58.754: E/mm-camera-img(427): faceproc_comp_abort:635] X
+    12-21 21:02:58.754: E/mm-camera(427): af_fdprio_process_fd_roi:440 Process FD_ROI data
+    12-21 21:02:58.754: E/mm-camera-CORE(427): aec_set_fd_roi: invalid CPP width and height (0, 0)!
+    12-21 21:02:58.756: E/mm-camera(427): c2d_module_handle_streamoff_event:1387, info: stream-off done for identity 0x10002
+    12-21 21:02:58.756: E/mm-camera(427): cpp_module_handle_streamoff_event:1989] iden:0x10002, linked_params:0x0
+    12-21 21:02:58.756: E/mm-camera(427): cpp_hardware_process_streamoff:510] skip_iden:0x0, duplicate_stream_status:0x0
+    12-21 21:02:58.756: E/mm-camera(427): isp_streamoff: E, session_id = 1, stream_id = 2, active_count = 0
+    12-21 21:02:58.756: E/mm-camera(427): isp_proc_streamoff: E,session_id = 1, stream_id= 2, stream_type= 1 meta 0
+    12-21 21:02:58.756: E/mm-camera(427): isp_streamoff: X, session_id = 1, rc = 0
+    12-21 21:02:58.756: E/mm-camera(427): port_isp_mct_ctrl_cmd: X, identity = 0x10002, STREAMOFF, ret = 0
+    12-21 21:02:58.756: E/mm-camera-sensor(427): module_sensor_is_ready_for_stream_off:929 any bundle started 0
+    12-21 21:02:58.756: E/mm-camera-sensor(427): module_sensor_module_process_event:3125 ide 10002 MCT_EVENT_CONTROL_STREAMOFF
+    12-21 21:02:58.756: E/mm-camera-sensor(427): module_sensor_module_process_event: Sending stop bus message
+    12-21 21:02:58.756: E/mm-camera(427): stop_sof_check_thread: Stopping SOF timeout thread
+    12-21 21:02:58.757: E/mm-camera(427): mct_pipeline_process_set: stream_type = 7
+    12-21 21:02:58.780: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 21:02:58.780: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 21:02:58.780: E/mm-camera-sensor(427): port_sensor_unlink_func:220 ide 10002
+    12-21 21:02:58.780: E/mm-camera-sensor(427): port_sensor_caps_unreserve:183 ide 10002
+    12-21 21:02:58.781: E/mm-camera(427): c2d_port_check_caps_unreserve:170, identity=0x10002
+    12-21 21:02:58.781: E/mm-camera(427): c2d_port_check_caps_unreserve:179, identity=0x10002, unreserved
+    12-21 21:02:58.784: E/mm-camera(427): c2d_port_check_caps_unreserve:170, identity=0x10002
+    12-21 21:02:58.784: E/mm-camera(427): c2d_port_check_caps_unreserve:179, identity=0x10002, unreserved
+    12-21 21:02:58.784: E/mm-camera-img(427): faceproc_comp_abort:608] state 1
+    12-21 21:02:58.784: E/mm-camera-img(427): faceproc_save_album:795] Error No album 
+    12-21 21:02:58.784: E/mm-camera-img(427): faceproc_comp_eng_destroy: Album save failed -1
+    12-21 21:02:58.785: E/mm-camera(427): mct_stream_streamoff: Enter
+    12-21 21:02:58.785: E/mm-camera-sensor(427): port_sensor_unlink_func:220 ide 10003
+    12-21 21:02:58.785: E/mm-camera-sensor(427): port_sensor_caps_unreserve:183 ide 10003
+    12-21 21:02:58.786: E/mm-camera(427): q3a_thread_aecawb_stop:346 MSG_STOP_THREAD
+    12-21 21:02:58.808: E/qomx_image_core(296): OMX_Deinit:118] Complete
+    12-21 21:02:58.810: E/QCameraPostProc(296): int32_t qcamera::QCameraPostProcessor::deinit(): Jpeg closed, rc = 0, mJpegClientHandle = a00
+    12-21 21:02:58.818: E/mm-camera(427): mct_pipeline_get_stream: no children
+    12-21 21:02:58.818: E/mm-camera(427): mct_pipeline_process_set:1981: Couldn't find stream
+    12-21 21:02:58.819: E/mm-camera-sensor(427): module_sensor_stop_session:737 session 1
+    12-21 21:02:58.819: E/mm-camera(427): stats_module_stop_session: list =0xb90bb908, remove port =0xb9055f68 name=stats_sink from module=0xb8d6d330, name=stats
+    12-21 21:02:58.820: E/mm-camera(427): stats_module_stop_session: 1 port =0xb9055f68 name=stats_sink 
+    12-21 21:02:58.820: E/mm-camera(427): stats_module_stop_session: 2 port =0xb9055f68 name=stats_sink 
+    12-21 21:02:58.821: E/hdr(427): Session id 0x1 stopped
+    12-21 21:02:58.821: E/mm-camera-img(427): module_imglib_free_port:1667 port 0xb9105768 p_mct_mod 0xb8d720f8
+    12-21 21:02:58.822: E/mm-camera-CORE(427): mot_af_deinit: E
+    12-21 21:02:58.824: E/mm-camera(427): c2d_module_stop_session:323, info: stopping session 1 ...
+    12-21 21:02:58.824: E/mm-camera(427): c2d_thread_process_pipe_message:716, C2D_THREAD_MSG_ABORT: c2d_thread exiting..
+    12-21 21:02:58.824: E/mm-camera(427): is_module_stop_session: Enter
+    12-21 21:02:58.824: E/mm-camera(427): is_module_stop_session: Exit successful
+    12-21 21:02:58.824: E/mm-camera(427): stats_module_stop_session: 3 port =0xb9055f68 name=stats_sink 
+    12-21 21:02:58.825: E/mm-camera(427): c2d_module_stop_session:365, info: session 1 stopped.
+    12-21 21:02:58.829: W/libutils.threads(296): Thread (this=0xb73036e8): don't call join() from this Thread object's thread. It's a guaranteed deadlock!
+    12-21 21:02:58.842: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.PauseResumeTrigger.handleFrameworkEvent:53 com.motorola.motocare.internal.frameworkevents.FwEventMonitor$FrameworkListener.processFrameworkEvent:114 
+    12-21 21:02:58.876: E/mm-camera-sensor(427): Got some events
+    12-21 21:02:58.876: E/mm-camera-sensor(427): sensor_thread_func:152 sensor_thread_func:Sensor thread is exiting
+    12-21 21:02:58.896: W/HandlerScheduledExecuto(1369): Task does not implement UiTask. Consider using NamedUiRunnable for eww@425a1d90
+    12-21 21:02:59.457: E/cutils(279): Failed to mkdirat(/storage/sdcard1/Android): Read-only file system
+    12-21 21:02:59.457: W/Vold(279): Returning OperationFailed - no handler for errno 30
+    12-21 21:02:59.458: W/ContextImpl(21090): Failed to ensure directory: /storage/sdcard1/Android/data/com.facebook.katana/cache
+    12-21 21:02:59.561: W/BroadcastQueue(1080): Permission Denial: broadcasting Intent { act=android.net.conn.INET_CONDITION_ACTION flg=0x4000010 (has extras) } from null (pid=-1, uid=-1) requires com.facebook.permission.prod.FB_APP_COMMUNICATION due to registered receiver BroadcastFilter{428498f8 u0 ReceiverList{4285ab80 21090 com.facebook.katana/10114/u0 remote:428b35d8}}
+    12-21 21:02:59.561: W/BroadcastQueue(1080): Permission Denial: broadcasting Intent { act=android.net.conn.CONNECTIVITY_CHANGE flg=0x4000010 (has extras) } from null (pid=-1, uid=-1) requires com.facebook.permission.prod.FB_APP_COMMUNICATION due to registered receiver BroadcastFilter{428498f8 u0 ReceiverList{4285ab80 21090 com.facebook.katana/10114/u0 remote:428b35d8}}
+    12-21 21:02:59.677: W/fb4a(:<default>):AbstractMqttPushService(21090): Attempt to start service that is already started
+    12-21 21:02:59.869: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:59.953: E/MDMCTBK(372): MdmCutbackHndler,Could not open ''
+    12-21 21:02:59.976: W/BroadcastQueue(1080): Permission Denial: broadcasting Intent { act=android.net.conn.CONNECTIVITY_CHANGE flg=0x4000010 (has extras) } from null (pid=-1, uid=-1) requires com.facebook.permission.prod.FB_APP_COMMUNICATION due to registered receiver BroadcastFilter{42bbfc58 u0 ReceiverList{42bbfbf8 21090 com.facebook.katana/10114/u0 remote:42c05638}}
+    12-21 21:03:00.288: W/CursorWindow(21090): Window is full: requested allocation 2040 bytes, free space 872 bytes, window size 2097152 bytes
+    12-21 21:03:00.371: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 21:03:01.677: E/msm8974_platform(296): platform_update_tpa_poll: Could not get ctl for mixer cmd - TPA6165 POLL ACC DET
+    12-21 21:03:08.295: W/MessageQueue(9383): Handler (android.os.Handler) {423a5b48} sending message to a Handler on a dead thread
+    12-21 21:03:08.295: W/MessageQueue(9383): java.lang.RuntimeException: Handler (android.os.Handler) {423a5b48} sending message to a Handler on a dead thread
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.MessageQueue.enqueueMessage(MessageQueue.java:320)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.enqueueMessage(Handler.java:626)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.sendMessageAtTime(Handler.java:595)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.sendMessageDelayed(Handler.java:566)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.post(Handler.java:326)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.a.s.a(DefaultBlueServiceOperation.java:780)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.a.s.b(DefaultBlueServiceOperation.java:685)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.a.v.b(DefaultBlueServiceOperation.java:636)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.service.l.a(BlueServiceQueue.java:518)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.service.l.e(BlueServiceQueue.java:383)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.service.l.d(BlueServiceQueue.java:58)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.fbservice.service.o.run(BlueServiceQueue.java:280)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:422)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at java.util.concurrent.FutureTask.run(FutureTask.java:237)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at com.facebook.common.executors.ax.run(ListenableScheduledFutureImpl.java:58)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.handleCallback(Handler.java:733)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.Looper.loop(Looper.java:136)
+    12-21 21:03:08.295: W/MessageQueue(9383): 	at android.os.HandlerThread.run(HandlerThread.java:61)
+    12-21 21:03:30.266: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.PauseResumeTrigger.handleFrameworkEvent:53 com.motorola.motocare.internal.frameworkevents.FwEventMonitor$FrameworkListener.processFrameworkEvent:114 
+    12-21 21:03:30.369: E/audio_a2dp_hw(296): adev_set_parameters: ERROR: set param called even when stream out is null
+    12-21 21:03:31.044: E/LocSvc_libulp(1080): W/int ulp_brain_transition_all_providers(), no QUIPC/GNSS transition logic run due to both engines are OFF 
+    12-21 21:03:31.924: W/IdleConnectionHandler(21090): Removing a connection that never existed!
+    12-21 21:03:31.926: W/IdleConnectionHandler(21090): Removing a connection that never existed!
+    12-21 21:03:32.528: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1608 android.content.ContextWrapper.startService:494 android.content.ContextWrapper.startService:494 com.motorola.motocare.internal.batterystats.BatteryStatsAction.onReceive:33 android.app.ActivityThread.handleReceiver:2434 
+    12-21 21:03:35.518: W/View(1154): requestLayout() improperly called by android.widget.TextClock{41f62d10 V.ED.... ......ID 148,0-440,213 #7f0a004b app:id/clock_view} during layout: running second layout pass
+    12-21 21:03:35.519: W/View(1154): requestLayout() improperly called by android.widget.TextClock{42106758 V.ED.... ......ID 190,0-397,38 #7f0a0050 app:id/date_view} during layout: running second layout pass
+    12-21 21:03:35.579: W/EventLogAggregator(16329): Unknown tag: snet
+    12-21 21:03:35.579: W/EventLogAggregator(16329): Unknown tag: snet_gcore
+    12-21 21:03:35.579: W/EventLogAggregator(16329): Unknown tag: snet_launch_service
+    12-21 21:03:46.387: W/ContentResolver(21534): Failed to get type for: content://com.android.calendar (Unknown URL content://com.android.calendar)
+    12-21 21:03:51.479: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.ProcessKillTrigger.sendTrigger:147 com.motorola.motocare.internal.frameworkevents.ProcessKillTrigger.handleLmkKill:337 
+    12-21 21:03:51.481: W/ContextImpl(1338): Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1252 android.content.ContextWrapper.sendBroadcast:365 com.motorola.motocare.util.TriggerHelper$TriggerBuilder.send:76 com.motorola.motocare.internal.frameworkevents.ProcessKillTrigger.sendTrigger:147 com.motorola.motocare.internal.frameworkevents.ProcessKillTrigger.handleLmkKill:337 
+    
+    </pre></code></li>
+<li>Ygor Lemos 2014-12-21
+
+    The following logs are from Google Play Developer console itself, and are coming from my app in production.
+    
+    those logs are generated when the users have problems taking pictures (app crashes just after picture is taken):
+    
+    java.lang.ClassCastException
+    in android.widget.AbsListView.onRestoreInstanceState
+    
+    
+    by device
+    
+    Xperia S (LT26i)	1	4.8%
+    Galaxy Grand duos (baffin)	4	19.0%
+    DROID RAZR HD (vanquish_u)	1	4.8%
+    Moto X (ghost)	1	4.8%
+    Optimus L5 (m4)	2	9.5%
+    Optimus 4X HD (x3)	1	4.8%
+    Galaxy Core 2 (kanas)	1	4.8%
+    Moto G (titan_umtsds)	1	4.8%
+    Galaxy S4 (jflte)	1	4.8%
+    Moto G (falcon_umtsds)	1	4.8%
+    LG-P875 (l1e)	1	4.8%
+    LG Optimus L5 II (vee5ds)	1	4.8%
+    LG Optimus L1II (v1ts)	1	4.8%
+    LG Optimus G Pro (geefhd)	1	4.8%
+    Moto G w/4G LTE (peregrine)	1	4.8%
+    Galaxy S3 Mini (golden)	2	9.5%
+    
+    
+    by Android version
+    
+    Android 4.4	7	33.3%
+    Android 4.1	7	33.3%
+    Android 4.2	4	19.0%
+    Android 4.0.3 - 4.0.4	3	14.3%
+    
+    
+    <code><pre>
+    java.lang.RuntimeException: Unable to start activity ComponentInfo{br.com.pinion/org.appcelerator.titanium.TiActivity}: java.lang.ClassCastException: android.view.AbsSavedState$1 cannot be cast to android.widget.AbsListView$SavedState
+    at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2198)
+    at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2225)
+    at android.app.ActivityThread.handleRelaunchActivity(ActivityThread.java:3745)
+    at android.app.ActivityThread.access$700(ActivityThread.java:151)
+    at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1307)
+    at android.os.Handler.dispatchMessage(Handler.java:99)
+    at android.os.Looper.loop(Looper.java:153)
+    at android.app.ActivityThread.main(ActivityThread.java:5096)
+    at java.lang.reflect.Method.invokeNative(Native Method)
+    at java.lang.reflect.Method.invoke(Method.java:511)
+    at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:790)
+    at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:557)
+    at dalvik.system.NativeStart.main(Native Method)
+    Caused by: java.lang.ClassCastException: android.view.AbsSavedState$1 cannot be cast to android.widget.AbsListView$SavedState
+    at android.widget.AbsListView.onRestoreInstanceState(AbsListView.java:1860)
+    at android.view.View.dispatchRestoreInstanceState(View.java:12005)
+    at android.view.ViewGroup.dispatchThawSelfOnly(ViewGroup.java:2604)
+    at android.widget.AdapterView.dispatchRestoreInstanceState(AdapterView.java:790)
+    at android.view.ViewGroup.dispatchRestoreInstanceState(ViewGroup.java:2590)
+    at android.view.ViewGroup.dispatchRestoreInstanceState(ViewGroup.java:2590)
+    at android.view.ViewGroup.dispatchRestoreInstanceState(ViewGroup.java:2590)
+    at android.view.ViewGroup.dispatchRestoreInstanceState(ViewGroup.java:2590)
+    at android.view.View.restoreHierarchyState(View.java:11983)
+    at com.android.internal.policy.impl.PhoneWindow.restoreHierarchyState(PhoneWindow.java:1805)
+    at android.app.Activity.onRestoreInstanceState(Activity.java:1089)
+    at org.appcelerator.titanium.TiBaseActivity.onRestoreInstanceState(TiBaseActivity.java:1297)
+    at android.app.Activity.performRestoreInstanceState(Activity.java:1061)
+    at android.app.Instrumentation.callActivityOnRestoreInstanceState(Instrumentation.java:1133)
+    at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2176)
+    ... 12 more
+    </pre></code></li>
+<li>Paolo Casciello 2014-12-22
+
+    Ingo the "not reproducible" is just hilarious. I was invited to an Appcelerator presentation with one of your SVP and he was telling the world about how Appcelerator is big, good and shiny. And a multimillion company.
+    I believe that. I like working in Titanium. Almost all the time. But when we, developers that made a choice on a platform, face a bug like this. A stupid problem like this i would say. Well.. where are the "multimillions"? Where is the Gartner magic quadrant? 
+    This is only the task of taking a photo in the first mobile os. 
+    I, and others, said this is happening on a lot of devices... I have this problem on my MotoG Second edition, a mid 2014 phone. You can't find this phone??? Motorola is shipping it right now in the US from their site in 2 days! Cmon.
+    
+    Why one would buy Appcelerator Platform if the basic things are a nightmare?
+    
+    Ygor did a great job on listing devices and collecting errors. 
+    Probably a lot is related to the saving/restore state thing.
+    
+    I'm really not good in Java so I can't help debugging native code or i would've helped in a more constructive way.
+    </li>
+<li>Philipp Rieber 2014-12-22
+
+    I can hardly believe that it is not reproducible. It is Android related, but how do native developpers solve this issue. I cannot imagine that this is a common issue on native Android apps?
+    
+    Btw, I've experienced the same issue with a plain HTML page using an input field of type file which accepts image/* data- Camera opens and after taking the picture and returning to the app, the browser tab reloads. This happens on my S3 and my Moto G (ALL the time) but not on an iPhone or IPad.
+    
+    Philipp</li>
+<li>Ingo Muschenetz 2014-12-22
+
+    [~xcash] This is not a constructive way to have a conversation.
+    
+    The reason this issue is not resolved, is both not for lack of trying, nor for an unwillingness to solve the issue--you may note that the priority still says "Critical." As I have said before, we HAVE bought phones people say can reproduce the problem. And we can't. Including ones on Ygor's list. I've also said if someone HAS a phone that does demonstrate the issue, we will buy it and pay to ship it, an offer I made as far back as April. If you have a MotoG Second edition that reproduces the problem, we'll buy that one and pay for the phone and shipping.
+    
+    [~bicpi] You mention that using the <a href="https://github.com/shaithana/cordova-plugin-wezka-nativecamera" rel="nofollow" target="_blank">https://github.com/shaithana/cordova-plugin-wezka-nativecamera</a> plugin solved the issue for you (after a fashion)?
+    </li>
+<li>Paolo Casciello 2014-12-22
+
+    Ingo, I'm not here to blame anyone. I'm here to find a solution and to help other developers facing this issue.
+    
+    Eventually in January I'll be happy to ship our phones reproducing the problem. Meanwhile i was debugging this thing more deeply. 
+    As I said before this is related to the saveState and resumeState pattern around an Intent call.
+    
+    I don't want to speak too early but i'm nearly ready to publish a workaround that seems to work (and since it's a workaround it will have some disadvantages but instead of being unable to take photo...).
+    
+    The plugin mentioned by Philippe doesn't resolve the issue, it simply does a different thing: It creates a custom camera app inside the native app.
+    This means the plugin needs to be maintained to support every new camera features and such things.
+    
+    Later i'll post the workaround when finished and tested.</li>
+<li>Andrew McElroy 2014-12-22
+
+    I have to chime in here. Sorry. 
+    
+    Appcelerator has SOASTA ( Appcelerator Test). It can use devices remotely. 
+    Could someone with the affected hardware just coordinate with Ingo and let AppC debug remotely?
+    
+    I had no idea that this was a long standing bug. This has never come up in any of my training courses.
+    I have however had a camera on Android take too high resolution of an image and have **that** crash the App.
+    
+    **Out of curiosity to those who have this issue, try setting your camera to 8 Mega Pixels.** 
+    Does it still crash?
+    
+    </li>
+<li>Paolo Casciello 2014-12-22
+
+    Here it is. Finally a *workaround*.
+    
+    What I discovered is that, on the affected devices, the app seems to be destroyed right after the intent is called.
+    From my logs the activity's lifecycle (from a Titanium point of view) is:
+    
+    onCreate -> onStart -> onResume (start the camera intent) -> onPause -> onStop (here the app activity gets destroyed *but no onDestroy callback is called* ) (the user here is not doing anything, native camera app is showing up and waiting)
+    When the camera returns (cancel or success, no matter) the app goes through a full restart: onCreate -> onStart -> onResume.
+    
+    My workaround:
+    
+    * use the intent passing a file url on externalstorage where to save the image.
+    * set an app property in Ti.App.Properties to do a kind of "savestate". Just a boolean "waiting_picture".
+    * add a callback on Activity's onResume to handle the resume step checking for the above property.
+    * in case of that property present, search for the file and use it.
+    
+    * and of course the code to manage the case when the app doesn't get destroyed and the intent callback is called.
+    
+    You can find a workaround example (it's self-explanatory) here: <a href="https://gist.github.com/xcash/e0e363e04999ba9c8ad2" rel="nofollow" target="_blank">https://gist.github.com/xcash/e0e363e04999ba9c8ad2</a>
+    I'll be improving it later but it's fully working.
+    For any questions feel free to contact me commenting that gist or here in this issue.
+    
+    Of course the users will see the app restarting (splash screen and everything) but it is what they're seeing already now.. except for the picture taken instead of a buggy feeling. :)
+    
+    Hope this help.
+    
+    PS: [~sophrinix] no i was taking pics at 6MP. Seems on some new devices the native camera app is eager for resources, and android is brutal in destroying app.. :D</li>
+<li>Ygor Lemos 2015-01-06
+
+    Ingo, do you guys want me to send the Moto G 2nd gen ?
+    
+    I'm in Brazil - Sao Paulo... I understand that you have a local business office here, if somebody from here is going to US in the near future I can drop the device with them. Would it help?</li>
+<li>Sergio Delgado 2015-04-08
+
+    Hi, some news about this issue??? :(</li>
+<li>Alex Bernier 2015-04-24
+
+    [~ingo] I can reliably reproduce this on my Nexus 6. I'm in Mountain View. Happy to come by. 4.0.0.Beta3.</li>
+<li>Ashraf Abu 2015-05-07
+
+    Tried this with the following:-
+    
+    Titanium SDK: 3.5.1.GA, 4.0.0v20150429154210
+    Nexus 6 (Android 5.0)
+    
+    Not Reproducible.
+    
+    Used the code:-
+    <code><pre>
+    var win = Titanium.UI.createWindow();
+    var imageView = Ti.UI.createImageView({height: Ti.UI.FILL, width: Ti.UI.Fill});
+    win.add(imageView);
+    	
+    win.open();
+    win.addEventListener('open',function(e){
+    	Titanium.Media.showCamera({
+     
+    		success:function(event)
+    		{
+    			Ti.API.info('#### Camera Success');
+    			var cropRect = event.cropRect;
+    			var image = event.media;
+    			Ti.API.info(image.length);
+    			var filename = Titanium.Filesystem.tempDirectory + "/"+ 'camera_photo' + new Date().getTime() + ".png";
+    			Ti.API.info(filename);
+    			var f = Titanium.Filesystem.getFile(filename);
+    			Ti.API.info(f.nativePath);
+    			if (f.exists()) {
+    				Ti.API.info('The file exist , trying to delete it before using it :' + f.deleteFile());
+    				f = Titanium.Filesystem.getFile(filename);
+    			}
+    			f.write(image);
+    			alert('Camera Success! The file size is '+f.size+' bytes.\n Now trying to assign it to an image on the screen (this may fail for hi res images)');
+    			imageView.image = f.nativePath;
+    		},
+    		cancel:function()
+    		
+    		{
+    			Ti.API.info('#### Camera Cancel');
+    		},
+    		error:function(error)
+    		{
+    			// create alert
+    			Ti.API.info('#### Camera Error');
+    			var a = Titanium.UI.createAlertDialog({title:'Camera'});
+     
+    			// set message
+    			if (error.code == Titanium.Media.NO_CAMERA)
+    			{
+    				a.setMessage('Device does not have video recording capabilities');
+    			}
+    			else
+    			{
+    				a.setMessage('Unexpected error: ' + error.code);
+    			}
+     
+    			// show alert
+    			a.show();
+    		},
+    		allowEditing:true
+    	});
+    });
+    </pre></code></li>
+<li>Rodrigo Pavez 2015-05-08
+
+    I have been able to replicate the issue in Motorola XT1032 and Motorola XT1064 using the code above, its a random issue. It happens 1 in around 30 attempts. I think is a memory issues so there are chance if your app is using too much memory, you have lot of background tasks or your camera is set to extremely high-res it will fail.
+    
+    In my company we're having lot of problems with this issue, about 20% of our Android users have reported issues related to camera crash, we have discovered an easy but graceful fix is reboot the device. Also users with new phones with cameras with high resolution seem to have more problems.
+    
+    Attach a sample of code used for capturing photos and resize images using third party modules.
+    
+    <code><pre>
+    (function() {
+    	 
+    	Ti.App.saveFile = function(value) {
+    		var fileName;
+    		function s4() {
+    			return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+    		}
+    	 
+    		if (Ti.Platform.osname === 'android') {
+    			fileName = value.filename + '_' + s4() + s4() + '-' + s4() + '-' + s4() + '.jpg';
+    		} else {
+    			fileName = value.filename + '_' + s4() + s4() + '-' + s4() + '-' + s4() + '.png';
+    		}
+    		tempFile = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, fileName);
+    		tempFile.write(value.file);
+    		value = null;
+    		return tempFile.nativePath;
+    	};
+    	 	 
+    	var window = Ti.UI.createWindow();
+    	window.open();
+    	
+    	alert("This sample app will create a camera over and over again to test camera crash issues");
+    	 
+    	global = {
+    		entry:{
+    			id: 1
+    		}
+    	};
+    	 
+    	step_id = Math.floor(Math.random(0,1)*100000);
+    	 
+    	openCamera = function(){
+    		Titanium.Media.showCamera({
+    			success : function(event) {
+    				if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+    					var resizedImage = event.media;
+    					var pathToImage = Ti.App.saveFile({
+    						file : resizedImage,
+    						filename : 'task_' + global.entry.id + '_step_' + step_id
+    					});
+    					alert('Saved to '+pathToImage);
+    					openCamera();
+    				}
+    			}
+    		});		
+    	}
+    	 
+    	setTimeout(function(){
+    		openCamera();
+    	},1000);
+    
+    })();
+    
+    </pre></code></li>
+<li>Rodrigo Pavez 2015-05-08
+
+    I'm also working on a camera module able to set specific resolution when using camera reducing memory usage ([<a href="https://github.com/rpavez/ti-camera-pro" rel="nofollow" target="_blank">https://github.com/rpavez/ti-camera-pro</a>]). I still haven't been able to include system camera controls and I'm also having issues with layout of views added to the ViewProxy. *It would be awesome if somebody with more experience could help me fixing this issues with my module*</li>
+<li>Malcolm Hollingsworth 2015-05-08
+
+    [~msamah] Can I assume you are testing multiple times in multiple real world scenarios of usage with different apps starting and stopping to see what happens outside of a clean environment?
+    
+    Did anyone take up [~athorne] on his offer to come in and show you in person a repeatable test case to help this very long term issue finally get some actual traction?
+    </li>
+<li>Ingo Muschenetz 2015-05-08
+
+    [~core13] and [~athorne] yes, I would like to invite Alex into the office and will do so ASAP.</li>
+<li>Alex Bernier 2015-05-08
+
+    Great news! Say the word.</li>
+<li>Rodrigo Pavez 2015-07-30
+
+    Any update of this?</li>
+<li>Alex Bernier 2015-07-30
+
+    A little while back [~ingo] and I talked about them buying our device that has the problem. I'm assuming he's just busy right now. I wrote him just to check in.</li>
+<li>Filipe La Ruina 2016-03-04
+
+    Hi, I can confirm this still happens in some devices, Nexus 5 with Android 6, Moto G with Android 5.
+    The log just shows android restarting the activity, no errors.
+    It doesn't happen every time, sometimes it works, sometimes it doesn't, which sucks.</li>
+<li>Alex Bernier 2016-03-04
+
+    Happens with Nexus 5X, 6, and 6P as well. And, the camera won't work until the phone is restarted after this happens once. Fails with the log line "cannot connect to camera service." Is camera2 upgrade in the plan at all?</li>
+<li>Stephen Feather 2016-03-06
+
+    On the 5x, camera can lock up after as few as 3 images.
+    No,  don't have time after 3+ years to continue to submit details and sample code, simply adding a comment so that Alex knows he isn't alone.</li>
+<li>Tim Poulsen 2016-04-28
+
+    I can confirm that our app also crashes on a Nexus 5X. We are using Android 6 permissions correctly as our app seems to run okay on other Android 6 devices. We don't have a 6/6P to test, so I can't speak to those devices.
+    
+    It appears that the Ti.Media module is not properly releasing the camera. It's also using older/deprecated APIs and needs to be updated overall.</li>
+<li>Ashraf Abu 2016-04-29
+
+    [~timpoulsen] That sounds bad that the Ti.Media is not releasing the camera. I do agree that we we need to update the camera API.</li>
+<li>Tim Poulsen 2016-04-29
+
+    @msamah Perhaps you would also consider implementing the functionality of <a href="https://github.com/skypanther/picatsize" rel="nofollow" target="_blank">https://github.com/skypanther/picatsize</a> in such an update. _PicAtSize is an Android module that lets you take a "PIC﻿ture AT a SIZE" you specify._ Basically, I took the existing Ti.Media code and turned it into a module, then with a lot of help from others, extended it to support the <code>camera.getParameters.setPictureSize()</code> method. In this way, we can avoid out-of-memory errors by eliminating the need to resize photos in the JavaScript space. 
+    
+    I'm not much of an Android dev, my code is not PR-worthy, and I probably couldn't make it PR-worthy. But, the code is Apache licensed and mostly your code already. So, feel free to take whatever you want.</li>
+<li>Ashraf Abu 2016-05-03
+
+    Roger that  [~timpoulsen]. Thanks.</li>
+<li>Gustavo Velez 2016-05-30
+
+    I am seeing this same issue on an ASUS ZenFone 2E, Android version 5.0.1. It will be great to have a fix for this to improve user experience... Thank you!</li>
+<li>Jason Knight 2016-05-31
+
+    We see this happening most often on a Samsung galaxy S5, Android 5.0 on Verizon.  There are other variants, but this one is the most consistent.
+    
+    Can we create a branch and PR for this issue?  I would like to help solve this issue.</li>
+<li>Marian Kucharcik 2016-06-27
+
+    I have also this problem on Motorola MotoG2, Android 4.4, TiSDK 5.3.0 GA, picking up image from gallery works fine, taking pictures crash and shuts down my app.
+    Strange thing is, that I used same code a while ago in another app(in February I think) and I could take pctures with camera. Now, with newest SDK I can't use camera to take pictures in both apps(older and new). 
+    Please fix it asap.
+    Thank you
+    
+    Edit: My app is not crashing anymore(SDK 5.3.1GA), but I have another problem - when camera window closes, app's main window moves up for few pixels and Notification bar hides(I have no code implemented to hide notification bar). On another app, everything is working fine(without moving). Can you help me with this? 
+    Thank you</li>
+<li>Jason Knight 2016-06-27
+
+    Why does this keep getting moved back?  It has 47 watchers so obviously it's important and effecting a lot a people.</li>
+<li>Abdiel Aviles 2016-07-05
+
+    This crash is consistently happening on various models, but specially on the Galaxy S6 family and it happens only if the flash is enabled.
+    
+        Ti.Media.setCameraFlashMode(Ti.Media.CAMERA_FLASH_ON);
+    </li>
+<li>Ygor Lemos 2016-07-05
+
+    +1</li>
+<li>Ashraf Abu 2016-07-12
+
+    [~max87]
+    Based on your updated comments, could you provide your logs from the crash? Preferably from the <code>adb logcat</code>. </li>
+<li>Marian Kucharcik 2016-07-12
+
+    Hi Ashraf,
+    my app is not crashing anymore, so I don't have any logs. I tried to update SDK to 6.0beta and update nodeJS, but I had to revert, so I'm currently on 5.3.1GA and nodeJS 0.12.7
+    </li>
+<li>Tim Poulsen (ACV) 2016-07-18
+
+    We get consistent crashes on the Nexus 5X. One, sometimes two photos is all we can take before the app crashes. This looks to be the relevant portion of the logs.
+    
+    Nexus 5X, Android 6.0.1, Kernel v 3.10.73gf215204, Ti SDK 5.2.2.GA (though the crash has existed long before that SDK version)
+    
+    <code><pre>
+    07-18 13:06:35.220   492 15940 I QCamera3Stream: virtual int32_t qcamera::QCamera3Stream::init(cam_stream_type_t, cam_format_t, cam_dimension_t, cam_rotation_t, cam_stream_reproc_config_t*, uint8_t, uint32_t, cam_is_type_t, uint32_t, qcamera::hal3_stream_cb_routine, void*): stream_type is 9, feature_mask is 8390286
+    07-18 13:06:35.222   492 15940 E mm-camera-intf: mm_channel_fsm_fn_stopped: invalid state (1) for evt (9)
+    07-18 13:06:35.227   510 15927 E mm-camera: :cpp_hardware_set_clock:333 Set clock 320000000 BW abg 192084480 BW inst 1466181818
+    07-18 13:06:35.246   510 15934 E mm-camera: pproc_module_send_buf_divert_event:859] CDS enable 0 num_str 1 applied 0 stream_id 6
+    07-18 13:06:35.247   510 15931 E mm-camera-img: cac2_comp_process_frame:949] Start CAC 
+    07-18 13:06:35.256   492 15909 D NuPlayerDriver: notifyListener_l(0xf2bd64e0), (4, 0, 0)
+    07-18 13:06:35.256   510 15931 V rownr   : n 144 4032x3024
+    07-18 13:06:35.310   492 16031 E OMXNodeInstance: setConfig(3c:google.vorbis.decoder, ConfigPriority(0x6f800002)) ERROR: Undefined(0x80001001)
+    07-18 13:06:35.310   492 16031 I ACodec  : codec does not support config priority (err -2147483648)
+    07-18 13:06:35.311   492 16031 I MediaCodec: MediaCodec will operate in async mode
+    07-18 13:06:35.313   492 16030 I NuPlayerDecoder: [OMX.google.vorbis.decoder] resubmitting CSD
+    07-18 13:06:35.313   492 16030 I NuPlayerDecoder: [OMX.google.vorbis.decoder] resubmitting CSD
+    07-18 13:06:35.316   492 16033 W SoftVorbis: vorbis_dsp_synthesis returned -135
+    07-18 13:06:35.316   492 16033 W SoftVorbis: vorbis_dsp_synthesis returned -135
+    07-18 13:06:35.319   492 16029 W AudioFlinger: acquireAudioSessionId() unknown client 15622 for session 368
+    07-18 13:06:35.334   492  2577 D audio_hw_primary: out_set_parameters: enter: usecase(1: low-latency-playback) kvpairs: routing=2
+    07-18 13:06:35.336   492 15909 D NuPlayerDriver: notifyListener_l(0xf2bd64e0), (6, 0, 0)
+    07-18 13:06:35.349   492 16030 I NuPlayerDecoder: [audio] saw output EOS
+    07-18 13:06:35.359   510 15931 V rownr   : Total time (Y): 102ms
+    07-18 13:06:35.359   510 15931 E mm-camera-img: cac2_comp_process_frame:963] ROWNR Successfull
+    07-18 13:06:35.360   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.360   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.361   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.361   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.361   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.362   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.362   510 15931 E cac2    :  ion alloc already done
+    07-18 13:06:35.365   510 15931 E cac2    :  [cac2latency] prepare_buffers: 2 ms 
+    07-18 13:06:35.367   510 15931 E cac2    : downscale with arm now.
+    07-18 13:06:35.375   510 15931 E cac2    : detection with arm now.
+    07-18 13:06:35.376   510 15931 E cac2    : detection_args.in_buf.height 3024
+    07-18 13:06:35.376   510 15931 E cac2    : wait_detection_and_gray: dynamic_work_partition_execute for gray check
+    07-18 13:06:35.383   510 16037 E cac2    :  [cac2latency] graycheck_and_buffercopy: 5 ms 
+    07-18 13:06:35.457   510 15931 E cac2    :  [cac2latency] cac2_core_detection: 91 ms 
+    07-18 13:06:35.458   510 16045 E librnrgpu: rnrrs_setup: acquired mutex
+    07-18 13:06:35.459   510 16045 E librnrgpu: rnrgpu_rs_init() thread reported  : 1225 millisec
+    07-18 13:06:35.459   510 16045 E librnrgpu: curr_frame size: stride: 4032 img_region[0]: 4032 img_region[1]: 3024
+    07-18 13:06:35.460   510 16045 E librnrgpu: memory allocation (allocator:  ION)     :    0 millisec
+    07-18 13:06:35.460   510 16045 E librnrgpu: rnrgpu_rs_init_program()          :    0 millisec
+    07-18 13:06:35.460   510 16045 E librnrgpu: rnrgpu_rs_mem_alloc entry
+    07-18 13:06:35.472   510 15931 E cac2    :  [cac2latency] arm_dilate_mask: 13 ms 
+    07-18 13:06:35.476   510 16045 E librnrgpu: Created curr_frame 0xf44a34b0 with dims (4032,3024)
+    07-18 13:06:35.479   510 15931 E cac2    :  [cac2latency] cac2_combine_mask: 7 ms 
+    07-18 13:06:35.488   510 16045 E librnrgpu: Created downscaled_out 0xf44a35f0 with dims (2016,1512)
+    07-18 13:06:35.490   510 16045 E librnrgpu: rnrgpu_rs_mem_alloc()             :   30 millisec
+    07-18 13:06:35.491   510 16045 E librnrgpu: rnrgpu_process()                      :      GPU
+    07-18 13:06:35.494   510 16045 E librnrgpu: 
+    07-18 13:06:35.494   510 16045 E librnrgpu: downscale.forEach - RNRGPU_KERNEL_FUNC_DOWNSCALE 1
+    07-18 13:06:35.495   510 16045 E librnrgpu: globalworksize={2016,1512}
+    07-18 13:06:35.495   510 16045 E librnrgpu: rnrgpu_rs_downscale()             :    3 millisec
+    07-18 13:06:35.495   510 16045 E librnrgpu: 
+    07-18 13:06:35.496   510 16045 E librnrgpu: process.forEach - RNRGPU_KERNEL_FUNC_CDS_OFF
+    07-18 13:06:35.496   510 16045 E librnrgpu: globalworksize={1008,3024}
+    07-18 13:06:35.500   510 15941 E mm-camera-sensor: port_sensor_handle_aec_update:443miss aec update window, skip
+    07-18 13:06:35.512   510 15931 E cac2    :  cac2_median_filter_arm_mt: MEDIAN_FILTER_MAX_THREADS=2
+    07-18 13:06:35.512   510 15931 E cac2    :  [cac2latency] neon_median_filter: 32 ms 
+    07-18 13:06:35.567   510 16045 E librnrgpu: rnrgpu_rs_finish()                :   71 millisec
+    07-18 13:06:35.568   510 16045 E librnrgpu: rnrgpu_copy_m_curr_frame()                :    0 millisec
+    07-18 13:06:35.568   510 16045 E cac2    :  [cac2latency] rnr_gpu_process: 109 ms 
+    07-18 13:06:35.569   510 15931 E cac2    :  [cac2latency] cac2_core_correction_with_rnr: 110 ms 
+    07-18 13:06:35.569   510 15931 E cac2    :  [cac2latency] cac2_core_process: 203 ms 
+    07-18 13:06:35.570   510 15931 E mm-camera-img: cac2_comp_process_frame:977] CAC Successfull
+    07-18 13:06:35.573   510 15931 E mm-camera: cpp_hw_params_update_wnr_params:5759, error: invalid trigger input 0.000000
+    07-18 13:06:35.615   492 15954 D mm-jpeg-intf: mm_jpeg_create_session:2283] >>>> Work bufs need 1
+    07-18 13:06:35.641   492 15954 E mm-still: QOMXImageCodec::QOMXImageCodec():56 ###mmstill_Loglevel 0
+    07-18 13:06:35.642   492 15954 I qomx_image_core: OMX_GetHandle:237] get instance pts is 0xf30fd600
+    07-18 13:06:35.643   492 15954 D qomx_image_core: OMX_GetHandle:257] handle = 0xf30fd604 Instanceindex = 0,comp_idx 2 g_ptr 0xf2be5d20
+    07-18 13:06:35.644   492 15954 E mm-still: OMX_ERRORTYPE qomx_component_set_callbacks(OMX_HANDLETYPE, OMX_CALLBACKTYPE*, OMX_PTR): 181: This ptr addr 0xf30fd600
+    07-18 13:06:35.644   492 15954 I qomx_image_core: OMX_GetHandle:261] Success
+    07-18 13:06:35.645   492 15954 D mm-jpeg-intf: mm_jpeg_session_config_main:1159] config port
+    07-18 13:06:35.645   492 15954 D mm-jpeg-intf: mm_jpeg_session_config_main_buffer_offset:447] yOffset = 0, cbcrOffset = (0 0), totalSize = 1843200,cbcrStartOffset = (1228800 614400)
+    07-18 13:06:35.646   492 15954 E mm-jpeg-intf: mm_jpeg_meta_enc_key:662] Key is invalid
+    07-18 13:06:35.646   492 15954 D mm-jpeg-intf: mm_jpeg_speed_mode:550] speed 0
+    07-18 13:06:35.651   492 15954 E jpeg_hw : jpege_lib_init:386 ###jpeghw_Loglevel 0
+    07-18 13:06:35.655   492 15954 E jpeg_hw : jpege_lib_init:457] handler 0x0 0x0 0x0
+    07-18 13:06:35.659   492 15954 E jpeg_hw : jpegdma_lib_init:371 ###jpeghw_Loglevel 0
+    07-18 13:06:35.661   492 15954 E jpeg_hw : jpegdma_lib_init:421] handler 0x0 0x0 0x0
+    07-18 13:06:35.662   492 15954 D mm-jpeg-intf: mm_jpeg_create_session:2411] session id 1000000
+    07-18 13:06:35.663   492 15954 D mm-jpeg-intf: mm_jpeg_start_job:2079] session_idx 0 client idx 0
+    07-18 13:06:35.664   492 15954 D mm-jpeg-intf: mm_jpeg_start_job:2134] job_id 16777216 X
+    07-18 13:06:35.664   492 15955 D mm-jpeg-intf: mm_jpeg_session_config_main_crop:1126] OMX_IndexConfigCommonInputCrop w = 0, h = 0, l = 0, t = 0, port_idx = 0
+    07-18 13:06:35.665   492 15955 D mm-jpeg-intf: mm_jpeg_session_config_thumbnail:925] encode_thumbnail 1
+    07-18 13:06:35.665   492 15955 E mm-jpeg-intf: mm_jpeg_configure_job_params:1417] Work buffer info 65 0xebe48000 WorkBufSize: 18579456 invalidate
+    07-18 13:06:35.674   492 16046 E mm-still: virtual OMX_ERRORTYPE OMXJpegEncoderPipeline::startEncode():560] startEncode()
+    07-18 13:06:35.674   492 15955 D mm-jpeg-intf: mm_jpeg_process_encoding_job:1686] Success X 
+    07-18 13:06:35.675   492 16046 E jpeg_hw : jpege_lib_hw_config:678] Version 10030000
+    07-18 13:06:35.675   492 16046 E jpeg_hw : jpege_lib_hw_fe_buffer_cfg:309] w 960 h 1280 stride 960 scanline 1280
+    07-18 13:06:35.676   492 16046 E jpeg_hw : we_buffer_cfg PLN0_WR_BUFFER_SIZE = 67127008
+    07-18 13:06:35.676   492 16046 E jpeg_hw : we_buffer_cfg PLN0_WR_STRIDE = 18144
+    07-18 13:06:35.677   492 16046 E jpeg_hw : we_buffer_cfg PLN0_WR_HSTEP = 18144
+    07-18 13:06:35.677   492 16046 E jpeg_hw : we_buffer_cfg PLN0_WR_VSTEP = 1024
+    07-18 13:06:35.679   492 16048 E jpeg_hw : jpegdma_lib_hw_config:612] Version 10030000
+    07-18 13:06:35.680   492 16048 E jpeg_hw : jpegdma_lib_hw_config:625] Processing pipes number 1
+    07-18 13:06:35.681   492 16048 E jpeg_hw : jpegdma_lib_hw_fe_buffer_cfg:413] w 960 h_0 1280 h_1 1280 stride 960 scanline 1280 pipes 1
+    07-18 13:06:35.682   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_BUFFER_SIZE = 33554816
+    07-18 13:06:35.682   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_STRIDE = 384
+    07-18 13:06:35.682   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_CFG_0 = 131583
+    07-18 13:06:35.686   492 16048 E jpeg_hw : jpegdma_lib_hw_config:612] Version 10030000
+    07-18 13:06:35.686   492 16048 E jpeg_hw : jpegdma_lib_hw_config:625] Processing pipes number 1
+    07-18 13:06:35.687   492 16048 E jpeg_hw : jpegdma_lib_hw_fe_buffer_cfg:413] w 960 h_0 640 h_1 640 stride 960 scanline 640 pipes 1
+    07-18 13:06:35.687   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_BUFFER_SIZE = 16777600
+    07-18 13:06:35.688   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_STRIDE = 384
+    07-18 13:06:35.688   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_CFG_0 = 131327
+    07-18 13:06:35.690   492 16048 E jpeg_hw : jpege_lib_hw_config:678] Version 10030000
+    07-18 13:06:35.690   492 16048 E jpeg_hw : jpege_lib_hw_fe_buffer_cfg:309] w 384 h 512 stride 384 scanline 512
+    07-18 13:06:35.691   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_BUFFER_SIZE = 67127008
+    07-18 13:06:35.691   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_STRIDE = 18144
+    07-18 13:06:35.692   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_HSTEP = 18144
+    07-18 13:06:35.692   492 16048 E jpeg_hw : we_buffer_cfg PLN0_WR_VSTEP = 1024
+    07-18 13:06:35.695   492 16049 E mm-still: virtual int OMXJpegEncoderPipeline::EncodeComplete(QImage*):805] Exif length: 29063
+    07-18 13:06:35.695   492 16046 D mm-jpeg-intf: mm_jpeg_ebd:2736] count 0 
+    07-18 13:06:35.702   492 16046 D mm-jpeg-intf: mm_jpeg_ebd:2736] count 1 
+    07-18 13:06:35.705   492 16046 D mm-jpeg-intf: mm_jpeg_fbd:2750] count 0 
+    07-18 13:06:35.706   492 16046 D mm-jpeg-intf: [KPI Perf] : PROFILE_JPEG_FBD
+    07-18 13:06:35.706   492 16046 D mm-jpeg-intf: mm_jpeg_fbd:2781] send jpeg callback 0 buf 0x0xe98c0000 len 330801 JobID 16777216
+    07-18 13:06:35.708   492 16046 E QCamera3Channel: static void qcamera::QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t, uint32_t, uint32_t, mm_jpeg_output_t*, void*): Snapshot stream id 4867 and source frame 5632 don't match!
+    07-18 13:06:35.708   492 16046 E QCamera3Channel: static void qcamera::QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t, uint32_t, uint32_t, mm_jpeg_output_t*, void*): Snapshot buffer not found!
+    07-18 13:06:35.710   492 16046 D mm-jpeg-intf: mm_jpegenc_destroy_job:2450] Exif entry count 13 16
+    07-18 13:06:35.711   492 16046 D mm-jpeg-intf: mm_jpeg_queue_remove_job_by_job_id:2954] found matching job id</pre></code></li>
+<li>Rene Pot 2016-09-27
+
+    We seem to have this bug too. We get a lot of complaints from our users where the app keeps crashing after returning from camera. Is there any progress towards this issue?</li>
+<li>Oscar J. Rico Reyes 2016-11-18
+
+    I'm having issues with my app too respect the camera. In some devices the application crashes if there is more than 2 images. It could crash. The images are about 6Mb and 10 Mb. And some times the image is not rendered in the imageview widget. The devices that presents the failure are Huawei P8, Motorola G and some others. ImageAsResized function presents some failures and crashes too in some devices so im using Ti.imagefactory to resize images so i can send them over 3G network to avoid this memory issue.
+    
+    System Vars:
+    Operating System
+      Name                        = Mac OS X
+      Version                     = 10.11.6
+      Architecture                = 64bit
+      # CPUs                      = 4
+      Memory                      = 8589934592
+    Node.js
+      Node.js Version             = 4.6.0
+      npm Version                 = 2.15.9
+    Titanium CLI
+      CLI Version                 = 5.0.10
+    Titanium SDK
+      SDK Version                 = 5.4.1.v20160814221757
+      SDK Path                    = /Users/myuser/Library/Application Support/Titanium/mobilesdk/osx/5.4.1.v20160814221757
+      Target Platform             = android
+    
+    if (Ti.Media.hasCameraPermissions()) {
+    		Titanium.Media.showCamera({
+    			success : function(event) {
+    				// called when media returned from the camera
+    				Ti.API.debug('Our type was: ' + event.mediaType);
+    				Ti.Media.hideCamera();
+    				
+    				if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+    					LOG.info('SUCCESS: ' + JSON.stringify(event));
+    					APP.showNotification('info', 'La imagen se ha capturado satisfactoriamente', $.visitFormWindow);
+    		                        //CRASH ON THIS.
+    			                $.cameraPictureView.image = event.media;	
+    					
+    				} else {
+    					alert('Error no se obtuvo la imagen satisfactoriamente');
+    				}
+    			},
+    			cancel : function() {
+    				// called when user cancels taking a picture
+    			},
+    			error : function(error) {
+    				// called when there's an error
+    				var a = Titanium.UI.createAlertDialog({
+    					title : 'Camera'
+    				});
+    				if (error.code == Titanium.Media.NO_CAMERA) {
+    					a.setMessage('Error abriendo camara.');
+    				} else {
+    					a.setMessage('Error inesperado: ' + error.code);
+    				}
+    				a.show();
+    			},
+    			saveToPhotoGallery : true
+    		});
+    
+    </li>
+<li>Eric Merriman  2017-01-20
+
+    We will take another look at this. Attempting to reproduce with current stack.</li>
+<li>Malcolm Hollingsworth 2017-01-20
+
+    All power to you [~emerriman] but as this appears to be the JIRA that Appcelerator not only forgets but simply ignores and denies - I will not be holding my breath.
+    
+    Prove me wrong. Please.</li>
+<li>Ygor Lemos 2017-01-21
+
+    We also keep experiencing a lot of crashes on production apps related to this bug. Astonishing to see that this has been open since 2012 with no solution at all.</li>
+<li>Michael Gangolf 2017-01-21
+
+    Something that I found during testing:
+    
+    Device: HTC A9 (6.0.1)
+    SDK: Ti 6.0.1.GA / 6.1.0 (nightly)
+    
+    * Starting the camera with the provided code crashed the app in the background while the camera view is open (launchCameraActivity, MediaModule.java)
+    * Crashlog:
+    
+    <code><pre>
+    E/ActivityThread: Performing stop of activity that is not resumed: {com.miga.cam/com.miga.cam.CamActivity}
+           java.lang.RuntimeException: Performing stop of activity that is not resumed: {com.miga.cam/com.miga.cam.CamActivity}
+           at android.app.ActivityThread.performStopActivityInner(ActivityThread.java:3708)
+           at android.app.ActivityThread.handleStopActivity(ActivityThread.java:3793)
+           at android.app.ActivityThread.access$1200(ActivityThread.java:150)
+           at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1424)
+           at android.os.Handler.dispatchMessage(Handler.java:102)
+           at android.os.Looper.loop(Looper.java:168)
+           at android.app.ActivityThread.main(ActivityThread.java:5821)
+           at java.lang.reflect.Method.invoke(Native Method)
+           at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:797)
+           at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:687)
+    </pre></code>
+    
+    * using an *overlay* to run *launchNativeCamera* from MediaModule.java does *not crash*
+    
+    
+    Looking up the "camera intent crash" situation you'll find a lot like this: <a href="http://stackoverflow.com/a/26708283/5193915" rel="nofollow" target="_blank">http://stackoverflow.com/a/26708283/5193915</a>
+    {quote}Launching camera requires a lot of memory. So on devices with low memory android system closes the Activities running in background{quote}
+    The solution in this answer is to save the URL in the destroy() event and restore it later on. But then the app has to be restarted inside that activity/screen too.
+    Not sure if that helps to find the cause or a solution but at least the _overlay_ version is not crashing for me. So I can create an empty overlay with a <code>take picture</code> button and can use it without a crash</li>
+<li>Eric Merriman  2017-01-23
+
+    Thanks [~michael] - This might help, but our problem right now is that no matter what we try we can't seem to reproduce. Lokesh will report on status so far. [~lchoudhary] Could you try launching some apps for additional memory pressure and see what happens?</li>
+<li>Lokesh Choudhary 2017-01-24
+
+    Tried to check if I can make camera crash with the available devices & the current 6.0.1.GA SDK but, could not. I used the code in the description to test. 
+    If there is any other sample code to reproduce this I can check with please add it to this ticket so that we could test with it.
+    
+    Checked it with:
+    1. MotoG - Android 4.4.4
+    2. Samsung Galaxy S5 - Android 4.4.4
+    3. Nexus 5 - Android 5.1.1
+    4. Nexus 6 - Android 6.0.1
+    5. Nexus 6P - Android 7.1.1
+    
+    [~emerriman], I will try what you asked for comment accordingly.
+    </li>
+<li>Mike Stancliffe 2017-01-24
+
+    We have experienced most problems on older Samsung devices.</li>
+<li>Gustavo Velez 2017-01-24
+
+    As mentioned before, we see it on Asus ZenFone 2E, Android 5.0.1 and with the current Titanium SDK 6.0.1 GA. The section of the code we have is pretty straight forward:
+    
+    Titanium.Media.showCamera({   
+    							    success:function(event) {							        
+    							        layoutHub.commonPhotoSuccess(event, 0);
+    							    },
+    							    cancel:function(cancel) {							        
+    							        lg("Camera CANCELED - error message = " + cancel.error);
+    							    },
+    							    error:function(err) {							        
+    							        lg("Camera ERROR - error message = " + err.error);
+    									commonHub.alertDialog(
+    							        	langHub.commonOops,
+    							        	langHub.epicFail
+    							        );
+    							    },
+    							    mediaTypes:[Ti.Media.MEDIA_TYPE_PHOTO]
+    							});
+    
+    What I've noticed is that it happens when my application is initially installed and when I use the camera for the FIRST time. After my app restarts from the crash, I am then able to take a photo successfully with the above code and call my commonPhotoSuccess() function. I hope that helps.</li>
+<li>Tim Poulsen (ACV) 2017-01-24
+
+    Please try with a Nexus 5x. Our app crashes consistently on the first or second picture every time on this device. After the app crashes, the camera is not released -- no apps can access the camera at all at that point and doing so crashes whatever app you're attempting to use. Rebooting the phone is the only way to recover.</li>
+<li>Abdiel Aviles 2017-01-24
+
+    [~lchoudhary] My app consistently breaks if using the flash on a Moto E. 
+    
+    There's a free Moto E on TestObject.com you could probably use.
+    
+    !<a href="https://www.dropbox.com/s/deypvck96gvkwma/Screen%20Shot%202017-01-24%20at%203.00.50%20PM.png?dl=1" rel="nofollow" target="_blank">https://www.dropbox.com/s/deypvck96gvkwma/Screen%20Shot%202017-01-24%20at%203.00.50%20PM.png?dl=1</a>!</li>
+<li>Frankie Merzadyan 2017-01-30
+
+    Could not reproduce. Code in success block was executed since alert dialogue returned "success" on picture save.
+    
+    Tested on S6 device and used the same code in the kitchen sink example on GitHub:
+    
+    <code><pre>
+    var win;
+    
+    function fireCamera() {
+    	if (Ti.Platform.osname === 'android' || Ti.Platform.osname == "iphone" || Ti.Platform.osname == 'ipad') {
+    		win.removeEventListener('focus', fireCamera);
+    	}
+    	Titanium.Media.showCamera({
+    		
+    		success: function (event) {
+    			alert("success");
+    			var cropRect = event.cropRect;
+    			var image = event.media;
+    			
+    			if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+    				var imageView = Ti.UI.createImageView({
+    					width: win.width,
+    					height: win.height,
+    					image: event.media
+    				});
+    				win.add(imageView);
+    			}
+    		},
+    		cancel: function () {
+    			
+    		},
+    		error: function (error) {
+    			if (error.code == Titanium.Media.NO_CAMERA) {
+    				log("", "device has no camera", error)
+    			}
+    			else {
+    				log(error.code, "unexpected error", error);
+    			}
+    		},
+    		saveToPhotoGallery: true,
+    		allowEditing: true,
+    		mediaTypes: [Ti.Media.MEDIA_TYPE_PHOTO]
+    	});
+    }
+    
+    win = Titanium.UI.createWindow({
+    	title: "camera test"
+    });
+    win.open();
+    
+    if (Ti.Platform.osname === 'android' || Ti.Platform.osname == "iphone" || Ti.Platform.osname == 'ipad') {
+    	win.addEventListener('focus', fireCamera);
+    } else {
+    	fireCamera();
+    }
+    </pre></code>
+    </li>
+<li>Tim Poulsen (ACV) 2017-01-30
+
+     Did you test on a Nexus 5x or a Moto E? Those are two devices that we've identified in comments above as having frequent crashes. I have not had problem on Samsung S-series phones.
+     
+     Updated: I have gotten reports from the field today that users of ours with Google Pixel phones are having crashes that prevent the use of the camera within our app. So, there's another possible test device for you to check out.</li>
+<li>Gary Mathews 2017-01-31
+
+     [~acvauctions] Do you have access to any logs from those devices? It would be really helpful (y)</li>
+<li>Tim Poulsen (ACV) 2017-01-31
+
+     The Performance / Crittercism panel failed to record the crash on the customer's Pixel device. (I'm afraid Crittercism frequently fails to capture crashes, but that's a separate issue.) Using my Google Nexus 5x running Android 7.0 tethered locally to my machine, I get the following logs: 
+     
+     <code><pre>
+     01-31 10:11:35.313: E/NxpTml(3774): _i2c_write() errno : 5
+     01-31 10:11:35.313: E/NxpTml(3774): PN54X - Error in I2C Write.....
+     01-31 10:11:35.313: E/NxpHal(3774): write error status = 0x1ff
+     01-31 10:11:35.313: E/NxpHal(3774): write_unlocked failed - PN54X Maybe in Standby Mode - Retry
+     01-31 10:11:35.317: D/BrcmNfcJni(3774): RoutingManager::nfaEeCallback: NFA_EE_SET_TECH_CFG_EVT; status=0x0
+     01-31 10:11:35.317: D/BrcmNfcJni(3774): RoutingManager::nfaEeCallback: NFA_EE_SET_PROTO_CFG_EVT; status=0x0
+     01-31 10:11:35.317: D/BrcmNfcJni(3774): RoutingManager::commitRouting
+     01-31 10:11:35.317: D/BrcmNfcJni(3774): RoutingManager::nfaEeCallback: NFA_EE_UPDATED_EVT
+     01-31 10:11:35.417: I/MSM-irqbalance(398): Discovered a new IRQ: 91
+     01-31 10:11:35.418: I/MSM-irqbalance(398): Discovered a new IRQ: 336
+     01-31 10:11:36.164: W/ActivityManager(865): Launch timeout has expired, giving up wake lock!
+     01-31 10:11:36.809: E/mm-camera(527): iface_util_calc_cds_trigger:<cds_debug> take CDS! cds status 1, curr_triiger 30.437143, lowlight_start 22.000000, lowlight_end 25.000000
+     01-31 10:11:36.814: E/mm-camera-sensor(527): module_sensor_handle_eztune_event:884error: unknown entry (default case)
+     01-31 10:11:36.857: E/mm-camera(527): iface_util_decide_cds_update: cds_status 2, thread busy 0! drop CDS!
+     01-31 10:11:36.864: E/mm-camera-isp2(527): scaler44_do_hw_update:981 cds_debug entry 0 stream_id[0] 3 enable 1
+     01-31 10:11:36.864: E/mm-camera(527): mct: mct_stream_process_bus_msg: Couldn't apply delay to metadata ack frame_id 216
+     01-31 10:11:36.907: E/mm-camera(527): isp_util_update_cds:1731 cds_debug stream_id 3 enable 1
+     01-31 10:11:36.907: E/mm-camera(527): iface_util_uv_subsample: 7902 cds_debug hw_stream[0] id 10003
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info:=== CDS DUMP: session_id 1,  hw_stream_id 10003 ====
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[0]: plane_fmt 0(Y-0/CB-1/Cr-2/CrCb-3/CbCr-4)
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[0]: width = 1280, height = 948
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[0]: stride = 1280, scanlines = 948
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[0]: address_offset 0
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[1]: plane_fmt 4(Y-0/CB-1/Cr-2/CrCb-3/CbCr-4)
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[1]: width = 640, height = 237
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[1]: stride = 1280, scanlines = 474
+     01-31 10:11:36.908: E/mm-camera(527): iface_dump_axi_update_info: plane[1]: address_offset 0
+     01-31 10:11:36.908: E/mm-camera(527): iface_session_thread_proc_cmd: 250 <cds_dbg> cds wait KERNEL......
+     01-31 10:11:36.934: E/mm-camera(527): iface_util_decide_cds_update: cds_status 2, thread busy 1! drop CDS!
+     01-31 10:11:36.955: E/mm-camera(527): iface_util_hw_notify_buf_drop:  hw stream state 3, need divert 1
+     01-31 10:11:36.955: E/mm-camera(527): cpp_module_process_downstream_event:1181: MCT_EVENT_MODULE_FRAME_DROP_NOTIFY: identity=0x10003
+     01-31 10:11:36.955: E/mm-camera(527): cpp_module_handle_isp_drop_buffer:721, info: ISP drop buf frameid 218 identity 10003
+     01-31 10:11:36.955: E/mm-camera(527): cpp_module_handle_isp_drop_buffer:772, error: ISP buf drop for invalid frame 218
+     01-31 10:11:36.955: E/mm-camera(527): cpp_module_process_downstream_event:1184, failed
+     01-31 10:11:36.958: E/mm-camera(527): iface_util_decide_cds_update: cds_status 2, thread busy 1! drop CDS!
+     01-31 10:11:36.958: E/mm-camera(527): module_cac_forward_port_event:403] Fowarding event 2 from sink port failed
+     01-31 10:11:36.958: E/mm-camera(527): module_afs_forward_port_event:787] Fowarding event 2 from sink port failed
+     01-31 10:11:36.958: E/mm-camera(527): module_afs_port_event_func:1167] module_afs_forward_port_event failed
+     01-31 10:11:36.958: E/mm-camera-pp(527): [ERR] base_port_sink_event_func:723, failed
+     01-31 10:11:36.958: E/mm-camera(527): isp_util_forward_event:1053 failed: mct_port_send_event_to_peer event->type 2
+     01-31 10:11:36.960: E/mm-camera-isp2(527): isp_handler_event:1870 failed: isp_util_forward_event
+     01-31 10:11:36.960: E/mm-camera(527): isp_port_process_downstream_module_event:293 failed: isp_handler_event
+     01-31 10:11:36.960: E/mm-camera(527): isp_port_process_downstream_event:341 failed: isp_port_process_downstream_module_event
+     01-31 10:11:36.960: E/mm-camera(527): isp_port_event:477 failed: isp_port_process_downstream_event
+     01-31 10:11:37.005: E/mm-camera(527): iface_session_thread_proc_cmd: 261 <cds_dbg> cds wait KERNEL done!
+     </pre></code>
+     
+     After updating the phone to Android 7.1.1, I get this crash log:
+     
+     <code><pre>
+     01-31 10:39:40.115: E/NxpTml(3696): _i2c_write() errno : 5
+     01-31 10:39:40.116: E/NxpTml(3696): PN54X - Error in I2C Write.....
+     01-31 10:39:40.116: E/NxpHal(3696): write error status = 0x1ff
+     01-31 10:39:40.116: E/NxpHal(3696): write_unlocked failed - PN54X Maybe in Standby Mode - Retry
+     01-31 10:39:42.337: E/mm-camera(524): iface_util_calc_cds_trigger:<cds_debug> take CDS! cds status 1, curr_triiger 29.552364, lowlight_start 22.000000, lowlight_end 25.000000
+     01-31 10:39:42.337: E/mm-camera-sensor(524): module_sensor_handle_eztune_event:885error: unknown entry (default case)
+     01-31 10:39:42.388: E/mm-camera(524): iface_util_decide_cds_update: cds_status 2, thread busy 0! drop CDS!
+     01-31 10:39:42.395: E/mm-camera-isp2(524): scaler44_do_hw_update:981 cds_debug entry 0 stream_id[0] 3 enable 1
+     01-31 10:39:42.395: E/mm-camera(524): mct: mct_stream_process_bus_msg: Couldn't apply delay to metadata ack frame_id 143
+     01-31 10:39:42.436: E/mm-camera(524): isp_util_update_cds:1731 cds_debug stream_id 3 enable 1
+     01-31 10:39:42.436: E/mm-camera(524): iface_util_uv_subsample: 7902 cds_debug hw_stream[0] id 10003
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info:=== CDS DUMP: session_id 1,  hw_stream_id 10003 ====
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[0]: plane_fmt 0(Y-0/CB-1/Cr-2/CrCb-3/CbCr-4)
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[0]: width = 1280, height = 948
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[0]: stride = 1280, scanlines = 948
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[0]: address_offset 0
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[1]: plane_fmt 4(Y-0/CB-1/Cr-2/CrCb-3/CbCr-4)
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[1]: width = 640, height = 237
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[1]: stride = 1280, scanlines = 474
+     01-31 10:39:42.437: E/mm-camera(524): iface_dump_axi_update_info: plane[1]: address_offset 0
+     01-31 10:39:42.437: E/mm-camera(524): iface_util_decide_cds_update: cds_status 2, thread busy 1! drop CDS!
+     01-31 10:39:42.439: E/mm-camera(524): iface_session_thread_proc_cmd: 250 <cds_dbg> cds wait KERNEL......
+     01-31 10:39:42.493: E/mm-camera(524): iface_util_hw_notify_buf_drop:  hw stream state 3, need divert 1
+     01-31 10:39:42.493: E/mm-camera(524): cpp_module_process_downstream_event:1181: MCT_EVENT_MODULE_FRAME_DROP_NOTIFY: identity=0x10003
+     01-31 10:39:42.495: E/mm-camera(524): iface_util_decide_cds_update: cds_status 2, thread busy 1! drop CDS!
+     01-31 10:39:42.496: E/mm-camera(524): cpp_module_handle_isp_drop_buffer:721, info: ISP drop buf frameid 145 identity 10003
+     01-31 10:39:42.496: E/mm-camera(524): cpp_module_handle_isp_drop_buffer:772, error: ISP buf drop for invalid frame 145
+     01-31 10:39:42.496: E/mm-camera(524): cpp_module_process_downstream_event:1184, failed
+     01-31 10:39:42.499: E/mm-camera(524): module_cac_forward_port_event:403] Fowarding event 2 from sink port failed
+     01-31 10:39:42.499: E/mm-camera(524): module_afs_forward_port_event:787] Fowarding event 2 from sink port failed
+     01-31 10:39:42.499: E/mm-camera(524): module_afs_port_event_func:1167] module_afs_forward_port_event failed
+     01-31 10:39:42.499: E/mm-camera-pp(524): [ERR] base_port_sink_event_func:723, failed
+     01-31 10:39:42.499: E/mm-camera(524): isp_util_forward_event:1053 failed: mct_port_send_event_to_peer event->type 2
+     01-31 10:39:42.500: E/mm-camera-isp2(524): isp_handler_event:1870 failed: isp_util_forward_event
+     01-31 10:39:42.500: E/mm-camera(524): isp_port_process_downstream_module_event:293 failed: isp_handler_event
+     01-31 10:39:42.500: E/mm-camera(524): isp_port_process_downstream_event:341 failed: isp_port_process_downstream_module_event
+     01-31 10:39:42.500: E/mm-camera(524): isp_port_event:477 failed: isp_port_process_downstream_event
+     01-31 10:39:42.559: E/mm-camera(524): iface_session_thread_proc_cmd: 261 <cds_dbg> cds wait KERNEL done!
+     01-31 10:39:44.046: E/mm-camera-CORE(524): af_haf_focus_converge_proc_fallback:OPTIMIZATION 0: valid 1, dir 1, far 324, near 0, start 65
+     01-31 10:39:44.096: E/mm-camera-isp2(524): be_stats44_stats_config_validate:623 Invalid BG from 3A h_num = 0, v_num = 0
+     01-31 10:39:44.096: E/mm-camera-isp2(524): bhist_stats44_stats_config_validate:363 Invalid BG from 3A h_num = 0, v_num = 0
+     </pre></code>
+     
+     (they look to be pretty much the same at a cursory glance)
+     
+     We're using Ti.Media.showCamera() with an overlay and calling takePicture(). First picture was fine, second photo froze the device; I had to restart the phone to recover.
+     
+     Perhaps it's because Titanium is still using android.hardware.Camera (deprecated in API 21) instead of Camera2? There might be something about the new devices not compatible with the old class.
+     </li>
+<li>Gary Mathews 2017-02-01
+
+     [~acvauctions] Does the same happen if you do not use the overlay and use the native camera? Just curious.</li>
+<li>Rene Pot 2017-02-02
+
+     We're having random crashes too. We don't use an overlay. Currently a user with a Moto G3 is reporting the issue.</li>
+<li>Rene Pot 2017-02-02
+
+     I have a 430kb log file in which the crash happens. Where can I send it?
+     </li>
+<li>Gary Mathews 2017-02-03
+
+     [~topener] You should be able to click 'More' > 'Attach Files'. If not, you could use <a href="http://pastebin.com/" rel="nofollow" target="_blank">http://pastebin.com/</a></li>
+<li>Ygor Lemos 2017-02-03
+
+     We're also experiencing those random crashes.
+     
+     We use the showCamera method normally without any overlays.
+     
+     Crittercism doesn't seem to produce any helpful information.
+     Logcat only shows those E/mm-camera garbage but don't provide anything else before the app crashes.
+     
+     Already tried setting largeHeap to true but that had no effect whatsoever.
+     
+     We've managed to reproduce this bug constantly on a MotoG 2nd Generation but the same code with the exact same variables doesn't cause the camera to crash on a MotoG Turbo Edition (both running Android 6.0).
+     
+     This is a long-time bug that were always randomly reported by our use base.</li>
+<li>Ygor Lemos 2017-02-03
+
+     Awkwardly, (like an old 386 running Windows XP), if you reboot the damn Android device, you can (for some time) use the camera normally (both for photos and videos)...
+     
+     (tested on MotoG2)
+     
+     idk if this behavior affects non-Titanium native Android apps using the camera but this is a very strange behavior to say the least.
+     
+     once it starts crashing the only way to make things work again is restarting the phone. simply uninstalling/reinstalling the app has no effect.</li>
+<li>Gary Mathews 2017-02-04
+
+     [~ygbr] That's due to not enough memory being available to use the camera. It sounds like too many apps are open in the background, using up lots of memory and the Moto G2 only has 1GB of RAM.</li>
+<li>Rene Pot 2017-02-04
+
+     attached the crash log with a phone attached while it happened. hope this helps</li>
+<li>Ygor Lemos 2017-02-04
+
+     @Gary It's not about memory!
+     I'm 100% sure that in my last tests ONLY my app was open in foreground.
+     I have also removed almost everything from the device and it is almost in factory state with only my app, Facebook and a few other apps to test integrations.
+     Also this is a MotoG so there isn't a lot of crap running along the OS itself like in Samsung devices.
+     Also I've run Android Monitor together with my app and definitively there was enough free memory left on the device, if it was a memory problem I'm pretty sure I would see OOM Errors on logcat.
+     Also as I have mentioned above I have also tried to run with largeHeap and it didn't help.
+     Also there are devices with only 512Mb of RAM that runs the app (same code with the same parameters)  normally without the Camera related crashes.</li>
+<li>Tim Poulsen (ACV) 2017-02-05
+
+     It is absolutely not a memory thing. Nexus 5x is a flagship Google phone. I can clean boot, no apps running, start my app & take one photo and the phone crashes. As I stated above, the app crash leaves the camera in a locked state so that no other processes can access it. (Because the app has crashed, [release()](<a href="https://developer.android.com/reference/android/hardware/Camera.html#release())" rel="nofollow" target="_blank">https://developer.android.com/reference/android/hardware/Camera.html#release())</a> is never called. Thus, the only way to release it is to reboot the phone.)
+     
+     This is a test device, with no apps other than what is provided stock when we bought the phone from Google plus our prod app version and test/development app version installed. </li>
+<li>Gary Mathews 2017-02-06
+
+     [~acvauctions] [~ygbr] I have compiled a test case with some fixes I've made to the SDK. Since I can't reproduce your issues on any of my devices could you run this test case and tell me if the problem persists? It appears there are varying issues posted under this ticket which is confusing.
+     
+     [TIMOB-12848.apk (testCase)](<a href="http://garymathews.com/TIMOB-12848.apk)" rel="nofollow" target="_blank">http://garymathews.com/TIMOB-12848.apk)</a>
+     
+     <code><pre>
+     var win = Titanium.UI.createWindow({layout: 'vertical'}),
+         cam = Ti.UI.createButton({title: 'OPEN CAMERA', width: Ti.UI.FILL, height: '40dp'}),
+         img = Ti.UI.createImageView({backgroundColor: 'red', height: Ti.UI.FILL, width: Ti.UI.FILL});
+     
+     function showCamera() {
+         if (Ti.Media.hasCameraPermissions()) {
+             Ti.Media.showCamera({
+                 success: function(e) {
+                     img.image = e.media;
+                 },
+                 cancel: function() {
+                     Ti.API.info('canceled');
+                 },
+                 error: function(e) {
+                     Ti.API.info('error: ' + JSON.stringify(e, null, ' '));
+                 }
+             });
+         } else {
+             Ti.Media.requestCameraPermissions(function(e) {
+                 if (e.success) {
+                     showCamera();
+                 }
+             });
+         }
+     }
+     
+     cam.addEventListener('click', function() {
+         showCamera();
+     });
+     
+     win.add(cam);
+     win.add(img);
+     
+     win.open();
+     </pre></code></li>
+<li>Ygor Lemos 2017-02-06
+
+     @Gary I have installed your APK on a MotoG (2nd generation) and after I took the first picture and tapped the check mark (to accept the picture) it crashed.
+     
+     After that I have reopened the app and it worked normally for many pictures I took.</li>
+<li>Gary Mathews 2017-02-06
+
+     [~ygbr] Are you able to reproduce the crash and paste the log?</li>
+<li>Tim Poulsen (ACV) 2017-02-06
+
+     That seems to work fine on my Nexus 5x (Android 7.0). I was able to take, retake, cancel, take, etc. a dozen or so pictures without any crashes. Our app uses an overlay. Any chance you could post an updated version of your test app that uses an overlay so I can be sure it also works correctly?
+     
+     I also tested on a couple of our other test devices that have not had camera crash issues like the 5x. 
+     
+     * Galaxy S5 running Android 6.0.1 -- worked without crashing though the photo wouldn't show in the ImageView, logs said the bitmap was too large
+     * a custom Android tablet (BAK USA) running Android running 4.4.2 -- worked without crashing and as expected</li>
+<li>Rene Pot 2017-02-06
+
+     I never found any real logic in the crashes. Sometimes it happens, sometimes it doesn't. When it did it was easily reproducible and sometimes even needed a devices restart to get it to work again.</li>
+<li>Victor Vazquez Montero 2017-02-21
+
+     I have a user using a custom overlay on a SM-G920T running Android 6.0.1 who is experiencing crashes when using a custom overlay. 
+     
+     <h4>Sample Code:</h4>
+     <code><pre>
+     var _toggleFlashMode = function () { 
+       
+             var currentFlashMode = Ti.Media.getCameraFlashMode(); 
+             var newFlashMode = null; 
+       
+             switch ( currentFlashMode ) { 
+                     case Ti.Media.CAMERA_FLASH_ON : { 
+                             newFlashMode = Ti.Media.CAMERA_FLASH_OFF; 
+       
+                             break; 
+                     } 
+       
+                     case Ti.Media.CAMERA_FLASH_OFF : { 
+                             newFlashMode = Ti.Media.CAMERA_FLASH_AUTO; 
+       
+                             break; 
+                     } 
+       
+                     case Ti.Media.CAMERA_FLASH_AUTO : { 
+                             newFlashMode = Ti.Media.CAMERA_FLASH_ON; 
+       
+                             break; 
+                     } 
+             } 
+       
+             Ti.App.Properties.setInt( 'CAMERA_FLASH_MODE', newFlashMode ); 
+             Ti.Media.setCameraFlashMode( newFlashMode ); 
+     }; 
+       
+     var _getFlashImage = function () { 
+       
+             var flashMode = Ti.Media.getCameraFlashMode(); 
+             var image     = null; 
+       
+             switch ( flashMode ) { 
+                     case Ti.Media.CAMERA_FLASH_ON : { 
+                             image =  '/images/flash_on.png'; 
+       
+                             break; 
+                     } 
+       
+                     case Ti.Media.CAMERA_FLASH_OFF : { 
+                             image = '/images/flash_off.png'; 
+       
+                             break; 
+                     } 
+       
+                     case Ti.Media.CAMERA_FLASH_AUTO : { 
+                             image = '/images/flash_auto.png'; 
+       
+                             break; 
+                     } 
+             } 
+       
+             return image; 
+     }; 
+       
+     var takePicture; 
+       
+     var _createCameraOverlay = function () { 
+       
+     //      var self = this; 
+       
+             var wrapper = Ti.UI.createView( { 
+                     'width'  : Ti.UI.FILL, 
+                     'height' : Ti.UI.FILL 
+             } ); 
+       
+             var buttonBackground = Ti.UI.createView( { 
+                     'width'           : Ti.UI.FILL, 
+                     'height'          : 60, 
+                     'backgroundColor' : '#000', 
+                     'opacity'         : 0.5, 
+                     'bottom'          : 0, 
+             } ); 
+       
+             wrapper.add( buttonBackground ); 
+       
+             var buttonWrapper = Ti.UI.createView( { 
+                     'width'  : Ti.UI.FILL, 
+                     'height' : 60, 
+                     'bottom' : 0, 
+                     'zIndex' : 1 
+             } ); 
+       
+             wrapper.add( buttonWrapper ); 
+       
+             var cancel = Ti.UI.createView( { 
+                     'top'    : 0, 
+                     'left'   : 0, 
+                     'width'  : '33%', 
+                     'height' : 60 
+             } ); 
+       
+             buttonWrapper.add( cancel ); 
+       
+             var cancelImage = Ti.UI.createImageView( { 
+                     'top'    : 20, 
+                     'left'   : 20, 
+                     'image'  : '/images/close_camera.png', 
+                     'width'  : 20, 
+                     'height' : 20 
+             } ); 
+       
+             cancel.add( cancelImage ); 
+       
+             cancel.addEventListener( 'click', function () { 
+       
+                     try { 
+                             Ti.Media.hideCamera(); 
+                     } catch ( e ) { 
+                             console.error( 'Camera Hiding Problem: ' + JSON.stringify( e ) ); 
+                     } 
+             } ); 
+       
+             takePicture = Ti.UI.createImageView( { 
+                     'top'     : 5, 
+                     'image'   : '/images/camera.png', 
+                     'width'   : 50, 
+                     'height'  : 50, 
+                     'opacity' : 1 
+             } ); 
+       
+             buttonWrapper.add( takePicture ); 
+       
+             takePicture.addEventListener( 'click', function () { 
+       
+                     if ( takePicture.opacity == 1 ) { 
+                             takePicture.opacity = 0.25; 
+       
+                             setTimeout( function () { 
+       
+                                     Ti.Media.takePicture(); 
+                             }, 100 ); 
+                     } 
+             } ); 
+       
+             var flash = Ti.UI.createView( { 
+                     'top'    : 0, 
+                     'right'  : 0, 
+                     'width'  : '33%', 
+                     'height' : 60 
+             } ); 
+       
+             var flashImage = Ti.UI.createImageView( { 
+                     'top'    : 20, 
+                     'right'  : 20, 
+                     'image'  : _getFlashImage(), 
+                     'width'  : 20, 
+                     'height' : 20 
+             } ); 
+       
+             flash.add( flashImage ); 
+       
+             flash.addEventListener( 'click', function () { 
+       
+                     _toggleFlashMode(); 
+       
+                     flashImage.image = _getFlashImage(); 
+             }.bind( this ) ); 
+       
+             buttonWrapper.add( flash ); 
+       
+             var successPopupWrapper = Ti.UI.createView( { 
+                     'width'   : Ti.UI.FILL, 
+                     'height'  : 30, 
+                     'opacity' : 0, 
+                     'bottom'  : 60 
+             } ); 
+       
+             var successPopupBackground = Ti.UI.createView( { 
+                     'width'           : Ti.UI.FILL, 
+                     'height'          : 30, 
+                     'opacity'         : 0.5, 
+                     'backgroundColor' : '#000' 
+             } ); 
+       
+             successPopupWrapper.add( successPopupBackground ); 
+       
+             var successPopupText = Ti.UI.createLabel( { 
+                     'width'     : Ti.UI.FILL, 
+                     'height'    : 30, 
+                     'color'     : '#fff', 
+                     'text'      : 'Photo Saved', 
+                     'textAlign' : Ti.UI.TEXT_ALIGNMENT_CENTER 
+             } ); 
+       
+             successPopupWrapper.add( successPopupText ); 
+       
+             var fadeInOut = Ti.UI.createAnimation( { 
+                     'opacity'     : 1, 
+                     'duration'    : 400, 
+                     'autoreverse' : true, 
+                     'curve'       : Ti.UI.ANIMATION_CURVE_EASE_IN_OUT 
+             } ); 
+       
+       
+             wrapper.add( successPopupWrapper ); 
+       
+             return wrapper; 
+     }; 
+       
+     var win = Titanium.UI.createWindow({layout: 'vertical'}), 
+         cam = Ti.UI.createButton({title: 'OPEN CAMERA', width: Ti.UI.FILL, height: '40dp'}), 
+         img = Ti.UI.createImageView({backgroundColor: 'red', height: Ti.UI.FILL, width: Ti.UI.FILL}); 
+       
+     function showCamera() { 
+         if (Ti.Media.hasCameraPermissions()) { 
+             Ti.Media.showCamera({ 
+                 success: function(e) { 
+       
+                                     takePicture.opacity = 1; 
+       
+                     img.image = e.media; 
+                 }, 
+                 cancel: function() { 
+       
+                     Ti.API.info('canceled'); 
+                 }, 
+                 error: function(e) { 
+       
+                     Ti.API.info('error: ' + JSON.stringify(e, null, ' ')); 
+                 }, 
+                 'overlay' : _createCameraOverlay(), 
+      //           'videoQuality' : Ti.Media.QUALITY_MEDIUM, 
+                 'whichCamera'  : Ti.Media.CAMERA_REAR, 
+                 'showControls' : false, 
+                             'autohide'     : false, 
+     //                      'mediaTypes'   : [ 
+     //                              Ti.Media.MEDIA_TYPE_PHOTO 
+     //                      ] 
+             }); 
+         } else { 
+             Ti.Media.requestCameraPermissions(function(e) { 
+                 if (e.success) { 
+                     showCamera(); 
+                 } 
+             }); 
+         } 
+     } 
+       
+     cam.addEventListener('click', function() { 
+         showCamera(); 
+     }); 
+       
+     win.add(cam); 
+     win.add(img); 
+       
+     win.open(); 
+     
+     </pre></code>
+     
+     <h4>Error: </h4>
+     <a href="http://paste.thezomg.com/20078/36994514/" rel="nofollow" target="_blank">http://paste.thezomg.com/20078/36994514/</a>
+     
+     He is reporting that without the custom overlay everything works fine. </li>
+<li>Gary Mathews 2017-03-08
+
+     master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8868" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8868</a></li>
+<li>Gary Mathews 2017-08-29
+
+     6_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9326" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9326</a></li>
+<li>Abir Mukherjee 2017-08-29
+
+     Environment:
+     Node Version: 6.10.3
+     NPM Version: 3.10.10
+     Mac OS: 10.12.4
+     Appc CLI: 6.2.3
+     Appc CLI NPM: 4.2.9
+     Titanium SDK version: 6.2.0.v20170829115147
+     Appcelerator Studio, build: 4.9.1.201707200100
+     Xcode 8.3.2
+     Android OS 5.1.1, 7.1.2, 4.4.4, 6.0.1
+     Android phones: Galaxy S4, Pixel, HTC One X, Nexus, Nexus 5
+     
+     I tried testing for the crash with the above phones and OS. I found no crashes while going through the sequence (and looping manually): Open Camera, Take Picture, Review Picture. I tried about 50 times, and no crashes occurred. I was not able to test with a Galaxy S6, as the device is not available in our lab.</li>
+<li>Abir Mukherjee 2017-08-29
+
+     Changes are seen in the following SDKs:
+     6.2.0.v20170829141855
+     7.0.0.v20170829141756</li>
+<li>Michael Gangolf 2018-08-31
+
+     I still have this issue with 7.3.1.GA when using the normal camera (not the overlay)
+     
+     
+     {noformat}
+     08-31 15:27:14.251 26035 26035 I TiAPI   :  --------------show camera----------------
+     08-31 15:27:17.518 27370 27370 W HTCCamera: saveAndFinish() - contentUri = 'content://com.miga.moments.tifileprovider/filesystem/storage/emulated/0/Android/data/com.miga.moments/files/Pictures/moments/tia585926368.jpg'
+     08-31 15:27:17.529  2466  2491 I art     : Explicit concurrent mark sweep GC freed 34329(1857KB) AllocSpace objects, 9(196KB) LOS objects, 9% free, 155MB/171MB, paused 2.341ms total 362.763ms
+     08-31 15:27:17.529  2466  2475 I art     : WaitForGcToComplete blocked for 237.338ms for cause HeapTrim
+     08-31 15:27:17.533  2466  3616 I ActivityManager: Start proc 27513:com.miga.moments/u0a1046 for content provider com.miga.moments/org.appcelerator.titanium.io.TiFileProvider
+     08-31 15:27:17.534  2466  2625 V NetworkPolicy: updateRuleForRestrictBackgroundLocked(11046): isForeground=true, isBlacklisted=false, isWhitelisted=false, oldRule=0 (NONE), newRule=0 (NONE), newUidRules=0 (NONE), oldUidRules=0 (NONE)
+     08-31 15:27:17.534  2466  2625 V NetworkPolicy: updateRulesForNonMeteredNetworksLocked(11046), isIdle: false, mRestrictPower: false, mDeviceIdleMode: false, isForeground=true, isWhitelisted=false, oldRule=0 (NONE), newRule=0 (NONE), newUidRules=0 (NONE), oldUidRules=0 (NONE)
+     08-31 15:27:17.653 27513 27513 I TiApplication: (main) [0,0] checkpoint, app created.
+     08-31 15:27:17.757 27513 27513 I TiApplication: (main) [110,110] Titanium 7.3.1 (2018/08/29 00:19 undefined)
+     08-31 15:27:17.793 27370 27370 W HTCCamera: finish()
+     08-31 15:27:17.807 27370 27370 W HTCCamera: onPause() - start
+     08-31 15:27:17.809 27370 27370 W HTCCamera: onPreviewResourcesDestroyed()
+     08-31 15:27:17.811 27370 27370 D HTCCamera(BaseObjectProxy): [Event] Pausing : End
+     08-31 15:27:17.811 27370 27370 D Property: [HTCCamera.IsActivityPaused] false -> true
+     08-31 15:27:17.829 27370 27370 W HTCCamera: onPause() - mIsUIReady = false
+     08-31 15:27:17.830 27370 27370 W HTCCamera: onPause mIdle is false
+     08-31 15:27:17.844 27370 27370 D Property: [HTCCamera.TakingPictureState] Reviewing -> Preparing
+     08-31 15:27:17.845 27370 27370 W HTCCamera: onActionScreenClosed() - Activity is paused
+     08-31 15:27:17.845 27370 27370 W HTCCamera: OnPause - Freeze UI !!!
+     08-31 15:27:17.847 27370 27370 W HTCCamera: doOnPause() - start
+     08-31 15:27:17.847 27370 27370 W HTCCamera: OnPause - hide UI, set mMainLayout invisible
+     08-31 15:27:17.848 27370 27370 W HTCCamera: doOnPause() - end
+     08-31 15:27:17.849 27370 27370 W HTCCamera: onPause +++stopPreview()
+     08-31 15:27:17.851 27370 27370 W HTCCamera: onPause ---stopPreview()
+     08-31 15:27:17.851 27370 27390 W CameraThread: closeCamera() - Start
+     08-31 15:27:17.858 27370 27370 W HTCCamera: onPause() - end
+     08-31 15:27:17.867 27370 27390 W CameraDeviceManager: closeCamera() - Release camera - start
+     08-31 15:27:17.867 27370 27390 W CameraController: close(Main)
+     08-31 15:27:17.867 27370 27390 W CameraController: suspendCamera(Front)
+     08-31 15:27:17.868 27370 27390 W CameraController: suspendCamera(Front3D)
+     08-31 15:27:17.868 27370 27390 W CameraController: close() - Release camera [start]
+     08-31 15:27:17.994  2466  3902 W ActivityManager: Exception when starting activity com.miga.moments/org.appcelerator.titanium.TiActivity
+     08-31 15:27:17.994  2466  3902 W ActivityManager: android.os.DeadObjectException
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at android.os.BinderProxy.transactNative(Native Method)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at android.os.BinderProxy.transact(Binder.java:623)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at android.app.ApplicationThreadProxy.scheduleLaunchActivity(ApplicationThreadNative.java:942)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.realStartActivityLocked(ActivityStackSupervisor.java:1309)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.startSpecificActivityLocked(ActivityStackSupervisor.java:1408)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStack.resumeTopActivityInnerLocked(ActivityStack.java:2660)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStack.resumeTopActivityUncheckedLocked(ActivityStack.java:2193)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.resumeFocusedStackTopActivityLocked(ActivityStackSupervisor.java:1832)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStack.completePauseLocked(ActivityStack.java:1378)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityStack.activityPausedLocked(ActivityStack.java:1252)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityManagerService.activityPaused(ActivityManagerService.java:7207)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:602)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2925)
+     08-31 15:27:17.994  2466  3902 W ActivityManager: 	at android.os.Binder.execTransact(Binder.java:573)
+     08-31 15:27:17.995  2466  3902 D ActivityManager: cleanUpApplicationRecord -- 27513
+     08-31 15:27:18.008  2466  3902 I ActivityManager: Start proc 27536:com.miga.moments/u0a1046 for activity com.miga.moments/org.appcelerator.titanium.TiActivity
+     08-31 15:27:18.012  2466  4565 W ActivityManager: Spurious death for ProcessRecord{3331f36 27536:com.miga.moments/u0a1046}, curProc for 27513: null
+     08-31 15:27:18.021 27370 27390 W CameraController: close() - Release camera [end]
+     08-31 15:27:18.021 27370 27390 D Event   : [CameraThread.CameraClosed] rasing
+     08-31 15:27:18.022 27370 27390 D Event   : [CameraThread.CameraClosed] raised
+     08-31 15:27:18.022 27370 27390 W CameraThread: Release Camera
+     08-31 15:27:18.022 27370 27390 W CameraThread: closeCamera() - End
+     08-31 15:27:19.898  2466  2491 W WindowManager: App freeze timeout expired.
+     08-31 15:27:19.898  2466  2491 W WindowManager: Force clearing freeze: AppWindowToken{a1471ec token=Token{6a83c9f ActivityRecord{d64863e u0 com.miga.moments/org.appcelerator.titanium.TiActivity t4808}}}
+     08-31 15:27:19.899  2466  2485 D StatusBarManagerService: setSystemUiVisibility(0x8608)
+     08-31 15:27:19.899  2466  2485 D StatusBarManagerService: disable:userId=0 what=0x0 which=0x1 pkg=null
+     08-31 15:27:19.899  2466  2485 D StatusBarManagerService: hiding MENU key
+     08-31 15:27:19.900  2466  2491 I WindowManager: Screen frozen for +2s20ms due to Window{56a375b u0 Starting com.miga.moments}
+     08-31 15:27:20.310 27536 27536 I TiApplication: (main) [2097,2215] Titanium Javascript runtime: v8
+     08-31 15:27:20.345 27536 27536 W TiBaseActivity: (main) [35,2250] Runtime has been disposed or app has been killed. Finishing.
+     
+     {noformat}
+     
+     The log is from a HTC A9, Android 7, TiSDK 7.3.1.GA
+     
+     It starts when I open the camera (inside showCamera) and I take an image.
+     You'll see that is saves the image to a temp location and shortly after that (search for <code>TiApplication</code>) it looks like it restarts the app "checkpoint, app created" ? Then it releases the camera view and it show this error:
+     {noformat}
+      Exception when starting activity com.miga.moments/org.appcelerator.titanium.TiActivity
+     08-31 15:27:17.994  2466  3902 W ActivityManager: android.os.DeadObjectException
+     {noformat}
+     then it will crash the whole app restarts the app (at the end of the log)
+     
+     Works fine when using an overlay</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12848.json">JSON Source</a></p>

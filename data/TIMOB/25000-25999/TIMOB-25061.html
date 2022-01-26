@@ -1,0 +1,128 @@
+---
+title: "[TIMOB-25061] Android: setSelection method on textField fires change event, and value is not changing"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-08T21:34:17.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.1, Release 6.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Peter Lancaster</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2017-08-02T15:11:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-08T21:34:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue description</h4>
+Using the setSelection method on a textField causes a _*change*_ event to be fired (when the value has not been updated).
+
+<h4>Steps to reproduce</h4>
+To reproduce this issue with a textField variable, the following code snippet should work and show the issue in action, once the user focuses on a given field:
+
+<code><pre>
+// within method setting up textField event listeners
+
+textFieldVar.addEventListener("focus", $.handleTextFieldEvent);
+
+// elsewhere
+
+$.handleTextFieldEvent = function(e) {
+    Ti.API.info(e.type + " event fired");
+    if(e.type === "focus"){
+      Ti.API.info("set selection of text");
+      e.source.setSelection(0, 1);
+    }
+};
+</pre></code>
+
+This should lead to output like:
+
+<code><pre>
+[INFO]  focus event fired
+[INFO]  set selection of text
+[INFO]  change event fired
+</pre></code>
+
+Within a code flow that uses an auto-advancing form (based on single values within textField elements with change events that trigger a move onto the _next_ textField element), this effectively causes the form to be cycled through, and prevents user input.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Peter Lancaster 2017-08-04
+
+   Hi guys - is there any update on this? The only workaround we currently have for this would sacrifice usability and functionality, which is highly undesirable.</li>
+<li>Eric Merriman  2017-08-04
+
+   Hello [~plancaster] 
+   We have looked at this today and were able to reproduce. The change that triggers this behavior was a workaround for a google bug and was implemented 1 year ago. See <a href="https://stackoverflow.com/questions/22933803/edittexts-selectall-does-not-select-the-text-instead-cursor-is-moved-to-posi/35527348#35527348" rel="nofollow" target="_blank">https://stackoverflow.com/questions/22933803/edittexts-selectall-does-not-select-the-text-instead-cursor-is-moved-to-posi/35527348#35527348</a> for the description of the issue and <a href="https://github.com/appcelerator/titanium_mobile/blame/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIText.java#L683" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blame/master/android/modules/ui/src/java/ti/modules/titanium/ui/widget/TiUIText.java#L683</a> for the section of the SDK where it was implemented. Basically it does a replace, which would fire the change event. At this point I don't have a good workaround for you, but as soon as I have a fix we can get you a build to try. 6.2.0 is our next build, scheduled for the end of this month. I will work with support to see what other options are available and will get  you that info through them. I will update this ticket should we find a workaround in the meantime. Expect an update early next week.</li>
+<li>Lokesh Choudhary 2017-08-04
+
+   Verified the issue is reproducible.
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: 'grey',
+       layout: 'vertical'
+   });
+   
+   var txtfld = Ti.UI.createTextField({
+   	top: 30,
+   	width: 50,
+   	value: 'Hello'
+   });
+   
+   txtfld.addEventListener('focus', function(e) {
+   	Ti.API.info(e.type + " event fired txtfld");
+   	if(e.type === "focus"){
+   	  Ti.API.info("set selection of text txtfld");
+   	  e.source.setSelection(0, 1);
+   	}
+   });
+   
+   txtfld.addEventListener('change', function(){
+   	Ti.API.info('=========================================');
+   	Ti.API.info('Change Fired on txtfld');
+   });
+   
+   win.add(txtfld);
+   win.open();
+   </pre></code>
+   
+   Result:
+   <code><pre>
+   [INFO] :   focus event fired txtfld
+   [INFO] :   set selection of text txtfld
+   [INFO] :   =========================================
+   [INFO] :   Change Fired on txtfld
+   </pre></code>
+   
+   Studio Ver:     4.9.1.201707200100
+   SDK Ver:        6.1.2.GA
+   OS Ver:         10.12.3
+   Xcode Ver:      Xcode 8.3.3
+   Appc NPM:       4.2.9
+   Appc CLI:       6.2.3
+   Ti CLI Ver:     5.0.14
+   Alloy Ver:      1.9.13
+   Node Ver:       6.10.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ google Nexus 5 --- Android 6.0.1</li>
+<li>Joshua Quick 2017-08-08
+
+   PR (master):  <a href="https://github.com/appcelerator/titanium_mobile/pull/9281" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9281</a>
+   PR (6.2.X):  <a href="https://github.com/appcelerator/titanium_mobile/pull/9282" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9282</a>
+   </li>
+<li>Lokesh Choudhary 2017-08-08
+
+   FR Passed for both branches.
+   PR merged.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25061.json">JSON Source</a></p>

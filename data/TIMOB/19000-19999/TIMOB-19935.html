@@ -1,0 +1,231 @@
+---
+title: "[TIMOB-19935] Windows: Implement Ti.Network.Socket.TCP"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-12T03:55:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>LiveView</td></tr>
+<tr><th>Reporter</th><td>Kota Iguchi</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2015-11-12T08:25:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-01-20T22:59:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Implement <code>Ti.Network.Socket.TCP</code> for Windows.
+
+<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Network.Socket.TCP
+
+NOTE: This is needed for LiveView
+
+*Test Case*
+
+<code><pre>
+var socket = Ti.Network.Socket.createTCP({
+    host: 'pastebin.com', port: 80,
+    connected: function (e) {
+        Ti.API.info('socket connected');
+
+        // receive callback
+        Ti.Stream.pump(e.socket, function (e) {
+            alert(e.buffer.toString());
+        }, 1024, true);
+
+        // send GET request
+        Ti.Stream.write(socket, Ti.createBuffer({
+            value: 'GET /raw/eF5dK0xU HTTP/1.1\r\nHost: pastebin.com\r\nConnection: close\r\n\r\n'
+        }), function (e) {
+            Ti.API.info('socket sent GET');
+        });
+    }
+});
+socket.connect();
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19935_61304/wp_ss_20170120_0002.png">wp_ss_20170120_0002.png</td></td><td>2017-01-20T22:57:56.000+0000</td><td>134382</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2016-08-08
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/807" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/807</a></li>
+<li>Sandro Lain 2016-11-15
+
+   Hello
+   I need to develop a Windows Phone app that performs communication via TCP socket. Specifically, it is an extension of an already developed apps for iOS and Android platforms with Titanium SDK.
+   Seeing that the development of the TCP part is found only in the 6.1.0.x SDK version I have updated Appcelerator SDK and Studio to the latest versions.
+   The TCP client implementation is present and working but I encountered some problems with sending messages, specifically it seems that the second message sent creates an error that crashes the application.
+   I quote here the system information, the error log and test the application code.
+   The TCP server is a simple nodejs echo script that responds with the message received.
+   
+   *Platform Info*
+   OS: Windows 10 Pro
+   Emulator: Mobile Emulator 10.0.14393.0 720p 5 inch 1GB
+   Studio: 4.8.0.201611011053
+   appc 6.0.0-68
+   Titanium SDK 6.1.0.v20161113203131
+   
+   *Studio Console Log*
+   {noformat}
+   -- Start application log -----------------------------------------------------
+   [INFO] [TEST] open connection
+   [INFO] [TEST] connected
+   [INFO] :   Finished launching the application
+   [INFO] [TEST] try to send
+   [INFO] [TEST] sent
+   [INFO] [TEST] received: 0 0 0 0 14 a0
+   [INFO] [TEST] try to send
+   [ERROR] :  ----- Titanium Javascript Runtime Error -----
+   [ERROR] :  In undefined: undefined,undefined
+   [ERROR] :  Message: Uncaught Error: undefined
+   [INFO] :   Disconnected from app
+   -- End application log -------------------------------------------------------
+   {noformat}
+   
+   *Test Code*
+   <code><pre>
+   
+   var win = Ti.UI.createWindow();
+   
+   var lbl = Ti.UI.createLabel({
+   	text: 'TCP Test'
+   });
+   win.add(lbl);
+   
+   win.addEventListener('open', function()
+   {
+   	var itv;
+   	
+   	var socket = Ti.Network.Socket.createTCP({
+   		host: '192.168.1.88',
+   	    port: 6262,
+   	    timeout: 3000,
+   	    connected: function(e)
+   	    {
+   	    	console.log("[TEST] connected");
+   	    	
+   	    	Ti.Stream.pump(e.socket, function(e)
+   	    	{
+   				if (e.bytesProcessed == -1)
+   				{
+   					// Socket :: END of received message
+   			        return;
+   			    }
+   			    
+   			    var res = [];
+   			    
+   			    for(var i = 0, len = e.buffer.length; i < len; i++)
+   			    {
+   			    	res.push(e.buffer[i].toString(16));
+   			    }
+   			    
+   			    console.log("[TEST] received: " + res.join(" "));
+   	    		
+   	    	}, 1024, true);
+   	    	
+   	    	itv = setInterval(function()
+   	    	{
+   	    		if(!socket)
+   	    		{
+   	    			clearInterval(itv);
+   	    			
+   	    			return;
+   	    		}
+   	    		
+   	    		var buff = Ti.createBuffer({
+   					length: 6
+   				});
+   				
+   				buff[0] = 0x00;
+   				buff[1] = 0x00;
+   				buff[2] = 0x00;
+   				buff[3] = 0x00;
+   				buff[4] = 0x14;
+   				buff[5] = 0xA0;
+   				
+   				console.log("[TEST] try to send");
+   				
+   				Ti.Stream.write(socket, buff, function()
+   				{
+   					console.log('[TEST] sent');
+   				});
+   
+   
+   	    	}, 1000);
+   	    },
+   		error: function(e)
+   		{
+   			clearInterval(itv);
+   			
+   			socket = null;
+   			
+   			console.error("[TEST] socket error");
+   			
+   			console.error(e);
+   		}
+   	});
+   	
+   	console.log("[TEST] open connection");
+   	
+   	socket.connect();
+   });
+   
+   win.open();
+   
+   </pre></code>
+   
+   
+   </li>
+<li>Samir Mohammed 2017-01-20
+
+   Verified feature with the test case provided by [~gmathews] in <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/807." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/807.</a> 
+   
+   Screenshot shows the success message on the windows phone 
+   !wp_ss_20170120_0002.png|thumbnail!
+   
+   Code from the console: 
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [INFO] :   socket connected
+   [INFO] :   socket sent GET
+   </pre></code>
+   
+   *Environment*
+   <code><pre>
+   Lumia 640 LTE (RM-1073) (OS Build 10.0.14393.693)
+   Operating System
+   Name                        = Microsoft Windows 10 Pro
+   Version                     = 10.0.14393
+   Architecture                = 64bit
+   <h4>CPUs                      = 4</h4>
+   Memory                      = 17034395648
+    
+   Node.js
+   Node.js Version             = 4.4.4
+   npm Version                 = 2.11.3
+    
+   Titanium SDK
+   SDK Version                 =  6.1.0.v20170118152304
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19935.json">JSON Source</a></p>

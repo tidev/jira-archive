@@ -1,0 +1,102 @@
+---
+title: "[TIMOB-26283] insertAt not working as expected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2018-10-29T22:13:02.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Yordan Banev</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2018-08-10T10:28:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-10-29T22:13:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On Android inserting children in a view with defined layout (I have tested only with <code>vertical</code> so far) ends with a different result based on what order the method is called even if the <code>position</code> property matches. In the attached sample the views on the left are added in descending order based on the position index and the views in the right container are added in ascending order based on the same. IMO it would make sense for the end result to be the same no matter in what order the method is called if the positions match. 
+
+After clicking the button to replace the view with index in the left container you can notice that it is not only changing color - from gray to red, but also changing its position. Having in mind that the <code>left</code> property is 15 units multiplied by the position index it should remain in the same position. After the replacement the new view takes position which is the same as the view with index 3 in the right container. Which is the expected position.
+
+-I haven't tested that on iOS and I don't know what is the behavior in such case.-
+[~topener] ran the sample on iOS and we get the exact same behavior. Is this the intended behavior?
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65425/app.js">app.js</td></td><td>2018-08-10T10:28:04.000+0000</td><td>979</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65426/insertAt.png">insertAt.png</td></td><td>2018-08-10T10:46:35.000+0000</td><td>78862</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65484/iOS-Screenshot-WithNumbers.png">iOS-Screenshot-WithNumbers.png</td></td><td>2018-08-28T03:25:59.000+0000</td><td>23650</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65427/replaced.png">replaced.png</td></td><td>2018-08-10T10:46:35.000+0000</td><td>78844</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65429/Simulator Screen Shot - iPhone X - 2018-08-10 at 12.40.22.png">Simulator Screen Shot - iPhone X - 2018-08-10 at 12.40.22.png</td></td><td>2018-08-10T15:16:04.000+0000</td><td>65395</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26283_65428/Simulator Screen Shot - iPhone X - 2018-08-10 at 12.40.52.png">Simulator Screen Shot - iPhone X - 2018-08-10 at 12.40.52.png</td></td><td>2018-08-10T15:15:58.000+0000</td><td>65397</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-08-27
+
+   [~ybanev], I haven't look at this yet, but I do remember fixing <code>insertAt()</code> with <code>ScrollViews</code> last year. Please see the "ScrollViewAddRemoveTest.js" file attached to ticket [TIMOB-25415]. It allows the end-user to insert/remove rows in a vertical layout dynamically by tapping on them.</li>
+<li>Joshua Quick 2018-08-28
+
+   I just test this out. I'm not convinced this is a bug in Titanium. And the behavior between Android and iOS is the same too.
+   
+   Let's have a look at the following...
+   <code><pre>
+   for (i=6; i >= 0; i--) {
+   	viewLeft.insertAt({
+   		view: Ti.UI.createView({
+   			left: i * 15,
+   			width: 40,
+   			height: 40,
+   			backgroundColor: 'gray',
+   		}),
+   		position: i,
+   	});
+   }
+   </pre></code>
+   
+   Note that <code>viewLeft</code> is empty before entering the above for-loop. Our <code>insertAt()</code> method will not allow a position index to be set higher than the number of children. So, a position index of 6 while the child count is 0 causes the actual insert position to be 0. When you attempt to insert the 2nd view at position index 5, it ends being inserted *after* the 1st inserted view. And the reason why the left child views appear *staggered* is because you're inserting backwards and the last half of the inserted views will have valid position indexes.
+   
+   * View6 -> insert index 6 -> [View6]
+   * View5 -> insert index 5 -> [View6, View5]
+   * View4 -> insert index 4 -> [View6, View5, View4]
+   * View3 -> insert index 3 -> [View6, View5, View4, View3]
+   * View2 -> insert index 2 -> [View6, View5, View2, View4, View3]
+   * View1 -> insert index 1 -> [View6, View1, View5, View2, View4, View3]
+   * View0 -> insert index 0 -> [View0, View6, View1, View5, View2, View4, View3]
+   
+   So, when you do a <code>replaceAt()</code> at position index 3, you're really replacing View5 whose "left" property was original set to <code>75</code>, not <code>45</code>.
+   
+   If you change your <code>createView()</code> to the a label like the below, then you can see what I mean.
+   <code><pre>
+   Ti.UI.createLabel({
+   	text: i,
+   	left: i * 15,
+   	width: 40,
+   	height: 40,
+   	backgroundColor: 'gray',
+   })
+   </pre></code>
+   </li>
+<li>Joshua Quick 2018-08-28
+
+   Below is a screenshot with the views numbered.
+    !iOS-Screenshot-WithNumbers.png|thumbnail! </li>
+<li>Yordan Banev 2018-08-30
+
+   I tried it on native Android as well. It does not work as I thought there too. It throws an <code>Out of bounds</code> exception. This behavior is fine. Leaving it as is.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26283.json">JSON Source</a></p>

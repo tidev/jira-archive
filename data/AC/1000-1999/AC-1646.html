@@ -1,0 +1,135 @@
+---
+title: "[AC-1646] iOS 8 Interactive Notification - Not working when app is not running"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-13T00:01:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>ios8, notification</td></tr>
+<tr><th>Reporter</th><td>Manojkumar Murugesan</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2014-10-09T14:24:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:38:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Question : Is it possible to make a HTTP call and update the data in background when the user clicks on accept button from the interactive notification (without launching the app / bring it foreground if it already running)? 
+
+<code><pre>
+Ti.API.info("app launched");
+
+Ti.App.iOS.addEventListener('localnotificationaction', function(e) {
+	if (e.category == "DOWNLOAD_CONTENT" && e.identifier == "ACCEPT_IDENTIFIER") {
+		var url = "<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>";
+		var client = Ti.Network.createHTTPClient({
+			onload : function(e) {
+				Ti.API.info("Received text: " + this.responseText);
+			},
+			onerror : function(e) {
+				Ti.API.debug(e.error);
+				alert('error');
+			},
+			timeout : 5000
+		});
+		client.open("GET", url);
+		client.send();
+		Ti.App.Properties.setString("dataupdated", new Date().getTime());
+	}
+});
+
+var acceptAction = Ti.App.iOS.createUserNotificationAction({
+	identifier : "ACCEPT_IDENTIFIER",
+	title : "Accept",
+	activationMode : Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND,
+	destructive : false,
+	authenticationRequired : true
+});
+var rejectAction = Ti.App.iOS.createUserNotificationAction({
+	identifier : "REJECT_IDENTIFIER",
+	title : "Reject",
+	activationMode : Ti.App.iOS.USER_NOTIFICATION_ACTIVATION_MODE_BACKGROUND,
+	destructive : true,
+	authenticationRequired : false
+});
+var downloadContent = Ti.App.iOS.createUserNotificationCategory({
+	identifier : "DOWNLOAD_CONTENT",
+	actionsForDefaultContext : [acceptAction, rejectAction]
+});
+Ti.App.iOS.registerUserNotificationSettings({
+	types : [Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT, Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE, Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND],
+	categories : [downloadContent]
+});
+
+// App UI
+var win = Ti.UI.createWindow({
+	backgroundColor : 'white'
+});
+var label = Ti.UI.createLabel({
+	top : 30,
+	text : "Last update : " + Ti.App.Properties.getString("dataupdated")
+});
+win.add(label);
+var button = Ti.UI.createButton({
+	title : 'Trigger Notification'
+});
+button.addEventListener('click', function(e) {
+	var note = Ti.App.iOS.scheduleLocalNotification({
+		date : new Date(new Date().getTime() + 3000),
+		alertBody : "New content available! Download now?",
+		badge : 1,
+		userInfo : {
+			"url" : "<a href="http://www.download.com/resource/asset.json" rel="nofollow" target="_blank">http://www.download.com/resource/asset.json</a>",
+			id : "1"
+		},
+		category : "DOWNLOAD_CONTENT"
+	});
+});
+win.add(button);
+win.open();
+
+</pre></code>
+
+<h4>Test Case 1: </h4>
+
+1. Open the app, it asked for notification permissions. I clicked OK. 
+2. The label on the top was saying "Last update : null" 
+3. Clicked on the "Trigger Notification" button, then pressed the home button to send the app to background. 
+4. After 3 seconds I got banner notification appearing on the top, I clicked accept. 
+5. I could see, some html was printed on the console log. 
+6. Exit the app and launched it again, The label on the top was saying "Last update : 1412854520621" - meaning I was able to make the http call in the background as my app was running in background. 
+
+<h4>Test Case 2: </h4>
+
+1. Clicked on the "trigger notification" button, then double tapped the home button, removed the app from background. 
+2. After 3 seconds I got banner notification appearing on the top, I clicked accept. 
+3. I could see only the followings on my console log. 
+
+<code><pre>
+
+[INFO] : push/1.0 (3.4.0.b54c467) 
+[INFO] : app launched 
+
+</pre></code>
+Meaning, it tried to execute but failed. 
+
+*I guess it should act in the same way even if the app is not running in background. Isn't?* If not how to handle such cases?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2014-10-13
+
+   This is more related to the way to handle a notification. Once you click on the dialog, you are able to request the app to open at certain window, but you can't start a process in the background like that. </li>
+<li>Manojkumar Murugesan 2014-10-13
+
+   Thanks for the clarification.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1646.json">JSON Source</a></p>

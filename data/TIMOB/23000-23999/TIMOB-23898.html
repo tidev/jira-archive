@@ -1,0 +1,185 @@
+---
+title: "[TIMOB-23898] Android: Mime-type in Ti.Media.openPhotoGallery() is always image/bitmap"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-02-16T18:30:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ivo</td></tr>
+<tr><th>Assignee</th><td>Andy Waldman</td></tr>
+<tr><th>Created</th><td>2016-09-13T13:48:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-16T18:56:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Out application depends on the mime type of the images retrieved through the gallery as it applies different operations based on that (like parsing EXIF and so on). This worked well until Titanium SDK 5.1.2.GA, but once we decided to upgrade to 5.4.0.GA we noticed problems with the images. Cause was wrongly set mime type with value ("image/bitmap") although the actual content in the BLOB is "image/jpeg".
+We've done some further analysis and actually found the place in the code where this should be corrected. More precisely, if you look at TiBlob.java#blobFromImage() you will see:
+<code><pre>
+/**
+	 * Creates a blob from a bitmap.
+	 * @param image the image used to create blob.
+	 * @return new instance of TiBlob.
+	 * @module.api
+	 */
+	public static TiBlob blobFromImage(Bitmap image)
+	{
+	
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte data[] = new byte[0];
+		if (image.hasAlpha()) {
+			if (image.compress(CompressFormat.PNG, 100, bos)) {
+				data = bos.toByteArray();
+			}
+		}
+		else {
+			if (image.compress(CompressFormat.JPEG, 100, bos)) {
+				data = bos.toByteArray();
+			}
+		}
+
+		TiBlob blob = new TiBlob(TYPE_IMAGE, data, "image/bitmap");
+		blob.image = image;
+		blob.width = image.getWidth();
+		blob.height = image.getHeight();
+		return blob;
+}
+</pre></code>
+
+You can notice that although compression (PNG/JPEG) might happen the mime type is hardcoded as "image/bitmap" which is wrong.
+We have changed the code to look like:
+<code><pre>
+public static TiBlob blobFromImage(Bitmap image)
+	{
+	        String mimeType = "image/bitmap";
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte data[] = new byte[0];
+		if (image.hasAlpha()) {
+			if (image.compress(CompressFormat.PNG, 100, bos)) {
+				data = bos.toByteArray();
+				mimeType = "image/png";
+			}
+		}
+		else {
+			if (image.compress(CompressFormat.JPEG, 100, bos)) {
+				data = bos.toByteArray();
+				mimeType = "image/jpeg";
+			}
+		}
+
+		TiBlob blob = new TiBlob(TYPE_IMAGE, data, mimeType);
+		blob.image = image;
+		blob.width = image.getWidth();
+		blob.height = image.getHeight();
+		return blob;
+	}
+</pre></code>
+ 
+and now the correct mime type is set.
+In case you are interested, this problem occurred while resolving TIMOB-19910 (<a href="https://github.com/appcelerator/titanium_mobile/commit/2e10d9714b580caf6b9eff1e4436976a8e48cac7)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/2e10d9714b580caf6b9eff1e4436976a8e48cac7)</a>
+
+Please apply this fix in the next SDK release.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-09-13
+
+   Hey [~ivo.tasevski], can you do a PR for your change to look into? That will speed-up the review-process and availability in the core-SDK. Thanks!</li>
+<li>Ivo 2016-09-14
+
+   Pull request against master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8381" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8381</a></li>
+<li>Hans Knöchel 2016-09-14
+
+   Thanks! To keep this ticket clean, please delete your first comment with the old PR. And can you provide an example that can validate the change? Also, I noticed that using your PR, the <code>image/bitmap</code> will never be used, since the <code>else</code>-case is <code>image/jpeg</code>. A bit curious about backwards-compatibility with that. Please ensure that you tested your PR beforehand.</li>
+<li>Ivo 2016-09-15
+
+   Testcase:
+   <code><pre>
+   var window = Ti.UI.createWindow();
+   var button = Ti.UI.createButton({
+       title : "Open Gallery"
+   });
+   button.addEventListener("click", function() {
+       Ti.Media.openPhotoGallery({
+           allowEditing : false,
+           autohide : true,
+           popoverView : button,
+           mediaTypes : [Ti.Media.MEDIA_TYPE_PHOTO],
+           success : function(e) {
+               alert(e.media.mimeType);
+           },
+           error : function(e) {
+               // not relevant
+           },
+           cancel : function() {
+               // not relevant
+           }
+       });
+   });
+   window.add(button);
+   window.open();
+   </pre></code>
+   
+   Based on the image type selected in the gallery alert with "image/jpeg", "image/png" or "image/bimap" should pop.</li>
+<li>Ivo 2016-09-15
+
+   </li>
+<li>Ivo 2016-09-15
+
+   I just realized that when compression will return false the content will be empty (as "data" is never filled with the raw content of the Bitmap). However this is a problem on its own (existing even now) that deserves a separate jira. As this will require extended effort and we are short on resources we cannot create another PR atm.</li>
+<li>Hans Knöchel 2016-09-15
+
+   Thanks for the note, please file a separate ticket for that one. I just merged your PR, thanks again for that! 
+   
+   [~bimmel]: To note for the community contributions in the 6.1.0 release notes</li>
+<li>(deactived) Brian Immel 2016-09-15
+
+   Thanks [~hans123]. I'll add Ivo to the release note page now.</li>
+<li>Samir Mohammed 2017-01-19
+
+   When I try the test case provided above I always get 'image/jpeg' popping up when i select and image from the gallery even if the image i chose is a <code>.png</code> or a <code>.bmp</code>.
+   
+   *Environment*
+   <code><pre>
+   Appcelerator Command-Line Interface, version 6.1.0
+   Nexus 6P (Android version 7.1.1)
+   Nexus 5 (Android 6.0.1)
+   Operating System Name: Mac OS X El Capitan
+   Operating System Version: 10.11.6
+   Node.js Version: 4.6.0
+   npm: 4.2.8
+   Titanium SDK Version: 6.1.0.v20170115172707
+   Xcode: 8.2
+   Appcelerator Studio: 4.8.1.201612050850
+   </pre></code>
+   </li>
+<li>Andy Waldman 2017-02-09
+
+    master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8826" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8826</a></li>
+<li>Lokesh Choudhary 2017-02-16
+
+    Verified the fix in SDK 6.1.0.v20170216091514. 
+    Works as expected.
+    
+    Closing.
+    
+    Appc Studio : 4.8.1.201701192003
+    SDK Version : 6.1.0.v20170216091514
+    Mac OS Version : 10.12.2
+    Xcode Version : Xcode 8.2.1 Build version 8C1002
+    Appc CLI AND Appc NPM : {"NPM":"4.2.9-1","CLI":"6.1.0"}
+    Ti CLI : 5.0.11
+    Alloy : 1.9.5
+    Node : v4.6.0
+    Device: running 7.1.1Pixel</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23898.json">JSON Source</a></p>

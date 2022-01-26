@@ -1,0 +1,387 @@
+{
+	"id": "160430",
+	"key": "TIMOB-23444",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2019-10-17T21:24:29.000+0000",
+		"created": "2016-05-23T15:16:44.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android",
+			"fragments",
+			"modal",
+			"module"
+		],
+		"versions": [
+			{
+				"id": "17993",
+				"description": "Release 5.2.2",
+				"name": "Release 5.2.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2016-04-05"
+			}
+		],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2019-10-17T21:24:29.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "h2. Problem\r\n\r\nHi, I'm creating an Android and iOS module for Titanium which has a sendLog method which sends some arbitrary JSON data to a server and returns an URL if it matches some predefined filters. The URL should be opened in a modal Dialog with a webview.\r\n\r\nI've written native iOS and Android libraries and wrapped them as Titanium modules. On iOS everything works fine but on Android I can't open the Dialog (see error stack trace below). Right now there's one log message that always triggers the same webpage for testing purposes. On Android it just fails silently.\r\n\r\nh2. Test case\r\n\r\n{code:lang=javascript|title=app.js}\r\nvar mupets = require(\"be.iminds.mupets\");\r\nmupets.initialize(\"wappr\", \"http://tocker.iminds.be:3000/log/report.json\", 1, 100, 3);\r\nvar esmLog = { \r\n\tbar: \"foo\"\r\n};\r\nmupets.sendLog(\"es-test-01\",JSON.stringify(esmLog));\r\n{code} \r\n\r\nAfter this piece of code (after about 10 seconds max), the module should show a native dialog with the following webpage inside: http://tocker.iminds.be:3000/es/sheets/test-01/index.html\r\n\r\nInstead, this is the error I get consistently:\r\n\r\nh2. Logs\r\n\r\n{code:lang=none|title=console}\r\njava.lang.IllegalStateException: Can not perform this action after onSaveInstanceState\r\nat android.app.FragmentManagerImpl.checkStateLoss(FragmentManager.java:1411)\r\nat android.app.FragmentManagerImpl.enqueueAction(FragmentManager.java:1429)\r\nat android.app.BackStackRecord.commitInternal(BackStackRecord.java:687)\r\nat android.app.BackStackRecord.commit(BackStackRecord.java:663)\r\nat android.app.DialogFragment.show(DialogFragment.java:256)\r\nat be.iminds.mupets_client_android.logging.plugins.OutHttp.getEsm(OutHttp.java:122)\r\nat be.iminds.mupets_client_android.logging.plugins.OutHttp$1.success(OutHttp.java:78)\r\nat be.iminds.mupets_client_android.HttpClient$1$1.onResponse(HttpClient.java:76)\r\nat okhttp3.RealCall$AsyncCall.execute(RealCall.java:133)\r\nat okhttp3.internal.NamedRunnable.run(NamedRunnable.java:32)\r\nat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1113)\r\nat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:588)\r\nat java.lang.Thread.run(Thread.java:818)\r\n{code} \r\n\r\nHere is the Android code that's causing the error:\r\n\r\n{code:lang=java|title=Android code}\r\nActivity activity = (Activity) context;\r\n                EsmDialogFragment esmDialogFragment = EsmDialogFragment.newInstance(new EsmDialogListener() {\r\n                    @Override\r\n                    public void submit(String type, JsonObject result) {\r\n                        Mupets.sendLog(type, result);\r\n                        esmShown = false;\r\n                    }\r\n\r\n                    @Override\r\n                    public void onCancel(JsonObject cancelled) {\r\n                        super.onCancel(cancelled);\r\n                        Mupets.sendLog(\"ESM_cancelled\", cancelled);\r\n                        esmShown = false;\r\n                    }\r\n                }, url, true);\r\n                FragmentTransaction transaction = activity.getFragmentManager().beginTransaction();\r\n                Fragment prev = activity.getFragmentManager().findFragmentByTag(EsmDialogFragment.ESM_DIALOG_FRAGMENT);\r\n                if (prev != null) {\r\n                    transaction.remove(prev);\r\n                }\r\n                transaction.addToBackStack(null);\r\n                Log.v(TAG, \"Pre-show fragment\");\r\n                esmDialogFragment.show(transaction, EsmDialogFragment.ESM_DIALOG_FRAGMENT);\r\n                Log.v(TAG, \"Post-show fragment\");\r\n{code}\r\n\r\nDoes Titanium either not allow the use of Fragments/or require you to call Dialog.show() at a specific point? The error talks about \"...after onSaveInstanceState\" but I don't see how I would call it before onSaveInstanceState if I'm not creating an activity and why the code works when I use it in a native Android app. I added the Android module and iOS module I use to this ticket.",
+		"attachment": [
+			{
+				"id": "59360",
+				"filename": "be.iminds.mupets-android-1.0.2.zip",
+				"author": {
+					"name": "Ventis",
+					"key": "ventis",
+					"displayName": "David Vermeir",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2016-05-23T15:17:24.000+0000",
+				"size": 653675,
+				"mimeType": "application/zip"
+			},
+			{
+				"id": "59359",
+				"filename": "be.iminds.mupets-iphone-1.0.2.zip",
+				"author": {
+					"name": "Ventis",
+					"key": "ventis",
+					"displayName": "David Vermeir",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2016-05-23T15:18:13.000+0000",
+				"size": 7355503,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: Showing a DialogFragment throws \"Can not perform this action after onSaveInstanceState\" error",
+		"creator": {
+			"name": "Ventis",
+			"key": "ventis",
+			"displayName": "David Vermeir",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "Ventis",
+			"key": "ventis",
+			"displayName": "David Vermeir",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Titanium SDK 5.2.2.GA\r\nTitanium Studio 4.5.0\r\nTitanium CLI 5.0.5\r\nAndroid 6.0.1\r\nOS: OSX 10.11.5",
+		"comment": {
+			"comments": [
+				{
+					"id": "386584",
+					"author": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello [~Ventis],\r\n\r\nThanks for reaching out. I did install the android module you provided but it is not recognized by accelerator studio although install was successful. Will you please make sure that you provide the right file and it works.\r\n\r\nThanks in advance",
+					"updateAuthor": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2016-05-24T06:02:04.000+0000",
+					"updated": "2016-05-24T06:02:04.000+0000"
+				},
+				{
+					"id": "386598",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi Nazmus Salahin,\r\n\r\nI'm using this module in my project and it's recognized fine. Can you tell me what the problem exactly is?\r\n\r\nKind regards,\r\nDavid",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-24T08:11:32.000+0000",
+					"updated": "2016-05-24T08:11:32.000+0000"
+				},
+				{
+					"id": "386599",
+					"author": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Dear David,\r\nThe module is not recognized by tiapp.xml. Plsease let me know min SDK version for using the module and which SDK version did you use for build ?\r\n\r\nRegards",
+					"updateAuthor": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2016-05-24T08:23:30.000+0000",
+					"updated": "2016-05-24T08:23:30.000+0000"
+				},
+				{
+					"id": "386600",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi,\r\n\r\nthe minSDK for the module is 5.2.0.GA and the SDK I used is 5.2.2.GA.",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-24T08:27:04.000+0000",
+					"updated": "2016-05-24T08:27:04.000+0000"
+				},
+				{
+					"id": "386601",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I have a test project with the module that I could give you but it's 11MB which is larger than the max file size on this ticket.",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-24T08:28:59.000+0000",
+					"updated": "2016-05-24T08:28:59.000+0000"
+				},
+				{
+					"id": "386607",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Here's a link to the test project I mentioned earlier:\r\nhttps://www.dropbox.com/s/0v77xd5gllv6kb3/testModule.zip?dl=1",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-24T09:19:24.000+0000",
+					"updated": "2016-05-24T09:19:24.000+0000"
+				},
+				{
+					"id": "386668",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, \r\n\r\nThe example project you have set it also not configuring your module, in our environment. Importing your project into our studio is not showing the module configured in our environment.   We are using SDK 5.2.2.GA for test. It's necessary for us to test the issue. \r\n\r\nRegards,\r\nSharif.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2016-05-24T19:43:10.000+0000",
+					"updated": "2016-05-24T19:45:01.000+0000"
+				},
+				{
+					"id": "386742",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I created this example project specially for this ticket in a completely new environment and it works fine. I don't understand the problems you are having with it. I'm using 5.2.2.GA just like you...\r\n\r\nThe module I provided is just the output of a normal Titanium module project. The example project is a Titanium mobile project I zipped myself.\r\n\r\nPlease tell me the necessary steps I need to perform so it will work for you.",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-25T06:49:09.000+0000",
+					"updated": "2016-05-25T06:49:09.000+0000"
+				},
+				{
+					"id": "386857",
+					"author": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello,\r\nHere is what happening in my environment. The module is not recognised by tiapp.xml but the projects runs. [Screenshot Link|https://i.imgsafe.org/6e7b08d.png]\r\nWhen I run the given code portion the app crash with a different error log.\r\n*Code:*\r\n{code}\r\nvar mupets = require(\"be.iminds.mupets\");\r\n\r\nvar win = Ti.UI.createWindow({\r\n\tbackgroundColor : 'white'\r\n});\r\nvar label = Titanium.UI.createLabel({\r\n\tcolor:'#999',\r\n\ttext:'RUN',\r\n\tfont:{fontSize:20,fontFamily:'Helvetica Neue'},\r\n\ttextAlign:'center',\r\n\twidth:'auto'\r\n});\r\n\r\nlabel.addEventListener(\"click\", function(e) {\r\n\tTi.API.info(\"clicked label\");\r\n\t\r\n\tmupets.initialize(\"wappr\", \"http://tocker.iminds.be:3000/log/report.json\", 1, 100, 3);\r\n\r\n\tvar esmLog = {\r\n\r\n\t\tbar : \"foo\"\r\n\r\n\t};\r\n\r\n\tmupets.sendLog(\"es-test-01\", JSON.stringify(esmLog));\r\n\r\n});\r\nwin.add(label);\r\nwin.open();\r\n{code}\r\n*Error Log:*\r\n{code}\r\n[INFO] :   clicked label\r\n[WARN] :   ResourceType: Bad XML block: header size 18254 or total size 169478669 is larger than data size 297\r\n[ERROR] :  TiApplication: (main) [2445,15989] Sending event: exception on thread: main msg:android.content.res.Resources$NotFoundException: File res/drawable-xhdpi-v4/abc_ab_share_pack_mtrl_alpha.9.png from xml type layout resource ID #0x7f020000; Titanium 5.2.2,2016/03/28 14:12,b685ddb\r\n[ERROR] :  TiApplication: android.content.res.Resources$NotFoundException: File res/drawable-xhdpi-v4/abc_ab_share_pack_mtrl_alpha.9.png from xml type layout resource ID #0x7f020000\r\n[ERROR] :  TiApplication: \tat android.content.res.Resources.loadXmlResourceParser(Resources.java:2821)\r\n[ERROR] :  TiApplication: \tat android.content.res.Resources.loadXmlResourceParser(Resources.java:2776)\r\n[ERROR] :  TiApplication: \tat android.content.res.Resources.getLayout(Resources.java:1165)\r\n[ERROR] :  TiApplication: \tat android.view.LayoutInflater.inflate(LayoutInflater.java:421)\r\n[ERROR] :  TiApplication: \tat android.view.LayoutInflater.inflate(LayoutInflater.java:374)\r\n[ERROR] :  TiApplication: \tat be.iminds.mupets_client_android.esm.EsmDialogFragment.onCreateView(EsmDialogFragment.java:61)\r\n[ERROR] :  TiApplication: \tat android.app.Fragment.performCreateView(Fragment.java:2220)\r\n[ERROR] :  TiApplication: \tat android.app.FragmentManagerImpl.moveToState(FragmentManager.java:973)\r\n[ERROR] :  TiApplication: \tat android.app.FragmentManagerImpl.moveToState(FragmentManager.java:1148)\r\n[ERROR] :  TiApplication: \tat android.app.BackStackRecord.run(BackStackRecord.java:793)\r\n[ERROR] :  TiApplication: \tat android.app.FragmentManagerImpl.execPendingActions(FragmentManager.java:1535)\r\n[ERROR] :  TiApplication: \tat android.app.FragmentManagerImpl$1.run(FragmentManager.java:482)\r\n[ERROR] :  TiApplication: \tat android.os.Handler.handleCallback(Handler.java:739)\r\n[ERROR] :  TiApplication: \tat android.os.Handler.dispatchMessage(Handler.java:95)\r\n[ERROR] :  TiApplication: \tat android.os.Looper.loop(Looper.java:148)\r\n[ERROR] :  TiApplication: \tat android.app.ActivityThread.main(ActivityThread.java:5417)\r\n[ERROR] :  TiApplication: \tat java.lang.reflect.Method.invoke(Native Method)\r\n[ERROR] :  TiApplication: \tat com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:726)\r\n[ERROR] :  TiApplication: \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:616)\r\n[ERROR] :  TiApplication: Caused by: java.io.FileNotFoundException: Corrupt XML binary file\r\n[ERROR] :  TiApplication: \tat android.content.res.AssetManager.openXmlAssetNative(Native Method)\r\n[ERROR] :  TiApplication: \tat android.content.res.AssetManager.openXmlBlockAsset(AssetManager.java:485)\r\n[ERROR] :  TiApplication: \tat android.content.res.Resources.loadXmlResourceParser(Resources.java:2803)\r\n[ERROR] :  TiApplication: \t... 18 more\r\n[INFO] :   Process: Sending signal. PID: 5828 SIG: 9\r\n\r\n{code}\r\n*Environment*:\r\n\r\n*Device info:* Nexus7 (android 6.0.1)\r\n*Node.js Version:* 0.12.7\r\n*npm Version:* 2.11.3\r\n*Titanium SDKs:* 5.2.2.GA \r\n*Java Development Kit Version:* 1.8.0_73\r\n*Titanium CLI Version:*  5.0.5\r\n*Appcelerator CLI Version:*  5.2.2\r\n*Appcelerator Studio:* 4.5.0",
+					"updateAuthor": {
+						"name": "nsalahin",
+						"key": "nsalahin",
+						"displayName": "Nazmus Salahin",
+						"active": true,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2016-05-26T05:12:16.000+0000",
+					"updated": "2016-05-26T05:12:16.000+0000"
+				},
+				{
+					"id": "386872",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "That seems to happen because my library has a dependency on com.android.support:appcompat-v7:23.3.0 but I can't add it as a dependency because then I get the following errors:\r\n\r\n\r\n{code:java}\r\n[ERROR] :  Failed to run dexer:\r\n[ERROR] :  \r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$anim;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$attr;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$bool;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$color;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$dimen;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$drawable;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$id;\r\n[ERROR] :  Uncaught translation error: java.lang.IllegalArgumentException: already added: Landroid/support/v7/appcompat/R$integer;\r\n[ERROR] :  \r\n[ERROR] :  UNEXPECTED TOP-LEVEL EXCEPTION:\r\n[ERROR] :  java.lang.RuntimeException: Translation has been interrupted\r\n[ERROR] :  \tat com.android.dx.command.dexer.Main.processAllFiles(Main.java:608)\r\n[ERROR] :  \tat com.android.dx.command.dexer.Main.runMonoDex(Main.java:311)\r\n[ERROR] :  \tat com.android.dx.command.dexer.Main.run(Main.java:277)\r\n[ERROR] :  \tat com.android.dx.command.dexer.Main.main(Main.java:245)\r\n[ERROR] :  \tat com.android.dx.command.Main.main(Main.java:106)\r\n[ERROR] :  Caused by: java.lang.InterruptedException: Too many errors\r\n[ERROR] :  \tat com.android.dx.command.dexer.Main.processAllFiles(Main.java:600)\r\n[ERROR] :  \t... 4 more\r\n{code}",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-26T07:41:24.000+0000",
+					"updated": "2016-05-26T07:41:24.000+0000"
+				},
+				{
+					"id": "386879",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Any ideas what this error message means?",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-26T08:41:54.000+0000",
+					"updated": "2016-05-26T08:41:54.000+0000"
+				},
+				{
+					"id": "387117",
+					"author": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Any update?",
+					"updateAuthor": {
+						"name": "Ventis",
+						"key": "ventis",
+						"displayName": "David Vermeir",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-05-30T08:49:42.000+0000",
+					"updated": "2016-05-30T08:49:42.000+0000"
+				},
+				{
+					"id": "452133",
+					"author": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing issue as “Cannot Reproduce”. We have tested the code provided, and found that it is out of date with our current release (8.2.0.GA as of the date of closure), and out of date with mobile OS versions. Updating the code may not reproduce the issue reported, or be a valid test case.\r\n\r\nIf community members feel that the issue is still valid, please add a comment, and include code that demonstrates/reproduces the issue.\r\n\r\nAxway Appcelerator Studio, build: 5.1.4.201909061933 \r\nmacOS : 10.15\r\nNode.js Version : 8.9.1\r\nnpm Version : 5.5.1\r\nAppcelerator CLI : 7.1.1\r\nTitanium CLI\r\nCLI Version : 5.2.1\r\nnode-appc Version : 0.2.49\r\nTitanium SDKs : 8.2.0.GA\r\nPixel 3 Android API 29",
+					"updateAuthor": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-10-17T21:24:29.000+0000",
+					"updated": "2019-10-17T21:24:29.000+0000"
+				}
+			],
+			"maxResults": 17,
+			"total": 17,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-12147] iOS: regression: button created in require()d unit won't fire click event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-14T17:14:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.2, Release 3.1.0, 2013 Sprint 01 API, 2013 Sprint 01, 2013 Sprint 02</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>defect, ios, module_require, parity, qe-testadded, regression, titanbeta</td></tr>
+<tr><th>Reporter</th><td>Shawn Lipscomb</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-12-20T23:10:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-01-24T10:16:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+There is a regression in SDK 3.0.0.GA that prevents a button's click event from firing when the button is created in a require()d unit.
+
+Works in SDK 2.1.4.GA
+Broken in SDK 3.0.0.GA
+
+Note that this works fine on Android under SDK 3.0.0.GA (and SDK 2.1.4.GA)...the problem only exists on iOS.
+
+<h4>Testcase</h4>
+Run the following code and click the button.  A console message should appear when the button is clicked, and the button's title should change to "Clicked!", but under SDK 3.0.0.GA this does not happen.
+
+Note that this testcase is reduced down to the smallest reproducable code from a very large app.
+
+{panel:title=app.js}
+<code><pre>
+var win1=Ti.UI.createWindow({url:'win1.js',
+                             fullscreen:false,
+                             navBarHidden:false});
+win1.ButtonMaker=require('ButtonMaker');
+win1.open();
+</pre></code>
+{panel}
+
+{panel:title=win1.js}
+<code><pre>
+var MainWin=Ti.UI.currentWindow;
+
+var ButtonMaker=MainWin.ButtonMaker;
+
+function NewButtonClick(evt)
+{
+  Ti.API.info('Button was clicked');
+  Button1.title='Clicked!';
+}
+var Button1=ButtonMaker.NewButton(MainWin,'Click Me',NewButtonClick);
+</pre></code>
+{panel}
+
+{panel:title=ButtonMaker.js}
+<code><pre>
+exports.NewButton=function(Parent,Caption,ClkEvent)
+{
+  var AButton=Ti.UI.createButton({title:Caption,
+                                  width:'122dp',
+                                  height:'44dp'
+                                 });
+  Parent.add(AButton);
+  AButton.addEventListener('click',ClkEvent);
+  return AButton;
+};
+</pre></code>
+{panel}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Stepanov 2012-12-20
+
+   Shawn,
+   did you notice the following warning?
+   <code><pre>
+   [WARN] Creating [object TiUIButton] in a different context than the calling function.
+   </pre></code>
+   
+   Change win1.js code to require module from there, and it will work.
+   <code><pre>
+   var MainWin=Ti.UI.currentWindow;
+   
+   var ButtonMaker=require('ButtonMaker');
+   
+   function NewButtonClick(evt)
+   {
+     Ti.API.info('Button was clicked');
+     Button1.title='Clicked!';
+   }
+   var Button1=ButtonMaker.NewButton(MainWin,'Click Me',NewButtonClick);
+   </pre></code></li>
+<li>Shawn Lipscomb 2012-12-21
+
+   Max, yes I noticed that warning.  In the past (pre 3.0 SDK) we've received that warning with no detrimental effect.
+   
+   We've been using require() like in my example for a year and a half now with many apps dedicated to our CommonJS framework.  Moving all of our require() statements into every unit is not a practical solution for us.  There are dozens of them with complex relationships (units that require units that require units).  The example I gave is a significantly reduced bit of code to make it easy to see the problem.
+   
+   My code works fine in Android.  It works fine in SDK 2.1.4.  Something in 3.0.0 caused a regression.  Please see if this can be addressed.  Thanks.</li>
+<li>Ingo Muschenetz 2012-12-22
+
+   Shawn--we'll be fixing this the next sprint, which should hopefully be in time for your application deployment (though you will need an unofficial build).</li>
+<li>Shawn Lipscomb 2013-01-02
+
+   Thanks, Ingo...looking forward to it.</li>
+<li>Vishal Duggal 2013-01-07
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/3668" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3668</a></li>
+<li>Blain Hamon 2013-01-14
+
+   Pull merged.</li>
+<li>Shawn Lipscomb 2013-01-16
+
+   Any chance of this being merged into the 3.0.1 SDK?</li>
+<li>Ingo Muschenetz 2013-01-16
+
+   @Vishal--I added a backport request. Can we see if this can be addressed?</li>
+<li>Vishal Duggal 2013-01-16
+
+   backport PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3718" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3718</a>
+   Related JIRA ticket is TIMOB-12299</li>
+<li>Shyam Bhadauria 2013-01-18
+
+    Now the button is changed to 'Clicked' and console message also appears.
+    Environment used for verification -
+    -iOS 6.0 (simulator)
+    -Mac OSX 10.8
+    -Titanium Mobile SDK 3.1.0.v20130114171802
+    -Titanium Studio 3.0.1.201212181159</li>
+<li>Shawn Lipscomb 2013-01-18
+
+    Verified fixed in SDK 3.1.0.v20130114171802.  Thanks!</li>
+<li>Shawn Lipscomb 2013-01-23
+
+    Also verified fixed in SDK 3.0.2.v20130122172624.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12147.json">JSON Source</a></p>

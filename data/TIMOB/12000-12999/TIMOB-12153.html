@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-12153] Android : Scrollview with a tableview does not scroll if contentHeight is set to 'auto'"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-11T23:57:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0, Release 3.1.0, Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, exalture, qe-6.3.0, scrollview, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Anirudh Nagesh</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2012-12-26T19:57:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-20T17:32:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Run the below code snippet to see scrollview with a tableview inside not scrolling if contentHeight is set to 'auto'. It works fine if it is set to 500 or 1000. But works fine in ios with 'auto'.
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor:'gray',
+    layout:'vertical'
+});
+
+var someLabel = Ti.UI.createLabel({
+    text: 'some content'
+})
+
+win.add(someLabel);
+
+var testArray = new Array('1','2','3','4','5','6','7','8','9','10');
+
+var cardScrollView = Ti.UI.createScrollView({
+        layout:'vertical',
+        contentHeight:'auto', // 500 or 1000 works
+        contentWidth:'auto',
+        height: '100%',
+        width:'100%',
+        top:0,
+        scrollType:'vertical'
+});
+
+cardScrollView.addEventListener('scroll', function(e){
+    
+   Ti.API.info('Scroll called from scrollview'); 
+});
+var table_view = Ti.UI.createTableView({
+        //top: 350,
+        id: 'mytable',
+        scrollable: false,
+        touchEnabled:false,
+        className: "row",
+        backgroundColor:'white',
+        separatorColor:'black',
+        height: Ti.UI.SIZE
+});
+
+table_view.addEventListener('scroll', function(e){
+    
+   Ti.API.info('Scroll called from tableview'); 
+});
+var data = [];
+for(var i=0;i<testArray.length;i++)
+{
+    var row = Ti.UI.createTableViewRow({
+        title:testArray[i], color: "black"
+    });
+    
+    data[i] = row;
+}
+
+table_view.setData(data);
+
+cardScrollView.add(table_view);
+
+win.add(cardScrollView);
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Moshe Marciano 2013-01-13
+
+   I need to create a design of a page containing 2 parts. 
+   These parts containing dynamic data which I cannot predict their height on the page - it depends on a changeable data received from a database. 
+   In addition, The all page should be scrollable as one unit.
+   
+   The first part contain a place description card - some basic information, description and picture. The height of the card is dynamic.
+   
+   The second part is a users comments area. It contains a user comment, user name and pic. The amount of the comments is dynamic and might be very large so I need to control it and load only few at beginning and more by request. For that I used unscrollable tableview (as I need the all page scrolled as a unit).
+   
+   Even tough it might not be the best UI practice, it's the functionality needed and I cant think of another way to do it.
+   
+   On iOS it works just fine but I have some difficulties with Android.
+   The reason seems to be with the 'contentHeight' set to 'auto' which prevents Android to deal with dynamic data. this is the actual bug.</li>
+<li>Moshe Marciano 2013-01-13
+
+   for better clarity, see this screenshot, the entire screen must scroll as one unit, scroll area marked with blue pen
+   
+   <a href="http://cl.ly/image/2u2b3d39163x" rel="nofollow" target="_blank">http://cl.ly/image/2u2b3d39163x</a>
+   </li>
+<li>jithinpv 2013-03-13
+
+   Issue reproduces with
+   
+   Titanium Studio, build: 3.0.1.201212181159
+   Titanium SDK version: 3.1.0 (03/11/13 15:43 0c88429)
+   Titanium SDK version: 3.0.2 (02/07/13 16:46 a4def81)
+   Device: Samsung galaxy s duos Android version: 4.0.4</li>
+<li>Joshua Quick 2017-10-07
+
+   The TableView's height needs to be set to Ti.UI.SIZE in order for it to be sized beyond the bounds screen and be scrollable with the ScrollView. Otherwise, the TableView will Ti.UI.FILL by default and the fill size is limited to the ScrollView container size, making it unscrollable because the content area does not go beyond the bottom edge of the window.
+   (I've edited the above code to do this.)
+   
+   But that said, even with the Ti.UI.SIZE change I recommend, it still won't scroll on Android due to a bug in our ScrollView implementation.</li>
+<li>Joshua Quick 2017-10-09
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9513" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9513</a></li>
+<li>Gavin Matthews 2017-10-10
+
+   Presume this one was meant for you not me.</li>
+<li>Lokesh Choudhary 2017-10-10
+
+   FR Passed for master.
+   Waiting for backport.</li>
+<li>Joshua Quick 2017-10-11
+
+   PR (6.3.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/9521" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9521</a></li>
+<li>Lokesh Choudhary 2017-10-11
+
+   FR passed for backport. PR merged.</li>
+<li>Josh Longton 2017-10-20
+
+    Verified ticket, A scrollview with a tableview is now scrollable when contentHeight is set to <code>auto</code>.
+    
+    *ENV:*
+    {noformat}
+    macOS High Sierra 10.13
+    Nexus 5X(6.0.1)
+    Google Pixel Xl (8.0)
+    android emulator (4.4.2, 6.0)
+    Ti SDK: 6.3.0.v20171018084007
+    Appc NPM: 4.2.10-2
+    App CLI: 6.3.0-master.15
+    Node v6.11.4
+    {noformat}
+    
+    *Closing Ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12153.json">JSON Source</a></p>

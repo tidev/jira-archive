@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-11766] ActionBar issues with TabGroup"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-08-15T22:25:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Release 3.1.0, 2012 Sprint 23 Core, 2012 Sprint 23</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>3.0, SDK, module_actionbar, qe-automation, qe-port, triage</td></tr>
+<tr><th>Reporter</th><td>Shannon Hicks</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2012-11-14T14:10:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-15T22:25:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I found two issues with the latest ActionGroup code changes:
+
+1. Documentation: Ti.UI.TabGroup needs to reflect that you can get the "activity" property. I had to dig in the source to find out that TabGroupProxy extends WindowProxy under the covers to figure that out.
+
+2. "title" property for ActionBar does not do anything when the ActionBar is displayed with a TabGroup. Create a new project with the proper min-sdk setting, and use this code in app.js:
+
+<code><pre>
+var tabs = Ti.UI.createTabGroup();
+
+var win1 = Ti.UI.createWindow({
+	title:"Window 1",
+	backgroundColor:'#f00',
+});
+var tab1 = Ti.UI.createTab({
+	title:"Win 1",
+	window:win1,
+});
+
+tabs.addTab(tab1);
+
+var win2 = Ti.UI.createWindow({
+	title:"Window Dos",
+	backgroundColor:'#fff',
+});
+var tab2 = Ti.UI.createTab({
+	title:"Win 2",
+	window:win2,
+});
+
+tabs.addTab(tab2);
+
+tabs.addEventListener('focus', function(e) {
+	var actionBar = tabs.getActivity().actionBar; // "activity" is an undocumented Android property for TabGroup
+	if (actionBar) {
+		actionBar.setDisplayHomeAsUp(true); // works
+		actionBar.onHomeIconItemSelected = function() { // works
+			alert('actionBar hides for 5 seconds');
+			actionBar.hide(); // works
+			setTimeout(function(){
+				actionBar.show(); // works
+			},5000);
+		}
+//		actionBar.setTitle(e.tab.window.title); // title never appears
+		actionBar.setTitle('TEST'); // hard-coded text just to be sure
+	}
+});
+
+tabs.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Allen Yeung 2012-11-15
+
+   The docs probably need to be updated, since this mostly likely changed as a result of the new action bar stuff with tabgroups.
+   
+   As for the title not working, we might need to handle the tabgroups differently since it's a split action bar.</li>
+<li>Shannon Hicks 2012-11-16
+
+   Allen,
+   
+   I think you used the wrong term. The split action bar puts action buttons on the bottom instead of the upper-right: <a href="http://developer.android.com/guide/topics/ui/actionbar.html#SplitBar" rel="nofollow" target="_blank">http://developer.android.com/guide/topics/ui/actionbar.html#SplitBar</a></li>
+<li>Igor Santos 2012-11-16
+
+   I've noticed that tabGroup.getActivity() and tabGroup.activeTab.window.getActivity() return different items. The first one was not triggering onCreateOptionsMenu, while the second works fine for creating menu entries.</li>
+<li>Allen Yeung 2012-11-16
+
+   Yeah, I meant stacked action bar. Anyways, it looks like the showTitle display option was false for some reason, so I resolved it in this PR:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/3434" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3434</a></li>
+<li>Allen Yeung 2012-11-16
+
+   @Igor tabGroup.activeTab.window actually points to the window proxy that you passed into the creation args.  So in the example above, if you did tabGroup.activeTab.window, it will actually point to either win1 or win2 depending on which tab is active. Since the win1/win2 is a lightweight window, the window is most likely bound to the root activity of the app.
+   
+   The tabgroup itself is a different proxy and will create another activity.  As a result the two activities will be different.  It's probably a good idea to just use tabGroup.getActivity().</li>
+<li>Allen Yeung 2012-11-16
+
+   </li>
+<li>Igor Santos 2012-11-16
+
+   Thanks for the explanation, Allen!</li>
+<li>Arthur Evans 2012-11-16
+
+   Hi Allen,
+   
+   As noted, we need to resolve the discrepancy because Josh's original changes used the _window's_ activity for attaching the options menu. I think he did this because we'd never documented an activity property on TabGroup.
+   
+   Having to use one activity to access the action bar and a different one to access the action items doesn't make any sense. So it's not just a documentation problem.
+   </li>
+<li>Igor Santos 2012-11-16
+
+    sorry if I'm just messing around here, but wouldn't it make sense if tab.window.activity refer to tabGroup.getActivity() too? so we can access the same object from inside each window (and is probably what the dev would be looking for)</li>
+<li>Shannon Hicks 2012-11-17
+
+    Igor,
+    
+    I see your point of view about tab.window.activity/tabgroup.activity, but the issue is that each is a mapping to the actual Android Activity object that it's really tied to. That needs to remain accurate for many reasons that have nothing to do with the ActionBar.</li>
+<li>Shannon Hicks 2012-11-17
+
+    Since this was such a simple change to a new feature, shouldn't it be backported to 3.0?</li>
+<li>Arthur Evans 2012-11-17
+
+    Hi Shannon,
+    
+    The merge-3.0.0 tag in the labels field means exactly that--it's due to be backported. This missed the 3.0 beta 2 cutoff, so it'll probably be backported next week. </li>
+<li>Max Stepanov 2012-11-21
+
+    3_0_X PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3469" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3469</a></li>
+<li>Tamila Smolich 2012-12-04
+
+    Closing as fixed. Tested on: 
+    Titanium Studio, build: 3.0.0.201211301903
+    Titanium SDK, builds: 3.0.0.v20121130200208; 3.1.0.v20121203181001
+    Devices: Samsung Galaxy S III (4.0.4)</li>
+<li>Igor Santos 2012-12-12
+
+    I have two questions from a newbie about this:
+    
+    1. Should I be able to get the activity using <code>myTabGroup.activity</code>? I can only access it through <code>myTabGroup.getActivity()</code>
+    2. Would it be reasonable to ask for a <code>title</code> property for the TabGroup? It makes little sense for me to change the title of the TabGroup through the activity, while normal windows don't need it.</li>
+<li>Arthur Evans 2012-12-12
+
+    Hi Igor,
+    
+    Unfortunately, the fix to expose TabGroup.activity has not been merged yet, so I think it's missed the cut for 3.0 GA but it should be in 3.0.1. So use getActivity for now.
+    
+    Be sure to watch the related ticket, TIMOB-11796, if  you want to be updated when the fix gets in.
+    </li>
+<li>Igor Santos 2012-12-12
+
+    I'm watching it already, thanks!
+    
+    And how about the title issue?
+    
+    {quote}
+    Would it be reasonable to ask for a title property for the TabGroup? It makes little sense for me to change the title of the TabGroup through the activity, while normal windows don't need it.
+    {quote}</li>
+<li>Arthur Evans 2012-12-12
+
+    Hi Igor,
+    
+    Please open a feature request for the title property. I think there are two competing schools of though here (at least):
+    
+    1) We should expose a title on the tab group.
+    2) The action bar title should take the title of the current tab's window.
+    
+    I've spent some time reviewing the Android docs, and it's not clear to me which of these is preferable. 
+    </li>
+<li>Igor Santos 2012-12-13
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11766.json">JSON Source</a></p>

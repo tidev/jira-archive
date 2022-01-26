@@ -1,0 +1,337 @@
+{
+	"id": "163186",
+	"key": "TIMOB-23898",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "17608",
+				"name": "Release 6.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-05-26"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2017-02-16T18:30:43.000+0000",
+		"created": "2016-09-13T13:48:23.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "awaldman",
+			"key": "awaldman",
+			"displayName": "Andy Waldman",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2017-02-16T18:56:06.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "Out application depends on the mime type of the images retrieved through the gallery as it applies different operations based on that (like parsing EXIF and so on). This worked well until Titanium SDK 5.1.2.GA, but once we decided to upgrade to 5.4.0.GA we noticed problems with the images. Cause was wrongly set mime type with value (\"image/bitmap\") although the actual content in the BLOB is \"image/jpeg\".\r\nWe've done some further analysis and actually found the place in the code where this should be corrected. More precisely, if you look at TiBlob.java#blobFromImage() you will see:\r\n{code}\r\n/**\r\n\t * Creates a blob from a bitmap.\r\n\t * @param image the image used to create blob.\r\n\t * @return new instance of TiBlob.\r\n\t * @module.api\r\n\t */\r\n\tpublic static TiBlob blobFromImage(Bitmap image)\r\n\t{\r\n\t\r\n\t\tByteArrayOutputStream bos = new ByteArrayOutputStream();\r\n\t\tbyte data[] = new byte[0];\r\n\t\tif (image.hasAlpha()) {\r\n\t\t\tif (image.compress(CompressFormat.PNG, 100, bos)) {\r\n\t\t\t\tdata = bos.toByteArray();\r\n\t\t\t}\r\n\t\t}\r\n\t\telse {\r\n\t\t\tif (image.compress(CompressFormat.JPEG, 100, bos)) {\r\n\t\t\t\tdata = bos.toByteArray();\r\n\t\t\t}\r\n\t\t}\r\n\r\n\t\tTiBlob blob = new TiBlob(TYPE_IMAGE, data, \"image/bitmap\");\r\n\t\tblob.image = image;\r\n\t\tblob.width = image.getWidth();\r\n\t\tblob.height = image.getHeight();\r\n\t\treturn blob;\r\n}\r\n{code}\r\n\r\nYou can notice that although compression (PNG/JPEG) might happen the mime type is hardcoded as \"image/bitmap\" which is wrong.\r\nWe have changed the code to look like:\r\n{code}\r\npublic static TiBlob blobFromImage(Bitmap image)\r\n\t{\r\n\t        String mimeType = \"image/bitmap\";\r\n\t\tByteArrayOutputStream bos = new ByteArrayOutputStream();\r\n\t\tbyte data[] = new byte[0];\r\n\t\tif (image.hasAlpha()) {\r\n\t\t\tif (image.compress(CompressFormat.PNG, 100, bos)) {\r\n\t\t\t\tdata = bos.toByteArray();\r\n\t\t\t\tmimeType = \"image/png\";\r\n\t\t\t}\r\n\t\t}\r\n\t\telse {\r\n\t\t\tif (image.compress(CompressFormat.JPEG, 100, bos)) {\r\n\t\t\t\tdata = bos.toByteArray();\r\n\t\t\t\tmimeType = \"image/jpeg\";\r\n\t\t\t}\r\n\t\t}\r\n\r\n\t\tTiBlob blob = new TiBlob(TYPE_IMAGE, data, mimeType);\r\n\t\tblob.image = image;\r\n\t\tblob.width = image.getWidth();\r\n\t\tblob.height = image.getHeight();\r\n\t\treturn blob;\r\n\t}\r\n{code}\r\n \r\nand now the correct mime type is set.\r\nIn case you are interested, this problem occurred while resolving TIMOB-19910 (https://github.com/appcelerator/titanium_mobile/commit/2e10d9714b580caf6b9eff1e4436976a8e48cac7)\r\n\r\nPlease apply this fix in the next SDK release.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Mime-type in Ti.Media.openPhotoGallery() is always image/bitmap",
+		"creator": {
+			"name": "ivo.tasevski",
+			"key": "ivo.tasevski",
+			"displayName": "Ivo",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "ivo.tasevski",
+			"key": "ivo.tasevski",
+			"displayName": "Ivo",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "OSX El Capitan 10.11.3\r\nTitanium SDK 5.4.0.GA\r\nGalaxy Tab S2 with Android 6.0.1\r\n",
+		"closedSprints": [
+			{
+				"id": 707,
+				"state": "closed",
+				"name": "2016 Sprint 19 SDK",
+				"startDate": "2016-09-10T00:17:15.164Z",
+				"endDate": "2016-09-24T00:17:00.000Z",
+				"completeDate": "2016-09-26T05:17:04.253Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 839,
+				"state": "closed",
+				"name": "2017 Sprint 04 SDK",
+				"startDate": "2017-02-12T23:36:00.961Z",
+				"endDate": "2017-02-26T23:36:00.000Z",
+				"completeDate": "2017-02-26T17:38:54.172Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "396012",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hey [~ivo.tasevski], can you do a PR for your change to look into? That will speed-up the review-process and availability in the core-SDK. Thanks!",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-09-13T14:51:57.000+0000",
+					"updated": "2016-09-13T14:51:57.000+0000"
+				},
+				{
+					"id": "396112",
+					"author": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Pull request against master: https://github.com/appcelerator/titanium_mobile/pull/8381",
+					"updateAuthor": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-09-14T13:28:40.000+0000",
+					"updated": "2016-09-14T13:28:40.000+0000"
+				},
+				{
+					"id": "396113",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Thanks! To keep this ticket clean, please delete your first comment with the old PR. And can you provide an example that can validate the change? Also, I noticed that using your PR, the {{image/bitmap}} will never be used, since the {{else}}-case is {{image/jpeg}}. A bit curious about backwards-compatibility with that. Please ensure that you tested your PR beforehand.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-09-14T13:34:59.000+0000",
+					"updated": "2016-09-14T13:34:59.000+0000"
+				},
+				{
+					"id": "396196",
+					"author": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Testcase:\r\n{code}\r\nvar window = Ti.UI.createWindow();\r\nvar button = Ti.UI.createButton({\r\n    title : \"Open Gallery\"\r\n});\r\nbutton.addEventListener(\"click\", function() {\r\n    Ti.Media.openPhotoGallery({\r\n        allowEditing : false,\r\n        autohide : true,\r\n        popoverView : button,\r\n        mediaTypes : [Ti.Media.MEDIA_TYPE_PHOTO],\r\n        success : function(e) {\r\n            alert(e.media.mimeType);\r\n        },\r\n        error : function(e) {\r\n            // not relevant\r\n        },\r\n        cancel : function() {\r\n            // not relevant\r\n        }\r\n    });\r\n});\r\nwindow.add(button);\r\nwindow.open();\r\n{code}\r\n\r\nBased on the image type selected in the gallery alert with \"image/jpeg\", \"image/png\" or \"image/bimap\" should pop.",
+					"updateAuthor": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-09-15T09:01:45.000+0000",
+					"updated": "2016-09-15T09:06:02.000+0000"
+				},
+				{
+					"id": "396199",
+					"author": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-09-15T09:20:01.000+0000",
+					"updated": "2016-09-15T09:20:01.000+0000"
+				},
+				{
+					"id": "396202",
+					"author": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I just realized that when compression will return false the content will be empty (as \"data\" is never filled with the raw content of the Bitmap). However this is a problem on its own (existing even now) that deserves a separate jira. As this will require extended effort and we are short on resources we cannot create another PR atm.",
+					"updateAuthor": {
+						"name": "ivo.tasevski",
+						"key": "ivo.tasevski",
+						"displayName": "Ivo",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-09-15T09:42:21.000+0000",
+					"updated": "2016-09-15T09:43:17.000+0000"
+				},
+				{
+					"id": "396203",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Thanks for the note, please file a separate ticket for that one. I just merged your PR, thanks again for that! \r\n\r\n[~bimmel]: To note for the community contributions in the 6.1.0 release notes",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-09-15T09:51:47.000+0000",
+					"updated": "2016-09-15T09:51:47.000+0000"
+				},
+				{
+					"id": "396232",
+					"author": {
+						"name": "bimmel-defective",
+						"key": "bimmel",
+						"displayName": "(deactived) Brian Immel",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Thanks [~hans123]. I'll add Ivo to the release note page now.",
+					"updateAuthor": {
+						"name": "bimmel-defective",
+						"key": "bimmel",
+						"displayName": "(deactived) Brian Immel",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-09-15T16:22:47.000+0000",
+					"updated": "2016-09-15T16:29:26.000+0000"
+				},
+				{
+					"id": "404885",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "When I try the test case provided above I always get 'image/jpeg' popping up when i select and image from the gallery even if the image i chose is a {{.png}} or a {{.bmp}}.\r\n\r\n*Environment*\r\n{code:java}\r\nAppcelerator Command-Line Interface, version 6.1.0\r\nNexus 6P (Android version 7.1.1)\r\nNexus 5 (Android 6.0.1)\r\nOperating System Name: Mac OS X El Capitan\r\nOperating System Version: 10.11.6\r\nNode.js Version: 4.6.0\r\nnpm: 4.2.8\r\nTitanium SDK Version: 6.1.0.v20170115172707\r\nXcode: 8.2\r\nAppcelerator Studio: 4.8.1.201612050850\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-01-19T21:34:52.000+0000",
+					"updated": "2017-01-19T21:34:52.000+0000"
+				},
+				{
+					"id": "406763",
+					"author": {
+						"name": "awaldman",
+						"key": "awaldman",
+						"displayName": "Andy Waldman",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "master: https://github.com/appcelerator/titanium_mobile/pull/8826",
+					"updateAuthor": {
+						"name": "awaldman",
+						"key": "awaldman",
+						"displayName": "Andy Waldman",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-02-09T19:39:43.000+0000",
+					"updated": "2017-02-09T19:39:43.000+0000"
+				},
+				{
+					"id": "407217",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix in SDK 6.1.0.v20170216091514. \r\nWorks as expected.\r\n\r\nClosing.\r\n\r\nAppc Studio : 4.8.1.201701192003\r\nSDK Version : 6.1.0.v20170216091514\r\nMac OS Version : 10.12.2\r\nXcode Version : Xcode 8.2.1 Build version 8C1002\r\nAppc CLI AND Appc NPM : {\"NPM\":\"4.2.9-1\",\"CLI\":\"6.1.0\"}\r\nTi CLI : 5.0.11\r\nAlloy : 1.9.5\r\nNode : v4.6.0\r\nDevice: running 7.1.1Pixel",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-02-16T18:55:59.000+0000",
+					"updated": "2017-02-16T18:55:59.000+0000"
+				}
+			],
+			"maxResults": 11,
+			"total": 11,
+			"startAt": 0
+		}
+	}
+}

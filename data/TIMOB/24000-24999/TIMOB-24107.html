@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-24107] iOS: Setting "navBarHidden" before opening Ti.UI.iOS.NavigationWindow has no effect (regression)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-11-06T14:57:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-6.0.0</td></tr>
+<tr><th>Reporter</th><td>Mathias Eklöf</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-11-03T09:37:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-11-09T15:49:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When I upgraded to latest 6.0.0 RC this morning, the property navBarHidden doesnt seem to have any effect on any window. Also, the "swipeBack" is possible even though I specify windowObj.swipeToClose = false;
+
+(I guess these issues are together)
+<code><pre>
+var windowObj = Ti.UI.createWindow({
+    translucent: false,
+    navBarHidden: true
+});
+var nav = Ti.UI.iOS.createNavigationWindow({
+    window: windowObj
+});
+nav.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-11-03
+
+   Hey Mathias,
+   
+   So far the <code>navBarHidden</code> property, it needs to be called when the window is already added to a navigation window, e.g.:
+   <code><pre>
+   var windowObj = Ti.UI.createWindow({
+       translucent: false,
+       backgroundColor: "#f00"
+   });
+   
+   var nav = Ti.UI.iOS.createNavigationWindow({
+       window: windowObj
+   });
+   
+   
+   windowObj.addEventListener("focus", function() {
+       windowObj.setNavBarHidden(true);    
+   });
+   nav.open();
+   </pre></code>
+   but I'm sure we can improve the code to also work beforehand by caching the value and apply it on the creation of the navigation window. For the <code>swipeToClose</code> issue, I have not been able to reproduce it using this code:
+   <code><pre>
+   var windowObj = Ti.UI.createWindow({
+       translucent: false,
+       backgroundColor: "#f00"
+   });
+   
+   var nav = Ti.UI.iOS.createNavigationWindow({
+       window: windowObj
+   });
+   
+   
+   windowObj.addEventListener("focus", function() {
+       nav.openWindow(Ti.UI.createWindow({
+           swipeToClose: false
+       }))
+   })
+   
+   
+   nav.open();
+   </pre></code></li>
+<li>Hans Knöchel 2016-11-05
+
+   Ok, there was a problem here. Exposing the setter caused problems for the key-value handling in the internal <code>viewDidAppear:</code> method. So since they all are availably on-creation anyway, I moved the setters to the internal <code>TiWindow</code> proxy and exposed the default values to have clean getters. 
+   
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/8585" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8585</a>
+   PR (6_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8586" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8586</a>
+   
+   Test-Case:
+   <code><pre>
+   var windowObj = Ti.UI.createWindow({
+       navBarHidden: true,
+       hidesBarsOnSwipe: true,
+       hidesBarsOnTap: true,
+       hidesBarsWhenKeyboardAppears: true,
+   });
+   var nav = Ti.UI.iOS.createNavigationWindow({
+       window: windowObj
+   });
+   nav.open();
+   
+   Ti.API.warn("navBarHidden = " + windowObj.navBarHidden);
+   Ti.API.warn("hidesBarsOnSwipe = " + windowObj.hidesBarsOnSwipe);
+   Ti.API.warn("hidesBarsOnTap = " + windowObj.hidesBarsOnTap);
+   Ti.API.warn("hidesBarsWhenKeyboardAppears = " + windowObj.hidesBarsWhenKeyboardAppears);
+   </pre></code>
+   
+   You can test the default values by removing the properties form the window and see the result. They should all default to <code>false</code>.</li>
+<li>Harry Bryant 2016-11-09
+
+   Verified as fixed, navBarHidden now works as intended as well as the above associated properties, in both cases of TRUE and FALSE. Removing the properties is confirmed to default as FALSE.
+   
+   Tested On:
+   iPhone 7 10.1.1 Device & Simulator
+   iPhone 5S 9.3.5 Device
+   Mac OS Sierra (10.12.1)
+   Ti SDK: 6.0.0.v20161107075927
+   Appc Studio: 4.8.0.201611020954
+   Appc NPM: 4.2.8-9
+   App CLI: 6.0.0-68
+   Xcode 8.1
+   Node v4.4.7
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24107.json">JSON Source</a></p>

@@ -1,0 +1,254 @@
+---
+title: "[TIMOB-944] accessing detail default popover = crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:54:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Nolan Wright</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:39:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:54:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>if you try to save a reference to the popover from the visible
+event and then use it later, it crashes. here's the code:</p>
+<p>var masterWindow = Ti.UI.createWindow({<br></p>
+<pre>
+<code>backgroundColor: '#fdf5e5',
+barColor: '#ec4930'</code>
+</pre>
+<p>});</p>
+<p>var masterNavigationGroup =
+Ti.UI.iPhone.createNavigationGroup({<br>
+window: masterWindow });</p>
+<p>var b = Ti.UI.createButton({<br></p>
+<pre>
+<code>title:'Search',
+height:100,
+width:100</code>
+</pre>
+<p>}); b.addEventListener('click', function()<br>
+{</p>
+<pre>
+<code>Ti.App.fireEvent('openMasterView');</code>
+</pre>
+<p>});</p>
+<p>var detailWindow = Ti.UI.createWindow({<br>
+backgroundColor: '#f7f0e3', barColor: '#ec4930', rightNavButton: b
+});</p>
+<p>var detailNavigationGroup =
+Ti.UI.iPhone.createNavigationGroup({<br>
+window: detailWindow });</p>
+<p>var splitWindow = Ti.UI.iPad.createSplitWindow({<br></p>
+<pre>
+<code>detailView: detailNavigationGroup,
+masterView: masterNavigationGroup</code>
+</pre>
+<p>});</p>
+<p>var masterPopover = null;<br>
+var masterView = null;<br>
+splitWindow.addEventListener('visible', function(e)<br>
+{</p>
+<pre>
+<code>masterPopover = e.popover;
+masterView = e.button
+if (e.view == 'detail') 
+{
+    e.button.title = "foo";
+    detailWindow.leftNavButton = e.button; 
+
+}
+
+else if (e.view == 'master') 
+{
+    detailWindow.leftNavButton = null;</code>
+</pre>
+<p>} });</p>
+<p>Ti.App.addEventListener("openMasterView", function(d)<br>
+{</p>
+<pre>
+<code>Ti.API.info('in openMasterView pop ' + masterPopover)
+if (masterPopover != null)
+{
+    masterPopover.show({view:masterView});  
+}</code>
+</pre>
+<p>});<br></p>
+<p>splitWindow.open();</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>The biggest issue here is that I have no idea what the user is
+   trying to accomplish. Why would you show a popover of a button? The
+   wording seems to indicate that they want to show a popover of the
+   master view, but why would you ever do that?</p>
+   <p>There is an additional problem that the masterView variable
+   appears to be incorrectly set at certain times as far as the
+   context for the app event listener is concerned. Regardless, there
+   are still problems with popovers.</p>
+   <p>Here is some slightly modified code, which crashes in a
+   different (but vastly more appropriate) way:</p>
+   <pre>
+   <code>var masterWindow = Ti.UI.createWindow({
+       backgroundColor: 'red',
+       barColor: '#ec4930'
+   });
+   
+   var masterPopover = null;
+   var masterView = null;
+   var b = Ti.UI.createButton({
+       title:'Search',
+       height:100,
+       width:100
+   }); 
+   b.addEventListener('click', function()
+   {
+       Ti.API.info('in openMasterView pop ' + masterPopover);
+       Ti.API.info('Master view: '+masterView);
+       if (masterPopover != null)
+       {
+           masterPopover.show({view:masterView, 
+                               rect:{x:100,y:100,width:100,height:300}});  
+       }
+   });
+   
+   var detailWindow = Ti.UI.createWindow({
+       backgroundColor: 'blue', 
+       barColor: '#ec4930', 
+       rightNavButton: b 
+   });
+   
+   var masterNavigationGroup = Ti.UI.iPhone.createNavigationGroup({
+       window: masterWindow
+   });
+   var detailNavigationGroup = Ti.UI.iPhone.createNavigationGroup({
+       window:detailWindow
+   });
+   
+   var splitWindow = Ti.UI.iPad.createSplitWindow({
+       detailView: detailNavigationGroup,
+       masterView: masterNavigationGroup
+   });
+   
+   splitWindow.addEventListener('visible', function(e) {
+       Ti.API.log(e);
+       masterPopover = e.popover;
+       masterView = e.button;
+       if (e.view == 'detail') 
+       {
+           e.button.title = "foo";
+           detailWindow.leftNavButton = e.button; 
+       }
+       else if (e.view == 'master') 
+       {
+           detailWindow.leftNavButton = null;
+       } 
+       Ti.API.log('Master view:'+masterView);
+   });
+   
+   splitWindow.open();</code>
+   </pre>
+   <p>Looking into resolving this now.</p></div></li>
+<li>Nolan Wright 2011-04-15
+
+   <div><p>They are trying to set the value of masterPopover in order to
+   use it later in the app. Seems valid to me.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Yeah, that comment was written before I took a look through some
+   more of the presentation code. There is still some kind of very
+   strange issue with setting masterView = e.button, however, because
+   in the app event listener it wasn't the correct value (although it
+   was the right value in the context of the function which set
+   it).</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/7fc6a66f81548c8535f270bed0106464fc0cfc65"
+   title=
+   "Changeset [7fc6a66f81548c8535f270bed0106464fc0cfc65]">[7fc6a66f81548c8535f270bed0106464fc0cfc65]</a>)
+   [<a href="/projects/32238/tickets/944" title="Ticket #944">#944</a>
+   state:open] Fixes to split window buttons. Necessary for upcoming
+   changes to how popovers display. <a href=
+   "<a href="http://github.com/appcelerator/titanium_mobile/commit/7fc6a66f81548c8535f270bed0106464fc0cfc65" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/7fc6a66f81548c8535f270bed0106464fc0cfc65</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/commit/7fc6a66f81548..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/7fc6a66f81548...</a></a></p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/c28c79c40727235b3481a0d042299b8a408fd22a"
+   title=
+   "Changeset [c28c79c40727235b3481a0d042299b8a408fd22a]">[c28c79c40727235b3481a0d042299b8a408fd22a]</a>)
+   Closes <a href="/projects/32238/tickets/944" title=
+   "Ticket #944">#944</a>: Removed access to the splitview's builtin
+   popover. See the ticket for why. <a href=
+   "<a href="http://github.com/appcelerator/titanium_mobile/commit/c28c79c40727235b3481a0d042299b8a408fd22a" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/c28c79c40727235b3481a0d042299b8a408fd22a</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/commit/c28c79c407272..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/c28c79c407272...</a></a></p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>This was a case of burning the village to save it. We shouldn't
+   allow access to the popover that's managed by the split view,
+   because certain magic happens with it - if it's messed with in any
+   way, that magic might not happen (or could appear very odd).
+   Besides, the popover doesn't have anything innate about it beyond
+   being used for this special system: It doesn't automatically hold
+   the master view, for example.</p>
+   <p>If it's absolutely necessary to display the master view in a
+   non-convential way via popover, you should make your own popover
+   and manage it yourself, to display the master view when
+   required.</p></div></li>
+<li>Tim.Alosi 2011-04-15
+
+   <div><p>Regarding removing access to the Popover in a Splitview.</p>
+   <p>There is one reason why one would need access to it ... to close
+   it when an event is fired.</p>
+   <p>If you look at the standard Mail app, when an email is selected
+   from the splitview popover, the app automatically closes the
+   popover and shows the detail window.</p>
+   <p>Currently in the visible event, having the instance would allow
+   the app to close the popover. With out that access to the object,
+   there is no apparent way to close the default split view
+   Popover.</p>
+   <p>If there is, please post response.</p>
+   <p>Thanks<br>
+   Tim</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Looking through the code, there is not currently a way exposed
+   to close an open split view popover. I don't mind the ability to
+   close the split view popover, but I'd much rather it be
+   functionality explicitly added to split view (IE,
+   splitView.closeMainViewPopover() ) rather than restore the previous
+   hack. The previous hack was very error prone and would have caused
+   a great many problems going forward.</p></div></li>
+<li>Tim.Alosi 2011-04-15
+
+   <div><p>So, can we get such a function into the road map for 1.5 or a
+   later release?</p></div></li>
+<li>Craig Marvelley 2011-04-15
+
+    <div><p>Hi,</p>
+    <p>Was a solution ever put in place for this functionality? It's
+    crucial that we are able to dismiss the popover programmatically,
+    not just from a UX point of view but also because it can cause
+    crashes. For example, if one attempts to close a split window while
+    the popover is still visible, the following crash occurs:</p>
+    <pre>
+    <code>2011-03-06 13:18:52.817 S4CiPad[91506:207] *** Terminating app due to uncaught exception 'NSGenericException', reason: '-[UIPopoverController dealloc] reached while popover is still visible.'</code>
+    </pre>
+    <p>Thanks.</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-944.json">JSON Source</a></p>

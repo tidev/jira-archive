@@ -1,0 +1,286 @@
+---
+title: "[AC-2302] Android: Ti.Android.stopService(intent) is not removing the service"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-07-09T22:17:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Barry van der Pol</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2013-11-11T14:27:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I want to schedule a new notification through a serviceIntent, but i already have scheduled one. So first I stop the previous one and check if it has been stopped, when the previous serviceIntent has been stopped I start a new serviceIntent. 
+
+But when I start the new service, the previous one will be triggered immediately. What I am expecting is that the previous serviceIntent does not exist anymore.
+
+below an example of the problem: 
+
+<code><pre>
+var win = Titanium.UI.createWindow({
+	backgroundColor : 'red'
+});
+var btn = Ti.UI.createButton({
+	title : 'Add Notification'
+});
+
+btn.addEventListener('click', function(e) {
+	var now = new Date().getTime();
+	var delta = new Date( now + (30 * 1000) );
+	var deltaMS = delta - now;
+
+	var intent = Ti.Android.createServiceIntent({
+		url : 'ExampleService.js'
+	});
+	intent.putExtra('interval', deltaMS);
+	intent.putExtra('message' , 'This is that little extra');
+	if (Ti.Android.isServiceRunning(intent)){
+		Ti.API.log("service is running, stopping it now");
+		Ti.Android.stopService(intent);
+	}
+	if (Ti.Android.isServiceRunning(intent) == false){
+		Ti.API.log("service is NOT running, starting it now");
+		Ti.Android.startService(intent);
+	}
+	
+});
+win.add(btn);
+win.open();
+</pre></code> 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2013-11-19
+
+   Hi Barry,
+   
+   Please try the code below. The logic seems to be incorrect. You need to initialize the intent variable first.
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor : 'red'
+   });
+   var btn = Ti.UI.createButton({
+       title : 'Add Notification'
+   });
+    
+   var intent = null;
+   btn.addEventListener('click', function(e) {
+       if (intent){
+   		if (Ti.Android.isServiceRunning(intent)){
+   	        Ti.API.log("service is running, stopping it now");
+   	        Ti.Android.stopService(intent);
+   	    }else{
+   	    	Ti.API.log("service is NOT running, starting it now");
+   	    	Ti.Android.startService(intent);
+   	    }    	
+       }else{
+       	var now = new Date().getTime();
+   	    var delta = new Date( now + (30 * 1000) );
+   	    var deltaMS = delta - now;
+   	 
+   	    intent = Ti.Android.createServiceIntent({
+   	        url : 'ExampleService.js'
+   	    });
+   	    intent.putExtra('interval', deltaMS);
+   	    intent.putExtra('message' , 'This is that little extra');
+           Ti.Android.startService(intent);
+       }
+       
+       // if (Ti.Android.isServiceRunning(intent) == false){
+           // Ti.API.log("service is NOT running, starting it now");
+   //         
+       // }
+        
+   });
+   win.add(btn);
+   win.open();  
+   </pre></code>
+   
+   Lets us know if this works. We will be glad to hear from you.
+   </li>
+<li>Barry van der Pol 2013-11-21
+
+   Hello Ritu,
+   
+   Thanks for your reply. I have tried the code you posted above, but the problem still occurs.
+   When the button is pressed once, de service will start with a new created intent.
+   When the button is pressed twice the service will be stoppped.
+   But when the button is pressed for the third time the problem occurs, the service with the intent that started when the button was pressed for the first time will immediately be triggered. What I am expecting is that is the service will restart. In case that a new intent is provided to the startService method, it will never be triggered. 
+   
+   bellow i have changed the code you have provided where it will put an new intent to the service.
+   
+   var win = Titanium.UI.createWindow({
+   	backgroundColor : 'red'
+   });
+   var btn = Ti.UI.createButton({
+   	title : 'Add Notification'
+   });
+   
+   var intent = null;
+   btn.addEventListener('click', function(e) {
+   	if (intent){
+   		if (Ti.Android.isServiceRunning(intent)){ 
+   			Ti.API.log("service is running, stopping it now"); 
+   			Ti.Android.stopService(intent);
+   		}else{
+   			var now = new Date().getTime();
+   			var delta = new Date( now + (30 * 1000) );
+   			var deltaMS = delta - now;
+   			intent = Ti.Android.createServiceIntent({ url : 'ExampleService.js' });
+   			intent.putExtra('interval', deltaMS);
+   			intent.putExtra('message' , 'This is the second or later intent');
+   			Ti.API.log("service is NOT running, starting it now");
+   			Ti.Android.startService(intent);
+   		} 
+   	}else{
+   		var now = new Date().getTime();
+   		var delta = new Date( now + (30 * 1000) );
+   		var deltaMS = delta - now;
+   		intent = Ti.Android.createServiceIntent({ url : 'ExampleService.js' });
+   		intent.putExtra('interval', deltaMS);
+   		intent.putExtra('message' , 'This is the first intent');
+   		Ti.Android.startService(intent);
+   	}
+   // if (Ti.Android.isServiceRunning(intent) == false){ // Ti.API.log("service is NOT running, starting it now"); // // }
+   });
+   
+   win.add(btn);
+   win.open();
+   
+   what will happen in this case is: 
+   first buttonpress: an service will start with an intent that contains an extra param 'message' with the value "This is the first intent".
+   second buttonpress: will stop the service with the intent that contains an extra param 'message' with the value "This is the first intent".
+   third buttonpress: will execute ExampleService.js immediately with extra param 'message' with the value "This is the first intent". And the intent with extra param 'message' with the value "This is the second or later intent" will never be executed.
+   
+   I hope you understand the problem better now.
+   
+   
+   </li>
+<li>Mostafizur Rahman 2013-12-07
+
+   Hi Barry,
+   
+   I tested the code below on an Android emulator. It is removing the service as expected. This is slightly modified code than the one you posted. Would you mind trying it out and let us know if this solves your issue. I appreciate your response.
+   
+   app.js
+   
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+   	backgroundColor : 'red'
+   });
+   var btn = Ti.UI.createButton({
+   	title : 'Add Notification'
+   });
+   
+   var intentStatus = false;
+   btn.addEventListener('click', function(e) {
+   
+   	var now = new Date().getTime();
+   	var delta = new Date(now + (30 * 1000));
+   	var deltaMS = delta - now;
+   	Ti.API.info('deltaMS: ' + deltaMS);
+   	var intent = Ti.Android.createServiceIntent({
+   		url : 'ExampleService.js'
+   	});
+   	if (Ti.Android.isServiceRunning(intent)) {
+   		Ti.API.log("service is running, stopping it now");
+   		Ti.Android.stopService(intent);
+   	} else if (intentStatus) {
+   		intent.putExtra('interval', deltaMS);
+   		intent.putExtra('message', 'This is the second or later intent');
+   		Ti.API.log("This is the second or later intent");
+   		Ti.Android.startService(intent);
+   	} else {
+   		intent.putExtra('interval', deltaMS);
+   		intent.putExtra('message', 'This is the first intent');
+   		Ti.API.log("This is the first intent");
+   		Ti.Android.startService(intent);
+   
+   		intentStatus = true;
+   	}
+   
+   });
+   /*
+    btn.addEventListener('click', function(e) {
+    if (intent) {
+    if (Ti.Android.isServiceRunning(intent)) {
+    Ti.API.log("service is running, stopping it now");
+    Ti.Android.stopService(intent);
+    } else {
+    var now = new Date().getTime();
+    var delta = new Date(now + (30 * 1000));
+    var deltaMS = delta - now;
+    intent = Ti.Android.createServiceIntent({
+    url : 'ExampleService.js'
+    });
+    intent.putExtra('interval', deltaMS);
+    intent.putExtra('message', 'This is the second or later intent');
+    Ti.API.log("service is NOT running, starting it now");
+    Ti.Android.startService(intent);
+    }
+    } else {
+    var now = new Date().getTime();
+    var delta = new Date(now + (30 * 1000));
+    var deltaMS = delta - now;
+    intent = Ti.Android.createServiceIntent({
+    url : 'ExampleService.js'
+    });
+    intent.putExtra('interval', deltaMS);
+    intent.putExtra('message', 'This is the first intent');
+    Ti.Android.startService(intent);
+    }
+    // if (Ti.Android.isServiceRunning(intent) == false){ // Ti.API.log("service is NOT running, starting it now"); // // }
+    }); */
+   
+   win.add(btn);
+   win.open();
+   
+   </pre></code>
+   
+   ExampleService.js
+   
+   <code><pre>
+   var service = Ti.Android.currentService;
+   var intent = service.getIntent();
+   var teststring = intent.getStringExtra('message') + ' (instance ' + service.serviceInstanceId + ')';
+   
+   Ti.API.info('teststring:  ' + teststring); 
+   </pre></code>
+   
+   tiapp.xml
+   <code><pre>
+   <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <services>
+               <service type="interval" url="ExampleService.js"/>
+           </services>
+       </android>
+   </pre></code>
+   
+   
+   Thanks </li>
+<li>Mauro Parra-Miranda 2014-06-30
+
+   Hello [~nsttu]!
+   
+   Did the last comment fix your issue? 
+   
+   Let us know! 
+   
+   Thanks!</li>
+<li>Mauro Parra-Miranda 2014-07-09
+
+   This is working for [~mrahman], and customer hasn't replied to us yet.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2302.json">JSON Source</a></p>

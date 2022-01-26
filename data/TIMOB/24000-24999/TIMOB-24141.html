@@ -1,0 +1,160 @@
+---
+title: "[TIMOB-24141] iOS: TiBlob.imageAsResized resizing the Blob image but file size is very high (JPG)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-11-14T06:35:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>supportTeam</td></tr>
+<tr><th>Reporter</th><td>Meenakshi Pathak</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2013-03-18T11:58:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-01-05T00:37:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+'imageAsResized' however resizing the Blob image but resulting image size is very high.
+
+<code><pre>
+var image = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'images.jpeg').read();
+    Ti.API.info("original image size:" + image.size);
+    Ti.API.info("original image dimensions: " + image.width + 'x' + image.height);
+    var newBlob1 = image.imageAsResized(160,120);
+    Ti.API.info("test 1 image size:" + newBlob1.size);
+    Ti.API.info("test 1 image dimensions: " + newBlob1.width + 'x' + newBlob1.height);
+   
+    var bgImage = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, 'test.jpeg');
+
+    bgImage.write(newBlob1);
+</pre></code>
+
+Note: This issue is found with JPG images.However it is working fine in .png files.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sho Kawakami 2013-05-29
+
+   File extension is jpeg(jpg), but actual contents are png.
+   This problem occurs similarly in imageAsThumbnail() and imageAsCropped().
+   
+   Mimetype is detected by whether the image has alpha in Tiblob.m(Line 112).
+   UIImageResize set to alpha(kCGImageAlphaPremultipliedLast) in UIImage+Resize.m(Line 49).
+   Therefore, mimetype is set to png. 
+   </li>
+<li>Cedric Paternotte 2013-07-12
+
+   Here is a workaround that works for me on iOS : use Ti.ImageFactory.compress to force jpeg format
+   
+   <code><pre>
+   // read source image
+   var sourceImage = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'source.jpg').read();
+   
+   // resize it using core Ti.Blob.imageAsResized()
+   var resizedImage = sourceImage.imageAsResized(160,120);
+   
+   // do this step if ios only 
+   if (OS_IOS)
+   {
+     // choose desired compression level (from 0.0 to 1.0) 
+     var compression_level = 0.75; 
+   
+     // load ImageFactory module
+     var ImageFactory = require('ti.imagefactory');
+     
+     // convert image to jpeg
+     resizedImage = ImageFactory.compress( resizedImage, compression_level );    
+   }
+   
+   // create destination file
+   var destFile = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, 'destination.jpg');
+   
+   // write resized image to destination file
+   destFile.write(resizedImage);
+   </pre></code></li>
+<li>Ingo Muschenetz 2015-04-06
+
+   Thank you all. Is anyone able to file a PR based on these findings? If so, we'd be happy to merge it in.</li>
+<li>Hans Knöchel 2016-11-11
+
+   So I looked into this. The method is meant to be used for resizing, not compressing. While PNG's will auto-compress because of the image/png mime-type, jpg-images (image/jpeg) won't. So I would suggest to either add the <code>compress</code> method from Ti.ImageFactory inside the core (like <code>imageAsCompressed</code>) or use the official Ti.ImageFactory module which is meant for exactly this use-cases. The suggested method would be quite simple:
+   <code><pre>
+   - (id)imageAsCompressed:(id)args
+   {
+       [self ensureImageLoaded];
+       if (image != nil) {
+           ENSURE_ARG_COUNT(args,1);
+           
+           float compressionQuality = [TiUtils floatValue:[args objectAtIndex:0] def:1.0];
+           return [[[TiBlob alloc] initWithData:UIImageJPEGRepresentation(image, compressionQuality) mimetype:@"image/jpeg"] autorelease];
+       }
+       return nil;
+   }
+   </pre></code>
+   Feedback appreciated
+   
+   *EDIT*: Moved the issue to TIMOB since the issue is not occurring in the module but in the core-method.</li>
+<li>Hans Knöchel 2016-11-11
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8602" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8602</a>
+   
+   Test-Case:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: "Resize, compress and write"
+   });
+   
+   btn.addEventListener("click", function() {
+       var image = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'test.jpg').read();
+       Ti.API.info(" - original image size:" + image.size);
+       Ti.API.info(" - original image dimensions: " + image.width + 'x' + image.height);
+       Ti.API.info(" - original image path: " + image.nativePath);
+       
+       var newBlob1 = image.imageAsResized(200, 200);
+       Ti.API.info(" - test 1 image size:" + newBlob1.size);
+       Ti.API.info(" - test 1 image dimensions: " + newBlob1.width + 'x' + newBlob1.height);
+       
+       newBlob1 = newBlob1.imageAsCompressed(0.1); // 10 % of the original quality
+      
+       var bgImage = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, 'test_200_200.jpg');
+       Ti.API.info(" - test 1 image path: " + bgImage.nativePath);
+    
+       bgImage.write(newBlob1);
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Samir Mohammed 2017-01-05
+
+   Verified fixed, am able to view the compressed image which is set to the dimensions 200X200 on jpegs using the test coded provided by [~hansknoechel]
+   *Environement*
+   <code><pre>
+   Appcelerator Command-Line Interface, version 6.1.0
+   iphone 6 (ios 10.2) simulator
+   iphone 6 plus (ios 9.3.4)
+   Operating System Name: Mac OS X El Capitan
+   Operating System Version: 10.11.6
+   Node.js Version: 4.6.0
+   npm: 4.2.8
+   Titanium SDK Version: 6.1.0.v20170104112531
+   Xcode: 8.2
+   Appcelerator Studio: 4.8.1.201612050850
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24141.json">JSON Source</a></p>

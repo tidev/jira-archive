@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-3071] iOS: WebView memory is not freed"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-04-03T08:35:50.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-05, Release 2.0.0, Release 1.8.3</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>klist, memory, module_webview, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:35:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-04-03T08:40:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>When replacing HTML elements in a webView, large images for
+example, the memory used by the previous element is not release
+causing an overall memory usage by the webView to rise every
+time.</p>
+<p>There is a HD ticket with a sample code:<br>
+<a href=
+"<a href="http://developer.appcelerator.com/helpdesk/view/70741" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/70741</a>"><a href="http://developer.appcelerator.com/helpdesk/view/70741" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/70741</a></a></p>
+<p>Tested on Ti SDK 1.6 (Feb 7 2011 11:29 r160f5dc)<br>
+iPhone Simulator with Xcode's Instruments Tools</p></div>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-3071_18258/webtoll.zip">webtoll.zip</td></td><td>2011-04-15T03:36:00.000+0000</td><td>24361</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Even MORE memory madness...</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Unfortunately, this is not something we have control over. I
+   even tested in a native app outside of Titanium, and the web view's
+   memory footprint is its own thing. There's no API on web views for
+   controlling memory. Worse yet, NSURLCache, which the docs implies
+   the web views would use, was not used at all, so there was nothing
+   to cache.</p></div></li>
+<li>Damien Elmes 2011-04-15
+
+   <div><p>Thanks for looking into it. IIRC I can't work around this by
+   creating a new webview at the moment, because the webview memory is
+   not freed when the JS object is deleted. Is this something that
+   will be addressed in 1.7?</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>There have been quite a few memory circular retains that have
+   been fixed for 1.7, and you'll see this most when you have a lot of
+   non-web views and the like, especially with addEventListener.
+   However, while the webview itself is released, the caching itself
+   is not kept to the web view, but follows the beat of a different
+   drummer.</p>
+   <p>Included is the test app I made. It is all native Obj-C, no
+   titanium, to make sure it wasn't just an artifact of Titanium. It
+   simply is a viewcontroller (similar to a Ti.UI.window) with a web
+   view, and two buttons: One button to open up another view
+   controller with a web view, another to try to purge the
+   NSURLCache.</p>
+   <p>If you play with this with the allocations monitor on it, you'll
+   see the memory jump around, sometimes almost of its own accord. One
+   thing you'll notice is the memory behavior is quite different on
+   simulator as opposed to on device, especially the footprint of
+   webkit. Hitting the back does free up some memory, but not as much
+   or as predictably as you expect. Worse yet, this memory size is
+   completely unaffected by the Cache button.</p></div></li>
+<li>Damien Elmes 2011-04-15
+
+   <div><p>That's disappointing news, but I understand it's not Titanium's
+   fault, and appreciate you investigating. I wonder if <a href=
+   "<a href="http://blog.techno-barje.fr/post/2010/10/04/UIWebView-secrets-part1-memory-leaks-on-xmlhttprequest" rel="nofollow" target="_blank">http://blog.techno-barje.fr/post/2010/10/04/UIWebView-secrets-part1-memory-leaks-on-xmlhttprequest</a>">
+   <a href="http://blog.techno-barje.fr/post/2010/10/04/UIWebView-secrets-part1..." rel="nofollow" target="_blank">http://blog.techno-barje.fr/post/2010/10/04/UIWebView-secrets-part1...</a></a>
+   is at all related?</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>"WebKitCacheModelPreferenceKey"? Innnnteresting. I'll see what I
+   can do with this, and more importantly, if Apple considers it
+   private API or not. (You'd think something like a string wouldn't
+   trip them off, but a long while ago, they claimed a well-documented
+   POSIX string library that's been around since the 80s was 'private
+   API'.)</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Okay, an update. I didn't see much of a change in setting that
+   key, as in it still grows as it desires, although it did seem like
+   it might be more conservative in grabbing memory.</p>
+   <p>Either way, the NSUserDefaults is exposed in Titanium as
+   Ti.App.properties. So to recreate the solution proposed, use the
+   following JS in your app.js (NOT in the web page):</p>
+   <p>
+   Titanium.App.Properties.setInt('WebKitCacheModelPreferenceKey',0);</p>
+   <p>I don't know if setting that NSUserDefault will help things, but
+   it at least is a means to try it. Good luck.</p></div></li>
+<li>Damien Elmes 2011-04-15
+
+   <div><p>Thanks for trying it. I'm really busy at the moment and won't
+   have time to play around with the code you provided for a while as
+   I really need to learn some more objC first, but I appreciate you
+   providing it, and do plan to return to this issue when I have a
+   chance.</p></div></li>
+<li>Reggie Seagraves 2011-04-15
+
+   <div><p>Due diligence has been performed and we're placing this on hold
+   as an Apple bug. Will redress for 1.8.</p></div></li>
+<li>Blain Hamon 2012-03-06
+
+    Talked with Alan. Turns out this might be about something different.
+    {quote}
+    alanleard: bhamon:  what they are trying to do is create a webview, load a sencha chart, do a toImage, and then remove the webview.  They are nulling it, removing it, we can't find any references to it, but they still get retained
+    bhamon: Okay, that's different than what I thought they wanted. If you can update the ticket with sample code, or a minimum fail case, then here's the possibilities:
+    1) We're leaking the UIWebView or the proxy. That CAN be fixed.
+    2) The HTML and images are still being cached by Apple, despite the UIWebView having gone away. That CANNOT be fixed.
+    I was thinking they were talking about the latter, not the former.
+    {quote}</li>
+<li>Blain Hamon 2012-03-06
+
+    Okay, verified. The leak DOES happen in 1.8.2GA, but does NOT happen in CI (As of March 6th) so we're going to mark this fixed, since it has been fixed, possibly as a side-effect of some other commit, and will be in 1.9.</li>
+<li>Wilson Luu 2012-03-07
+
+    Closing bug. Verified TiUIWebView object is being released on:
+    
+    SDK build: 2.0.0.v20120307090205
+    Titanium Studio, build: 1.0.9.201202141208
+    xcode: 4.2
+    Device: iphone 3GS (4.3)</li>
+<li>Sabil Rahim 2012-04-03
+
+    Reopening to place the Release 1.8.3 tag</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3071.json">JSON Source</a></p>

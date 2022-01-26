@@ -1,0 +1,109 @@
+{
+	"id": "161323",
+	"key": "AC-3920",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "8",
+			"description": "",
+			"name": "Needs more info"
+		},
+		"resolutiondate": "2016-07-14T19:10:49.000+0000",
+		"created": "2016-06-24T07:41:54.000+0000",
+		"labels": [
+			"andoid",
+			"module",
+			"titanium"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "shossain",
+			"key": "shossain",
+			"displayName": "Shak Hossain",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2016-07-14T19:10:49.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "14548",
+				"name": "Titanium SDK & CLI",
+				"description": "Please enter tickets related to the MobileSDK here."
+			}
+		],
+		"description": "I've created a module for Titanium to send data from my app to my Android Wear application which works great. But when I uninstall the application Android crashes. I've checked Logcat but I don't see what the problem exactly is. Android only seems to crash if I uninstall the application right after calling module.sendData() (see example)\r\n\r\nExample:\r\n\r\n*index.js (app)*\r\n\r\n{code:javascript}\r\nfunction onOpen() {\r\n  var module = require('teunozz.test.module')\r\n\t\r\n  module.addEventListener('connected', function f() {\r\n\tconsole.log('send data');\r\n\tmodule.sendData();\r\n   });\r\n\r\n  module.start();\r\n}\r\n\r\n$.index.open();\r\n{code}\r\n\r\n*index.xml (app)*\r\n\r\n{code:xml}\r\n<Alloy>\r\n  <Window id=\"index\" onOpen=\"onOpen\">\r\n  </Window>\r\n</Alloy>\r\n{code}\r\n\r\n*AndroidWearClient (module)*\r\n\r\n{code:java}\r\npackage teunozz.test.module;\r\n    \r\nimport org.appcelerator.titanium.TiApplication;\r\nimport org.appcelerator.titanium.util.TiActivityResultHandler;\r\n    \r\nimport android.app.Activity;\r\nimport android.content.Intent;\r\nimport android.os.Bundle;\r\nimport android.util.Log;\r\n    \r\nimport com.google.android.gms.common.ConnectionResult;\r\nimport com.google.android.gms.common.api.GoogleApiClient;\r\nimport com.google.android.gms.wearable.DataApi;\r\nimport com.google.android.gms.wearable.PutDataMapRequest;\r\nimport com.google.android.gms.wearable.PutDataRequest;\r\nimport com.google.android.gms.wearable.Wearable;\r\n    \r\npublic class AndroidWearClient extends Object implements\t\r\n  TiActivityResultHandler,\r\n  GoogleApiClient.ConnectionCallbacks,\r\n  GoogleApiClient.OnConnectionFailedListener\r\n {\r\n   \tprivate final static String TAG = \"AndroidWearClient\";\r\n    \r\n        private static final int REQUEST_OAUTH = 1;\r\n        private GoogleApiClient client = null;\r\n        private TitestModule module = null;\r\n        private boolean authInProgress = false;\r\n        \r\n        private void buildClient() {\r\n        \tclient = new GoogleApiClient.Builder(\r\n    \t\t\t\tTiApplication.getAppCurrentActivity())\r\n    \t\t    \t.addApi(Wearable.API)\r\n    \t\t\t\t.addConnectionCallbacks(this)\r\n    \t\t\t\t.addOnConnectionFailedListener(this)\r\n    \t\t\t\t.build();\r\n        }\r\n        \r\n        public void start(TitestModule moduleArg) {\r\n            module = moduleArg;\r\n            buildClient();\r\n            client.connect();\r\n        }\r\n        \r\n        public void stop() {\r\n        }\r\n        \r\n    \tpublic void onError(Activity activity, int requestCode, Exception e) {\r\n    \t}\r\n    \r\n    \tpublic void onResult(Activity activity, int requestCode, int resultCode, Intent data) {\t\t\r\n    \t\tif (requestCode == REQUEST_OAUTH) {\r\n    \t\t\tauthInProgress = false;\r\n                if (resultCode == Activity.RESULT_OK) {\r\n                    if (!client.isConnecting() && !client.isConnected()) {\r\n                        client.connect();\r\n                    }\r\n                }\r\n            }\r\n    \t}\r\n    \t\r\n    \tpublic void onConnectionFailed(ConnectionResult result) {\r\n    \t}\r\n    \r\n    \tpublic void onConnected(Bundle connectionHint) {\r\n    \t\t// connected to Google Wearable API\r\n    \t\tmodule.fireEvent(\"connected\", null);\r\n    \t}\r\n        \r\n    \tpublic void onConnectionSuspended(int cause) {\r\n    \t}\r\n        \r\n        public void sendData() {\r\n    \t\t// Construct a DataRequest and send over the data layer\r\n    \t\tPutDataMapRequest putDMR = PutDataMapRequest.create(\"/test\");\r\n    \t\tputDMR.getDataMap().putString(\"key\", \"test\");\r\n    \t\tPutDataRequest request = putDMR.asPutDataRequest();\r\n    \t\tDataApi.DataItemResult result = \r\n            // this is the problematic bit if you comment this out  Android doesn't crash\r\n            Wearable.DataApi.putDataItem(client, request).await();\r\n    \t\t\r\n    \t\tif (result.getStatus().isSuccess()) {\r\n        \t\t// Do something\r\n    \t\t\tLog.e(TAG, \"SUCCESS\");\r\n    \t\t} else {\r\n    \t\t\t// Do something\r\n    \t\t}\r\n        }    \r\n    }\r\n\r\n{code}\r\n\r\n*TitestModule (module)*\r\n    \r\n{code:java}\r\npackage teunozz.test.module;\r\n    \r\n    import teunozz.test.module.AndroidWearClient;\r\n    \r\n    import org.appcelerator.kroll.KrollDict;\r\n    import org.appcelerator.kroll.KrollModule;\r\n    import org.appcelerator.kroll.annotations.Kroll;\r\n    import org.appcelerator.titanium.TiApplication;\r\n    import org.appcelerator.titanium.util.TiIntentWrapper;\r\n    import org.appcelerator.kroll.common.Log;\r\n    import org.appcelerator.kroll.common.TiConfig;\r\n    \r\n    import android.app.Activity;\r\n    import android.content.Intent;    \r\n    \r\n    @Kroll.module(name=\"Titest\", id=\"teunozz.test.module\")\r\n    public class TitestModule extends KrollModule\r\n    {\r\n    \r\n    \t// Standard Debugging variables\r\n    \tprivate static final String LCAT = \"TitestModule\";\r\n    \tprivate static final boolean DBG = TiConfig.LOGD;\r\n    \t\r\n    \tprivate AndroidWearClient client = new AndroidWearClient();\r\n    \r\n    \t// You can define constants with @Kroll.constant, for example:\r\n    \t// @Kroll.constant public static final String EXTERNAL_NAME = value;\r\n    \r\n    \tpublic TitestModule()\r\n    \t{\r\n    \t\tsuper();\r\n    \t}\r\n    \r\n    \t@Kroll.onAppCreate\r\n    \tpublic static void onAppCreate(TiApplication app)\r\n    \t{\r\n    \t\t// put module init code that needs to run when the application is created\r\n    \t}\r\n    \t\r\n    \t@Override\r\n    \tpublic void onDestroy(Activity activity) {\t\r\n    \t\tclient.stop();\r\n    \t}\r\n    \t\r\n    \t@Kroll.method\r\n    \tpublic void start() {\r\n    \r\n    \t\tTiApplication appContext = TiApplication.getInstance();\r\n    \t\tActivity activity = appContext.getCurrentActivity();\r\n    \t\t\r\n    \t\tclient.start(this);\r\n    \t}\r\n    \r\n        @Kroll.method\r\n    \tpublic void stop() {\r\n        \tclient.stop();\r\n        }\r\n    \r\n        @Kroll.method\r\n    \tpublic void sendData() {\r\n        \tclient.sendData();\r\n        }\r\n    }\r\n{code}\r\n\r\nThe basic module code and distribution is available on GitHub: https://github.com/Teunozz/titest\r\n\r\nThis is the first error that I can find in Logcat.  \r\n\r\n{code:java}\r\n06-20 13:36:06.599: E/AndroidRuntime(14455): *** FATAL EXCEPTION IN SYSTEM PROCESS: NetworkPolicy\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): java.lang.RuntimeException: Error receiving broadcast Intent { act=android.os.action.POWER_SAVE_TEMP_WHITELIST_CHANGED flg=0x40000010 bqHint=4 } in com.android.server.net.NetworkPolicyManagerService$4@bd55cc8\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.app.LoadedApk$ReceiverDispatcher$Args.run(LoadedApk.java:1003)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.os.Handler.handleCallback(Handler.java:739)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.os.Handler.dispatchMessage(Handler.java:95)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.os.Looper.loop(Looper.java:158)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.os.HandlerThread.run(HandlerThread.java:61)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): Caused by: java.lang.NullPointerException: Attempt to get length of null array\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat com.android.server.net.NetworkPolicyManagerService.isUidIdle(NetworkPolicyManagerService.java:3471)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat com.android.server.net.NetworkPolicyManagerService.updateRuleForAppIdleLocked(NetworkPolicyManagerService.java:3397)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat com.android.server.net.NetworkPolicyManagerService.updateRulesForTempWhitelistChangeLocked(NetworkPolicyManagerService.java:3451)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat com.android.server.net.NetworkPolicyManagerService$4.onReceive(NetworkPolicyManagerService.java:731)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \tat android.app.LoadedApk$ReceiverDispatcher$Args.run(LoadedApk.java:993)\r\n    06-20 13:36:06.599: E/AndroidRuntime(14455): \t... 4 more\r\n    06-20 13:36:06.659: E/android.os.Debug(14455): ro.product_ship = true\r\n    06-20 13:36:06.659: E/android.os.Debug(14455): ro.debug_level = 0x4f4c\r\n    06-20 13:36:06.659: E/android.os.Debug(14455): sys.mobilecare.preload = false\r\n    ...\r\n{code}\r\n\r\nAfter this every service dies and Android restarts.\r\n\r\n{code:java}\r\n    06-20 13:36:07.049: I/ServiceManager(3046): service 'wifip2p' died\r\n    06-20 13:36:07.059: I/ServiceManager(3046): service 'package' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'user' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'activity' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'procstats' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'meminfo' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'gfxinfo' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'dbinfo' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'cpuinfo' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'permission' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'processinfo' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'sensorservice' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'lock_settings' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'mdm.remotedesktop' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'battery' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'usagestats' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'webviewupdate' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'scheduling_policy' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'telephony.registry' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'persona' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'deviceidle' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'application_policy' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'wifi_policy' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'phone_restriction_policy' died\r\n    06-20 13:36:07.069: I/ServiceManager(3046): service 'remoteinjection' died\r\n    ...\r\n{code}\r\n\r\n\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android crashes when uninstalling titanium app using module calling Wearable.DataApi.putDataItem(client, request).await();",
+		"creator": {
+			"name": "teunklijn@telfort.nl",
+			"key": "teunklijn@telfort.nl",
+			"displayName": "Teun Klijn",
+			"active": true,
+			"timeZone": "Europe/Amsterdam"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "teunklijn@telfort.nl",
+			"key": "teunklijn@telfort.nl",
+			"displayName": "Teun Klijn",
+			"active": true,
+			"timeZone": "Europe/Amsterdam"
+		},
+		"environment": "* Titanium SDK: 5.3.0\r\n* Android: 6.0.1\r\n* Phone: Samsung Galaxy s6",
+		"comment": {
+			"comments": [
+				{
+					"id": "389613",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, the instruction is not clear, Can you please explain how I can test this in my environment. Please provide a compleat project that I use to regenerate the issue. Also, Please provide complete list of steps to follow. ",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2016-06-30T19:45:09.000+0000",
+					"updated": "2016-06-30T19:45:09.000+0000"
+				}
+			],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

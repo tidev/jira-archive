@@ -1,0 +1,205 @@
+{
+	"id": "82650",
+	"key": "AC-2764",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "7",
+			"description": "",
+			"name": "Invalid"
+		},
+		"resolutiondate": "2011-12-19T03:35:23.000+0000",
+		"created": "2011-11-11T14:47:49.000+0000",
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "pdowsett",
+			"key": "pdowsett",
+			"displayName": "Paul Dowsett",
+			"active": true,
+			"timeZone": "Europe/London"
+		},
+		"updated": "2016-03-08T07:47:40.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "14548",
+				"name": "Titanium SDK & CLI",
+				"description": "Please enter tickets related to the MobileSDK here."
+			}
+		],
+		"description": "I am using CommonJS modules in my app, along with a \"Monkey Patch\" similar to this Gist: https://gist.github.com/1207520.  The Monkey Patch ensures that require()d modules are only interpreted once -- after the first require(), subsequent require()s pulls the module out of the scriptRegistry cache.\r\n\r\nI've made a minor change to the Monkey Patch script to NOT \"root\" the module if there is an export of the same name, as well as add some debug logging.  No other changes are made.  The changes I've made are below.\r\n\r\nThe issue that I'm having is as follows: \r\n1) In app.js, the first thing I do is Monkey Patch the current script context.\r\n2) Next, I create a window, and add an event handler for the 'focus' event.\r\n3) In the 'focus' event handler, I require(test2), which goes to the Monkey Patch.  Since this is the first time the module test2 is required, Monkey Patch forwards it to the real require(), and the module test2 is interpreted.\r\n4) Next, I require(test1). Again, this is the first time test1 is required, so it is interpreted.\r\n5) However, in test1, I require(test2).  This require() call does NOT go to the Monkey Patch -- the \"real\" require() is called, and my Monkey Patch is never called.  This is the bug.  All modules require()d in test1 (and sub-modules, etc) are NOT Monkey Patched.\r\n\r\nThis causes performance problems, as most of the require() calls in my modules are not passed through the Monkey Patch handler.\r\n\r\nI can only repro this issue when the require(test2)/require(test1) sequence are called in the 'focus' and similar event handler.  If these calls are placed in the app.js context, everything works ok -- the require()s in test1 are patched properly.  Other event handlers for the window, such as 'open' also appear to repro this problem.\r\n\r\nHere's a reduced repro:\r\n{code:title=app.js}\r\n// monkey patch first\r\nrequire('requirePatch').monkeyPatch(this);\r\n\r\n// create a window\r\nvar win1 = Ti.UI.createWindow();\r\n\r\n// hook the focus event of the window to know when we should create our view\r\nwin1.addEventListener('focus', function(e){\r\n    Ti.API.info(\"win1 focus event\");     \r\n\r\n    // Load test2, the first time this is attemped.\r\n    // The monkeyPatch works, require()s it, and saves it in the script registry.\r\n    // TEST2 should be printed once at this point, and this is the only time it should be printed.\r\n    Ti.API.info(\"win1 focus event: SHOULD print TEST2:\");  \r\n    require('test2');\r\n    Ti.API.info(\"win1 focus event: (SHOULD have printed TEST2)\");\r\n    \r\n    // Load test1, which also loads test2.  At this point, for some reason, \r\n    // running the context inside test1, require won't be monkey patched.\r\n    // This is where the problem occurs: TEST2 should *not* be printed again, but is.\r\n    // None of the modules loaded under test1 will have monkeyPatch working.\r\n    require('test1');\r\n});\r\n\r\n// create tabs to show \r\nvar tabGroup = Ti.UI.createTabGroup();\r\ntabGroup.addTab(Ti.UI.createTab({\r\n    window: win1\r\n}));\r\ntabGroup.open();\r\n{code}\r\n\r\n{code:title=test1.js}\r\nTi.API.info(\"TEST1\");\r\n\r\n// THE BUG: For some reason, require isn't monkey patched any more.\r\n// TEST2 will be printed again as test2 is re-interpreted at this point.\r\nTi.API.info(\"TEST1: SHOULD NOT print TEST2:\");  \r\nrequire('test2'); \r\nTi.API.info(\"TEST1: (SHOULD NOT have printed TEST2)\");\r\n{code}\r\n\r\n{code:title=test2.js}\r\nTi.API.info(\"TEST2\");\r\n{code}\r\n\r\n{code:title=requirePatch.js}\r\nexports.monkeyPatch = function(object) {\r\n    Ti.API.info('requirePatch.monkeyPatch()');\r\n    \r\n    var scriptRegistry = {};\r\n    var oldRequire = object.require;\r\n\r\n    if(object && !object.monkeyPatchRequire) {\r\n        \r\n        Ti.API.info('requirePatch.monkeyPatch(): Installing');\r\n        \r\n        object.require = function(moduleName) {\r\n            \r\n            Ti.API.info('requirePatch.monkeyPatch().require(): ' + moduleName + ' ' + (scriptRegistry[moduleName] ? 'HIT' : 'MISS'));\r\n            \r\n            if(!scriptRegistry[moduleName]) {\r\n                var mod = oldRequire(moduleName);\r\n                scriptRegistry[moduleName] = mod;\r\n            }\r\n\r\n            return scriptRegistry[moduleName];\r\n        };\r\n\r\n        object.monkeyPatchRequire = true;\r\n    }\r\n};\r\n{code}\r\n\r\nHere's the output from running this:\r\n{noformat}\r\nI/TiAPI   ( 5665): (kroll$1: app://app.js) [12,731] requirePatch.monkeyPatch()\r\nI/TiAPI   ( 5665): (kroll$1: app://app.js) [5,736] requirePatch.monkeyPatch(): Installing\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [74,507] win1 focus event\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [4,511] win1 focus event: SHOULD print TEST2:\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [3,514] requirePatch.monkeyPatch().require(): test2 MISS\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [18,656] TEST2\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [5,661] win1 focus event: (SHOULD have printed TEST2)\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [22,683] requirePatch.monkeyPatch().require(): test1 MISS\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [33,925] TEST1\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [7,932] TEST1: SHOULD NOT print TEST2:\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [6,994] TEST2\r\nI/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [22,1016] TEST1: (SHOULD NOT have printed TEST2)\r\n{noformat}\r\n\r\nThe second-to-last line of output should NOT be \"TEST2\", which means that the module \"test2.js\" was re-interpreted.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Event fired from addEventListener breaks CommonJS Monkey Patch",
+		"creator": {
+			"name": "nicjansma",
+			"key": "nicjansma",
+			"displayName": "Nic Jansma",
+			"active": true,
+			"timeZone": "America/Havana"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "nicjansma",
+			"key": "nicjansma",
+			"displayName": "Nic Jansma",
+			"active": true,
+			"timeZone": "America/Havana"
+		},
+		"environment": "Titanium SDK version: 1.7.5 and 1.8.0v20111109103101\r\nPlatform & version: Android 2.1, 2.2 (other versions not yet tested). Does not repro on iOS\r\nDevice Details: Android emulator and devices (Motorola Droid, HTC Increddible, Droid Bionic)\r\nHost Operating System: Windows 7\r\nTitanium Studio version: 1.0.6.201110251616",
+		"comment": {
+			"comments": [
+				{
+					"id": "173768",
+					"author": {
+						"name": "nicjansma",
+						"key": "nicjansma",
+						"displayName": "Nic Jansma",
+						"active": true,
+						"timeZone": "America/Havana"
+					},
+					"body": "When could I expect a triage of this bug?\r\n\r\nUnfortunately, I think this will block shipping on Android for us.\r\n\r\nIf you have any insight on how I could avoid the issue as well, that would be helpful.\r\n\r\nThanks!",
+					"updateAuthor": {
+						"name": "nicjansma",
+						"key": "nicjansma",
+						"displayName": "Nic Jansma",
+						"active": true,
+						"timeZone": "America/Havana"
+					},
+					"created": "2011-11-22T12:38:35.000+0000",
+					"updated": "2011-11-22T12:38:35.000+0000"
+				},
+				{
+					"id": "175303",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Nic\r\n\r\nI am sorry for the delay. Since you raised this ticket, we have rewritten require for 1.8, and it now uses a modification of nodejs' require system. Are you able to test whether your issue still exists using the latest continuous build (master/1.8.0.1)?\r\n\r\nThanks in advance",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2011-12-07T17:07:03.000+0000",
+					"updated": "2011-12-07T17:07:03.000+0000"
+				},
+				{
+					"id": "175381",
+					"author": {
+						"name": "nicjansma",
+						"key": "nicjansma",
+						"displayName": "Nic Jansma",
+						"active": true,
+						"timeZone": "America/Havana"
+					},
+					"body": "Thanks Paul.  It appears v1.8.0.1.v20111207180431 fixes this issue (though there are a lot of other things that v1.8.0.1 appears to break in my current app).",
+					"updateAuthor": {
+						"name": "nicjansma",
+						"key": "nicjansma",
+						"displayName": "Nic Jansma",
+						"active": true,
+						"timeZone": "America/Havana"
+					},
+					"created": "2011-12-08T10:41:40.000+0000",
+					"updated": "2011-12-08T10:41:40.000+0000"
+				},
+				{
+					"id": "175399",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Yes, that is true. I am sorry if this causes you some inconvenience short term, but revising your app for 1.8.0.1 will be really worth it.\r\n\r\n",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2011-12-08T11:12:51.000+0000",
+					"updated": "2011-12-08T11:12:51.000+0000"
+				},
+				{
+					"id": "175444",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "{code}\r\nMany thanks for your attention Paul. As I noted in JIRA, v1.8.0.1.v20111207180431 no longer has the problem. However, many other things appear broken in my app due to 1.8.0.1 changes. Should I be spending time trying to migrate to v1.8.0.1 at this point, or would you recommend I wait until it's a bit stabler?\r\n{code}\r\n\r\nNic, 1.8.0.1 is currently scheduled for release in December. I would definitely recommend moving your app to it, as I know of major projects using it successfully.\r\n\r\nThanks",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2011-12-08T13:00:41.000+0000",
+					"updated": "2011-12-08T13:00:41.000+0000"
+				},
+				{
+					"id": "176450",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Nic\r\n\r\nAs require now works as expected with 1.8.0.1, and Titanium's CommonJS is in accordance with the spec, the monkeypatch is obsolete. Hence, I will close this ticket.\r\n\r\nIncidentally, there will be a guide published within the next few days to explain how to use require and CommonJS in the best way.\r\n\r\nThank you for the effort you put into this.",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2011-12-19T03:35:08.000+0000",
+					"updated": "2011-12-19T03:35:08.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

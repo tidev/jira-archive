@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-27087] Android: ShortcutItem not being updated based on "id""
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-06-28T21:17:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.1.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>android, engSchedule</td></tr>
+<tr><th>Reporter</th><td>Adam Armstrong</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2019-04-19T13:17:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-28T21:17:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+on iOS, there is a method *removeAllDynamicShortcuts()* that allows me to remove all shortcuts and create new ones.
+
+on Android, the only method we have is *createShortcutItem()*.  There is no update or remove of any kind.
+
+In Ti.Slack, Joshua Quick mentioned that, by looking at the code, he _thought_ all we needed to do was use the createShortcutItem() method again and as long as the "id" was the same - it would be overridden or replaced.
+
+That is not happening and is resulting in an error, "Max number of dynamic shortcuts exceeded".
+
+We have to have a way to remove or at a minimum replace an existing shortcut.
+
+
+CODE:
+<code><pre>
+    var mobileShortcut;
+    var workShortcut;
+    var emailShortcut;
+    function testAndroidShortcut() {
+        emailShortcut = Ti.UI.createShortcutItem({
+            id: 'email_address',
+            title: "Email",
+            description: 'Email',
+            icon: Ti.Android.R.drawable.ic_menu_send
+        });
+        workShortcut = Ti.UI.createShortcutItem({
+            id: 'work_phone',
+            title: "Work",
+            description: 'Work',
+            icon: Ti.Android.R.drawable.ic_menu_call
+        });
+        mobileShortcut = Ti.UI.createShortcutItem({
+            id: 'mobile_phone',
+            title: "Mobile",
+            description: 'Mobile',
+            icon: Ti.Android.R.drawable.ic_menu_call
+        });
+    }
+
+    for (var i = 0; i < 7; i++) {
+        testAndroidShortcut();
+    }
+</pre></code>
+
+
+ERROR:
+<code><pre>
+[ERROR] KrollProxy: (main) [22,12720] Error creating proxy
+[ERROR] KrollProxy: java.lang.IllegalArgumentException: Max number of dynamic shortcuts exceeded
+[ERROR] KrollProxy:     at android.os.Parcel.createException(Parcel.java:1970)
+[ERROR] KrollProxy:     at android.os.Parcel.readException(Parcel.java:1934)
+[ERROR] KrollProxy:     at android.os.Parcel.readException(Parcel.java:1884)
+[ERROR] KrollProxy:     at android.content.pm.IShortcutService$Stub$Proxy.setDynamicShortcuts(IShortcutService.java:521)
+[ERROR] KrollProxy:     at android.content.pm.ShortcutManager.setDynamicShortcuts(ShortcutManager.java:336)
+[ERROR] KrollProxy:     at ti.modules.titanium.ui.ShortcutItemProxy.show(ShortcutItemProxy.java:127)
+[ERROR] KrollProxy:     at ti.modules.titanium.ui.ShortcutItemProxy.handleCreationDict(ShortcutItemProxy.java:111)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.KrollProxy.handleCreationArgs(KrollProxy.java:205)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.KrollProxy.setupProxy(KrollProxy.java:131)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.KrollProxy.createProxy(KrollProxy.java:140)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:55)
+[ERROR] KrollProxy:     at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:41)
+[ERROR] KrollProxy:     at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:167)
+[ERROR] KrollProxy:     at android.os.Handler.handleCallback(Handler.java:873)
+[ERROR] KrollProxy:     at android.os.Handler.dispatchMessage(Handler.java:99)
+[ERROR] KrollProxy:     at android.os.Looper.loop(Looper.java:214)
+[ERROR] KrollProxy:     at android.app.ActivityThread.main(ActivityThread.java:7032)
+[ERROR] KrollProxy:     at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] KrollProxy:     at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:494)
+[ERROR] KrollProxy:     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:965)
+[ERROR] KrollProxy: Caused by: android.os.RemoteException: Remote stack trace:
+[ERROR] KrollProxy:     at com.android.server.pm.ShortcutService.enforceMaxActivityShortcuts(ShortcutService.java:1702)
+[ERROR] KrollProxy:     at com.android.server.pm.ShortcutPackage.enforceShortcutCountsBeforeOperation(ShortcutPackage.java:1104)
+[ERROR] KrollProxy:     at com.android.server.pm.ShortcutService.setDynamicShortcuts(ShortcutService.java:1849)
+[ERROR] KrollProxy:     at android.content.pm.IShortcutService$Stub.onTransact(IShortcutService.java:64)
+[ERROR] KrollProxy:     at android.os.Binder.execTransact(Binder.java:739)
+[ERROR] KrollProxy:
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rainer Schleevoigt 2019-04-27
+
+   I have the same issue. With one shortcut it works fine ...
+   In my radio app I'd like to add the 3 most listen stations in this list. This list is dynamic and changes time to time. For this I need an update...
+   
+   Other little question:  the icon property. I used the string version (same as for imageview). It works with imageview, but not with icon. </li>
+<li>Gary Mathews 2019-06-05
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/10943" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10943</a></li>
+<li>Lokesh Choudhary 2019-06-26
+
+   Master merged.</li>
+<li>Joshua Quick 2019-06-27
+
+   PR (8.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11000" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11000</a></li>
+<li>Lokesh Choudhary 2019-06-27
+
+   Backport Merged.</li>
+<li>Lokesh Choudhary 2019-06-28
+
+   Verified the fix in SDK 8.1.0.v20190628095604 & 8.2.0.v20190628101943.
+   
+   Closing.
+   
+   Studio Ver: 5.1.3.201906102126
+   OS Ver: 10.14.5
+   Xcode Ver: Xcode 10.2.1
+   Appc NPM: 4.2.13
+   Appc CLI: 7.0.12
+   Daemon Ver: 1.1.3
+   Ti CLI Ver: 5.1.1
+   Alloy Ver: 1.13.10
+   Node Ver: 8.15.1
+   NPM Ver: 6.4.1
+   Java Ver: 10.0.2
+   Devices: ⇨ google Pixel (Android 9)
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27087.json">JSON Source</a></p>

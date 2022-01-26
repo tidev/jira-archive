@@ -1,0 +1,295 @@
+---
+title: "[TIMOB-19209] iOS: ListView randomly not shown since 4.1.x"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-07-25T00:04:36.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.1, Release 5.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>listview</td></tr>
+<tr><th>Reporter</th><td>Sebastian Klaus</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2015-07-10T08:55:57.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-09-10T18:17:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<code><pre>
+Operating System
+  Name                        = Mac OS X
+  Version                     = 10.10.4
+  Architecture                = 64bit
+  # CPUs                      = 8
+  Memory                      = 17179869184
+
+Node.js
+  Node.js Version             = 0.10.38
+  npm Version                 = 1.4.28
+
+Titanium CLI
+  CLI Version                 = 4.0.1
+
+Titanium SDK
+  SDK Version                 = 4.1.0.GA
+  SDK Path                    = /Volumes/Data/Users/sebastian/Library/Application Support/Titanium/mobilesdk/osx/4.1.0.GA
+  Target Platform             = iphone
+</pre></code>
+
+since the update to 4.1.0.GA, my listViews are not showing every time I open a window with a listview in iOS. Can't reproduce it. It's absolute randomly. I'm coming from 4.1.0.v20150516202834 where it works as normal. 
+
+I posted it into the community and [~fokkezb] confirms this bug: <a href="https://community.appcelerator.com/topic/2513/4-1-0-ga-now-available/14" rel="nofollow" target="_blank">https://community.appcelerator.com/topic/2513/4-1-0-ga-now-available/14</a>
+
+I think I can workaround this bug while giving explizit height in the properties. So far in my testing, the problem doesn't appear anymore. 
+
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var itemTemplate = {
+    properties: {
+        // These are the same as the list data item properties
+        // The list data item properties supersedes these if both are defined
+        accessoryType: Ti.UI.LIST_ACCESSORY_TYPE_NONE
+    },
+    childTemplates: [ // Add view subcomponents to the ListItem
+        {
+            // Display a Label
+            type: 'Ti.UI.Label',
+            // If there is a rowtitle dictionary in the ListDataItem,
+            // that data binds with this view subcomponent
+            bindId: 'rowtitle',
+            properties: {
+                // Set view properties for the Label view subcomponent
+                font: {fontSize: '14dp'}
+            },
+            childTemplates: [
+                // View subcomponents can also have subcomponents
+            ]
+        }
+        // ...add more components
+    ]
+};
+
+// Simplest list data items that can be displayed in a list view
+var data = [
+    {
+        properties: {
+            height: 44
+        },
+        rowtitle: {
+            text: 'Row 1'
+        }
+    },
+    {
+        properties: {
+            height: 44
+        },
+        rowtitle: {
+            text: 'Row 2'
+        }
+    },
+    {
+        properties: {
+            height: 44
+        },
+        rowtitle: {
+            text: 'Row 3'
+        }
+    }
+];
+
+var data1 = [
+    {
+        properties: {
+            height: Ti.UI.SIZE
+        },
+        rowtitle: {
+            text: 'Row 1'
+        }
+    },
+    {
+        properties: {
+            height: Ti.UI.SIZE
+        },
+        rowtitle: {
+            text: 'Row 2'
+        }
+    },
+    {
+        properties: {
+            height: Ti.UI.SIZE
+        },
+        rowtitle: {
+            text: 'Row 3'
+        }
+    }
+];
+// works
+//var listSection = Titanium.UI.createListSection({items: data});
+// works randomly not
+var listSection = Titanium.UI.createListSection({items: data1});
+
+// Add the list section to a list view
+var listView = Titanium.UI.createListView({
+    sections: [listSection]
+});
+
+var listView = Titanium.UI.createListView({
+    sections: [listSection],
+    templates: {
+        default: itemTemplate
+    },
+    defaultItemTemplate: 'default'
+});
+
+win.add(listView);
+
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2015-07-10
+
+   I can only [find](<a href="https://github.com/appcelerator/titanium_mobile/commits/0ff8c6818ca7a1b1cd0da18c11c60bab00ccb423/iphone/Classes)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commits/0ff8c6818ca7a1b1cd0da18c11c60bab00ccb423/iphone/Classes)</a> one relevant commit since 20150516 if at that time it was indeed still working like [~benutzername] says:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/304c4d1cf2ba6c4109cf76973846cef6ce29f334" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/304c4d1cf2ba6c4109cf76973846cef6ce29f334</a></li>
+<li>PaRnanZio Gun 2015-07-10
+
+   I'm having problems on a ListView, maybe related to this ticket.
+   On a view I have some elements (labels, ..) and a ListView. If the ListView is there, nothing is visible (blank page), if I comment the ListView everything works fine.</li>
+<li>Nuno Costa 2015-07-13
+
+   I confirm the blank ListView special when I run a clean build. Related with Ti.UI.SIZE and Int. normal values</li>
+<li>Mike Stancliffe 2015-07-13
+
+   We are also experiencing this. I will add, when run on iOS 7 it seems to happen far less frequently, on iOS 8 it is very common.</li>
+<li>Keith 2015-07-13
+
+   </li>
+<li>Shawn Lan 2015-07-15
+
+   Having the same issue. Only after upgraded to 4.1.0. Please fix asap. Thanks.</li>
+<li>Velan Vijatovic 2015-07-15
+
+   Same issue here, although it happens for both dynamic and static height items in my case.</li>
+<li>Collin Price 2015-07-15
+
+   I am seeing the same results as Velan Vijatovic.</li>
+<li>Peter Ladis 2015-07-16
+
+   I am also seeing the same issue on 4.1.0 GA....its doesnt happen on 4.0.0GA</li>
+<li>Arjan 2015-07-17
+
+    Same problem, but also with static height (since 4.1.0.GA, 4.0.0.GA works fine).
+    
+    Also, when I remove the listView from his parent container, rebuild/add it again, it doesn't seem to disappear.</li>
+<li>Keith 2015-07-17
+
+    I created a sample video of the issue, as this can be ridiculously hard to recreate sometimes: <a href="https://www.youtube.com/watch?v=vDyStdRbqO0&feature=youtu.be" rel="nofollow" target="_blank">https://www.youtube.com/watch?v=vDyStdRbqO0&feature=youtu.be</a> 
+    
+    As it's so random, I found the easiest way to reproduce it is to create two windows, each with a listview, calling eachother on itemclick, so you can keep recreating the listviews over and over until the bug finally happens. Happy to share sample project if needed.
+    
+    I'll note that I use two item templates on each listview - I couldn't get the bug to trigger with only one template, but this could just be down to the seemingly random nature of the bug.
+    </li>
+<li>Thibault Lenclos 2015-07-20
+
+    Why is this planned for 4.3.0 instead of 4.1.1 ?</li>
+<li>Shawn Lan 2015-07-20
+
+    Please understand the ListView is just randomly not showing on iOS, without conditions (not because of dynamic item height, etc.). So this is urgent. I can't release any update with 4.1.0 because of this bug. Is 4.3.0 going to be released soon?</li>
+<li>Mauro Piccotti 2015-07-23
+
+    I have the same problem. In my app every ListView works the most of the times and sometimes it remains blank.
+    In some I append blocks of data scrolling down (setMarker or addMarker doesn't make any difference), in some I add all data in at the beginning.
+    
+    Sometimes it remains blank at the first loading, sometimes I can refresh the view 20 times and it always works (but continuing soon or later it remains blank).
+    
+    The easiest block of code I can show you is this one:
+    var section = $.list.sections[0];
+    section.deleteItemsAt(0, section.items.length);
+    queryResult = expirationRepository.list();
+    section.appendItems(queryResult.map(modelToViewItemFunction));</li>
+<li>Alan Leard 2015-07-24
+
+    If you inspect the ListView object when it doesn't appear, it is missing the dictTemplates property.
+    
+    Here is an example when the listview DOES show up:
+    <code><pre>
+    { "backgroundColor" : "white",
+      "canScroll" : true,
+      "caseInsensitiveSearch" : true,
+      "defaultItemTemplate" : "jobDetailTemplate",
+      "dictTemplates" : { "jobDetailTemplate" : {  },
+          "jobHeaderTemplate" : {  }
+        },
+      "height" : "FILL",
+      "horizontalWrap" : true,
+      "id" : "listView",
+      "refreshControl" : { "id" : "refresh",
+          "tintColor" : "#393939"
+        },
+      "separatorColor" : "transparent",
+      "visible" : true
+    }
+    </pre></code>
+    
+    And here is the same exact listview (No code changes) when it does not appear:
+    <code><pre>
+    { "backgroundColor" : "white",
+      "canScroll" : true,
+      "caseInsensitiveSearch" : true,
+      "defaultItemTemplate" : "jobDetailTemplate",
+      "height" : "FILL",
+      "horizontalWrap" : true,
+      "id" : "listView",
+      "refreshControl" : { "id" : "refresh",
+          "tintColor" : "#393939"
+        },
+      "separatorColor" : "transparent",
+      "visible" : true
+    }
+    </pre></code></li>
+<li>Pedro Enrique 2015-07-24
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6983" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6983</a></li>
+<li>Pedro Enrique 2015-07-24
+
+    PR for 4.1.X <a href="https://github.com/appcelerator/titanium_mobile/pull/6984" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6984</a></li>
+<li>Chee Kiat Ng 2015-07-25
+
+    CR and FT Passed. PRs merged!</li>
+<li>Eric Merriman  2015-08-04
+
+    Unable to reproduce the fail case with attached sample code. I was able to reproduce with the sample code in TIMOB-19249 on 3 of 20 attempts. With SDK 4.1.1.v20150802200935 I was unable to reproduce with 40 attempts. Closing as fixed.</li>
+<li>Keith 2015-08-05
+
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/6984" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6984</a> seems to have done the job. Thanks to the devs for the quick fix.</li>
+<li>A Barresi 2015-08-05
+
+    </li>
+<li>Gertjan Smits 2015-09-08
+
+    Is there a workaround for 4.1.0? Maybe a dirty hack to force the listview to draw or something? I need to go live soon... and because 4.1.1 is not released yet, this doesn't help me now :)</li>
+<li>Thibault Lenclos 2015-09-08
+
+    In the meantime you can try to use 4.1.1 continuous builds if it doesn't break your app [<a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html#4_1_X" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html#4_1_X</a>].</li>
+<li>Gertjan Smits 2015-09-08
+
+    Yeah I'm kind of reluctant to use a non GA SDK for a production build.</li>
+<li>Fokke Zandbergen 2015-09-08
+
+    [~gertjans] just patch the 4.0 SDK you use with:
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/6984/files" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6984/files</a></li>
+<li>Gertjan Smits 2015-09-08
+
+    That I can do. Works, thank you sir!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19209.json">JSON Source</a></p>

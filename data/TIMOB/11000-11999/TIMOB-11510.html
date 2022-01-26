@@ -1,0 +1,458 @@
+---
+title: "[TIMOB-11510] iOS: TableView very slow"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-10-30T18:39:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Release 3.1.0, 2012 Sprint 22 Core, 2012 Sprint 22</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>core, developer-preview, ios, notable, qe-testadded, scroll, slow, tableview, triage</td></tr>
+<tr><th>Reporter</th><td>Martin Guillon</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2012-08-01T07:37:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-12-04T18:51:53.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am developing on the master branch (using my own fork).
+Recently i realised that my application (tableview) got amazingly slow scrolling.
+Investigating the problem i discovered that it was the pull request #2473 that broke it.
+So i decided to create an example that would definitively show it.
+
+I created a clone of the iphone gmail application.
+The application, using sdk 2.0.2.GA or even 2.1.1.GA, works almost flawlessly. There s just a very little lag on the first scroll
+
+Now if you compile and run it using master branch, you ll see that the scrolling (on my iphone 4 at least), is very very bad. It gets better as you keep scrolling  back and forth. But it never gets as smooth as with older sdks.
+
+I will take a look at this bug myself, but i really think we should correct this one.
+
+I have put the test project as attachment (because of images). 
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-11510_30212/gmail_tv_test.zip">gmail_tv_test.zip</td></td><td>2012-08-01T07:37:02.000+0000</td><td>2342358</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Martin Guillon 2012-08-17
+
+   I am sorry to bump this one, but i think it s critical on ios. this should really be looked at before any release of SDk including pull request 2473
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/2473" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2473</a></li>
+<li>Ygor Lemos 2012-10-16
+
+   I've been experience extreme tableView slowdowns on scrolling when using 3.0.0.v20121015133920 (regular tableView with Image Background).
+   
+   On 2.1.3 GA it goes smooth...
+   
+   I think it may be a regression case.</li>
+<li>Martin Guillon 2012-10-16
+
+   </li>
+<li>Max Stepanov 2012-10-17
+
+   PR submitted <a href="https://github.com/appcelerator/titanium_mobile/pull/3260" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3260</a>
+   TableView scrolling performance should be comparable to what it was in 2.1.3 while memory usage should remain stable and not increasing as number of rows displayed.</li>
+<li>Martin Guillon 2012-10-17
+
+   Thanks Max. That s one step forward. I just hope we wont stop there!</li>
+<li>Ingo Muschenetz 2012-10-17
+
+   @max, will the PR also address TC-1384?</li>
+<li>Max Stepanov 2012-10-17
+
+   @Ingo, the other one is more like a feature request and not yet completely defined.</li>
+<li>Martin Guillon 2012-10-17
+
+   @Max i agree it s not completely defined, but please do not ignore it ;)</li>
+<li>Ingo Muschenetz 2012-10-17
+
+   Martin, thanks. What I'm trying to ascertain is if the issue in TC-1384 is a regression from a previous version (i.e. it worked fine in 2.1.3 but not in 3.0.0), or if it's a way of making things faster than they are now.</li>
+<li>Martin Guillon 2012-10-17
+
+    No it s not a regression in any way! Just a thought on another way to implement it
+    and thank you!</li>
+<li>Ygor Lemos 2012-10-23
+
+    Any news on this one?
+    
+    3.0.0 shouldn't be published with this performance issue... since it is critical, but I see the fix version set only for 3.1.x</li>
+<li>Ingo Muschenetz 2012-10-23
+
+    @Ygor--we will address this for 3.0.0. Note the "merge-3.0.0" label which indicates it will be backported to 3.0.</li>
+<li>Martin Guillon 2012-10-23
+
+    </li>
+<li>Max Stepanov 2012-10-25
+
+    Test case for non-matching row hierarchies:
+    <code><pre>
+    var win = Ti.UI.createWindow();
+    var tableView = Ti.UI.createTableView();
+    var toolbar = createToolbar();
+    var data = [];
+    var selectedRows = {};
+    var nbSelected = 0;
+    
+    function createRow(c) {
+        var row = Ti.UI.createTableViewRow({
+            selectionStyle:'none'
+        });
+        row.selected = false;
+        row.unread = !! Math.round(Math.random() * 1);
+        row.starred = !! Math.round(Math.random() * 1);
+        row.attachment = !! Math.round(Math.random() * 1);
+        var important=Math.floor(Math.random()*5);
+        var label=Math.floor(Math.random()*3);
+        row.selectedBackgroundColor = '';
+        row.height = 80;
+        row.className = 'datarow';
+        row.clickName = 'row';
+        
+     
+        var selectButton = Ti.UI.createView({
+            backgroundImage:'images/select_off.png',
+            left:10,
+            width:20,
+            height:20,
+            clickName:'select'
+        });
+        
+        var viewCenter = Ti.UI.createView({
+            layout:'vertical', 
+            left:40, 
+            right:40
+        });
+    
+        var viewSenderDate = Ti.UI.createView({
+            height:30,
+            bottom:5
+        });
+     
+        var senderView = Ti.UI.createLabel({
+            color:'black',
+            font:{fontSize:16,fontWeight:(row.unread?'bold':'normal')},
+            left:0,
+            top:0,
+            height:Ti.UI.FILL,
+            right:50,
+            clickName:'user',
+            text:'Fred Smith '
+        });
+        
+        var attachmentView = Ti.UI.createView({
+            backgroundImage:'images/button_attach.png',
+            right:38,
+            top:5,
+            width:24,
+            height:16,
+            clickName:'attachment'
+        });
+        attachmentView.visible = row.attachment;
+        
+        var dateView = Ti.UI.createLabel({
+            color:'#444',
+            font:{fontSize:14,fontWeight:'normal'},
+            width:35,
+            top:0,
+            right:0,
+            height:20,
+            clickName:'date',
+            text:'7/31'
+        });
+        
+        var viewimportanceSubject = Ti.UI.createView({
+            height:20
+        });
+        
+        var importanceView = Ti.UI.createView({
+            left:0,
+            width:16,
+            height:10,
+            clickName:'importance'
+        });
+        
+            
+        var subjectView = Ti.UI.createLabel({
+            color:(row.unread?'black':'#444'),
+            font:{fontSize:14,fontWeight:(row.unread?'bold':'normal')},
+            left:20,
+            top:0,
+            height:Ti.UI.FILL,
+            right:0,
+            wordWrap:false,
+            clickName:'subject',
+            text:'This is a sample subject'
+        });
+        
+        if (important === 0)
+        {
+            subjectView.left = 0;
+            importanceView.visible = false;
+        }
+        else
+            importanceView.backgroundImage = '/images/importance' + important + '.png';
+        
+         var viewmessageLabels = Ti.UI.createView({
+            height:20
+        });
+        
+        var messageView = Ti.UI.createLabel({
+            color:'#444',
+            font:{fontSize:14,fontWeight:'bold'},
+            left:0,
+            top:0,
+            height:Ti.UI.FILL,
+            wordWrap:false,
+            clickName:'message',
+            text:'This is a sample core message text which actually needs to be pretty long so that we see what we want to see'
+        });
+        
+        // var labelsView = Ti.UI.createWebView({
+            // color:'#444',
+            // top:0,
+            // height:24,
+            // right:0,
+            // wordWrap:false,
+            // clickName:'labels'
+        // });
+        // labelsView.html = '<html><body><div style="border: 1px solid green;background-color:#aea;overflow: hidden;width:30;padding-left:4;padding-right:4">Label</div></body></html>';
+        // labelsView.width = label*25;
+        // messageView.right = labelsView.width;
+        
+        var starButton = Ti.UI.createView({
+            right:10,
+            width:20,
+            height:20,
+            clickName:'star'
+        });
+        starButton.backgroundImage = 'images/star_' + (row.starred?'on':'off') + '.png';
+     
+        viewSenderDate.add(senderView);
+        viewSenderDate.add(attachmentView);
+        viewSenderDate.add(dateView);
+        
+        viewimportanceSubject.add(importanceView);
+        viewimportanceSubject.add(subjectView);
+        
+        viewmessageLabels.add(messageView);
+        // viewmessageLabels.add(labelsView);
+        
+        viewCenter.add(viewSenderDate);
+        if ((c % 10) != 0) {
+        	viewCenter.add(viewimportanceSubject);
+        }
+        viewCenter.add(viewmessageLabels);
+        
+        row.add(selectButton);
+        row.add(viewCenter);
+        row.add(starButton);
+        
+        row.select = function()
+        {
+            this.backgroundColor = '#D9E7FD';
+            this.separatorColor = '#B9CFF5';
+            this.selected = true;
+            selectButton.backgroundImage = 'images/select_on.png';
+        }
+        
+        row.unselect = function()
+        {
+            this.backgroundColor = this.unread?'white':'#efefef';
+            this.separatorColor = '#777';
+            this.selected  = false;
+            selectButton.backgroundImage = 'images/select_off.png';
+        }
+        
+        row.star = function()
+        {
+            this.starred = true;
+            starButton.backgroundImage = 'images/star_' + (this.starred?'on':'off') + '.png';
+        }
+        
+        row.unstar = function()
+        {
+            this.starred = false;
+            starButton.backgroundImage = 'images/star_' + (this.starred?'on':'off') + '.png';
+        }
+        
+        row.unselect();
+        return row;
+    }
+     
+    var updating = false;
+    var loadingRow = Ti.UI.createTableViewRow({
+        height:80,
+        title:"Show more messages...",
+        clickName: 'loadingRow',
+        color:'blue'
+    });
+    
+    function addRows()
+    {
+        updating = true;
+        tableView.deleteRow(loadingRow);
+        var lastCurrentRow = data.length -1;
+        var lastRow = 50;
+        for (var c=0;c<lastRow;c++)
+        {
+            var row = createRow(c);
+            data.push(row);
+        }
+        Ti.API.info('adding ' + data.length + ' rows');
+        tableView.data = data;
+        // if (lastCurrentRow > 0)
+    //         tableView.scrollToIndex(lastCurrentRow,{animated:false,position:Ti.UI.iPhone.TableViewScrollPosition.BOTTOM}); 
+        tableView.appendRow(loadingRow);
+        updating = false;
+    }
+    
+    tableView.addEventListener('click', function(e){
+        if (e.source.clickName === 'loadingRow')
+            addRows();
+        else if (e.source.clickName === 'select')
+        {
+            if (e.row.selected)
+            {
+                delete selectedRows[e.index];
+                e.row.unselect();
+                nbSelected -= 1;
+                toolbar.setNbSelected(nbSelected);
+                if (nbSelected === 0)
+                    toolbar.hideMe();
+            }
+            else
+            {
+                selectedRows[e.index] = e.row;
+                e.row.select();
+                nbSelected += 1;
+                toolbar.setNbSelected(nbSelected);
+                if (nbSelected === 1) //first selected
+                    toolbar.showMe();
+            }
+        }
+        else if (e.source.clickName === 'star')
+        {
+            if (e.row.starred)
+                e.row.unstar();
+            else
+                e.row.star();
+        }
+        
+    })
+    
+    addRows();
+    win.add(tableView);
+    win.add(toolbar);
+    
+    function createToolbar()
+    {
+        var toolbar = Ti.UI.createView({
+            left:-1,
+            right:-1,
+            height:38,
+            bottom:-1,
+            borderColor:'#6E6E6F',
+            borderWidth:1,
+            backgroundGradient: {
+                type: 'linear',
+                startPoint: { x: '50%', y: 0 },
+                endPoint: { x: '50%', y:'100%' },
+                colors: [ { color: '#424245', offset: 0.0}, { color: '#181819', offset: 1.0 } ],
+                backfillStart:true
+            }
+        });
+        toolbar.transform = Ti.UI.create2DMatrix().translate(0,toolbar.height);
+    
+        
+        var labelNbSelected = Ti.UI.createLabel({
+            color:'white',
+            textAlign:'center',
+            font:{fontSize:14,fontWeight:'normal'},
+            left:10,
+            width:25,
+            height:25,
+            wordWrap:false,
+            backgroundColor:'#48484A',
+            borderRadius:2
+        });
+        
+        toolbar.setNbSelected = function(_nb)
+        {
+            labelNbSelected.text = _nb;
+        }
+        
+         var buttonUnselect = Ti.UI.createButton({
+            image:'images/button_close.png',
+            style:'plain',
+            font:{fontSize:15,fontWeight:'normal'},
+            right:5,
+            width:30,
+            height:30
+        });
+        
+        buttonUnselect.addEventListener('click', function(_event)
+        {
+            if (nbSelected === 0) return;
+            for (var index in selectedRows)
+            {
+                selectedRows[index].unselect();
+            }
+            selectedRows = {};
+            nbSelected = 0;
+            toolbar.setNbSelected(0);
+            toolbar.hideMe();
+        });
+        
+        
+        toolbar.showMe = function()
+        {
+            var animation = Ti.UI.createAnimation();
+            animation.transform = Ti.UI.create2DMatrix();
+            toolbar.animate(animation);
+        }
+        
+        toolbar.hideMe = function()
+        {
+            var animation = Ti.UI.createAnimation();
+            animation.transform = Ti.UI.create2DMatrix().translate(0,toolbar.height);
+            toolbar.animate(animation);
+        }
+        
+        toolbar.add(labelNbSelected);
+        toolbar.add(buttonUnselect);
+        return toolbar;
+    }
+    win.add(toolbar);
+    
+    win.open();
+    </pre></code></li>
+<li>Blain Hamon 2012-10-30
+
+    Pull merged.</li>
+<li>Olga Romero 2012-12-04
+
+    Closing as fixed.
+    Verified and tested with:
+    Titanium Studio, build: 3.0.0.201211301903
+    Titanium SDK, build: 3.0.0.v20121130200208
+    Devices:
+    iPad mini iOS 6.0.1
+    iPad4 iOS 6.0
+    iPhone5 iOS 6.0</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11510.json">JSON Source</a></p>

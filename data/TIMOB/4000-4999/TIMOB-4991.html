@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-4991] Android: Call module's onAppCreate method as part of application's onCreate processing"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-08-26T16:12:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-33, Release 1.7.3, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_other, verified-1.7.3</td></tr>
+<tr><th>Reporter</th><td>Jeff English</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2011-08-12T15:11:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-02T08:25:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The Urban Airship module requires some specific initialization to occur during the onCreate method of the application object. Urban Airship starts a Push Service during the application initialization AND it also registers with the BOOT_COMPLETED intent so that it gets restarted on a system reboot. This second case causes an instance of the application to be created (without starting the main activity) and it is this process startup that requires the module to be able to set the configuration options. Failure to do this causes the Push Service to throw an exception and crash.
+
+I have defined a static method in the UA module called onAppStartup(). This static method needs to be called from the application's onCreate method. There have been a couple of ideas surrounding this. One that I have implemented and tested uses reflection to query if the custom module contains the onAppCreate method and invokes it if found. The current implementation does the reflection at run time -- it may be possible to do the reflection at build time and insert the code into the onCreate method only if needed.
+
+Another proposed idea is to add an attribute to the tiModule.xml file to indicate that during the code generation phase it should insert a call to the module's onAppCreate method. It would then be required by the module developer to ensure that this method is implemented.
+
+Another proposed idea is to expose a new annotation, something like @Ti.onAppCreate, that would used to identify a method to be called from the application's onCreate.
+
+The requirement basically is to call a static method called 'onAppCreate' in the module if-and-only-if that method is defined in the module. The Urban Airship module has been updated to include this method.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4991_22621/androidModule.zip">androidModule.zip</td></td><td>2011-08-20T14:59:09.000+0000</td><td>11687</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4991_22554/App.java">App.java</td></td><td>2011-08-12T15:15:40.000+0000</td><td>2726</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jeff English 2011-08-12
+
+   The UA module now includes the onAppStart method</li>
+<li>Jeff English 2011-08-12
+
+   Attached is a modified app.java file that uses reflection at run time to determine if it needs to call the onAppStart method in all custom modules. The generated file includes a try/catch block for each custom module. This method works, but we should try to find a more efficient means to do this.</li>
+<li>Marshall Culpepper 2011-08-20
+
+   To verify this fix:
+   
+   * Download and extract the attached module project
+   * Make sure you have an emulator running, and run these commands inside the module directory:
+   
+   <code><pre>
+   $ ant
+   $ ant run
+   </pre></code>
+   
+   (This will build the example project included in the module and deploy it to the emulator)
+   
+   * If the app says "woohoo! custom onAppCreate called", then you've verified the fix
+   
+   For code review:
+   
+   * Take a look at <code>src/com/arcaner/androidmodule/AndroidModule.java</code>, and take notice of the <code>@Kroll.onAppCreate</code> annotation on <code>customOnAppCreate</code> (and that it sets a flag)
+   * Take a look at <code>example/app.js</code> and notice that we switch on the boolean <code>onAppCreateCalled()</code> module method to control the label's message (this is set when <code>customOnAppCreate</code> is called).</li>
+<li>Jeff English 2011-08-21
+
+   @Marshall
+   
+   Performed functional test and it works for the UrbanAirship module. A couple of comments:
+   1. I defined the parameter in my onAppCreate to be a TiApplication object rather than an Application object. Should the documentation and your example be changed to use TiApplication?
+   2. The generated code contains a number of blank lines before the call to the custom onAppCreate method. Not something to worry about since it doesn't affect anything, just making a note.</li>
+<li>Marshall Culpepper 2011-08-21
+
+   @Jeff
+   
+   * You can actually use either class, but Application is probably safer for forward compatibility -- we can't guarantee APIs on TiApplication right now. Are you using any methods from TiApplication?
+   * The blank lines come from iterating all of the modules inside the template -- I should be able to suppress them though. Thanks for the heads up</li>
+<li>Jeff English 2011-08-21
+
+   @Marshall
+   
+   - Using the getProperties method (was calling TiApplication.getInstance().getAppProperties() but updated to use the Application object passed in on the onAppCreate method when I pulled your update). Since the onAppCreate is called from the onCreate method of the application class which extends TiApplication it should be okay, right?</li>
+<li>Marshall Culpepper 2011-08-21
+
+   @Jeff
+   
+   Yeah, it should be fine. I'll update the docs to mention TiApplication</li>
+<li>Marshall Culpepper 2011-08-22
+
+   @Jeff
+   
+   My latest changes are pushed with your suggestions. Would you mind commenting with your functional review status on the pull request?
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/397" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/397</a></li>
+<li>Bill Dawson 2011-08-26
+
+   Merged to master (with pull request) and 1_7_X (with hand merge).  Tested 1_7_X hand merge by running several KS tests, drillbit and of course Marshall's test module/app in here.</li>
+<li>Natalie Huynh 2011-09-30
+
+    Tested with 1.7.3.v20110928185013 app says "woohoo! custom onAppCreate called"</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4991.json">JSON Source</a></p>

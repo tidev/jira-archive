@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-25771] Android: Apps fail to build as of 7.0.2 if system requires proxy to access Internet"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-28T19:42:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, build, proxy</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-02-12T21:20:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-10-02T15:37:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If the developer's system uses a proxy to access the Internet, then Android apps will fail to build as of Titanium 7.0.2.
+
+*Steps to Reproduce:*
+<h4>Delete the following folder on Mac, if it exists: ~/.gradle/caches</h4>
+<h4>Set up the machine to access the Internet via a proxy.</h4>
+<h4>Configure the proxy settings in Appcelerator Studio via its "Proxy Setup" window or via the CLI's "appc config set proxyServer".</h4>
+<h4>Attempt to do an Android build.</h4>
+
+*Result:*
+The build fails with follow logged errors...
+<code><pre>
+[ERROR] Failed to run dexer:
+[ERROR]   
+[ERROR] FAILURE: Build failed with an exception.
+[ERROR]   
+[ERROR] * What went wrong:
+[ERROR] A problem occurred configuring root project 'android'.
+[ERROR] > Could not resolve all files for configuration ':classpath'.
+[ERROR]    > Could not resolve net.sf.proguard:proguard-gradle:5.3.3.
+[ERROR]      Required by:
+[ERROR]          project :
+[ERROR]       > Could not resolve net.sf.proguard:proguard-gradle:5.3.3.
+[ERROR]          > Could not get resource '<a href="https://repo1.maven.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom" rel="nofollow" target="_blank">https://repo1.maven.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom</a>'.
+[ERROR]             > Could not GET '<a href="https://repo1.maven.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom" rel="nofollow" target="_blank">https://repo1.maven.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom</a>'.
+[ERROR]                > sun.security.validator.ValidatorException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+[ERROR]   
+[ERROR] * Try:
+[ERROR] Run with --stacktrace option to get the stack trace. Run with --info or --debug option to get more log output.
+[ERROR]   
+[ERROR] * Get more help at <a href="https://help.gradle.org" rel="nofollow" target="_blank">https://help.gradle.org</a>
+[ERROR]   
+[ERROR] BUILD FAILED in 1s
+</pre></code>
+
+*Cause:*
+A new "gradle" build step has been added to Titanium 7.0.2 to perform ProGuard and multidexing apps. Gradle is failing to download its module(s) from maven repositories since it is not configured to work through a proxy.
+
+*Recommended Solution:*
+Developers currently have to configure Titanium/Appc to use a proxy according to our docs here...
+<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Using_Studio_From_Behind_a_Proxy
+<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Appcelerator_CLI_Getting_Started
+
+When the Titanium build system generates the "gradle-wrapper.properties" file, it should add the CLI's proxy settings to that gradle property file as well. Gradle documents these proxy settings here...
+<a href="https://docs.gradle.org/current/userguide/build_environment.html#sec:accessing_the_web_via_a_proxy" rel="nofollow" target="_blank">https://docs.gradle.org/current/userguide/build_environment.html#sec:accessing_the_web_via_a_proxy</a>
+
+*Work-Around:*
+Titanium developers can work-around this issue by configuring a global "gradle.properties" file with these proxy settings according to the docs here...
+<a href="https://docs.gradle.org/current/userguide/build_environment.html#sec:accessing_the_web_via_a_proxy" rel="nofollow" target="_blank">https://docs.gradle.org/current/userguide/build_environment.html#sec:accessing_the_web_via_a_proxy</a>
+
+On Mac, the global file goes here...
+<code><pre>~/.gradle</pre></code>
+
+On Windows, the global file goes here...
+<code><pre>C:\Users\<UserName>\.gradle</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-02-12
+
+   *Set up a temporary proxy server on Mac:*
+   <h4>Open the Mac "Terminal" app.</h4>
+   <h4>At the command line, enter the following: <code>npm install -g proxy</code></h4>
+   <h4>At the command line, enter the "Proxy Command Line" shown down below to start the server.</h4>
+   <h4>Open Appcelerator Studio.</h4>
+   <h4>Click menu item "Appcelerator Studio\Preferences".</h4>
+   <h4>Go to preference page "General\Network Connections".</h4>
+   <h4>Click the "Active Provider" drop-down and select "Manual".</h4>
+   <h4>Under "Proxy entries" list, double click on "HTTP".</h4>
+   <h4>Enter host "127.0.0.1", port "3128, user "foo", password "bar", check "Requires Authentication", and click OK.</h4>
+   <h4>Under "Proxy entries" list, double click on "HTTPS".</h4>
+   <h4>Enter host "127.0.0.1", port "3128, user "foo", password "bar", check "Requires Authentication", and click OK.</h4>
+   <h4>Click the Preferences dialog OK button to save the settings.</h4>
+   <h4>Open Mac's "System Preferences" window.</h4>
+   <h4>Click "Network".</h4>
+   <h4>Select the active network connection (in green) on the left.</h4>
+   <h4>Under the "Configure" drop-down box, select "Off" to disconnect.</h4>
+   <h4>Click the "Apply" button.</h4>
+   <h4>Attempt to do an appc build. (It'll do it via the local proxy server.)</h4>
+   
+   *Proxy Command Line:*
+   <code><pre>
+   proxy --authenticate 'if \
+       [ "$PROXY_AUTH_USERNAME" = "foo" ] && \
+       [ "$PROXY_AUTH_PASSWORD" = "bar" ]; \
+         then exit 0; \
+       fi; \
+       exit 1;'
+   </pre></code>
+   
+   *Notes:*
+   * To restore Internet access under "System Preferences\Network", change your "Configure" drop-down back "Using DHCP".
+   * To kill the running proxy server at the terminal, press Ctrl-C.
+   * To uninstall the proxy server from the command line (when you're done testing), enter the following at the command line: <code>npm uninstall proxy</code>
+   </li>
+<li>Joshua Quick 2018-02-15
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9822" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9822</a>
+   PR (7.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/9823" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9823</a></li>
+<li>Lokesh Choudhary 2018-02-28
+
+   FR Passed.
+   PR's merged.</li>
+<li>Lokesh Choudhary 2018-03-06
+
+   Verified the fix in SDK 7.2.0.v20180305152636 & 7.1.0.v20180306061214.
+   
+   Closing.
+   
+   Studio Ver:     5.0.0.201712081732
+   OS Ver:         10.13.2
+   Xcode Ver:      Xcode 9.2
+   Appc NPM:       4.2.12
+   Appc CLI:       7.0.2
+   Daemon Ver:     1.0.1
+   Ti CLI Ver:     5.0.14
+   Alloy Ver:      1.11.0
+   Node Ver:       8.9.1
+   NPM Ver:        5.5.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ google Nexus 5 --- Android 6.0.1
+                   ⇨ google Nexus 6P --- Android 8.0.0
+   </li>
+<li>Joshua Quick 2018-10-02
+
+   [~aislam], their issue doesn't sound related to this ticket. The logged error suggests that their network is blocking the following URL...
+   <a href="https://repo.maven.apache.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom" rel="nofollow" target="_blank">https://repo.maven.apache.org/maven2/net/sf/proguard/proguard-gradle/5.3.3/proguard-gradle-5.3.3.pom</a>
+   
+   This is needed by Google's "gradle" build system to download ProGuard, which Titanium uses to multidex the app if needed. You should ask them to add "<a href="https://repo.maven.apache.org" rel="nofollow" target="_blank">https://repo.maven.apache.org</a>" to their white list.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25771.json">JSON Source</a></p>

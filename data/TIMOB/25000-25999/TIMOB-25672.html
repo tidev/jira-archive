@@ -1,0 +1,145 @@
+---
+title: "[TIMOB-25672] iOS: Address 10+ compiler warnings and general issues in source project"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-23T19:24:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>bug, ios, memoryleak, merge-7.0.2</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2018-01-14T15:34:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-24T22:14:34.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We currently have a number of (non-critical) warnings in the iOS source, caused by some PR's over the last months. Examples
+* Unknown selector-warnings because of text-field changes (selector is in place, but not referenced correctly)
+* Unknown selector-warning because of APSAnalytics (a recent updated missed to expose it)
+* Deprecating warnings (about AUTHORIZATION_AUTHORIZED which is technically identical to AUTHORIZATION_ALWAYS)
+* Missing 1024x1024px launch-screen (development-only, missing since Xcode 9 update)
+* Fix memory leaks
+* Fix an issue where the VideoPlayer would crash after closing and waiting for deallocation (~ 30s)
+* Fix an issue where the thumbnail-generation of the video-player would block the UI
+
+To fix this, it requires two small PR's to aps_sdk and titanium_mobile
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-01-14
+
+   PR (aps_sdk/master): <a href="https://github.com/appcelerator/aps_sdk/pull/308" rel="nofollow" target="_blank">https://github.com/appcelerator/aps_sdk/pull/308</a>
+   PR (titanium_mobile/master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9733" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9733</a>
+   PR (titanium_mobile/7_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9734" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9734</a>
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+     title: 'TIMOB-25672 Test-Suite',
+     backgroundColor: '#fff',
+     layout: 'vertical'
+   });
+    
+   var btn1a = Ti.UI.createButton({
+     title: 'Test #1a (Video Player Thumbnail Generator)',
+     top: 50
+   });
+    
+   btn1a.addEventListener('click', function() {
+     var video = Ti.Media.createVideoPlayer({
+       url: '<a href="http://techslides.com/demos/sample-videos/small.mp4" rel="nofollow" target="_blank">http://techslides.com/demos/sample-videos/small.mp4</a>'
+     });
+     
+     var thumbnail = video.requestThumbnailImagesAtTimes([1], Titanium.Media.VIDEO_TIME_OPTION_EXACT, function(e) {
+       var newWin = Ti.UI.createWindow({
+         backgroundColor: '#fff'
+       });
+       newWin.add(Ti.UI.createImageView({
+         image: e.image
+       }));
+       nav.openWindow(newWin);
+     });
+   });
+    
+   var btn1b = Ti.UI.createButton({
+     title: 'Test #1b (Video Player KVO)',
+     top: 50
+   });
+    
+   btn1b.addEventListener('click', function() {
+     var video = Ti.Media.createVideoPlayer({
+       url: '<a href="http://techslides.com/demos/sample-videos/small.mp4" rel="nofollow" target="_blank">http://techslides.com/demos/sample-videos/small.mp4</a>'
+     });
+     var newWin = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+     });
+     newWin.add(video);
+     nav.openWindow(newWin);
+   });
+   
+   var btn2 = Ti.UI.createButton({
+     title: 'Test #2 (Base64-decode)',
+     top: 50
+   });
+    
+   btn2.addEventListener('click', function() {
+     var blob = Ti.Utils.base64decode('dGlyb2NrcyE=');
+     Ti.API.info('Decoded: ' + blob.text);
+   });
+    
+   var btn3 = Ti.UI.createButton({
+     title: 'Test #3 (List-View selectedItems)',
+     top: 50
+   });
+    
+   btn3.addEventListener('click', function() {
+     var win = Ti.UI.createWindow();
+     var list = Ti.UI.createListView({
+       sections: [Ti.UI.createListSection({
+         items: [{
+           properties: {
+             title: 'Test'
+           }
+         }]
+       })]
+     });
+     win.addEventListener('open', function() {
+       Ti.API.warn('# of selected items (before): ' + list.selectedItems.length);
+     });
+     list.addEventListener('itemclick', function(e) {
+       Ti.API.warn('# of selected items (in selection): ' + list.selectedItems.length);
+     });
+     win.add(list);
+     nav.openWindow(win);
+   });
+    
+   win.add(btn1a);
+   win.add(btn1b);
+   win.add(btn2);
+   win.add(btn3);
+    
+   var nav = Ti.UI.iOS.createNavigationWindow({
+     window: win
+   });
+    
+   nav.open();
+   </pre></code></li>
+<li>Abir Mukherjee 2018-01-23
+
+   FR passed.</li>
+<li>Abir Mukherjee 2018-01-24
+
+   Verified fix is found in:
+   SDK 7.0.2.v20180124113923
+   SDK 7.1.0.v20180124115505
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25672.json">JSON Source</a></p>

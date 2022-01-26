@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-25506] Android: ImageView sometimes crashes when loading via URL"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-24T21:20:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Javascript, android, imageview, listview</td></tr>
+<tr><th>Reporter</th><td>Lee phela</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-10-07T06:32:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-25T00:07:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This bug is so difficult to reproduce.
+However, if your app loads a lot of images and consumes memory which will subsequently trigger GC constantly, then you will often see this bug very often. It appears to me that after some heavy GC is carried out by the system, listview will crashes either silently or with some errors.
+
+The bugs appear to me like after the systems is GCed, the native system tried to access some invalid arraylist which is probably our list items but has been cleaned up during the GC. The full error logs is listed below -
+
+
+    
+{color:green}[INFO] :   art: Background partial concurrent mark sweep GC freed 39840(2MB) AllocSpace objects, 562(22MB) LOS objects, 24% free, 49MB/65MB, paused 1.766ms total 205.007ms
+[INFO] :   art: Background sticky concurrent mark sweep GC freed 178393(7MB) AllocSpace objects, 75(1200KB) LOS objects, 11% free, 57MB/65MB, paused 2.294ms total 100.092ms
+[INFO] :   I/Adreno-EGL: <qeglDrvAPI_eglInitialize:410>: EGL 1.4 QUALCOMM build: AU_LINUX_ANDROID_LA.BF.1.1.1_RB1.05.00.02.042.016_msm8226_LA.BF.1.1.1_RB1__release_AU ()
+[INFO] :   I/Adreno-EGL: OpenGL ES Shader Compiler Version: E031.25.03.00
+[INFO] :   I/Adreno-EGL: Build Date: 02/11/15 Wed
+[INFO] :   I/Adreno-EGL: Local Branch:
+[INFO] :   I/Adreno-EGL: Remote Branch: quic/LA.BF.1.1.1_rb1.10
+[INFO] :   I/Adreno-EGL: Local Patches: NONE
+[INFO] :   I/Adreno-EGL: Reconstruct Branch: AU_LINUX_ANDROID_LA.BF.1.1.1_RB1.05.00.02.042.016 + 62ca4eb + acd831d + 9f8b442 + e027a02 + cba30ba + 53c303a + a649d79 + 23e16f8 + 5e97da7 + cbd2a44 + 33d072a + 7aacf06 + 72b33e7 + 28f6f60 + b4c13d8 +  NOTHING
+[INFO] :   OpenGLRenderer: Initialized EGL, version 1.4
+{color}
+{color:red}
+[ERROR] :  TiApplication: (main) [51471,51471] Sending event: exception on thread: main msg:java.lang.NullPointerException: Attempt to invoke virtual method 'java.util.Iterator java.util.ArrayList.iterator()' on a null object reference; Titanium 6.2.2,2017/09/19 16:01,undefined
+[ERROR] :  TiApplication: java.lang.NullPointerException: Attempt to invoke virtual method 'java.util.Iterator java.util.ArrayList.iterator()' on a null object reference
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.util.TiDownloadManager.handleFireDownloadMessage(TiDownloadManager.java:104)
+[ERROR] :  TiApplication: 	at org.appcelerator.titanium.util.TiDownloadManager.handleMessage(TiDownloadManager.java:174)
+[ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:98)
+[ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:135)
+[ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:5343)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:905)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:700)
+[INFO] :   Process: Sending signal. PID: 15484 SIG: 9{color}
+
+Steps to reproduce [tested on moto G 1st gen phone with 1GB RAM]-
+1. Import the attached zip file to your titanium studio and run it in a system with limited memory.
+2. Try to scroll down quickly the listview as fast as possible. Click the LV BUTTON to change the contents of the listview (SO as to trigger GC).
+3. Still you see no crashes occurring? Cool, background the app for sometimes, open a a memory extensive app like a browser, load some heavy images, and before the system could terminate our backgrounded app,  quickly bring up the app to foreground and do a rapid scroll.
+4. This time the app hangs up and crashes after a few rounds of GC.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25506_63395/gc_test.zip">gc_test.zip</td></td><td>2017-10-07T06:16:48.000+0000</td><td>749245</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Lee phela 2017-10-07
+
+   FYI, attaching the listview, its sections, or list items to windows object, or anything does not really help to solve the crash at all. This seems to be an internal bug related to the native titanium sdk.</li>
+<li>Sharif AbuDarda 2017-11-07
+
+   Hello, This only happens in limited memory? Can you check for memory leaks? Thanks. </li>
+<li>Mostafizur Rahman 2017-11-09
+
+   Hello [~spaceman12],
+   
+   Did you manage to to check memory leaks?
+   
+   Best</li>
+<li>Mostafizur Rahman 2017-11-12
+
+   Hello [~spaceman12],
+   
+   I just wanted to follow up here. Did you manage to follow the instructions provided earlier? Let us know if you still experience any issue. We would be happy to assist you.
+   Best Regards!</li>
+<li>Lee phela 2017-11-12
+
+   Hello,
+   I can assure you there is nothing as like memory leak in our code. You are right that this crash occurs in limited memory environment as I have clearly mention that in the post as well that the crash occurs only right after the GC.
+   
+   It looks like the list view items created with js are cleared up along with the GC and hence triggered the crash when trying to scroll down the list as the error of the crash report is due to trying to access the array iterator method on a null object which is probably our list view items.
+   
+   So for phone with limited memories, the rate at which the object are GCed are more rapid, and hence crashes occurs more prominently. As we are building a big app with image intensive usage pattern, we are forced to abondon titatium for this project and shift to the pure native mode.</li>
+<li>Joshua Quick 2017-11-13
+
+   This looks like an issue with an ImageView whose source image comes from an Internet URL. It appears to be a race condition that can happen when the ImageView is scrolled offscreen before the image finishes downloading or errors out. It's probably more likely to happen with a slow Internet connection.
+   
+   The Java stacktrace provided shows what needs to be fixed (thanks!). It's definitely a bug on our end. I think doing a "blind fix" for this issue is fine in this case since it's difficult to reproduce.</li>
+<li>Lee phela 2017-11-14
+
+   @Joshua - you are right. This bug is not just limited to listview alone but to all other views container as well, cause the crash still occurs with scroll view as well. So, I also now belive that this has got to do with image view with remote source images.
+   Thanks </li>
+<li>Gary Mathews 2017-11-15
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9605" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9605</a></li>
+<li>Gary Mathews 2018-01-09
+
+   7_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9708" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9708</a></li>
+<li>Lokesh Choudhary 2018-01-19
+
+    FR Passed.
+    
+    Master PR merged.
+    Waiting for merge to get enabled for backport.</li>
+<li>Lokesh Choudhary 2018-01-24
+
+    Backport PR merged.</li>
+<li>Lokesh Choudhary 2018-01-25
+
+    Verified the fix with SDK 7.1.0.v20180124153334 & 7.0.2.v20180124142857.
+    
+    Closing.
+    
+    Studio Ver: 5.0.0.201712081732
+    OS Ver: 10.13.2
+    Xcode Ver: Xcode 9.2
+    Appc NPM: 4.2.11
+    Appc CLI: 7.0.1
+    Daemon Ver: 1.0.1
+    Ti CLI Ver: 5.0.14
+    Alloy Ver: 1.10.10
+    Node Ver: 8.9.1
+    NPM Ver: 5.5.1
+    Java Ver: 1.8.0_101
+    Devices: ⇨ samsung SM-G955U1 — Android 7.0
+    ⇨ google Nexus 5 — Android 6.0.1
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25506.json">JSON Source</a></p>

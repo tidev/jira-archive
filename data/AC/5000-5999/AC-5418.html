@@ -1,0 +1,271 @@
+---
+title: "[AC-5418] Alloys Data Binding with formFactor property"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2017-12-13T21:06:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Alessandro Galvagno</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2017-12-01T11:44:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-12-13T21:06:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The following example fails if using the formFactor attribute.
+<code><pre>
+<Alloy>
+	<Collection src="Corsi"/>
+	<Window id="corsiWindow" class="container" formFactor="handheld">
+		<LeftNavButton>
+        	<View layout="horizontal">
+            	<Button onClick="toggle"></Button>
+               	<Label id="title"></Label>
+            </View>                    
+        </LeftNavButton>
+        <View>
+            <ScrollableView id="scrollableview" dataCollection="Corsi">
+                <Require src="uiElement/corsiSlide"/>
+            </ScrollableView>
+        </View>		
+	</Window>
+	<!--Tablet version-->
+	<View class="container" formFactor="tablet">		
+        <View>
+            <ScrollableView id="scrollableview" dataCollection="Corsi">
+                <Require src="uiElement/corsiSlide"/>
+            </ScrollableView>
+        </View>	
+	</View>
+</Alloy>
+</pre></code>
+
+<code><pre>
+var args = arguments[0] || {};
+var collection = Alloy.Collections.Corsi;
+
+collection.fetch({
+	error : function(){
+		Alloy.Globals.loading.hide();
+	},
+	finish : function(collection, response) {
+		Alloy.Globals.loading.hide();
+	},
+	localData: true,
+	initFetchWithLocalData: true
+});
+
+
+function toggle(e) {
+    var fn = 'toggleLeftWindow';
+    Alloy.Globals.drawer[fn]();
+}
+</pre></code>
+<code><pre>
+var Mutators = require('vendor/backbone.mutators');
+var utils = require('ui/utils');
+
+exports.definition = {
+    config : {        
+        URL: "<a href="http://xxxx.com" rel="nofollow" target="_blank">http://xxxx.com</a>,
+    	debug: 0, //debug mode enabled
+    	useStrictValidation: 0, // validates each item if all columns are present
+        adapter : {
+            type : "sqlrest",
+            collection_name : "corsi",
+            db_file : "/xeniasoft.sqlite",
+            db_name : "xeniasoft",
+            //idAttribute: "rowid",
+            remoteBackup : false            
+        },        
+   	 	initFetchWithLocalData : false,
+    	disableSaveDataLocallyOnServerError : true,
+    	localOnly: false,
+    	deleteAllOnFetch: true,
+    	parentNode: function (data) {
+    		return JSON.parse(data);
+		}
+    },
+
+    extendModel: function(Model) {		
+        _.extend(Model.prototype, {
+            // Extend, override or implement Backbone.Model 
+            mutators : {                
+                titolo : {
+                    get : function() {
+                        return "   " + this.get("corso") + "   ";
+                    }, // get
+                    transient : true
+                },
+                trainer : {
+                    get : function() {
+                        return L('istruttore') + this.get("istruttore").toUpperCase() + "   ";
+                    }, // get
+                    transient : true
+                },
+                image : {
+                    get : function() {
+                        return (this.get("foto") != "") ? this.get("foto") : "/images/placeholder_big.jpg";
+                    }, // get
+                    transient : true
+                },
+                imageList : {
+                    get : function() {
+                        return (this.get("foto") != "") ? this.get("foto") : "/images/placeholder.jpg";
+                    }, // get
+                    transient : true
+                },
+				lezioni : {
+					get : function() {
+						var sql = "SELECT * FROM lezioni WHERE id_corso=" + this.get("id_corso");
+						db = Ti.Database.open('xeniasoft');
+						var rs = db.execute(sql);
+						var output = [];
+						while (rs.isValidRow()) {
+							var g = utils.getGornoSettimana(rs.fieldByName('id_giorno')) + " " + rs.fieldByName("ora_inizio") + " - " + rs.fieldByName("ora_fine");
+							output.push(g);
+							rs.next();
+						}
+						rs.close();
+						db.close();
+						return output;
+					},
+					transient : true
+				}
+            }
+        });
+		
+        return Model;
+    },
+
+    extendCollection: function(Collection) {		
+        _.extend(Collection.prototype, {
+            // Extend, override or implement Backbone.Collection 
+			getCorso : function(id) {
+				var collection = this;
+				
+				var sql = "SELECT * FROM " + collection.config.adapter.collection_name + " WHERE id_corso=" + id;
+				db = Ti.Database.open(collection.config.adapter.db_name);
+				var rs = db.execute(sql);
+				var output = [];
+				if(rs.isValidRow()) {
+					output.push({
+						imageList: (rs.fieldByName("foto") != "") ? rs.fieldByName("foto") : "/images/placeholder.jpg" ,
+						corso : rs.fieldByName("corso"),
+						descrizione : rs.fieldByName("descrizione"),
+						istruttore: rs.fieldByName("istruttore"),
+						sala : rs.fieldByName("sala"),
+						prenotabile : rs.fieldByName("prenotabile")
+					});
+				}
+				
+				rs.close();
+				db.close();
+				
+				return output;
+			}
+        });
+		
+        return Collection;
+    }
+};
+</pre></code>
+This will generate the following code.
+<code><pre>
+...
+{for(var d,f=a.opts||{},g=j.models,h=g.length,k=[],l=0;l<h;l++)
+...
+</pre></code>
+
+If you run the application in "run mode" on a real device, the following error is displayed. In debugging this error is not generated.
+
+<code><pre>
+"undefined is not an object (evaluating 'j.models')";
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-5418_63731/Schermata 2017-12-06 alle 09.52.40.png">Schermata 2017-12-06 alle 09.52.40.png</td></td><td>2017-12-06T08:54:12.000+0000</td><td>5844</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-5418_63715/Test.zip">Test.zip</td></td><td>2017-12-04T12:10:10.000+0000</td><td>10047820</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2017-12-01
+
+   Hello, Can you please attach a sample app with the sample code inside, what we can directly use to test the issue? that will be helpful. Thanks.</li>
+<li>Alessandro Galvagno 2017-12-04
+
+   I created an ad-hoc project. If you run it in "Run Mode" on a real iOS device you can reproduce the error.
+   
+   <code><pre>
+   [ERROR] :  Script Error {
+   [ERROR] :      column = 1872;
+   [ERROR] :      line = 1;
+   [ERROR] :      message = "undefined is not an object (evaluating 'g.models')";
+   [ERROR] :      sourceURL = "file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/controllers/index.js";
+   [ERROR] :      stack = "a@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/controllers/index.js:1:1872\ntrigger@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/backbone.js:1:1370\nreset@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/backbone.js:1:8306\nsuccess@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/backbone.js:1:8474\nSync@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/sync/sqlrest.js:1:9989\nsync@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy.js:1:1856\nfetch@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/backbone.js:1:8559\nController@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy/controllers/index.js:1:2470\ncreateController@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/alloy.js:1:4894\nglobal code@file:///var/containers/Bundle/Application/B2283183-3442-491E-B842-355FAEF628D8/Test.app/app.js:1:232";
+   [ERROR] :  }
+   
+   </pre></code>
+   
+    [^Test.zip] </li>
+<li>Motiur Rahman 2017-12-06
+
+   Hello!
+   
+   I could not reproduce this issue with the following environment and your provided test case.
+   
+   Mac OS X: v10.13.1
+   Ti SDK: 6.3.0.GA
+   iPhone 5s v11.1.1
+   Node: v8.9.0
+   
+   I can run App successfully.
+   
+   Thanks</li>
+<li>Alessandro Galvagno 2017-12-06
+
+   Hello,
+   
+   have you start the project on a real device? Did you select "Run" instead of "Debug" when you start the project?
+   
+   Thanks.
+   
+   !Schermata 2017-12-06 alle 09.52.40.png|thumbnail! </li>
+<li>Motiur Rahman 2017-12-09
+
+   [~agalvagno]
+   
+   Yes, I did the same. I just downloaded the Test.zip file then use the App folder in my App. I did not include any other file and it runs successfully. Can you do that same for testing?
+   
+   Mac OS X: v10.13.1
+   Ti SDK: 6.3.0.GA, 7.0.0.GA
+   iPhone 5s v11.1.1
+   Node: v8.9.0
+   
+   Thanks</li>
+<li>Alessandro Galvagno 2017-12-13
+
+   Hello,
+   I have reinstalled everything, I have updated Appcelerator Studio to the latest version 5.0 and SDK to version 7.0.0.GA and it seems that the problem has been solved. I will do other tests to be sure.
+   
+   Thank you for the support.</li>
+</ol>
+
+
+<p><a href="/AC/AC-5418.json">JSON Source</a></p>

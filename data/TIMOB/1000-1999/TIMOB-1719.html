@@ -1,0 +1,199 @@
+---
+title: "[TIMOB-1719] iOS: non-UTF-8 data from external source cannot be saved and reopened accurately"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2017-07-26T03:23:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Thomas Huelbert</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:00:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-07-26T03:23:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>This was addressed on Android, over to iOS for parity. Below are
+the notes Bill wrote in the original bug. From <a href=
+"/projects/32238/tickets/1690" title="Ticket #1690">#1690</a></p>
+<p>Use case (helpdesk 38891): app fetches data via XHR. Data is XML
+encoded in ISO-8859-1. Data is saved to file, to be opened later.
+When re-opened, Titanium forces it to UTF-8, which screws up the
+encoding of some of the special characters such as those with
+umlaute (&ouml;, &auml; etc) or accents (&eacute; etc).</p>
+<p>Fail case:</p>
+<p>script to repro:</p>
+<p>Titanium.UI.setBackgroundColor('#000');<br>
+var win = Titanium.UI.createWindow({<br></p>
+<pre>
+<code>title:'Feed encoding test',
+backgroundColor:'#fff',
+fullscreen: true,
+exitOnClose: true,
+url: 'main.js'</code>
+</pre>
+<p>}); win.open();<br>
+main.js:</p>
+<p>var win = Ti.UI.currentWindow;<br>
+win.title = "Feed encoding via file"<br>
+var url = [SEE HELPDESK 38891]</p>
+<p>var dir = Titanium.Filesystem.applicationDataDirectory;<br>
+var filename = 'feed.xml';<br>
+var file = Ti.Filesystem.getFile(dir, filename);</p>
+<p>function saveFeed(data) {<br></p>
+<pre>
+<code>if (file.exists()){
+    file.deleteFile();
+}
+file.write(data);</code>
+</pre>
+<p>}</p>
+<p>function buildTable() {<br></p>
+<pre>
+<code>var blob = file.read();
+var string = blob.text;
+var xml = Ti.XML.parseString(string);
+var rows = [];
+try {
+    if (xml) {
+        var session = xml.getElementsByTagName('session');
+        if (session) {
+            session = session.item(0);
+        } else { 
+            alert('session list not fetched');
+            return;
+        }
+        if (session) {
+            if (!session.hasChildNodes()) {
+                alert('No child nodes');
+                return;
+            }
+            var length = session.childNodes.length;
+            for (var i = 0; i &lt; length; i++) {
+                var child = session.childNodes.item(i);
+                if (child.nodeType == child.ELEMENT_NODE) {
+                    rows.push(Ti.UI.createTableViewRow({color: 'black', title: child.getAttribute("driver")}));
+                }
+            }
+            win.add(Ti.UI.createTableView({data: rows}));
+        } else {
+            alert('"session" not found');
+        }
+    } else {
+        alert('XML did not load');
+    }
+} catch(ex) {
+    alert(ex);
+}</code>
+</pre>
+<p>}</p>
+<p>var xhr = Ti.Network.createHTTPClient();<br>
+xhr.onload = function(e) {<br></p>
+<pre>
+<code>try {
+    var data = xhr.responseData;
+    saveFeed(data);
+    buildTable();
+
+} catch(ex) {
+    alert(ex);
+}</code>
+</pre>
+<p>}; xhr.open('GET', url);<br>
+xhr.send();</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Thomas Huelbert 2011-04-15
+
+   <div><p>more of Bills notes:<br>
+   We want to keep things internally in UTF-8, so instead of trying to
+   track the other encoding throughout its lifetime in Titanium code
+   (i.e., in TiBlob, TiFile, etc), we now give the developer a way to
+   transcode the text to utf-8 and then save that:<br>
+   var utf8Text = Ti.Utils.transcodeString(origText, 'ISO-8859-1',
+   'UTF-8');<br>
+   So Ti.Utils.transcodeString(origText, origEncoding,
+   desiredEncoding) is new.<br>
+   To fix the fail case from the description of this item, in the
+   function saveFeed change file.write(data) to
+   file.write(Ti.Utils.transcodeString(data, 'ISO-8859-1',
+   'UTF-8')).<br>
+   Then, because the feed contains &lt;?xml version="1.0"
+   encoding="ISO-8859-1"?&gt;, you need to change the encoding= to
+   read encoding='UTF-8 before giving it to the xml parser. So in
+   buildTable() change ...<br>
+   var xml = Ti.XML.parseString(string);<br>
+   ... to ... var xml =
+   Ti.XML.parseString(string.replace(/iso-8859-1/i, 'UTF-8'));<br>
+   Finally, when the data comes back from the provider, get it with
+   responseText instead of responseData<br>
+   . So replace this... var data = xhr.responseData;<br>
+   with this ...</p>
+   <p>var data = xhr.responseText;</p>
+   <p>also</p>
+   <p>xhr.responseData with xhr.responseText</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+   <div><p>the current behavior is the test generates an alert on iOS. I
+   posted the working test case (resource files) to
+   Appcelerator/Users/Thomas/bugs/1719 if that helpful</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>We added <code>Ti.Utils.transcodeString</code>, so Ti iOS should
+   get one too for parity. Here's the java, fyi:</p>
+   <pre>
+   <code class=
+   "java">public String transcodeString(String orig, String inEncoding, String outEncoding)
+       {
+           try {
+               
+               Charset charsetOut = Charset.forName(outEncoding);
+               Charset charsetIn = Charset.forName(inEncoding);
+   
+               ByteBuffer bufferIn = ByteBuffer.wrap(orig.getBytes(charsetIn.name()) );
+               CharBuffer dataIn = charsetIn.decode(bufferIn);
+               bufferIn.clear();
+               bufferIn = null;
+   
+               ByteBuffer bufferOut = charsetOut.encode(dataIn);
+               dataIn.clear();
+               dataIn = null;
+               byte[] dataOut = bufferOut.array();
+               bufferOut.clear();
+               bufferOut = null;
+               
+               return new String(dataOut, charsetOut.name());
+               
+           } catch (UnsupportedEncodingException e) {
+               Log.e(LCAT, "Unsupported encoding: " + e.getMessage(), e);
+           }
+           return null;
+       }</code>
+   </pre></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>We could leave this as an entrance test for new hires. Very
+   clean and clearcut function.</p></div></li>
+<li>Stephen Tramer 2012-07-25
+
+   Despite the lack of a working existing test case (no URL provided in test) it is clear that this bug is still valid in SDK 2.2.0.014b86f because we have NO UTF-16 support. Options are:
+   
+   <h4>Provide an alternative test from original customer</h4>
+   <h4>Find a UTF-16 datastream to test against</h4>
+   
+   Tagging for core as it is part of a broader UTF-16 support push.</li>
+<li>Lee Morris 2017-07-26
+
+   Closing due to inactivity. If this issue still exists, please raise a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1719.json">JSON Source</a></p>

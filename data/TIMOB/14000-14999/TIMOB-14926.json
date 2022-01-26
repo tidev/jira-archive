@@ -1,0 +1,129 @@
+{
+	"id": "117916",
+	"key": "TIMOB-14926",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2017-04-09T21:53:48.000+0000",
+		"created": "2013-08-02T07:02:15.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"leak",
+			"memory",
+			"navgroup",
+			"navigationgroup"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2018-02-28T20:04:07.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "When I'm not using a {{Ti.UI.iPhone.NavigationGroup}} in my main/root application window, there will be a time I need to close the {{Ti.UI.Window}} wrapping the navigation group. But when I do, Instruments show it's leaking.\r\n\r\nConsider the following {{app.js}}:\r\n\r\n{code}\r\nfunction onClose(e) {\r\n  Ti.API.info('Closed: ' + e.source._id);\r\n}\r\n\r\nfunction closeNav() {\r\n  container.close();\r\n  // Uncomment for 2nd test-case: child.close();\r\n}\r\n\r\nvar application = Ti.UI.createWindow({\r\n  backgroundColor: 'red'\r\n});\r\napplication.addEventListener('click', function () {\r\n  container.open();\r\n});\r\n\r\nvar container = Titanium.UI.createWindow({\r\n  _id: 'container',\r\n  backgroundColor: 'green',\r\n});\r\ncontainer.addEventListener('close', onClose);\r\n\r\nvar child = Titanium.UI.createWindow({\r\n  _id: 'child',\r\n  backgroundColor: 'blue',\r\n  title: 'Window'\r\n});\r\nchild.addEventListener('click', closeNav);\r\nchild.addEventListener('close', onClose);\r\n\r\nvar nav = Titanium.UI.iPhone.createNavigationGroup({\r\n  window: child\r\n});\r\n\r\ncontainer.add(nav);\r\napplication.open();\r\n{code}\r\n\r\nNow do the following:\r\n# Run the app.\r\n# Click the red application window to open the navigationgroup holding a blue window.\r\n# Click the blue window to close the window containing the navigationgroup.\r\n\r\nThe console will show the following after step 3:\r\n{code}\r\n[INFO] Closed: container\r\n{code}\r\n\r\nAnd instruments will report the following number of living {{TiUIWindow}}'s after:\r\n# Living: 1 (the application window)\r\n# Living: 3 (the application, container and child windows)\r\n# Living: 2 (the application and child window I guess)\r\n\r\nNow, if you uncomment line 7 and follow the same steps the console will show:\r\n{code}\r\n[INFO] Closed: container\r\n[INFO] Closed: child\r\n{code}\r\n\r\nBut instruments will still report the same. So I guess, the child is kept hostage by some other native object?\r\n\r\nI would expect that closing the container window should be enough to properly clean up, but even the following doesn't give different results:\r\n\r\n{code}\r\nfunction closeNav() {\r\n  container.close();\r\n  container.removeEventListener('close', onClose);\r\n  container = null;\r\n  child.close();\r\n  child.removeEventListener('close', onClose);\r\n  child.removeEventListener('click', closeNav);\r\n  child = null;\r\n  nav = null;\r\n}\r\n{code} ",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: Memory leak on window containing a Ti.UI.iPhone.NavigationGroup",
+		"creator": {
+			"name": "fokkezb",
+			"key": "fokke",
+			"displayName": "Fokke Zandbergen",
+			"active": true,
+			"timeZone": "Europe/Amsterdam"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "fokkezb",
+			"key": "fokke",
+			"displayName": "Fokke Zandbergen",
+			"active": true,
+			"timeZone": "Europe/Amsterdam"
+		},
+		"environment": "Any probably, but tested with SDK 3.1.1.GA on an iPhone 4S running iOS6",
+		"comment": {
+			"comments": [
+				{
+					"id": "267422",
+					"author": {
+						"name": "egomez",
+						"key": "egomez",
+						"displayName": "Eduardo Gomez",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Tested on 3.1.2.GA as well. Seeing UINavigationController not getting released (under Transitory column). Moved to main project to dig into this since docs says: \"All [navigation groups|http://docs.appcelerator.com/titanium/latest/#!/api/Titanium.UI.iPhone.NavigationGroup] must have at least one root window that cannot be removed.\" \n",
+					"updateAuthor": {
+						"name": "egomez",
+						"key": "egomez",
+						"displayName": "Eduardo Gomez",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-08-20T23:35:30.000+0000",
+					"updated": "2013-08-20T23:35:30.000+0000"
+				},
+				{
+					"id": "417076",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Not reproducible with {{Ti.UI.iOS.NavigationWindow}}.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-04-09T21:53:48.000+0000",
+					"updated": "2017-04-09T21:53:48.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,141 @@
+{
+	"id": "170798",
+	"key": "TIMOB-25676",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2018-02-15T13:44:57.000+0000",
+		"created": "2018-01-16T08:41:15.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2018-02-15T13:45:10.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "The following test-case sometimes fails because the {{onreadystate}} event fires before the {{ondatastream}} one. There are also cases where the {{orreadystate}} fires one state twice because the states are lost as a result of a race condition when sending out the events.\r\n\r\nThe proposed fix (working 20/20 times so far) is to ensure we are firing events to the client serial (blocking) on the main-thread. This ensures all state events get queued correctly and fixes the above issues.\r\n\r\nBefore:\r\n{code}\r\n2018-01-16 09:40:35.286 Titanium[4965:119750] [INFO] 1\r\n2018-01-16 09:40:35.288 Titanium[4965:119750] [INFO] 3\r\n2018-01-16 09:40:35.288 Titanium[4965:119750] [INFO] 3\r\n2018-01-16 09:40:35.289 Titanium[4965:119750] [INFO] 4\r\n2018-01-16 09:40:35.289 Titanium[4965:119750] [INFO] DONE\r\n{code}\r\nAfter:\r\n{code}\r\n2018-01-16 09:40:35.286 Titanium[4965:119750] [INFO] 1\r\n2018-01-16 09:40:35.288 Titanium[4965:119750] [INFO] 2\r\n2018-01-16 09:40:35.288 Titanium[4965:119750] [INFO] 3\r\n2018-01-16 09:40:35.289 Titanium[4965:119750] [INFO] 4\r\n2018-01-16 09:40:35.289 Titanium[4965:119750] [INFO] DONE\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: HTTPClient unit-test sometimes fails because of incorrect states",
+		"creator": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1000,
+				"state": "closed",
+				"name": "2018 Sprint 04 SDK",
+				"startDate": "2018-02-12T04:23:01.913Z",
+				"endDate": "2018-02-26T04:23:00.000Z",
+				"completeDate": "2018-02-26T19:36:01.769Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "433173",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/9737\r\nPR (7_0_X): https://github.com/appcelerator/titanium_mobile/pull/9738\r\n\r\n{code:js}\r\n\r\nfunction textXHR() {\r\n  var xhr = Ti.Network.createHTTPClient(),\r\n    attempts = 3,\r\n    dataStreamFinished = false;\r\n  xhr.setTimeout(3e4);\r\n\r\n  xhr.onreadystatechange = function () {\r\n    Ti.API.info(this.readyState);\r\n    if (this.readyState === this.DONE) {\r\n      if (dataStreamFinished === true) {\r\n        Ti.API.info('DONE');\r\n      } else {\r\n        alert('ERROR: onreadystatechange done fired before 100% progress');\r\n      }\r\n    }\r\n  };\r\n\r\n  xhr.ondatastream = function (e) {\r\n    if(e.progress == null) {\r\n      alert('Error: Progress null!')\r\n    };\r\n    if (e.progress >= 1.0) {\r\n      dataStreamFinished = true;\r\n    }\r\n  };\r\n\r\n  xhr.onerror = function (e) {\r\n    if (attempts-- > 0) {\r\n      Ti.API.warn('failed, attempting to retry request...');\r\n      xhr.send();\r\n    } else {\r\n      Ti.API.debug(JSON.stringify(e, null , 2));\r\n      Ti.API.error(e.error || this.responseText);\r\n    }\r\n  };\r\n\r\n  xhr.open('GET', 'http://www.appcelerator.com/assets/The_iPad_App_Wave.pdf');\r\n  xhr.send();\r\n}\r\n\r\nvar win = Ti.UI.createWindow({\r\n  backgroundColor: '#fff'\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n  title: 'Trigger'\r\n});\r\n\r\nbtn.addEventListener('click', textXHR);\r\n\r\nwin.add(btn);\r\nwin.open();\r\n{code}",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-01-16T08:45:18.000+0000",
+					"updated": "2018-01-16T08:46:50.000+0000"
+				},
+				{
+					"id": "434523",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Not an issue anymore",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-02-15T13:45:04.000+0000",
+					"updated": "2018-02-15T13:45:04.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

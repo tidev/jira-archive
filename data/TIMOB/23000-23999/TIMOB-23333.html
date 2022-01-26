@@ -1,0 +1,173 @@
+---
+title: "[TIMOB-23333] Android: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference Crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-06-07T14:44:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>john adamis</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2016-04-29T20:24:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We get the following crash frequently:
+
+java.lang.RuntimeException: Unable to destroy activity {com.myapp/org.appcelerator.titanium.TiActivity}: java.lang.NullPointerException: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference
+at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:3821)
+at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:3839)
+at android.app.ActivityThread.access$1400(ActivityThread.java:162)
+at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1403)
+at android.os.Handler.dispatchMessage(Handler.java:102)
+at android.os.Looper.loop(Looper.java:135)
+at android.app.ActivityThread.main(ActivityThread.java:5431)
+at java.lang.reflect.Method.invoke(Native Method)
+at java.lang.reflect.Method.invoke(Method.java:372)
+at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:914)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:707)
+Caused by: java.lang.NullPointerException: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference
+at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1477)
+at org.appcelerator.titanium.TiActivity.onDestroy(TiActivity.java:29)
+at android.app.Activity.performDestroy(Activity.java:6235)
+at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1141)
+at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:3808)
+... 10 more
+
+ It is happening when android os terminates app to save memory at onDestroy method. (This happens quite a lot since our users usually keep app open for long periods) This is not happening at 4.0 sdk (we got those after upgrading from 4.0 to 5.2.2)
+
+After searching changes history this change seems to have caused this behavior : 
+
+<a href="https://github.com/appcelerator/titanium_mobile/commit/2b12ad61775920f8045e168ae678ce123dfa14b4" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/2b12ad61775920f8045e168ae678ce123dfa14b4</a> seems to have caused the issue
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nazmus Salahin 2016-05-05
+
+   Hello,
+   Thanks for reporting. It will be appreciated if you share simple test code that reproduces this issue. We will confirm the issue as bug when we are able to reproduce it.
+   
+   Thanks in advance
+   </li>
+<li>Soumya Kanti Kar 2016-05-05
+
+   Hi,
+   
+   We are also getting the same issue. We have not tried it with older SDK version as we started the project development with 5.2.0.GA and then moved to 5.3.0.GA. But for the android version, we too get the same exception regularly.
+   
+   *Log*:
+   
+   ============================
+   D/InputDispatcher( 2888): Focused application set to: xxxx
+   E/TiApplication(20815): (main) [460,1031] Sending event: exception on thread: main msg:java.lang.RuntimeException: Unable to destroy activity {com.labs.openapps/org.appcelerator.titanium.TiActivity}: java.lang.NullPointerException: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference; Titanium 5.2.2,2016/03/28 14:12,b685ddb
+   E/TiApplication(20815): java.lang.RuntimeException: Unable to destroy activity {com.labs.openapps/org.appcelerator.titanium.TiActivity}: java.lang.NullPointerException: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference
+   E/TiApplication(20815): 	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4828)
+   E/TiApplication(20815): 	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:4846)
+   E/TiApplication(20815): 	at android.app.ActivityThread.access$1600(ActivityThread.java:197)
+   E/TiApplication(20815): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1710)
+   E/TiApplication(20815): 	at android.os.Handler.dispatchMessage(Handler.java:102)
+   E/TiApplication(20815): 	at android.os.Looper.loop(Looper.java:145)
+   E/TiApplication(20815): 	at android.app.ActivityThread.main(ActivityThread.java:6873)
+   E/TiApplication(20815): 	at java.lang.reflect.Method.invoke(Native Method)
+   E/TiApplication(20815): 	at java.lang.reflect.Method.invoke(Method.java:372)
+   E/TiApplication(20815): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1404)
+   E/TiApplication(20815): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1199)
+   E/TiApplication(20815): Caused by: java.lang.NullPointerException: Attempt to invoke virtual method 'void android.view.OrientationEventListener.disable()' on a null object reference
+   E/TiApplication(20815): 	at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1477)
+   E/TiApplication(20815): 	at org.appcelerator.titanium.TiActivity.onDestroy(TiActivity.java:29)
+   E/TiApplication(20815): 	at android.app.Activity.performDestroy(Activity.java:6784)
+   E/TiApplication(20815): 	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1155)
+   E/TiApplication(20815): 	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4806)
+   E/TiApplication(20815): 	... 10 more
+   W/ResourceType( 3205): No package identifier when getting value for resource number 0x00000000
+   W/PackageManager( 3205): Failure retrieving resources for com.labs.openapps: Resource ID #0x0
+   ==============
+   
+   *Scenario*:
+   After using the application for sometime, we press the home button. Then we continue to use other applications like YouTube, Browser and several other apps and press the home button to pause them. Then, when we launch our application again, it gets stuck in the splash screen. We found the following in the adb log.
+   
+   As @john mentions, this is being triggered when the system is running low in memory and our application's onDestroy is being called where the issue is happening.</li>
+<li>Soumya Kanti Kar 2016-05-05
+
+   To add it, the change was included from 4_1_X (after going through GitHub). The older version of the application was built with 3.5.0.GA, where this issue is not observed. The object gets created in onCreate (orientationListener) but when inside onDestroy, it becomes null in some cases which results in the issue. This is becoming a block issue for the release of the application.</li>
+<li>john adamis 2016-05-05
+
+   This should occur with a basic appcelerator app, you can try kitchensink for example should have the same behavior.
+   
+   To add on this, we have implemented our system to get informed with crashes sent automatically at google analytics at next app restart so i can give you the following stat :
+   
+   Our app has to be used for 8 hour shifts from emplyees which means noone closes app for a long time.
+   
+   Yesterday out of  756 people we had 196 crashes so this is major.
+   
+   This comes in many flavors depening device type (54 unique occurences in analytics)
+   
+   Sometimes we get the one in description , some others this :
+   
+   java.lang.RuntimeException: Unable to destroy activity {com.myapp/org.appcelerator.titanium.TiActivity}: java.lang.NullPointerException at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4095) at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:4128) at android.app.ActivityThread.access$1400(ActivityThread.java:156) at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1408) at android.os.Handler.dispatchMessage(Handler.java:102) at android.os.Looper.loop(Looper.java:157) at android.app.ActivityThread.main(ActivityThread.java:5883) at java.lang.reflect.Method.invokeNative(Native Method) at java.lang.reflect.Method.invoke(Method.java:515) at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:872) at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:688) at dalvik.system.NativeStart.main(Native Method) Caused by: java.lang.NullPointerException at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1477) at org.appcelerator.titanium.TiActivity.onDestroy(TiActivity.java:29) at android.app.Activity.performDestroy(Activity.java:5515) at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1146) at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:4078) ... 11 more
+   
+   All other occurances are variations of these types with different line numbers.
+   
+   We where forced to impelement a module to use a foreground service (since this is not available from applcelerator) giving our process higher priority just for this reason to prevent android from killing app. But the only thing this service does is displaying the notification "myapp is active" since a notification is required from android when using foreground services. It's a little dumb but was the only solution we had for this issue until this is resolved.</li>
+<li>Soumya Kanti Kar 2016-05-05
+
+   Hi,
+   
+   The easiest way to test this scenario is as following:
+   
+   *Test Case*:
+   1. Launch Settings
+   2. Developer Options
+   3. Enable >> Do not keep activities
+   4. Limit background processes >> No background processes
+   
+   Now you need to launch the application generated using Appcelerator 5.2.2.GA, then switch over to a different application (say YouTube). Now when you close YouTube, in the adb log you will observe the crash log. with the same stack trace. If we execute the same test case for application generated using 3.5.0.GA, then it does not generate the crash.</li>
+<li>Hieu Pham 2016-05-23
+
+   I tried Enabling "Do not keep activities" and Limit background processes to 0, unable to reproduce this on 4.x and 6.x devices. Do you have a concrete test case to reproduce this? I tested on both 5.2.2 and master. Thank.
+   
+   Though based on the error, it looks like orientationListener object is null. Please try this PR and see if it fixes the issue: <a href="https://github.com/appcelerator/titanium_mobile/pull/8014." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8014.</a></li>
+<li>Soumya Kanti Kar 2016-05-23
+
+   Build KitchenSink with 5.2.2.GA. Launch the application on Android 4.4 device (Samsung Galaxy).  Go to base UI, launch Window Layout. Press the home key. Launch app again. (It tries to launch and then closes).
+   
+   In the development settings keep no background process and disable the option do not keep activities.</li>
+<li>Hieu Pham 2016-05-24
+
+   I've done that and unable to reproduce it. Can you test it with the PR above to see if it fixes your problem? Thanks</li>
+<li>David Fox 2016-09-13
+
+   Why wasn't this fix added to 5.x? This is a major bug, by far the most frequently reported crash for my app, and I would assume for many other apps too. So to fix it we have to compile from the source and add the fix ourselves? I'm curious what the logic was for not applying this fix to 5.x.</li>
+<li>Morten Hopstad 2016-09-15
+
+    I agree with David Fox. Im having this issue aswell on my rather large app.
+    
+    Though, this ticket status is set to resolved so I dont know if anyone reads it.</li>
+<li>Chee Kiat Ng 2016-09-15
+
+    I'm sorry but 5.5.0 is really focused on iOS10 support only. As we are working to improve our quality in our releases, we won't rush to have solutions into our version releases. 6.0.0 is not too far away either. :)</li>
+<li>Uriel Lizama 2016-11-06
+
+    Is the fix to this issue going to be added on the 6.0.0 release?</li>
+<li>Michael Gangolf 2016-11-06
+
+    It was merged in 6.0 in June so you could try out the 6.0.0.RC (<a href="https://www.appcelerator.com/blog/2016/11/rc-releases-for-6-0-0-of-sdk-cli-4-8-0-of-studio/)" rel="nofollow" target="_blank">https://www.appcelerator.com/blog/2016/11/rc-releases-for-6-0-0-of-sdk-cli-4-8-0-of-studio/)</a> to check if its working correctly now</li>
+<li>Morten Hopstad 2016-11-24
+
+    I'm still having this problem. Anyone else? It seems to only occour on Nexus 6P</li>
+<li>Eric Merriman  2018-08-06
+
+    Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23333.json">JSON Source</a></p>

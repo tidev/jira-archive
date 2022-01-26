@@ -1,0 +1,100 @@
+---
+title: "[TIMOB-28190] Android: App randomly crashes when selecting the image in Ti.Media.showCamera"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 9.3.0, Release 9.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2020-10-13T11:30:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-10-14T14:18:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When selecting the image that was taken by a Ti.Media.showCamera call, the app sometimes crashes (not even always and not on all devices). Here is the stack:
+<code><pre>
+2020-10-13 12:41:19.961 1568-2601/? W/ActivityManager: Permission Denial: opening provider org.appcelerator.titanium.io.TiFileProvider from ProcessRecord{f2b359c 20305:com.android.camera/u0a57} (pid=20305, uid=10057) that is not exported from UID 10559
+2020-10-13 12:41:19.967 20305-20305/? E/CAM_Camera2Module: Exception when doAttach: 
+    java.lang.SecurityException: Permission Denial: opening provider org.appcelerator.titanium.io.TiFileProvider from ProcessRecord{f2b359c 20305:com.android.camera/u0a57} (pid=20305, uid=10057) that is not exported from UID 10559
+        at android.os.Parcel.createException(Parcel.java:2074)
+        at android.os.Parcel.readException(Parcel.java:2042)
+        at android.os.Parcel.readException(Parcel.java:1990)
+        at android.app.IActivityManager$Stub$Proxy.getContentProvider(IActivityManager.java:5283)
+        at android.app.ActivityThread.acquireProvider(ActivityThread.java:6723)
+        at android.app.ContextImpl$ApplicationContentResolver.acquireUnstableProvider(ContextImpl.java:2749)
+        at android.content.ContentResolver.acquireUnstableProvider(ContentResolver.java:2133)
+        at android.content.ContentResolver.openAssetFileDescriptor(ContentResolver.java:1520)
+        at android.content.ContentResolver.openOutputStream(ContentResolver.java:1242)
+        at android.content.ContentResolver.openOutputStream(ContentResolver.java:1218)
+        at com.android.camera.module.Camera2Module.doAttach(Camera2Module.java:8)
+        at com.android.camera.module.Camera2Module.onReviewDoneClicked(Camera2Module.java:1)
+        at com.android.camera.fragment.FragmentBottomIntentDone.onClick(FragmentBottomIntentDone.java:4)
+        at android.view.View.performClick(View.java:7250)
+        at android.view.View.performClickInternal(View.java:7227)
+        at android.view.View.access$3500(View.java:819)
+        at android.view.View$PerformClick.run(View.java:27749)
+        at android.os.Handler.handleCallback(Handler.java:883)
+        at android.os.Handler.dispatchMessage(Handler.java:100)
+        at android.os.Looper.loop(Looper.java:224)
+        at android.app.ActivityThread.main(ActivityThread.java:7562)
+        at java.lang.reflect.Method.invoke(Native Method)
+        at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:539)
+        at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:950)
+     Caused by: android.os.RemoteException: Remote stack trace:
+        at com.android.server.am.ActivityManagerService.getContentProviderImpl(ActivityManagerService.java:7182)
+        at com.android.server.am.ActivityManagerService.getContentProvider(ActivityManagerService.java:7525)
+        at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:2179)
+        at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2799)
+        at android.os.Binder.execTransactInternal(Binder.java:1021)
+</pre></code> 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28190_67599/CameraPhotoExternalTest.js">CameraPhotoExternalTest.js</td></td><td>2020-10-13T23:39:30.000+0000</td><td>984</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28190_67600/CameraPhotoInternalTest.js">CameraPhotoInternalTest.js</td></td><td>2020-10-14T00:03:00.000+0000</td><td>1465</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-10-14
+
+   I'm only able to reproduce this issue by force-quitting the app while the camera displayed. Afterwards, when you take the photo, I'll get this exact same exception. This makes sense because Titanium grants the camera app temporary permission to the sandboxed file using the Titanium app's process UID, but since the app has been terminated that process UID is no longer valid. Subsequent launches of the app use a new process UID.
+   
+   So, I'm thinking the Android OS is running low on memory and is force-quitting the Titanium app once the camera app is displayed. That would explain why this happens randomly. Looking at the <code>adb logcat</code> should reveal this.
+   
+   In Titanium, we "could" add intent  [FLAG_GRANT_PERSISTABLE_URI_PERMISSION](<a href="https://developer.android.com/reference/android/content/Intent#FLAG_GRANT_PERSISTABLE_URI_PERMISSION)" rel="nofollow" target="_blank">https://developer.android.com/reference/android/content/Intent#FLAG_GRANT_PERSISTABLE_URI_PERMISSION)</a> to our code [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/9137732c31d9c52f97fc88ed4f7f681a70f25b9d/android/modules/media/src/java/ti/modules/titanium/media/MediaModule.java#L307)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/9137732c31d9c52f97fc88ed4f7f681a70f25b9d/android/modules/media/src/java/ti/modules/titanium/media/MediaModule.java#L307)</a> which "might" avoid the security exception, but there will still be an issue where the Titanium app will effectively be restarted (because it was force-quit) and you'll not receive the photo because of this. So, ultimately this wouldn't solve anything.
+   _(Normally, Android would temporarily destroy the Titanium app's activity windows instead of killing the app process and then restore the activity windows when returning from the camera. This doesn't appear to be happening in your case.)_
+   
+   The only work-arounds I can think of are:
+   * Reduce the memory footprint of the app. Particularly if a window is displaying full sized photos.
+   * Use the <code>showCamera()</code> method's "overlay" property which display a camera in-app as show in [^CameraPhotoInternalTest.js] .
+   </li>
+<li>Hans Knöchel 2020-10-14
+
+   Unfortunately this is not satisfying for us. We have to indicators that point to an issue in the SDK instead of the app itself:
+   <h4>The app did not crash in earlier Titanium releases (SDK 8.x)</h4>
+   <h4>The camera (Android Camera2 API) works when built in a native app (which likely has a lighter footprint, I agree)</h4>
+   
+   We will now try to replace the Ti.Media.showCamera() call with another native library (either CameraKit or the JetPack CameraX API - which Titanium should use anyways btw). It's sad to see there is nothing else to be done here.
+   
+   *EDIT*: The overlay workaround worked for us. There are no crashes remaining. It again indicates an issue with the SDK, but we are at least unblocked. Thank you for the hints Josh!
+   
+   *EDIT 2: This causes another blocker (TIMOB-28194), which may be easier to resolve than this one!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28190.json">JSON Source</a></p>

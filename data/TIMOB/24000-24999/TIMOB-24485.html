@@ -1,0 +1,359 @@
+---
+title: "[TIMOB-24485] Windows: LiveView is not working for Windows Phone 8.1."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-19T04:01:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Mostafizur Rahman</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2017-03-14T15:10:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-19T04:01:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+LiveView is not working for Windows Phone 8.1. We always got the following error on following the environment.
+
+*Testing Environment:*
+Appcelerator Command-Line Interface, version 6.1.0
+SDK version: 6.1.0.v20170313171259 and 6.0.1.GA
+   Operating System
+  Name                        = Microsoft Windows 10 Pro and Microsoft Windows 8.1 Pro
+  Version                     = 10.0.10586
+  Architecture                = 32bit
+  # CPUs                      = 4
+  Memory                      = 11.9GB
+Node.js
+  Node.js Version             = 4.7.2
+  npm Version                 = 2.15.11
+
+Titanium CLI
+  CLI Version                 = 5.0.11
+  node-appc Version           = 0.2.39
+
+*Test Code:*
+I have used a simple code 
+<code><pre>
+var win = Ti.UI.createWindow({
+  backgroundColor: 'white',
+  exitOnClose: true,
+  fullscreen: false,
+  layout: 'vertical',
+  title: 'Sample Demo'
+});
+win.open();
+</pre></code>
+
+*Step to reproduce:*
+1. Just create a new default project and use any code 
+2. Enable liveView on the Studio
+3. Run the app on windows phone 8.1 emulator
+
+*Testing Result:*
+ -- Start application log -----------------------------------------------------
+[INFO] :   Disconnected from app
+-- End application log -------------------------------------------------------
+[ERROR] :  The remote procedure call failed.
+[ERROR] :  Error: The remote procedure call failed.
+    at ChildProcess.<anonymous> (C:\ProgramData\Titanium\mobilesdk\win32\6.0.1.GA\node_modules\windowslib\lib\wptool.js:765:10)
+    at emitTwo (events.js:87:13)
+    at ChildProcess.emit (events.js:172:7)
+    at maybeClose (internal/child_process.js:854:16)
+    at Process.ChildProcess._handle.onexit (internal/child_process.js:222:5)
+ 
+
+
+*One more observation when I have changed anything on my app.js then the LiveView Triggered:*
+[LiveView] Reload Triggered
+  REASON: File Changed
+  FILE: C:\Users\GSL-PC\Documents\Appcelerator_Studio_Workspace\liveView\Resources\app.js
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2017-03-22
+
+   {quote}
+   working for me for a simple project with no “require” code
+   {quote}
+   
+   This sounds like we might have issue in <code>Ti.App._restart()</code> which is used internally for reloading app from LiveView. Could you try following code with LiveView disabled and see if it works for you?  If this works, then uncomment <code>require</code> block to see if <code>require</code> is causing the issue.
+   
+   Note that please make sure to *disable LiveView* for this code because this test tries to simulate what LiveView is doing internally.
+   
+   <code><pre>
+   module.exports = {
+   	name: 'require_test.js'
+   };
+   </pre></code>
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({ backgroundColor: 'blue' }),
+       btn = Ti.UI.createButton({ title: 'Ti.App._restart()' });
+   
+   //
+   // Uncomment below to see if "require" works
+   //
+   // var test = require('require_test');
+   // Ti.API.info(test.name);
+   //
+   
+   //
+   // Change the background color, just to see if app is reloaded.
+   //
+   setTimeout(function () {
+       win.backgroundColor = 'red';
+   }, 2000);
+   
+   btn.addEventListener('click', function () {
+       Ti.App._restart();
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code>
+   </li>
+<li>Mostafizur Rahman 2017-03-22
+
+   Hello [~kota], We tried the code provided code  and the code runs fine with 6.0.2.GA SDK both on simulator and on device.
+   If we run the recommended in the issue code with LiveView:
+   With SDK 6.0.2.GA, Have got:
+   
+   --
+   
+   [LiveView] version 1.0.10
+   
+   [LiveView] File Server Started on Port 8324
+   
+   [LiveView] Event Server Started on Port 8323
+   
+   [INFO] : Installing the application...
+   
+   [INFO] : Connected to app
+   
+   -- Start application log -----------------------------------------------------
+   
+   [ERROR] : Application Error: {
+   
+   [ERROR] : "line": 2,
+   
+   [ERROR] : "column": 10,
+   
+   [ERROR] : "message": "require: Error while require(/app) [LiveView] File Server unavailable. Host Unreachable @ 169.254.80.80:8324\n[LiveView] Please ensure your device and computer are on the same network and the port is not blocked.",
+   
+   [ERROR] : "native_stack": [
+   
+   [ERROR] : "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+   
+   [ERROR] : ]
+   
+   [ERROR] : }
+   
+   [INFO] : Finished installing the application
+   
+   [INFO] : Waiting for app to connect to log relay
+   
+   [INFO] : Finished launching the application
+   
+   --
+   
+   With SDK 6.1.0.v20170123100346, I can run the application, but on any change in app.js, I get:
+   
+   --
+   
+   [LiveView] version 1.0.10
+   
+   [LiveView] File Server Started on Port 8324
+   
+   [LiveView] Event Server Started on Port 8323
+   
+   [INFO] : Installing the application...
+   
+   [INFO] : Connected to app
+   
+   -- Start application log -----------------------------------------------------
+   
+   [LiveView] Client connected
+   
+   [INFO] : Finished installing the application
+   
+   [INFO] : Waiting for app to connect to log relay
+   
+   [INFO] : Finished launching the application
+   
+   [LiveView] Client connected
+   
+   [LiveView] Reload Triggered
+   
+   REASON: File Changed
+   
+   FILE: D:\Dev\AppStudio\workspace\iCTR\Resources\app.js
+   
+   [LiveView] Client disconnected
+   
+   [INFO] [LiveView] Reloading App
+   
+   [LiveView] Client connected
+   
+   --
+   
+   And the emulator freezes.
+   
+   Subsequent code changes result in:
+   
+   --
+   
+   [LiveView] Reload Triggered
+   
+   REASON: File Changed
+   
+   FILE: D:\Dev\AppStudio\workspace\iCTR\Resources\app.js
+   
+   
+   
+   </li>
+<li>Kota Iguchi 2017-03-22
+
+   [~mrahman] Thanks for the info. Could you try it with *LiveView disabled*? What I am trying to do is to separate the issue because it looks like we have multiple issues there.
+   
+   - LiveView can't connect to the File Server
+   - Even when it's connected, app freezes/crashes on reloading app
+   - It may have crashed on reloading app that has *require*
+   
+   So what I was trying to separate on previous code is to see if *require* is part of cause of freeze/crash.
+   
+   </li>
+<li>Kota Iguchi 2017-03-23
+
+   I was able to reproduce <code>File Server unavailable. Host Unreachable</code> error on the latest nightly <code>6.1.0.v20170322123441</code>. So on TIMOB-23664 we once had similar issue, which ends up skipping <code>Windows Phone Emulator Internal Switch</code> interface for the connection to LiveView, but from what I see we should not skip specific network interfaces in this case because we never know which interface to use under variety of user's network configurations. We should revert TIMOB-23664, and should just provide a way to configure which interface to connect - which should be implemented in CLI-1075 and scheduled to be released as of 6.1.0.
+   </li>
+<li>Kota Iguchi 2017-03-27
+
+   [~jnaher] I was asking to run my sample code *to diagnose the issue*. So don't worry, it is not intended to test LiveView itself. It does not mean we are tryng to close this ticket :D So thank you for the information Running my sample fine means that it has no problem in <code>require</code>, and also no problem on "Ti.App._restart" that LiveView uses internally. This means there may be configuration issue in LiveView and I am pushing potential fix for it in CLI-1075 and <a href="https://github.com/appcelerator/liveview/pull/99" rel="nofollow" target="_blank">https://github.com/appcelerator/liveview/pull/99</a> .</li>
+<li>george.denchev 2017-04-02
+
+   Hello, Georgi Denchev here.
+   I have asked Admins to get a JIRA account to be able to assist
+   @Kota Iguchi, about the LiveView disabled comment:
+   Yes, I can run your sample project with LiveView disabled, no issues here.
+   
+   Note:
+   I am with Windows 10 Pro x64, AppStudio 4.8.1, SDK 6.0.1, 6.0.2, 6.0.3, nightly 6.1.0.v20170330151255
+   If needed, I can post full "appc ti info" output</li>
+<li>george.denchev 2017-04-02
+
+   About the LiveView issue, I have done some tests to try to isolate the problem.
+   It seems that one of the things that can break LiveView is using the “Ti.Filesystem.getFile” API call.
+   
+   Here is a minimal "app.js" that demonstrates the issue:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor:'#ffffff'
+   });
+   
+   var f = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory);  
+    
+   var lbll = Ti.UI.createLabel({
+       text: f.name,
+       color: '#000000'
+   }); 
+   win.add(lbll);
+   
+   win.open();
+   </pre></code>
+   
+   And here are my results from running this simple project:
+   
+   ||Device/SDK||SDK 6.0.2.GA||SDK 6.1.0.v20170330151255||
+   |Emulator|OK (shows fiile path on screen)|OK (shows fiile path on screen)|
+   |Emulator+LiveView|[ERROR] :  Application Error: {
+   [ERROR] :    "line": 2,
+   [ERROR] :    "column": 10,
+   [ERROR] :    "message": "require: Error while require(/app) [LiveView] File Server unavailable. Host Unreachable @ 169.254.80.80:8324\n[LiveView] Please ensure your device and computer are on the same network and the port is not blocked.",
+   [ERROR] :    "native_stack": [
+   [ERROR] :      "JSExportClass<class Titanium::GlobalObject>::CallNamedFunction"
+   [ERROR] :    ]
+   [ERROR] :  }|[ERROR] :  The remote procedure call failed.
+   [ERROR] :  Error: The remote procedure call failed.
+       at ChildProcess.<anonymous> (C:\ProgramData\Titanium\mobilesdk\win32\6.1.0.v20170330151255\node_modules\windowslib\lib\wptool.js:763:10)
+       at emitTwo (events.js:87:13)
+       at ChildProcess.emit (events.js:172:7)
+       at maybeClose (internal/child_process.js:854:16)
+       at Process.ChildProcess._handle.onexit (internal/child_process.js:222:5)|
+   |Device|OK (shows fiile path on screen)|OK (shows fiile path on screen)|
+   |Device+LiveView|[ERROR] :  The remote procedure call failed.
+   [ERROR] :  Error: The remote procedure call failed.
+       at ChildProcess.<anonymous> (C:\ProgramData\Titanium\mobilesdk\win32\6.0.2.GA\node_modules\windowslib\lib\wptool.js:765:10)
+       at emitTwo (events.js:87:13)
+       at ChildProcess.emit (events.js:172:7)
+       at maybeClose (internal/child_process.js:854:16)
+       at Process.ChildProcess._handle.onexit (internal/child_process.js:222:5)|[ERROR] :  The remote procedure call failed.
+   [ERROR] :  Error: The remote procedure call failed.
+       at ChildProcess.<anonymous> (C:\ProgramData\Titanium\mobilesdk\win32\6.1.0.v20170330151255\node_modules\windowslib\lib\wptool.js:763:10)
+       at emitTwo (events.js:87:13)
+       at ChildProcess.emit (events.js:172:7)
+       at maybeClose (internal/child_process.js:854:16)
+       at Process.ChildProcess._handle.onexit (internal/child_process.js:222:5)|
+   </li>
+<li>Kota Iguchi 2017-04-03
+
+   Currently I am suspecting that LiveView doesn't detect network interface correctly. For those who are familiar with Node.js, you might want to try manually configuring which network interface to connect ... I have a workaround proposal until we introduce CLI-1075 in future release. I would not recommend it but if you feel confident you can try this:
+   
+   1. Find your device/emulator's ip address that LiveView connects. You can find its IPv4 address by executing following code in <code>Node.js</code>.
+   
+   <code><pre>
+   PS D:\> node
+   > JSON.stringify(require('os').networkInterfaces());
+   </pre></code>
+   
+   2. Backup copy of  
+   <code>C:\Users\USERNAME\AppData\Roaming\Appcelerator\Appcelerator Studio\plugins\com.appcelerator.titanium.liveview.core_1.1.0.1476939755\node_modules\liveview\hook\lvhook.js</code>
+   
+   3. Open <code>lvhook.js</code> in text editor
+   4. Edit <code>getNetworkIp</code> function so it returns appropriate IPv4 address to connect.
+   
+   <code><pre>
+   function getNetworkIp() {
+   	return '192.168.1.1'; // For example! Return your device/emulator's ip address to connect.
+   }
+   </pre></code>
+   
+   *Please note that this may be unsafe operation* because Appcelerator Studio may not launch if you broke the JavaScript plugins. Don't do this if you are not confident, and please make sure to keep copy of what you edit. 
+   </li>
+<li>george.denchev 2017-04-03
+
+   OK, I will try the LiveView hack.
+   I recall doing this before for Android, will try to do it again and shere the results.
+   
+   In the meantime, is there a chance I am on the right track with the isolation of the problem with the "Ti.Filesystem.getFile" API?
+   Can someone from Engineering reproduce the issue with the minimal project (app.js) I provided and eventually find a workaround for the situation?</li>
+<li>Kota Iguchi 2017-04-03
+
+    [~george.denchev] Thank you for the information. I tried <code>Ti.Filesystem.getFile</code> with LiveView but unfortunately I was not reproduce the issue on my end for both emulator and device...</li>
+<li>george.denchev 2017-04-03
+
+    @KotaIguchi
+    Thanks for the response.
+    Just for my information - which Titanium SDK are you using?
+    Are you using nightly or 6.0.3.GA or any other?
+    Thanks,
+    Georgi</li>
+<li>Kota Iguchi 2017-04-03
+
+    I'm always on the latest nightly build. So that's <code>6.1.0.v20170401095755</code>. (<code>appc ti sdk install --branch master 6.1.0.v20170401095755</code>)</li>
+<li>Kota Iguchi 2017-10-19
+
+    Closing, as we are going to drop Windows Phone 8.1.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24485.json">JSON Source</a></p>

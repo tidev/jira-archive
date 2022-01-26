@@ -1,0 +1,137 @@
+---
+title: "[TIMOB-5326] TiUITableView's "make sure text field is visible" EXC_BAD_ACCESS when Closing"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-10-05T11:11:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-38, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>branch-5062</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-09-21T02:28:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+The table view will automatically adjust to make sure any focused text fields in it are visible when the keyboard pops up. It does this as an animation after the table stops decelerating. But if you scroll a table view, and then quickly close the window, an EXC_BAD_ACCESS is hit when the table view tries to animate itself.
+
+<h4>Reproduction</h4>
+
+1. Drop the following in an app.js
+2. Run in the iPad simulator or iPad device in portrait orientation
+3. The app should automatically focus the text field near the bottom of the table view
+4. Flick down on the table view
+5. After a very short time, the app will automatically close the window. The table view will also try to scroll the text field back in to view. This will result in the EXC_BAD_ACCESS.
+
+<code><pre>
+var outer = Ti.UI.createWindow({ backgroundColor: 'purple' });
+outer.addEventListener('open', function() {
+    var inner = Ti.UI.createWindow();
+    var text = Ti.UI.createTextField({
+        top: 10, height: 35, width: 300,
+        borderStyle:Titanium.UI.INPUT_BORDERSTYLE_ROUNDED
+    });
+    var data = [];
+    for (var i = 0; i < 22; i++) {
+        data.push(Ti.UI.createTableViewRow());
+    }
+    data[i - 1].add(text);
+    var table = Ti.UI.createTableView({
+        data: data
+    });
+    inner.add(table);
+    inner.addEventListener('open', function() {
+        text.focus();
+        var timeoutID;
+        table.addEventListener('scroll', function() {
+            clearTimeout(timeoutID);
+            timeoutID = setTimeout(function() {
+                inner.close();
+            }, 200);
+        });
+    });
+    inner.open();
+});
+outer.open();
+</pre></code>
+
+<h4>Console Log from Crash</h4>
+Attached.
+
+<h4>Console Log Excerpt</h4>
+For your cursory glancing pleasure:
+<code><pre>
+Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Codes: KERN_INVALID_ADDRESS at 0xa0000008
+Crashed Thread:  0
+
+Thread 0 name:  Dispatch queue: com.apple.main-thread
+Thread 0 Crashed:
+0   libobjc.A.dylib               	0x34f70c98 objc_msgSend + 16
+1   UIKit                         	0x32140688 -[UIScrollView setContentOffset:] + 344
+2   UIKit                         	0x321404a8 -[UITableView setContentOffset:] + 248
+3   UIKit                         	0x3223f74a -[UIScrollViewScrollAnimation setProgress:] + 370
+4   UIKit                         	0x321c3c86 -[UIAnimator(Static) _advance:] + 190
+5   UIKit                         	0x321c3bba LCDHeartbeatCallback + 10
+6   GraphicsServices              	0x353d12d6 HeartbeatVBLCallback + 86
+7   IOMobileFramebuffer           	0x326cd9c0 IOMobileFramebufferVsyncNotifyFunc + 68
+8   IOKit                         	0x350366e4 IODispatchCalloutFromCFMessage + 192
+9   CoreFoundation                	0x32566bd8 __CFMachPortPerform + 204
+10  CoreFoundation                	0x32571a90 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE1_PERFORM_FUNCTION__ + 20
+11  CoreFoundation                	0x32573838 __CFRunLoopDoSource1 + 160
+12  CoreFoundation                	0x32574606 __CFRunLoopRun + 514
+13  CoreFoundation                	0x32504ebc CFRunLoopRunSpecific + 224
+14  CoreFoundation                	0x32504dc4 CFRunLoopRunInMode + 52
+15  GraphicsServices              	0x353cf418 GSEventRunModal + 108
+16  GraphicsServices              	0x353cf4c4 GSEventRun + 56
+17  UIKit                         	0x32121d62 -[UIApplication _run] + 398
+18  UIKit                         	0x3211f800 UIApplicationMain + 664
+19  play                          	0x00004570 0x1000 + 13680
+20  play                          	0x00003e14 0x1000 + 11796
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5326_22992/play_2011-09-21-111103_Dawsons-iPad-1.crash">play_2011-09-21-111103_Dawsons-iPad-1.crash</td></td><td>2011-09-21T02:28:12.000+0000</td><td>25283</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dawson Toth 2011-09-21
+
+   Added a link to TIMOB-5301, which possibly causes this issue (if I am correctly interpreting what is going on).</li>
+<li>Dawson Toth 2011-09-21
+
+   Tramer has submitted a pull request for this:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/481" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/481</a></li>
+<li>Alan Vaghti 2011-10-03
+
+   Closing. 
+   
+   Fix verified in SDK 1.8.0v20110922234950 with  iPad 1 and 2 simulators running iOS 4.3, and iPad 2 4.3.5.</li>
+<li>Stephen Tramer 2011-10-05
+
+   Reopening issue so that it can be re-tested when an additional fix for TIMOB-5361 is introduced. Any pull request for 5361 will be tagged with this bug number as well.</li>
+<li>Alan Vaghti 2011-10-06
+
+   Reclosing.
+   
+   Fix verified in SDK 1.8.0.v20111006001414 with iPad 1 and 2 simulators running iOS 4.3, and iPad 2 4.3.5.  Tested 5361 and that passed as well.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5326.json">JSON Source</a></p>

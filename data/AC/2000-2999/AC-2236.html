@@ -1,0 +1,185 @@
+---
+title: "[AC-2236] Android: Close a socket then reopen it, unable to write on it."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-12-29T19:35:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Studio, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Marvin Rosillette</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2013-11-21T02:32:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi everybody and thanks for reading,
+
+I'm going through an issu and I really don't know how to handle it.
+
+First, I create a button to open a new window, instantiate a new socket and connect it to my computer through wifi. Here is the code :
+<code><pre>
+
+var OptionWindow = require('display/OptionWindow');
+var TactSocket = require('trans/tactSocket');
+
+startButton.addEventListener('singletap',function(){
+     new appDisplay().open({
+         activityEnterAnimation: Ti.Android.R.anim.fade_in
+     });
+     new TactSocket("192.168.1.27",2009).connect();
+});
+</pre></code> 
+
+When I close the window open before, I also want to close the socket, so here is the code in the window :
+<code><pre> 
+//create a window
+var self = Ti.UI.createWindow({
+	backgroundColor:'#000000',
+	navBarHidden:true,
+	fullscreen:true,
+	windowSoftInputMode : Ti.UI.Android.SOFT_INPUT_ADJUST_RESIZE
+});
+
+//Listen to the 'close' event, and fire a new event 'app_close'
+self.addEventListener('close',function(){
+    Ti.App.fireEvent('app_close');
+});
+</pre></code>
+
+Then in my tactsocket function I did this :
+<code><pre>
+function tactSocket(host,port){
+    var tactsocket = Ti.Network.Socket.createTCP({
+        host : host,
+        port : port,
+        connected : function(e) {
+            alert('connected socket);
+            //alert(tactsocket.isWriteable);           
+        },
+        error : function(e) {
+            alert('Error (' + e.errorCode + '): ' + e.error);
+        }
+    });
+
+    //Listen to the 'app_close' event to close the socket
+    Ti.App.addEventListener('app_close',function(){        
+        tactsocket.close();
+        alert('socket closed');        
+    });
+
+    return self;
+}
+</pre></code>
+
+What happen now : 
+<h4>Open the App</h4>
+<h4>click start button</h4>
+<h4>window open et socket connect, alert show me that the socket is well connected and i can write in the socket</h4>
+<h4>close the window, alert show me that the socket is well closed</h4>
+<h4>open the window again, alert show me that the socket is well connected, but this time I am unable to write in the socket, I get a runtime error saying the socket is not connected</h4>
+<h4>close the window I also get a runtime error saying the socket is not connected</h4>
+
+May be I'm missing something about socket.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Marvin Rosillette 2013-11-27
+
+   nothing ?</li>
+<li>Mauro Parra-Miranda 2013-12-04
+
+   Hi,
+   
+   Thank your providing the code snippet. Since it is not the complete implementation of the scenario, we can't fully test it. We need runnable test case to provide you necessary feedback.
+   
+   Based on the code you posted, it looks like you are creating objects without assign those to any variable, so we will need to add variables to the test and see if this fails. For example,
+   
+   startButton.addEventListener('singletap',function(){
+        new appDisplay().open({
+            activityEnterAnimation: Ti.Android.R.anim.fade_in
+        });
+        new TactSocket("192.168.1.27",2009).connect();
+   });
+   
+   
+   This segment of the code is just creating TackSocket without assigning it to anywhere. 
+   
+   If you can provide us more info, we can look into it further.
+   Regards,
+   Mauro</li>
+<li>Mauro Parra-Miranda 2013-12-13
+
+   Hello Marvin,
+   I created another testcase (i.e., create a new mobile project and paste this to the app.js): 
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor:'white',
+   });
+   
+   var createButton = Ti.UI.createButton({
+   	title:'create socket',
+   	top:20,
+   	left:20,
+   });
+   
+   var deleteButton = Ti.UI.createButton({
+   	title:'delete socket',
+   	top:20, 
+   	right:20,
+   });
+   
+   var tactsocket;
+   var host = "74.125.20.105";
+   var port = 80;
+    
+   createButton.addEventListener('click',function(){
+   	tactsocket = Ti.Network.Socket.createTCP({
+           host : host,
+           port : port,
+           connected : function(e) {
+               alert('connected socket');
+               alert(e);
+           },
+           error : function(e) {
+               alert('Error (' + e.errorCode + '): ' + e.error);
+           }
+       });
+   	tactsocket.connect();
+   });
+   
+   deleteButton.addEventListener('click',function(){
+   	tactsocket.close();
+   	alert('deleted socket');
+   });
+   
+   win.add(createButton);
+   win.add(deleteButton);
+   win.open();
+   </pre></code>
+   
+   and looks like it's not failing (the socket will be reused after re initializing it with a .connect(). Can you please take a look and let us know if is working for you as well?
+   
+   For more information on the sockets lifecycle, you can get into this doc:
+   
+   <a href="http://docs.appcelerator.com/titanium/3.0/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/3.0/#</a>!/guide/TCP_Socket_API_Spec-section-29004739_TCPSocketAPISpec-Socketlifecycle
+   
+   Best,
+   Mauro</li>
+<li>Shak Hossain 2013-12-29
+
+   Hi Marvin Rosillette,
+   
+   We are marking this ticket as "cannot reproduce". We posted a sample test case. Please let us know if you continue to get error with our test case. We wait for your feedback. If we don't hear back from you in a week, we will consider this issue resolved and close the ticket.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2236.json">JSON Source</a></p>

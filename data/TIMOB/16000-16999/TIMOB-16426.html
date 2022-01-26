@@ -1,0 +1,179 @@
+---
+title: "[TIMOB-16426] Android: App crashes after performing search on listView, scrolling down to the last row and deleting a row"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-05-05T18:24:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>deleteItem, listview,, scrollEnd,</td></tr>
+<tr><th>Reporter</th><td>Lee phela</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2014-01-30T20:21:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-06-09T19:07:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Steps to reproduce :
+1. Put the following code into app.js and run it
+<code><pre>
+
+var win=Ti.UI.createWindow({
+	fullscreen:false
+});
+var template={
+	childTemplates:[
+		{
+			type:'Ti.UI.Label',
+			bindId:'title'
+		}
+	]
+};
+var items=[];
+for(var k=0;k<500;k++){
+	items.push({
+		properties:{
+				searchableText:'Click to delete '+k
+			},
+		title:{text:'Click to delete '+k}
+	});
+}
+
+var search=Ti.UI.createSearchBar();
+
+var listView=Ti.UI.createListView({
+	templates:{template:template},
+	defaultItemTemplate:'template',
+	sections:[
+				Ti.UI.createListSection({
+						items:items
+					})
+			],
+	searchView:search
+});
+
+listView.addEventListener('itemclick',function(e){
+
+	var index=e.itemIndex;
+        Ti.API.info("Index" + index);
+	e.section.deleteItemsAt(index,1);
+});
+win.add(listView);
+win.open();
+</pre></code>
+2. Perform a random search by typing any text (eg. xyhwssj ) into the search bar.
+3.Clear out the search  bar completely.
+4.Scroll down to the last bottom end.
+5.Delete an item by clicking on any row/item.
+
+Description:
+After searching for an item on the <code>listView</code> and scrolling down to the bottom last end, if you try to delete an item, the app will always crashes. This bug is producible only on android and not on IOS.
+
+*However, the app will not crash if the listView has not reached the scroll end yet and you delete an item* but it will still crash on random occasion should you, after performing a search, tried to scroll down to the last bottom row even without deleting
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-01-31
+
+   I believe this is related to TIMOB-16079. You get an incorrect e.itemIndex for ListView on Android platform and deleting a non existent entry based on this index causes the crash. This problem is more likely to occur at the end of scroll as you are more likely to have a non existent index there. You can verify this issue by checking for itemIndex.</li>
+<li>Lee phela 2014-01-31
+
+   Right, the index are not always right but it is more than that. Even if it gets the right index, the crash is still pretty much imminent, that is, even if the index number corresponds to the right item row number. For instance, if you scroll down to the bottom last row after canceling the search, and tried to delete any items, the app will crash even though the index number corresponds to the right item row.
+   
+   *The listView without a proper function able search field defeats the main purpose of its ability to hold large data at the first place*. Who would realy want to take the trouble of searching from a list of thousands of items just by scrolling?</li>
+<li>Ritu Agrawal 2014-02-09
+
+   Reopening and moving this ticket to engineering as I can reproduce this issue now on Android 4.2.2 device with the provided test case and exact steps. It is important to type something in the search bar, search and then clear the search bar to display all the 500 rows. You have to scroll to the bottom and then delete a row. You can delete any row and it does not have to be the last row.
+   
+   Here is the stack trace:
+   [ERROR] :  TiApplication: (main) [3285,34156] Sending event: exception on thread: main msg:java.lang.IndexOutOfBoundsException: Invalid index 499, size is 499; Titanium 3.2.0,2013/12/20 10:57,d9182d6
+   [ERROR] :  TiApplication: java.lang.IndexOutOfBoundsException: Invalid index 499, size is 499
+   [ERROR] :  TiApplication: 	at java.util.ArrayList.throwIndexOutOfBoundsException(ArrayList.java:251)
+   [ERROR] :  TiApplication: 	at java.util.ArrayList.get(ArrayList.java:304)
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.listview.ListSectionProxy.getTemplateByIndex(ListSectionProxy.java:767)
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.listview.TiListView$TiBaseAdapter.getItemViewType(TiListView.java:215)
+   [ERROR] :  TiApplication: 	at android.widget.HeaderViewListAdapter.getItemViewType(HeaderViewListAdapter.java:234)
+   [ERROR] :  TiApplication: 	at android.widget.AbsListView$RecycleBin.getScrapView(AbsListView.java:6309)
+   [ERROR] :  TiApplication: 	at android.widget.AbsListView.obtainView(AbsListView.java:2139)
+   [ERROR] :  TiApplication: 	at android.widget.ListView.makeAndAddView(ListView.java:1831)
+   [ERROR] :  TiApplication: 	at android.widget.ListView.fillDown(ListView.java:674)
+   [ERROR] :  TiApplication: 	at android.widget.ListView.fillSpecific(ListView.java:1332)
+   [ERROR] :  TiApplication: 	at android.widget.ListView.layoutChildren(ListView.java:1630)
+   [ERROR] :  TiApplication: 	at android.widget.AbsListView.onLayout(AbsListView.java:1994)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.widget.FrameLayout.onLayout(FrameLayout.java:448)
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.listview.TiListView$ListViewWrapper.onLayout(TiListView.java:139)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.widget.RelativeLayout.onLayout(RelativeLayout.java:1021)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:578)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.view.TiCompositeLayout.onLayout(TiCompositeLayout.java:578)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.widget.FrameLayout.onLayout(FrameLayout.java:448)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.widget.LinearLayout.setChildFrame(LinearLayout.java:1663)
+   [ERROR] :  TiApplication: 	at android.widget.LinearLayout.layoutVertical(LinearLayout.java:1521)
+   [ERROR] :  TiApplication: 	at android.widget.LinearLayout.onLayout(LinearLayout.java:1434)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.widget.FrameLayout.onLayout(FrameLayout.java:448)
+   [ERROR] :  TiApplication: 	at android.view.View.layout(View.java:14008)
+   [ERROR] :  TiApplication: 	at android.view.ViewGroup.layout(ViewGroup.java:4373)
+   [ERROR] :  TiApplication: 	at android.view.ViewRootImpl.performLayout(ViewRootImpl.java:1892)
+   [ERROR] :  TiApplication: 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:1711)
+   [ERROR] :  TiApplication: 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:989)
+   [ERROR] :  TiApplication: 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:4351)
+   [ERROR] :  TiApplication: 	at android.view.Choreograph
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doCallbacks(Choreographer.java:562)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer.doFrame(Choreographer.java:532)
+   [ERROR] :  TiApplication: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:735)
+   [ERROR] :  TiApplication: 	at android.os.Handler.handleCallback(Handler.java:725)
+   [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:92)
+   [ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:137)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:5041)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invokeNative(Native Method)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:511)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:793)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:560)
+   [ERROR] :  TiApplication: 	at dalvik.system.NativeStart.main(Native Method)
+   
+   
+   </li>
+<li>Hieu Pham 2015-04-23
+
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6802" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6802</a></li>
+<li>Lokesh Choudhary 2015-06-09
+
+   Verified the fix.
+   
+   App does not crash for the case of this ticket.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio :  4.1.0.201505071004
+   Ti SDK :  4.1.0.v20150605164428
+   Ti CLI : 4.0.1
+   Alloy : 1.6.0
+   MAC Yosemite : 10.10.3
+   Appc npm : 4.0.0
+   Appc CLI : 4.0.2-rc2
+   Node: v0.10.37
+   Device - Android 5.0.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16426.json">JSON Source</a></p>

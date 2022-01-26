@@ -1,0 +1,166 @@
+---
+title: "[TIMOB-12412] Android: Ti.Android.currentActivity.intent.className and Ti.Android.currentActivity.intent.packageName are always undefined"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-05-25T04:36:50.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>exalture</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2013-01-24T11:36:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-08T23:46:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+The value of Ti.Android.currentActivity.intent.className and Ti.Android.currentActivity.intent.packageName is always undefined.
+
+<h4>Steps to reproduce</h4>
+This simple app will print out undefined in the logs:
+
+<code><pre>
+// this sets the background color of the master UIView (when there are no windows/tab groups on it)
+Titanium.UI.setBackgroundColor('#000');
+
+var win1 = Titanium.UI.createWindow({
+    title:'Tab 1',
+    backgroundColor:'#fff',
+    fullscreen: true
+});
+win1.open();
+
+Titanium.API.info("Class name: " + Titanium.Android.currentActivity.intent.className());
+
+Titanium.API.info("Package name: " + Titanium.Android.currentActivity.intent.packageName);
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>jithinpv 2013-03-15
+
+   an error is shown while running the test case
+   
+   Uncaught TypeError:Property'className'of object #<intent> is not a function
+   
+   jithinpv</li>
+<li>Sunila 2013-04-09
+
+   As per the documentation, these are creation-only properties.</li>
+<li>Fokke Zandbergen 2016-02-24
+
+   [~cng] can we reconsider this one? With TIMOB-19679 this has become relevant again because unless you create the intent in <code>app.js</code>/<code>alloy.js</code> you need the className/packageName of your app in order to create an alternative launch shortcut for it.
+   
+   Sunila mentions its creation only, but that doesn't say they cannot be read.</li>
+<li>Fokke Zandbergen 2016-03-11
+
+   This was closed as Invalid because the properties are creation only, but that's not what the ticket is about. It is about being able to read the properties after creation, not change.</li>
+<li>Srikanth Sombhatla 2016-04-13
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7940" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7940</a>
+   
+   Use this test code
+   <code><pre>
+   // this sets the background color of the master UIView (when there are no windows/tab groups on it)
+   Titanium.UI.setBackgroundColor('#000');
+    
+   var win1 = Titanium.UI.createWindow({
+       title:'Tab 1',
+       backgroundColor:'#fff',
+       fullscreen: true
+   });
+   
+   win1.open();
+   
+   Titanium.API.info("current activity: " + Titanium.Android.currentActivity);
+   Titanium.API.info("Class name: " + Titanium.Android.currentActivity.intent.getClassName()); 
+   Titanium.API.info("Package name: " + Titanium.Android.currentActivity.intent.getPackageName());
+    
+   
+   </pre></code></li>
+<li>Ashraf Abu 2016-04-14
+
+   PR reviewed and merged.
+   
+   [~fokkezb] with this fixed, which other ticket is related to this?</li>
+<li>Fokke Zandbergen 2016-04-14
+
+   [~msamah] Thanks, with this fixed TIMOB-19679 will be easier to implement for users, but that feature is still blocked by TIMOB-20459</li>
+<li>Ashraf Abu 2016-05-11
+
+   Reverting this ticket: <a href="https://github.com/appcelerator/titanium_mobile/pull/7996" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7996</a>
+   
+   A bug was introduced in this PR where if you back out of the app using the back button and enter the app again, it will crash.
+   Line causing bug is:- 
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/50dec34783b243948ef3dfdde25750ef9ff478d8/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L63" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/50dec34783b243948ef3dfdde25750ef9ff478d8/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L63</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/50dec34783b243948ef3dfdde25750ef9ff478d8/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L66" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/50dec34783b243948ef3dfdde25750ef9ff478d8/android/titanium/src/java/org/appcelerator/titanium/proxy/IntentProxy.java#L66</a>
+   
+   The crash occurs in the native code of android. Last debug point was in MessageQueue.class line 581:-
+   <code><pre>
+               // We can assume mPtr != 0 because mQuitting is false.
+               if (needWake) {
+                   nativeWake(mPtr);
+               }
+   </pre></code>
+   
+   Will be leaving ticket open.
+   [~fokkezb] Fyi.</li>
+<li>Ashraf Abu 2016-05-12
+
+   Setting this for release 6.0.0 instead due to bug.</li>
+<li>Hieu Pham 2016-05-23
+
+    master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8013" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8013</a>
+    Testing code:
+    <code><pre>
+    var win = Ti.UI.createWindow({
+        backgroundColor : 'black',
+        layout : 'vertical'
+    });
+    win.open();
+    Ti.API.info("Class name: " + Titanium.Android.currentActivity.intent.getClassName());
+    Ti.API.info("Class name: " + Titanium.Android.currentActivity.intent.className);
+    
+    Ti.API.info("Package name: " + Titanium.Android.currentActivity.intent.getPackageName());
+    Ti.API.info("Package name: " + Titanium.Android.currentActivity.intent.packageName);
+    
+    
+    var intent = Ti.Android.createIntent({className: "com.test.classnameActivity", packageName: "com.test"});
+    
+    Ti.API.info("Class name: " + intent.getClassName());
+    Ti.API.info("Class name: " + intent.className);
+    
+    Ti.API.info("Package name: " + intent.getPackageName());
+    Ti.API.info("Package name: " + intent.packageName);
+    </pre></code></li>
+<li>Ashraf Abu 2016-05-25
+
+    PR <a href="https://github.com/appcelerator/titanium_mobile/pull/8013" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8013</a> has been merged.</li>
+<li>Lokesh Choudhary 2016-07-08
+
+    Verified the fix.
+    The <code>Ti.Android.currentActivity.intent.className</code> & <code>Ti.Android.currentActivity.intent.packageName</code>  is not <code>undefined</code>.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio : 4.7.0.201607070843
+    Ti SDK :  5.4.0.v20160705213725
+    Ti CLI : 5.0.9
+    Alloy : 1.9.1
+    MAC El Capitan : 10.11.5
+    Appc NPM : 4.2.8-1
+    Appc CLI : 5.4.0-29
+    Node: 4.4.4
+    Nexus 6 - Android 6.0.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12412.json">JSON Source</a></p>

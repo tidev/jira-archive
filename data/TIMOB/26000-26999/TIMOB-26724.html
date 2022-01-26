@@ -1,0 +1,55 @@
+---
+title: "[TIMOB-26724] Android: How to achieve a service that can continue to run at regular intervals, even if the device goes to sleep."
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2019-03-18T18:07:25.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.5.0, Release 7.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>2019-cl</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-01-14T13:13:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-03-18T18:07:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-01-14
+
+   This is by Google's design. A foreground service's main purpose is to prevent the app from being terminated while backgrounded and to prevent sensor data from being "throttled" while backgrounded. It does not prevent the device from going to sleep.
+   <a href="https://developer.android.com/about/versions/oreo/background" rel="nofollow" target="_blank">https://developer.android.com/about/versions/oreo/background</a>
+   <a href="https://developer.android.com/about/versions/oreo/background-location-limits" rel="nofollow" target="_blank">https://developer.android.com/about/versions/oreo/background-location-limits</a>
+   
+   The simplest solution is to set the window's "keepScreenOn" property to <code>true</code>. Just note that this will only work while that window is in the foreground.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.Window-property-keepScreenOn
+   
+   Alternatively, you can use a wake-lock like you've said. This is the only means of preventing the device from going to sleep while your app is backgrounded. Just be aware that using a wake-lock perpetually in the background is considered "naughty" and will kill battery life. You should only use it if absolutely necessary. (Notice that Google has been going to great lengths to improve battery life and they're the ones who frown on this behavior.)
+   
+   Titanium's posted notifications (including foreground service notifications) will automatically apply a 3 second wake-lock if the permission is set in your "tiapp.xml" file as follows.
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+   	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+   		<manifest>
+   			<uses-permission android:name="android.permission.WAKE_LOCK"/>
+   		</manifest>
+   	</android>
+   </ti:app>
+   </pre></code>
+   
+   Unfortunately, Titanium does not allow you to directly control the wake-lock (ie: acquire/release). So, while our notification API allows you to increase the wake-lock time higher than 3 seconds, the problem is you don't have a means of releasing the wake-lock when you're done with it (removing the notification won't release the wake-lock). So, what you can do instead is "update" the foreground notification using the same notification ID based on a timer (perhaps the service's timer?) to keep the wake-lock on. That is, call the <code>foregroundNotify()</code> function again with the same ID. Updating a notification won't cause it to pop up at the top of the screen, however, it will still make a sound when updated so I recommend that you lower the priority and disable the sound.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26724.json">JSON Source</a></p>

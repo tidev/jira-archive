@@ -1,0 +1,120 @@
+---
+title: "[TIMOB-25536] TiAPI: Deprecate Ti global namespace, move to require/import based API's"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, iOS, Windows</td></tr>
+<tr><th>Labels</th><td>roadmap2019</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-11-19T23:39:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-02-08T18:58:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Motivation*
+As we are moving forward to support more ES6 sugar in Titanium, the legacy namespace-based API's have served well but need to be replaced by a more modern approach. 
+
+*Challenges*
+We have to think about both the core and native modules and validate whether this actually needs to be a breaking change for modules, as most of the work will be done in the require-handling and kroll-invocation.
+
+*Example*
+
+Before:
+<code><pre>
+const window = Ti.UI.createWindow({
+  title: 'So legacy ...'
+});
+</pre></code>
+After:
+<code><pre>
+import { Window } from 'titanium-core';
+// OR: import { Window } from 'titanium-ui';
+
+var window = new Window({
+  title: 'Beautiful new API!'
+});
+</pre></code>
+
+*Roadmap*
+If possible, we could introduce a require/import based approach for one of the next feature-versions, deprecate in the next major (8.0.0) and remove in the following major (9.0.0).
+
+*EDIT*: [~gmathews] did [Ti.ES6](<a href="https://github.com/appcelerator/ti.es6)" rel="nofollow" target="_blank">https://github.com/appcelerator/ti.es6)</a> earlier this year, which uses a similar approach, but requires a lot of "metabase"-like files in order to work.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2018-02-02
+
+   Typing "titanium-" is going to get repetitive. I don't even think we need to namespace since importing a module without a relative path will imply trying to load a built-in module (before scanning "node_modules").
+   
+   <code><pre>
+   import { Window } from 'ui';
+   </pre></code>
+   
+   We could also support something like this:
+   
+   <code><pre>
+   import TextField, { INPUT_BORDERSTYLE_ROUNDED } from 'ui/text-field';
+   </pre></code></li>
+<li>Hans Knöchel 2018-02-03
+
+   Maybe 
+   <code><pre>
+   import { Window, Label, View } from { titanium };
+   </pre></code>
+   I heard "some other frameworks" do it that way :P.</li>
+<li>Chris Barber 2018-02-05
+
+   I'm not certain I've ever seen that syntax. I don't see how that's an improvement on the above examples.</li>
+<li>Hans Knöchel 2018-02-05
+
+   I feel like it might be confusing to not prefix the imports as there are many (especially classic apps where we used to recommend a /ui/common etc require style. But if you work more on Node than I do, so I'd trust your opinion.</li>
+<li>Hans Knöchel 2018-08-08
+
+   [~cwilliams] Any thoughts on the import-design here? You worked on some similar approaches for the Hyperloop ES6 namespaces already, so you might have an idea. My latest proposal would be a mix of [~cbarber]'s approach and my initial one:
+   <code><pre>
+   // Resolved internally to Ti.UI.TextField, Ti.UI.Button and Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+   // Note: INPUT_BORDERSTYLE_ROUNDED lives under Ti.UI, not Ti.UI.TextField
+   import TextField, Button, { INPUT_BORDERSTYLE_ROUNDED } from 'titanium/ui';
+   </pre></code>
+   That way, we could pretty much write a regex to map require-statements prefixed with <code>titanium</code> to look at the core-modules.</li>
+<li>Chris Barber 2018-08-08
+
+   Again, typing "titanium-" is going to be repetitive. Secondly, we don't want a "core" module that exports the entire API. I'd be fine with a specific silo (e.g. ui, fs, etc). Just note that when "ui" exports all UI classes, it adds overhead and yet another place a class need to be registered/exported.
+   
+   In my opinion, the following is how it should be:
+   
+   <code><pre>
+   import Window from 'ti/ui/window';
+   //  or import { Window } from 'ti/ui';
+   
+   const window = new Window({
+     title: 'Beautiful new API!'
+   });
+   </pre></code></li>
+<li>Hans Knöchel 2018-08-08
+
+   So you are complaining about <code>titanium</code> vs <code>ti</code>? I did not propose <code>titanium-</code> in the latest proposals.</li>
+<li>Chris Barber 2018-08-08
+
+   Also, <code>import</code> implies it's loading a JavaScript module which is different than a CommonJS module. JavaScript module exports MUST be static and are loaded async. CommonJS module exports can be dynamic and are loaded sync. Node is solving this problem by introducing the <code>.mjs</code> file extension so that the loader can determine what it's loading.
+   
+   How are you planning to support this? If we continue to use Babel to transform modules, then we'll be OK since it wraps all exports of every file. However, this would be a crutch and eventually we would get rid of Babel and natively support JavaScript modules and we'll have a big problem.</li>
+<li>Chris Barber 2018-08-08
+
+   Yes, I'm saying we shouldn't make people type "titanium-" everywhere as the description in this issue currently suggests.</li>
+<li>Christopher Williams 2019-02-26
+
+    Note that I think Gary has made some real nice progress on this general idea in his ti.es6 project here: <a href="https://github.com/appcelerator/ti.es6" rel="nofollow" target="_blank">https://github.com/appcelerator/ti.es6</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25536.json">JSON Source</a></p>

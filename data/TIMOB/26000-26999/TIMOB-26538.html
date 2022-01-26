@@ -1,0 +1,289 @@
+---
+title: "[TIMOB-26538] Android: Services should be stopped when exiting the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-16T18:26:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, breaking-change, exit, service</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-11-09T02:48:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-16T18:32:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If you start a service and then back out of the app, the JavaScript runtime is kept alive due to the change we've made via [TIMOB-9831] so that the JavaScript service code can still function. The problem with this is if you re-launch the app after doing the above, you'll be stuck at the splash screen and the "app.js" won't be re-executed. The reason is because Titanium only supports running 1 JavaScript runtime at a time. And we don't want to start a new JavaScript runtime instance since it wouldn't be able to communicate with the 1st runtime that is running the service... and we don't want the 2nd runtime to start a 2nd service instance.
+
+This is a design issue and needs to change.
+
+We should revert the change made by [TIMOB-9831] and stop all services when backing out of the app. If an app developer wants a service to keep running when backing out, then they should set up the root window's [exitOnClose](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.Window-property-exitOnClose) property to <code>false</code> so that the UI and service will continue to run in the background as shown in "Work-Around 1" down below (or alternatively use "Work-Around 2" solution). This also makes the app work more like iOS.
+
+*Note:*
+<code>BroadcastReceiver</code> has this same issue. If you don't unregister a <code>BroadcastReceiver</code> before exiting the app, then the next time you launch the app, you'll be stuck at the splash screen.
+
+*Steps to reproduce:*
+<h4>Set up a Classic Titanium app using the below code an XML settings.</h4>
+<h4>Build and run on Android.</h4>
+<h4>Press the back button to exit the app.</h4>
+<h4>Re-launch the app.</h4>
+<h4>Notice that you're stuck on the splash screen. _(This is the issue.)_</h4>
+
+tiapp.xml
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<services>
+			<service url="Service.js"/>
+		</services>
+	</android>
+</ti:app>
+</pre></code>
+
+./Resources/Service.js
+<code><pre>
+Ti.API.info("@@@ Service started.");
+</pre></code>
+
+./Resources/app.js
+<code><pre>
+// Start the service.
+var intent = Ti.Android.createServiceIntent({
+	url: "Service.js",
+});
+Ti.Android.startService(intent);
+
+// Display the main window.
+var window = Ti.UI.createWindow();
+window.open();
+</pre></code>
+
+*Work-Around 1:*
+For the 1st window you open, set it's [exitOnClose](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.Window-property-exitOnClose) property to <code>false</code> like the below. This prevents the back button from closing your root window and makes the app work more like iOS. It also allows the service to operate in the background without issue. This is the best solution.
+<code><pre>
+var window = Ti.UI.createWindow({
+	exitOnClose: false,
+});
+window.open();
+</pre></code>
+
+*Work-Around 2:*
+Override the root window's "androidback" event and use an intent to home-out of the app. This is similar to the work-around 1 solution where the root window is not closed and the service will continue to run in the background. Again, this makes your app effectively work like iOS.
+<code><pre>
+var window = Ti.UI.createWindow();
+window.addEventListener("androidback", function(e) {
+	// If the back key was press, cancel it and go to the home-screen instead.
+	var intent = Ti.Android.createIntent({
+		action: Ti.Android.ACTION_MAIN,
+	});
+	intent.addCategory(Ti.Android.CATEGORY_HOME);
+	intent.setFlags(Ti.Android.FLAG_ACTIVITY_NEW_TASK);
+	Ti.Android.currentActivity.startActivity(intent);
+});
+window.open();
+</pre></code>
+
+*Work-Around 3:*
+Stop the service when the root window is about to close and let everything terminate.
+<code><pre>
+var intent = Ti.Android.createServiceIntent({
+	url: "Service.js",
+});
+Ti.Android.startService(intent);
+
+var window = Ti.UI.createWindow();
+window.addEventListener("close", function(e) {
+	Ti.Android.stopService(intent);
+});
+window.open();
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26538_66555/ti.myservice.zip">ti.myservice.zip</td></td><td>2019-04-16T18:25:46.000+0000</td><td>14433</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-11-10
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10453" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10453</a></li>
+<li>Lokesh Choudhary 2018-11-19
+
+   FR Passed.
+   Waiting for CR to merge.</li>
+<li>Lokesh Choudhary 2018-11-30
+
+   PR Merged.</li>
+<li>Josh Longton 2018-12-03
+
+   *Closing ticket.*
+   
+   The fix is present in SDK:
+   
+   {noformat}
+   8.0.0.v20181130132038
+   {noformat}</li>
+<li>jon kravetz 2019-03-12
+
+   These changes have wrecked our app. From what I understand foreground notifications were created for Android so background services can still run when the app is EXITED. The caveat is that a foreground notification persists in the notification panel so the user knows the app is still using memory. 
+   
+   In 7.4.1.GA i can start several background services on android (location tracking, accelerometer, notification scheduling, etc) and when i close the app since I created a foreground notification, the services still run perfectly. 
+   
+   With the changes in 7.5/8.0 when i EXIT the app the foreground notification persists, but then crashes because the underlying services are stopped automatically when the app is closed. We also do things with our app on rebooting the device, etc....
+   
+   The workarounds above are only for asking the back button to background the app rather than close it. This does not help. Do we need to create a new ticket? 
+   
+   What do we do? </li>
+<li>Joshua Quick 2019-03-13
+
+   [~jonkravetz],
+   
+   Have a look at the summary of this ticket up above. The problem is that Titanium services (it doesn't matter if it's background or foreground) has a design issue. The issue is if you start up a service and back out of the app, then that service would keep the JavaScript runtime alive because it would be useless without it. When you relaunch the app, it'll re-use the same existing JavaScript runtime... but the issue with that is all of the <code>require()</code> calls won't re-execute your JavaScript files. It'll return their "cached" modules instead. And while you may have rigged your app to handle this behavior, for many other app developers this is unexpected behavior. Another issue is that Titanium is tightly bound to the UI and most of our APIs assume that the UI exists when called... because the JavaScript runtime is created when the app UI gets launched.
+   
+   So, the solution in 8.0.0 is to change the behavior to avoid the design issue. As of 8.0.0, services (and broadcast-receivers) are now shut down when exiting the app.
+   
+   For services launched by the UI, the best solution is to set up your "root" window's "exitOnClose" property to <code>false</code>. You can see this in the "Work-Around 1" example above. When pressing the Back button, it'll end up backgrounding your app's root window instead and keep the JavaScript runtime alive. This is what I recommend. And it definitely works; I've done it. But the key thing is you need to set this property on the "root" window (ie: the 1st window you open), not the child windows.
+   
+   Regarding 7.5.0, we didn't make any changes to services, but I believe you are running into [TIMOB-26774]. It's caused by the same pre-existing service design issues I've mentioned above... but that ticket's issue can also happen when receiving data intents such as notifications, tapping on URL schemes, etc. That issue was solved in 7.5.1.
+   </li>
+<li>jon kravetz 2019-03-13
+
+   What you guys have implemented is a design issue. Our apps need to be able to run android services even when the app is forced quit or the phone is restarted.  
+   
+   In 7.4.1, this worked fine. We didn't "rig" the app to do anything unusual. When we moved to 7.5.0, we would get locked at the splash screen and you are saying that it's due to javascript runtime conflict? I don't get it, *why is there this problem in 7.5 and not 7.4.1?*
+   
+   I don't understand the work around. I don't care about the back button. When you force close the app or restart the phone, it still needs to be running services. When you restart the app it needs to function properly (as it did in 7.4.1).
+   
+   You need to find some other solution that works for all customers without shutting off this important functionality. Native android development allows services to be run while the app is closed, and titanium HAS to allow this as well.
+   
+   Please let me know who I need to talk to about this, because I am sure we are not the only ones that care about this or will care about this.
+   
+   </li>
+<li>Joshua Quick 2019-03-13
+
+   {quote}Please let me know who I need to talk to about this{quote}
+   
+   I'm the one you need to talk to.
+   
+   {quote}why is there this problem in 7.5 and not 7.4.1?{quote}
+   
+   You are running into issue [TIMOB-26774], which can happen with services and broadcast-receivers as well. It's an issue with relaunching the app with the same JavaScript runtime. The 7.4.x and older behavior would re-execute the "app.js" in this case (even though it was already loaded before), but all of the required-in JS files would return a cached copy. The re-execution of the same JS file was unintended behavior. The issue with this is that globals defined in the "app.js" (particularly for Alloy) would end up being re-initialized and can end up putting the rest of the app in a bad state. In 7.5.1, we restored the old broken behavior of re-executing the "app.js" (your app apparently depends on this unintended behavior), but for 8.0.0 we're avoiding this.
+   
+   {quote}I don't care about the back button. When you force close the app or restart the phone, it still needs to be running services.{quote}
+   
+   Everyone I've worked with was launching services and broadcast-receivers after the app UI was launched, making the new behavior a viable solution (ie: binding the lifetime of the service/broadcast-receiver to the activity). Backgrounding the app's UI (like iOS) is a viable solution in this case.
+   
+   The only way you can get a service to launch without the UI in a Titanium app is if you get a 2nd app to start the service. Is this what you're doing?
+   </li>
+<li>jon kravetz 2019-03-13
+
+   I believe that the globals being re-initialized is why we had to upgrade to 8.0.0.
+   
+   However I need to figure out a way that the android services can run even when the UI is not backgrounded. 
+   
+   I would start the services in the titanium app and display a foreground notification. Then I could force close the app and they would still be running. I could restart the services if the phone rebooted using bencoding.Android.Tools bootreceiver.
+   
+   I have implemented the workaround so that when I hit the back button, it backgrounds the app (i believe the initial "window" is actually a tabgroup consisting of windows. Is this possible to apply the "workaround" to a tabgroup?
+   (the workaround does not solve our problem)
+   
+   These apps are for research studies that capture data from the users device and may or may not prompt the user to take action. If the user reboots their phone, they should not have to restart the app to get the services working again.
+   
+   This is why we are stuck on 7.4.1. Unless you have other suggestions we may have to modify the sdk ourselves, however it does seem titanium v8.0 solves issues we are having with dual notifications, double login windows etc for the aforementioned reasons you described.
+   
+   Don't know what to do here....</li>
+<li>Joshua Quick 2019-03-13
+
+    {quote}Is this possible to apply the "workaround" to a tabgroup?{quote}
+    
+    Yes. You would set the <code>TabGroup</code>'s "exitOnClose" property as shown below. Assuming that the <code>TabGroup</code> is your root window, pressing the Back button will be the equivalent to pressing the Home button instead.
+    <code><pre>
+    var tabGroup = Ti.UI.createTabGroup({
+    	exitOnClose: false,
+    });
+    </pre></code>
+    
+    {quote}I believe that the globals being re-initialized is why we had to upgrade to 8.0.0.{quote}
+    
+    Right. We solved this problem via:
+    * This ticket. (Stops services when exiting the UI. Avoids design issue.)
+    * [TIMOB-26555] which stops broadcast receiver when exiting the UI. (Avoids similar design issue.)
+    * [TIMOB-26075] refactoring of our intent handling and app resuming behavior.
+    
+    {quote}bencoding.Android.Tools bootreceiver{quote}
+    
+    Are you using this module? Or are you setting up the <code>BOOT_COMPLETED</code> broadcast receiver via Titanium.
+    
+    You are right that a <code>BOOT_COMPLETED</code> broadcast receiver set up via Titanium would no longer work in 8.0.0. However, a natively implemented receiver such as the one I see in that module would work. I can see in its code that it can launch the Titanium app main activity and put it into the background. It's not a great solution, but it would work.
+    [BootReceiver.java#L161](<a href="https://github.com/benbahrenburg/benCoding.Android.Tools/blob/master/android/src/bencoding/android/receivers/BootReceiver.java#L161)" rel="nofollow" target="_blank">https://github.com/benbahrenburg/benCoding.Android.Tools/blob/master/android/src/bencoding/android/receivers/BootReceiver.java#L161)</a>
+    [tiapp.xml#L55](<a href="https://github.com/benbahrenburg/benCoding.Android.Tools/blob/master/android/example/BootReceiver/Restart/tiapp.xml#L55)" rel="nofollow" target="_blank">https://github.com/benbahrenburg/benCoding.Android.Tools/blob/master/android/example/BootReceiver/Restart/tiapp.xml#L55)</a>
+    
+    You're definitely right in bringing up the <code>BOOT_COMPLETED</code> issue. That's something we need to think about more.
+    
+    {quote}Don't know what to do here{quote}
+    
+    If you need a solution that will work "today" without code changes, then I recommend that you use Titanium 7.5.2. But I suspect that you're partly after our 8.0.0 intent changes too, right?
+    </li>
+<li>Joshua Quick 2019-03-14
+
+    Regarding 8.0.0... are you overriding the main activity's settings in the "tiapp.xml" file?
+    
+    One crucial setting you need is [alwaysRetainTaskState ](<a href="https://developer.android.com/guide/topics/manifest/activity-element#always)..." rel="nofollow" target="_blank">https://developer.android.com/guide/topics/manifest/activity-element#always)...</a>
+    <code><pre>
+    <activity android:alwaysRetainTaskState="true" />
+    </pre></code>
+    
+    The above setting prevents the UI from being exited/closed automatically while backgrounded. This typically happens after homing-out of the app and then tapping on another app. Titanium 8.0.0 automatically adds the above setting, but if you override the main activity in your "tiapp.xml", then the setting will be lost and you'll have to add it manually.
+    
+    Note that the above setting won't prevent the UI from being closed if swiped off in Android's "Recents" list, but I consider this to be good behavior on Android. If you want to avoid this, then perhaps you should add the [excludeFromRecents ](<a href="https://developer.android.com/guide/topics/manifest/activity-element#exclude)" rel="nofollow" target="_blank">https://developer.android.com/guide/topics/manifest/activity-element#exclude)</a> activity XML setting as well?
+    <code><pre>
+    <activity android: excludeFromRecents="true" />
+    </pre></code>
+    </li>
+<li>jon kravetz 2019-03-19
+
+    Hi Joshua,
+    
+    I am working on implementing your suggestions but we may decide to roll back to 7.5.2 and ask our customers not to close the app...(or risk running in to intent problems). Is the update to intents being backported? The reason I ask is because I'm thinking other enterprise clients may still be using 7.X and unaware of this new limitation.
+    
+    Also, theoretically would it be possible to allow services and broadcast receivers to continue to run in the background after force closing the app as they were before, and instead, stop/clear and then restart/reinitialize those services and broadcast receivers in a fresh javascript runtime when the app starts up? It seems to me that the problem is not that the services and broadcast receivers are still running, but that the old js runtime conflicts with the new one creating intent issues.
+    
+    The thing is, we've been using android background services for over 2 years that have functioned with the app fully closed. Recently we poured a lot of work in to updating this functionality for API 26 foreground changes. 
+    
+    I still think that we should really strive to match the native functionality of being able to run background services with the app exited. I don't know the technicalities of how this all works, but it's really important that we are able to continue doing this in a stable and secure manner as we have been.</li>
+<li>Vance Walsh 2019-03-19
+
+    I'm finding myself on a project with the same issues:
+    
+    <h4>needing the 8.x intent changes</h4>
+    <h4>needing foreground and background services to keep running when the app is in the background, as they do with 7.x</h4>
+    
+    What's the suggested route to handle this without other blocking bugs? Using a GA is clearly out of the question, so now my project is getting less stable with each SDK I'm trying. Going forward too far to get the 8.x intent changes breaks the foreground/background services it seems.</li>
+<li>Joshua Quick 2019-04-16
+
+    [~jonkravetz], [~vwalsh],
+    
+    I've attached a custom Android module named "ti.myservice" (see:  [^ti.myservice.zip] ) which has implements its own Java <code>Service</code> and <code>BroadcastReceiver</code> that's work outside of Titanium, but provides a <code>MyServiceModule</code> which allows the Titanium JavaScript to interact with it however you see fit. The <code>BroadcastReceiver</code> is set up to listen for the Android bootup event that will start the service. The service doesn't actually do anything, but it has <code>//TODO</code> comments where you can put your Java code and have it do what you need it to do in the background.
+    
+    The module has a "build.sh" script in its root directory, which will only work on Mac/Linux. This script will build the module for you. You can also give that build script a command line argument to your Titanium project directory that you want it to copy the built module to. So, your project will keep its own copy of the built module, which you can then update your "tiapp.xml" to reference the "ti.myservices" module for Android. This makes it easy to test your service module changes with your.
+    
+    I hope this helps.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26538.json">JSON Source</a></p>

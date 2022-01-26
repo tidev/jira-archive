@@ -1,0 +1,253 @@
+---
+title: "[TIMOB-17818] Android: window.exitOnClose closes app on close(), not just back button"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-23T20:59:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, exitonclose, module_window, qe-manualtest, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Mark Mokryn</td></tr>
+<tr><th>Assignee</th><td>Jon Alter</td></tr>
+<tr><th>Created</th><td>2014-10-02T07:13:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-27T05:32:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The doc states: "Boolean value indicating if the application should exit when the Android Back button is pressed while the window is being shown."
+However, exitOnClose closes the app even when the window is closed programatically. The app should be closed only when back is pressed on the window, as written in the doc. There is little sense in closing an app programmatically.
+
+Here is a problematic (but fairly typical) scenario:
+1. First time user entry opens login window
+2. After login app opens win1
+3. Normally, pressing "back" on win 1 should close the app (win1.exitOnClose = true)
+4. If logged in at entry, the login page is not opened, and the app opens win1. Again, win1.exitOnClose = true usually does the job
+5. However, if the user elects to "logout" from the app (e.g. logout menu item on win1), then win1 should close (win1.close() called) and the login window should open. But if win1 closes and exitOnClose == true, then the logout closes the app completely.
+
+Thus, exitOnClose should function for the back button only. Alternatively, exitOnClose can be a dynamic property: win1 in this case will normally have exitOnClose == true, but in case of a logout event win1.exitOnClose should be set to false.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2014-10-02
+
+   Test app:
+   <code><pre>
+   var win1 = Titanium.UI.createWindow({  
+       backgroundColor:'#fff'
+   });
+   
+   var btn1 = Ti.UI.createButton({title: "Open win"});
+   btn1.addEventListener('click', function(e){
+   	var win2 = Ti.UI.createWindow({exitOnClose: true});
+   	var label1 = Titanium.UI.createLabel({
+   		color:'#999',
+   		top: 10,
+   		text:'Clicking back should close the app, but pressing the button should not',
+   		font:{fontSize:20,fontFamily:'Helvetica Neue'},
+   		textAlign:'center',
+   		height: Ti.UI.SIZE
+   	});
+   	win2.add(label1);
+   	var btn2 = Ti.UI.createButton({title: "Close me"});
+   	btn2.addEventListener('click', function(e){
+   		win2.close();
+   	});
+   	win2.add(btn2);
+   	win2.open();
+   });
+   win1.add(btn1);
+   win1.open();
+   </pre></code></li>
+<li>Mark Mokryn 2014-10-02
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6190" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6190</a>
+   test on app above. exitOnClose kicks in only for back press and if no androidback event handler defined on the window.
+   This matches the docs and is the logical behavior.</li>
+<li>Jon Alter 2014-10-21
+
+   Doc PRs
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6243" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6243</a>
+   3_4_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/6244" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6244</a>
+   
+   Hi [~mokesmokes] - I have updated the docs to be more explicit. The way to make the app behave the way you are requesting is to have <code>exitOnClose: false</code> on the second window, listen for the <code>androidback</code> event and close the main window to kill the app when back is pressed. See the example below:
+   
+   <code><pre>
+   var win1 = Titanium.UI.createWindow({  
+       backgroundColor:'#fff'
+   });
+    
+   var btn1 = Ti.UI.createButton({title: "Open win"});
+   btn1.addEventListener('click', function(e){
+       var win2 = Ti.UI.createWindow({exitOnClose: false});
+       var label1 = Titanium.UI.createLabel({
+           color:'#999',
+           top: 10,
+           text:'Clicking back should close the app, but pressing the button should not',
+           font:{fontSize:20,fontFamily:'Helvetica Neue'},
+           textAlign:'center',
+           height: Ti.UI.SIZE
+       });
+       win2.add(label1);
+       var btn2 = Ti.UI.createButton({title: "Close me"});
+       btn2.addEventListener('click', function(e){
+           win2.close();
+       });
+       win2.add(btn2);
+       win2.open();
+   
+       win2.addEventListener('androidback', function() {
+           win1.close();
+       });
+   
+   });
+   win1.add(btn1);
+   win1.open();
+   </pre></code>
+   
+   Thank you for your help with this issue.</li>
+<li>Vishal Duggal 2014-10-21
+
+   Docs updated</li>
+<li>Mark Mokryn 2014-10-21
+
+   [~jalter] I'm afraid to say that fixing the docs doesn't do it..... The previous documented logic (and my PR) is the correct and more general mechanism. Here is the scenario I have in mind:
+   1. App initialization checks if user is logged in (e.g. using Facebook module).
+   2. If user is not logged in, then login window is shown. Clearly this window has exitOnClose = true.
+   3. User logs in, and app goes to App Window. Per your suggestion this window has exitOnClose = false. If back is clicked, we can close the login window to close the app.
+   BUT:
+   4. Next time the user opens the app, he is already logged in, the login window is never opened, and the app immediately goes into the App Window.
+   5. Let's assume the App Window has a logout button. If the logout button is clicked, App Window should close and the login window opened. In this case, clearly the App Window needs exitOnClose = false;
+   6. However, if the user doesn't log out (users rarely need to log out, of course), then the back button should close the app (exitOnClose = true).
+   
+   So the bottom line is, we don't always know ahead of time how to set exitOnClose (for the App Window in this case). I'm not sure how this can be fixed with the current SDK.... Here are the solutions I see:
+   1. exitOnClose only takes effect for the back button - as originally documented and as per my PR.
+   2. exitOnClose can be set/changed at any time on the Window
+   2. Get rid of exitOnClose entirely, and create an exitApp() function for Android that can be called whenever the developer chooses.
+   
+   Do you have a method to implement the common scenario I described above, with the current API?
+   Thanks!
+   
+   EDIT: options 2 and 3 above are ideal, option 1 (my PR) is somewhat of a  hack, but it seems to me that logically it is usually what is intended. </li>
+<li>Mark Mokryn 2014-10-21
+
+   This has been marked for 3.4.2 after it was marked "Won't Fix". [~ingo], [~jalter] can you please clarify and also please respond to the problematic scenario in my previous comment today? Thanks.</li>
+<li>Jon Alter 2014-10-21
+
+   [~mokesmokes] - Here are two alternate ways to handle the windows in the scenario you mentioned without and changes to the TiSDK.
+   
+   1. Open the main app window first with <code>exitOnClose: true</code> with no content (only add the content after the you are logged in). Open the login window without <code>exitOnClose</code> on top of the app window. Listen for the <code>androidback</code> event on the login window and close the main window if the event it is fired. This will make hitting the back button on the login or app windows kill the app and you can still close the login window at will.
+   2. Another option would be to make the login screen be a full size view and add it to the app window. This will make the back button click affect app window and you can remove the login view at will.
+   
+   In both of these cases, you would not show login if you are already logged in.
+   
+   If you do not like either of these, option #2
+   <code><pre>
+   2. exitOnClose can be set/changed at any time on the Window
+   </pre></code>
+   would be the best option. When you pass <code>exitOnClose</code> to <code>createWindow</code> it is just setting a boolean on the intent that is read when the window is being closed. So, it shouldn't be a big deal to change that boolean after the window is open. If you would like to make that change, I will be happy to review the PR.</li>
+<li>Mark Mokryn 2014-10-22
+
+   I will make the change to exitOnClose. Why is exitOnClose set on the intent instead of simply being yet another property on the Window proxy? The options with the current SDK are too twisted and complicate app logic for no good reason. Not only should the SDK be straightforward to use, but consider that this is an Android-only problem, and I shouldn't need to architect a strange workaround for this when the "straight-forward" code just works on iOS. Consider the frustration of a developer who codes and tests on iOS first and then tries to port to Android.....
+   
+   Additionally, I still think my current PR is valid: In Android apps are closed when the user navigates away from them (i.e. back is pressed). Thus it makes sense that exitOnClose be tied to the back button. If the developer needs logic at window close he has the close event, no reason to do it at androidback. If he needs to distinguish between a programmatic close and androidback, he can set a variable when closing, etc. So bottom line - my current PR is perfectly valid and far better than loopy workarounds with windows, views, etc.</li>
+<li>Rick Blalock 2014-10-23
+
+   I don't think it should only be tied to the back button.  If you Google scenarios for closing an app programmatically, there are a lot and some very valid.  I actually like having both #2 & #3 as options for the developer.  This adds maximum flexibility for the user.</li>
+<li>Rick Blalock 2014-10-23
+
+    WHoops.  Let me clarify.  When I say #2 & #3 - I mean ... I like the idea of having a kill switch for the app (which native Android devs can do) AND having the ability to programmatically set the exitOnClose, on demand. </li>
+<li>Mark Mokryn 2014-10-23
+
+    PR implementing option #2: <a href="https://github.com/appcelerator/titanium_mobile/pull/6263" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6263</a>
+    Personally I think this is good enough - setting the flag and closing the window is the same as a separate function.
+    Test app demoing both window and tabgroup close:
+    <code><pre>
+    var win1 = Titanium.UI.createWindow({  
+    });
+    
+    var btn1 = Ti.UI.createButton({title: "Open win", top: '50dp'});
+    btn1.addEventListener('click', function(e){
+    	var win2 = Ti.UI.createWindow();
+    	var exitOnClose = Ti.UI.createSwitch({title: 'exitOnClose', top: '50dp', color: 'white', style: Titanium.UI.Android.SWITCH_STYLE_CHECKBOX});
+    	exitOnClose.addEventListener('change', function(e){
+    		win2.exitOnClose = e.value;
+    	});
+    	win2.add(exitOnClose);
+    	var btn2 = Ti.UI.createButton({title: "Close me", top: '200dp'});
+    	btn2.addEventListener('click', function(e){
+    		win2.close();
+    	});
+    	win2.add(btn2);
+    	win2.open();
+    });
+    win1.add(btn1);
+    
+    var btn2 = Ti.UI.createButton({title: "Open TabGroup", top: '200dp'});
+    btn2.addEventListener('click', function(e){
+    	var tabGroup = Titanium.UI.createTabGroup();
+    	
+    	var tabWin1 = Titanium.UI.createWindow({  
+    	    title:'Tab 1',
+    	});
+    	var tab1 = Titanium.UI.createTab({  
+    	    title:'Tab 1',
+    	    window:tabWin1
+    	});
+    	
+    	var exitOnClose = Ti.UI.createSwitch({title: 'exitOnClose', top: '50dp', color: 'white', style: Titanium.UI.Android.SWITCH_STYLE_CHECKBOX});
+    	exitOnClose.addEventListener('change', function(e){
+    		tabGroup.exitOnClose = e.value;
+    	});
+    	tabWin1.add(exitOnClose);
+    	var btn2 = Ti.UI.createButton({title: "Close me", top: '200dp'});
+    	btn2.addEventListener('click', function(e){
+    		tabGroup.close();
+    	});
+    	tabWin1.add(btn2);
+    	
+    	var tabWin2 = Titanium.UI.createWindow({  
+    	    title:'Tab 2',
+    	});
+    	var tab2 = Titanium.UI.createTab({  
+    	    title:'Tab 2',
+    	    window:tabWin2
+    	});
+    	
+    	tabGroup.addTab(tab1);  
+    	tabGroup.addTab(tab2);  
+    	
+    	tabGroup.open();
+    });
+    win1.add(btn2);
+    
+    win1.open();
+    </pre></code></li>
+<li>Jon Alter 2014-10-23
+
+    PRs with CR fix
+    master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6265" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6265</a>
+    3_4_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/6264" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6264</a>
+    
+    Thank you [~mokesmokes]!</li>
+<li>Mark Mokryn 2014-10-23
+
+    Thanks for the fast review! :)</li>
+<li>Visalakshi Chidambaram 2014-11-27
+
+    Test environment:
+    Appc-Studio: 3.4.1.201410281743
+    Titanium SDK: 3.5.0v20141125154115 
+    Titanium CLI: 3.4.1 GA
+    Alloy : 1.5.1 GA
+    OS: Mac OSX 10.9.4
+    Device: Samsung Galaxy S5 (4.4.2)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17818.json">JSON Source</a></p>

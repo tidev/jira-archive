@@ -1,0 +1,56 @@
+---
+title: "[TIMOB-25351] Jenkins: Update to latest tooling"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2017-09-26T11:14:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-09-26T20:52:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Jenkins currently builds with Xcode 8 , Android API-Level 23 and Ti-SDK 6.0.3 by default. We should bump the default to 6.2.2, Xcode 9 and Android API-Level 25 (or 26?).
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2017-09-26
+
+   So it's difficult to say which projects specifically this is for as we may vary across many projects and branches. I'm going to assume you mean for titanium_mobile, but maybe you also mean the native modules?
+   
+   OK, so to upgrade to Xcode 9, we need to update the chef scripts to install/upgrade that on the boxes (or just some of the boxes, depending on if we need to use Xcode 8 for currently maintained branches of the SDK?). If we need to maintain/tie specific versions of Xcode to specific branches of the SDK or modules, we'll need to introduce new labels for the agents like "xcode-8", "xcode-9"; and use those in place of the generic "xcode" label. (I haven't baked in passing along what version of Xcode to use in any build scripts yet)
+   
+   The Android SDK api-level can be set using a command line argument passed to the scons build scripts for titanium_mobile. But it's defaulting to api-level 26 now anyways: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/build/androidsdk.js#L6" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/build/androidsdk.js#L6</a>
+   
+   It can also be set using properties in the native module build script (Jenkinsfile). For those, the default is currently 23: <a href="https://github.com/appcelerator/pipeline-library/blob/master/vars/buildModule.groovy#L108" rel="nofollow" target="_blank">https://github.com/appcelerator/pipeline-library/blob/master/vars/buildModule.groovy#L108</a>
+   
+   Again, I think we likely need to peg certain versions of native modules against certain versions of the SDK and Android SDK.
+   
+   For Android NDK, that can be set by another command line argument for scons on titanium_mobile. It's pointing at NDK r11c for now: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/Jenkinsfile#L196" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/Jenkinsfile#L196</a>
+   
+   For native modules, we're using whatever ANDROID_NDK points to on the build agents: <a href="https://github.com/appcelerator/pipeline-library/blob/master/vars/buildModule.groovy#L20" rel="nofollow" target="_blank">https://github.com/appcelerator/pipeline-library/blob/master/vars/buildModule.groovy#L20</a>
+   I believe I have that set to point to r10e.
+   
+   I set up various ANDROID_NDK_VERSION env vars so we can point at different versions installed on the agents, but I haven't baked choosing the version into the module build scripts yet.
+   
+   
+   </li>
+<li>Christopher Williams 2017-09-26
+
+   I pushed a change to the <code>buildModule</code> pipeline method to allow to choose a specific NDK version. I do no validation of the value, and there's no guarantee we have the one you want on the build agents, but we do have r10e, r11c, r12b, (and possibly r14b) on the nodes. The change also made the default r12b now, instead of r10e.
+   
+   So we can now update some of the module builds to peg to specific NDK versions now if we'd like.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25351.json">JSON Source</a></p>

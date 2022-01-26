@@ -1,0 +1,97 @@
+---
+title: "[TIMOB-27043] Cache JS processing between builds"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-06-06T21:35:53.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jan Vennemann</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2019-04-30T08:52:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-25T11:39:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The build times for apps was already increased in TIMOB-26917 by processing JS files in parallel. However, we still process JS on every build, ignoring wether they were changed or not.
+
+Further improvements to the build time could be achieved by using the file change detection from [appc-tasks](<a href="https://github.com/appcelerator/appc-tasks)." rel="nofollow" target="_blank">https://github.com/appcelerator/appc-tasks).</a> This would only process the JS files that actually changed and avoid unnecessary transpilation and analyzation steps on every build.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2019-05-02
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10805" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10805</a></li>
+<li>Jan Vennemann 2019-05-23
+
+   [~lchoudhary], this can be tested with any larger app, like our mocha test suite or KitchenSink for example. Compare the app build times against 8.0.1.GA and you should see significantly faster build times on incremental builds.
+   
+   The following test cases should be considered:
+   
+   *Clean build*
+   No changes expected here. Clean build times should be roughly the same as prior.
+   
+   *Incremental build, no files changes*
+   A subsequent build without any changes to JS files should be significantly faster. For the mentioned example projects it should be around 4 - 6 seconds.
+   
+   *Incremental build, files changed (modified, deleted)*
+   The build should only be marginally slower than the test case without any changes. Make sure that the changes are properly reflected in the app.</li>
+<li>Lokesh Choudhary 2019-05-29
+
+   FR Passed.
+   Waiting for Jenkins to merge.</li>
+<li>Hans Knöchel 2019-06-04
+
+   Can someone PLEASE merge this. CR approved, FR approved and we use it like 100 times each day. Cherry-picking this each time we update master is hell. It just needs 2 merge conflicts to be resolved and should be fine then.</li>
+<li>Christopher Williams 2019-06-05
+
+   merged to master and 8_1_X.
+   
+   Only open issue here I see is the arbitrary limit of 8 files in parallel that was used. I think this can be opened up to a much higher number. When I was testing the changes to improve build times on iOS (TIMOB-26917), I also tried various limits and found that using the "default" limit of 256 with async.eachLimit worked fine, and that lowering it just negatively impacted performance. I think I also tried higher limits and found that there were diminishing returns past the default that it wasn't worth trying to find some magic number, it's really more about trying to avoid the OS open file limit.</li>
+<li>Christopher Williams 2019-06-05
+
+   For now, I've bumped to max up to 256 instead of 8.</li>
+<li>Lokesh Choudhary 2019-06-05
+
+   [~jquick], found that on android device builds the subsequent build fails with this improvement:
+   <code><pre>
+   [ERROR] :  Failed to compile Java source files:
+   [ERROR] :  
+   [ERROR] :  /Users/lchoudhary/Desktop/workspaces/workspace_2019/kitchensink-v2-master/build/android/gen/com/appcelerator/kitchensink/KitchensinkApplication.java:40: error: cannot find symbol
+   [ERROR] :  		KrollAssetHelper.setAssetCrypt(new AssetCryptImpl());
+   [ERROR] :  		                                   ^
+   [ERROR] :    symbol:   class AssetCryptImpl
+   [ERROR] :    location: class KitchensinkApplication
+   [ERROR] :  Note: /Users/lchoudhary/Desktop/workspaces/workspace_2019/kitchensink-v2-master/build/android/gen/com/appcelerator/kitchensink/KitchensinkApplication.java uses unchecked or unsafe operations.
+   [ERROR] :  Note: Recompile with -Xlint:unchecked for details.
+   [ERROR] :  1 error
+   [ERROR] Application Installer abnormal process termination. Process exit value was 1
+   </pre></code>
+   
+   This issue is not seen on Android emulator.
+   
+   This PR was not tested on Android device as I misread its for IOS only & not for android.</li>
+<li>Joshua Quick 2019-06-06
+
+   [~gmathews] and I have written up a separate ticket regarding the Android build issues this PR is currently causing. Please see: [TIMOB-27135]</li>
+<li>Lokesh Choudhary 2019-06-06
+
+   </li>
+<li>Samir Mohammed 2019-06-25
+
+    *Closing ticket*, improvement verified in SDK Version <code>8.1.0.v20190619134801</code> and SDK version <code>8.2.0.v20190624144716</code>
+    
+    Test and other information can be found at: 
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/10945" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10945</a>
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/10958" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10958</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27043.json">JSON Source</a></p>

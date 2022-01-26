@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-12553] TiAPI: Implement "apiName" property on proxies"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-24T22:40:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 22, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>TiAPI</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Bryan Hughes</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2013-02-01T19:41:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-11T23:52:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Currently there is no way to inspect an object's type reliably. typeof just returns "object" and toString() is notoriously unreliable, and parsing toString is considered a big no-no (similar to parsing user agents).
+
+Alloy needs this information to implement dynamic styles.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bryan Hughes 2013-02-01
+
+   We may also want to consider the behavior of instanceof. i.e. it would be really useful if we could do:
+   <code><pre>
+   var label = Ti.UI.createLabel();
+   console.log(label instanceof Ti.UI.Label); // logs "true"
+   </pre></code>
+   This works perfectly fine with pure JS objects</li>
+<li>Ivan Skugor 2013-02-02
+
+   IMHO - "typeof" produces same result as it was called on native object so that should be fine. "toString" is inconsistent because it's made that way. Yes - it can produce anything for host objects in theory and it's not something that can be relied on - in DOM environment. But Titanium is a lot different, there are no X vendors with their own implementations of "toString", in Titanium environment "toString" can be made consistent in same manner as "type" property - there is really no difference in using property instead of method.
+   
+   Actually, "toString" can use "type" property to produce consistent string (that's actually "type" wrapped with constant string - "[object " + object.type + "]").
+   
+   
+   ***
+   
+   
+   "instanceof" would solve some problems. However, "instanceof" is used in prototype inheritance, which Titanium objects do not support. Not sure what ECMA specification says about "instanceof" and host objects, but I doubt that it permits partial implementation.</li>
+<li>Bryan Hughes 2013-02-04
+
+   Remember Ivan that Mobile Web *is* in a DOM environment, so whatever restrictions there are in DOM-land apply to Titanium as well.
+   
+   The other problem with toString is that, as you said, you get "[object" + type + "]", meaning that apps have to do some string manipulation to figure out the type, typically using a regex, and performance wise doing a direct string comparison will be a lot faster.
+   
+   Titanium objects do use prototypal inheritance on Mobile Web today, and my goal is that all platforms will one day</li>
+<li>Ivan Skugor 2013-02-05
+
+   Bryan,
+   
+   
+   yes, it is true that Mobile Web is implemented in DOM environment - however, that's is not so relevant. Let me explain. "toString" always produce same result for native objects. The only problem are host objects, that is - DOM objects (because, by specification, "toString" call on DOM objects can produce whatever). But in Mobile Web we won't use DOM directly, we'll use Titanium objects that can override "toString" method so it produces desired string. Right? :)
+   
+   
+   I wouldn't use regex (although, I think they are quite fast for this particular case) because it's not necessary: var isButton = button.toString() == "[object TiUIButton]";
+   There is no need to extract "Button" from that string.
+   
+   
+   Prototypal inheritance on all platforms would be really great. Then, we wouldn't have to use "toString" - var isButton = button instanceof Ti.UI.Button; (or something like that).
+   I did develop technique that enables prototypal inheritance in Titanium by using native objects as wrappers (don't know if you saw it already): <a href="http://zenborgium.blogspot.com/2012/09/prototype-based-inheritance-in-titanium.html" rel="nofollow" target="_blank">http://zenborgium.blogspot.com/2012/09/prototype-based-inheritance-in-titanium.html</a>
+   I'll open source whole solution next week - you may find some interesting ideas there.
+   
+   
+   
+   Cheers.</li>
+<li>Bryan Hughes 2013-02-05
+
+   We could override toString, but that takes a lot more code to override a function than a property, and size is the single most important performance factor in Mobile Web, so that's a non-starter. As for the name of the string itself, TiUIButton is a non-starter as well because it doesn't align with our long-term goals for the platform. Eventually, the only name you will care about is 'ti/ui/button' and any other permutation will not be visible in JavaScript land. We could do '[object ti/ui/button]', but that's a LOT of wasted characters (going back to size==performance).</li>
+<li>Ivan Skugor 2013-02-06
+
+   I don't know Mobile Web architecture well, but isn't there some base "class" (prototype object) for all UI components? "toString" could be defined just there. Something like this:
+   
+   Element.prototype.toString = function() { return "[object " + this.type + "]" };
+   
+   and other objects that inherent from base "class"/object could just define "type" property.
+   "TiUIButton" was just an example, you can put there whatever you want (as long as it's identical to what other platforms produce).
+   
+   
+   Or, modify "declare" function: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/mobileweb/titanium/Ti/_/declare.js" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/mobileweb/titanium/Ti/_/declare.js</a>
+   There, "className" could be used to define "toString" method. It could be optimal solution because you wouldn't have to define "type" property everywhere, just use "className" and a bit of string manipulation to get desired format.
+   
+   Trivial implementation (without string manipulation): definition.toString = function() { return "[object " + className + "]"; };
+   
+   
+   
+   
+   Sorry, but I just can't believe that "toString" implementation can be so complicated and can impact so much on framework size and performance. :D</li>
+<li>Bryan Hughes 2013-02-06
+
+   Hmmm...that is a possibility. My question to you is why are you so insistent on toString() specifically? Just because something is possible doesn't make it a good idea. Function calls give more overhead and you get a string back that isn't very direct and has a lot of cruft in it's format. This mechanism would be a lot more elegant.</li>
+<li>Ivan Skugor 2013-02-06
+
+   It's more standardised way of getting object's type/class and it's more common practice to use "toString" then "type". Also, "toString" is called automatically in some cases, while "type" property is not.
+   
+   
+   Well, function calls are not overhead in modern JS engines because they'll optimise functions that are slow or used often. I doubt "toString" will cause any performance issue even without those optimisations because it's quite fast and it won't be called so much in the code.</li>
+<li>Tony Lukasavage 2013-05-23
+
+   We should probably use something other than "classname" to avoid confusion with [Ti.UI.TableViewRow.className](<a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.TableViewRow-property-className). Perhaps:
+   * api
+   * type
+   * apiType
+   * apiName</li>
+<li>Jeff Haynie 2013-06-13
+
+    why can't we just implement the instanceof?  i'm with Bryan on this.  also having "classname" and "className" are VERY BAD.  i'd prefer "instanceof" or "typeof" property if we have to use a property.</li>
+<li>Rick Blalock 2013-06-13
+
+    I like instanceof.  Not a super fan of typeof but would work too.  What about Titanium.instanceof ?  Keeps the standard JS instanceof / typeof clean that way.</li>
+<li>Rick Blalock 2013-06-13
+
+    errr.  meant to type Titanium.instanceof(somethingHere)</li>
+<li>Chris Barber 2013-06-13
+
+    Mobile Web already has this and it's called "declaredClass".
+    
+    <code><pre>
+    var myview = Ti.UI.createView();
+    console.log(myview.declaredClass); // 'Ti.UI.View'
+    console.log(myview.toString()); // '[object TiUIView]'
+    </pre></code>
+    
+    One caveat is that Mobile Web is not able to detect if a particular instance is an instanceof a deep base class. We collapse the hierarchy for speed. In other words, there's no way to know if a Ti.UI.Button is actually an instanceOf Ti.UI.View (even though we know it is).
+    
+    My preference is to support "declaredClass". I'm not a huge fan of instanceOf(), but Mobile Web can at least be made to support it.
+    </li>
+<li>Bryan Hughes 2013-06-13
+
+    We can't really use declaredClass though. The format of the string is going to be "Ti.UI.Button", not "Ti/UI/Button", and I suspect changing the format of declared class would break the loader. FWIW the format has already been decided upon and can be viewed in the specification sub-task.</li>
+<li>Chris Barber 2013-06-13
+
+    [~bhughes] How do you figure?
+    
+    !<a href="https://www.evernote.com/shard/s75/sh/43c65ffe-11c8-4691-bbaf-759a81520bbb/89c80289497405e30a692c55172f57cb/deep/0/Screenshot%206/13/13%203:57%20PM.jpg" rel="nofollow" target="_blank">https://www.evernote.com/shard/s75/sh/43c65ffe-11c8-4691-bbaf-759a81520bbb/89c80289497405e30a692c55172f57cb/deep/0/Screenshot%206/13/13%203:57%20PM.jpg</a>!</li>
+<li>Bryan Hughes 2013-06-13
+
+    Oh, my bad. I thought that declared class was formatted with slashes, not dots. Either way, we already agreed on and approved the name "apiName". Should have attended the architecture meeting :)</li>
+<li>Ping Wang 2013-10-24
+
+    Resolved the ticket since all the subtasks are done.</li>
+<li>Eric Merriman  2013-12-10
+
+    Is there any test guidance on this feature?</li>
+<li>Chris Barber 2013-12-10
+
+    [~emerriman] Try this:
+    
+    <code><pre>
+    var myview = Ti.UI.createView();
+    console.log(myview.apiName);
+    </pre></code></li>
+<li>Samuel Dowse 2013-12-11
+
+    Tested on:
+    Mac OSX 10.9 Mavericks
+    Appcelerator Studio, build: 3.2.0.201312101708
+    Titanium SDK, build: 3.2.0.v20131210191510
+    CLI: 3.2.0-cr
+    Alloy: 1.3.0-cr
+    Mozilla Firefox: 26.0.0
+    
+    Used test case provided by Chris Barber.
+    Opened the project in browser and checked web console.
+    Outcome displayed as expected.
+    Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12553.json">JSON Source</a></p>

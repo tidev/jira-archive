@@ -1,0 +1,167 @@
+---
+title: "[TIMOB-839] Implement Animations in Android"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:54:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, animation, defect</td></tr>
+<tr><th>Reporter</th><td>Marshall Culpepper</td></tr>
+<tr><th>Assignee</th><td>Marshall Culpepper</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:37:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:54:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>We have some basics like opacity, but we need to support
+sizing/moving animations as well</p></div>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-839_17885/x.png">x.png</td></td><td>2011-04-15T02:37:35.000+0000</td><td>1333</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Damien Elmes 2011-04-15
+
+   <div><p>I'm not having much luck with opacity animations with latest
+   git:</p>
+   <p><a href=
+   "<a href="http://pastebin.com/xCMp7BbA" rel="nofollow" target="_blank">http://pastebin.com/xCMp7BbA</a>"><a href="http://pastebin.com/xCMp7BbA" rel="nofollow" target="_blank">http://pastebin.com/xCMp7BbA</a></a></p>
+   <p>Unlike the iphone opacity=0 does not hide the view (it looks
+   more like it's the same as opacity=1), so I have to add
+   visible:false on creation, and if I don't set up a separate timer
+   to set visible:false after the animation has finished, it will get
+   stuck in a visible state.</p>
+   <p>Another issue is that if images with alpha channels are created
+   in an invisible state, the background colour is not set correctly.
+   If you comment out the visible:false lines you can see that the
+   part surrounding the image is white as it should be, but in the
+   code above, but in the code above it ends up as yellow for some
+   reason.</p></div></li>
+<li>Damien Elmes 2011-04-15
+
+   <div><p>(note that I had bottom:-30 in there as an alternative to
+   hiding/showing the image, but it doesn't seem to make a
+   difference)</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>In the meantime... is there a reason that the documentation
+   gives no clue that things aren't implemented?</p>
+   <p><a href=
+   "<a href="https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Animation-object.html" rel="nofollow" target="_blank">https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Animation-object.html</a>">
+   <a href="https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI..." rel="nofollow" target="_blank">https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI...</a></a></p>
+   <p><a href=
+   "<a href="https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window.animate-method.html" rel="nofollow" target="_blank">https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window.animate-method.html</a>">
+   <a href="https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI..." rel="nofollow" target="_blank">https://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI...</a></a></p>
+   <p>It would be HUGELY helpful just to know what is/isn't
+   there...</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>It looks like rotation, scaling, and translation with
+   'transform' are sort of implemented on views (but not on windows at
+   all, which may just be a system limitation due to how they map to
+   activities).</p>
+   <p>In my testing though things seem pretty broken... translation
+   always starts from a fixed point of (0, 0), while the end-point
+   translate coordinates are relative to the anchor point. This means
+   for instance that while you can translate your way sliding from
+   regular screen position to off screen, you can't slide from off
+   screen to regular position because you always <em>start</em> at the
+   regular position.</p>
+   <p>To be compatible with the iPhone implementation, I believe it
+   should be starting from the coordinates that were established by
+   the previously-set transform property on the view...? (Or does it
+   even work that way?)</p>
+   <p>Setting the transform property on a view appears to be
+   implemented by starting an animation, and then not actually saving
+   the transform. This at least is unintuitive, and doesn't seem to
+   match how it works on iPhone.</p>
+   <p>It also looks like the 2DMatrix class doesn't implement a matrix
+   at all, but stores separate values for translation, scaling, or
+   rotation factors, which are then used to trigger particular types
+   of animation modes. That may be just fine, but it's a bit
+   confusing.</p>
+   <p>My initial testing of an animated translate on a view also
+   showed <em>really</em> choppy animation (looked like it was
+   chunking over like 20-30 pixels at a time on my Nexus 1, versus
+   totally silky-smooth motion on an iPhone 3Gs). It might be faster
+   in an isolated test case, though, the app view was a bit busy in
+   context and other items like web views that were not being animated
+   might have somehow slowed it down.</p></div></li>
+<li>hal 2011-04-15
+
+   <div><p>Don Thorpe asked me to post this, as a use case.</p>
+   <p>Good post, btw, Brion!</p>
+   <p>This problem is causing me a problem too. See the following
+   code:</p>
+   <p><a href=
+   "<a href="http://gist.github.com/569379" rel="nofollow" target="_blank">http://gist.github.com/569379</a>"><a href="http://gist.github.com/569379" rel="nofollow" target="_blank">http://gist.github.com/569379</a></a><br>
+   Arrowhead image available here:<br>
+   <a href=
+   "<a href="http://img808.imageshack.us/img808/1225/taskbarmenuicon2.png" rel="nofollow" target="_blank">http://img808.imageshack.us/img808/1225/taskbarmenuicon2.png</a>"><a href="http://img808.imageshack.us/img808/1225/taskbarmenuicon2.png" rel="nofollow" target="_blank">http://img808.imageshack.us/img808/1225/taskbarmenuicon2.png</a></a></p>
+   <p>This shows a graphical bar (a view) with an arrowhead image at
+   one end to make it clear what is going on. When the arrowhead image
+   is clicked, the bar should flip 180 degrees clockwise, and then
+   when it is clicked again it should reverse the motion 180
+   anticlockwise to return to it's original position. And so on.</p>
+   <p>However, this demonstrates two issues:</p>
+   <p>1) As Brion explains, the second time the animation is activated
+   (when the arrowhead is at the opposite end of the bar) the view
+   resets to it's original position and then rotates it
+   anti-clockwise. Obviously, this is not the desired effect, as
+   explained above.</p>
+   <p>2) Although the EventListener is initially fired correctly, for
+   the second animation it is in the original position, rather than
+   where the image is now actually positioned on the other side of the
+   bar.</p></div></li>
+<li>Marshall Culpepper 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/30f65b114bdcae3af7ffe50f7735d92db4194249"
+   title=
+   "Changeset [30f65b114bdcae3af7ffe50f7735d92db4194249]">[30f65b114bdcae3af7ffe50f7735d92db4194249]</a>)
+   expose all 4 to/from x/y values for the native ScaleAnimation,
+   initial implementation of resize animation for android (this lays
+   out on each frame, so may not be performant enough yet). also fixed
+   a bug where animations would get created based on proxy properties
+   instead of animation properties only. [<a href=
+   "/projects/32238/tickets/839" title="Ticket #839">#839</a>]
+   <a href="<a href="http://github.com/appcelerator/titanium_mobile/commit/30f65b114bdcae3af7ffe50f7735d92db4194249" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/30f65b114bdcae3af7ffe50f7735d92db4194249</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/commit/30f65b114bdca..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/commit/30f65b114bdca...</a></a></p></div></li>
+<li>Marshall Culpepper 2011-04-15
+
+   <div><p>Animations for Android have been implemented now, but there are
+   still defects that need to be addressed. I'm marking this one as
+   fixed, and we'll file separate bugs for the known defects.</p></div></li>
+<li>hal 2011-04-15
+
+   <div><p>As far as I can tell, the x and y properties of a view being
+   animated are not exposed. You can test this by running the KS
+   scripts <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/blob/master/demos/KitchenSink/Resources/examples/basic_animation.js#L27" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/demos/KitchenSink/Resources/examples/basic_animation.js#L27</a>">
+   basic_animation.js</a> and <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/blob/master/demos/KitchenSink/Resources/examples/animation_points.js#L46" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/demos/KitchenSink/Resources/examples/animation_points.js#L46</a>">
+   animation_points.js</a> that result in a fatal exception at the
+   lines in the links.</p></div></li>
+<li>Matt Schmulen 2011-04-15
+
+   <div><p>Titanium SDK version: 1.5.0 (12/01/10 09:30 ac7cfd8), Android
+   1.6/2.1, KS</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-839.json">JSON Source</a></p>

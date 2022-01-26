@@ -1,0 +1,147 @@
+---
+title: "[AC-2566] Android: MapView - Long route performance issues"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-11-20T22:20:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, mapview, performance, routes</td></tr>
+<tr><th>Reporter</th><td>Lucian Pacurar</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2012-09-26T10:12:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+I'm adding a long route to the MapView with lots of points. On a old 1st gen iPod Touch (ARM11) the calculation of the route takes a while, but after it's rendered on the map everything works fine. On the Android x86 emulator, or Galaxy S and Galaxy S2 devices, after the route is drawn on the map the app becomes unresponsive. You can barely pan and zoom. You get the "App is not responding message" and you can choose to wait, so you can see the result of panning or zooming.
+
+<h4>Test case</h4>
+<code><pre>
+var win = Ti.UI.createWindow({
+	title: 'MapView bug',
+	exitOnClose: true,
+});
+
+var actInd = Ti.UI.createActivityIndicator();
+
+var mapView = Ti.Map.createView({
+    mapType: Ti.Map.STANDARD_TYPE,
+    region: {
+        latitude: 52.057541,
+        longitude: 5.251261,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+	},
+    animate: true,
+    userLocation: false,
+    regionFit: true,
+});
+
+win.add(mapView);
+
+win.addEventListener('open', function() {
+	actInd.show();
+	var req = Ti.Network.createHTTPClient();
+		req.onload = function() {
+			var xml = this.responseXML, 
+				points = [],
+				status = xml.documentElement.getElementsByTagName("status").item(0).text;
+				
+			if (status == "OK") {
+				var steps = xml.documentElement.getElementsByTagName("route").item(0).getElementsByTagName('leg').item(0).getElementsByTagName("step"), 
+					totalSteps = steps.length;
+				for(var i = 0; i < totalSteps; i++) {
+					var polylineString = steps.item(i).getElementsByTagName("polyline").item(0).getElementsByTagName("points").item(0).text,
+						decodedPolyline = decodeLine(polylineString);
+					for (var j = 0; j < decodedPolyline.length; j++) {
+						if (decodedPolyline[j] != null) {
+							points.push({
+								latitude : decodedPolyline[j][0],
+								longitude : decodedPolyline[j][1]
+							});
+						}
+					}                   
+				}
+				mapView.addRoute({
+					name: 'myroute',
+					width: 3,
+					color: '#f00',
+					points: points
+				});
+				actInd.hide();
+			} else {
+				alert('decode error');
+			}
+		};
+		req.onerror = function(e) {
+			alert('error');
+		};
+		req.timeout = 10000;
+		req.open('GET', "<a href="http://maps.google.com/maps/api/directions/xml?mode=driving&origin=45.7787359" rel="nofollow" target="_blank">http://maps.google.com/maps/api/directions/xml?mode=driving&origin=45.7787359</a>,21.2129273&destination=52.0613617,5.2069557&sensor=false");
+		req.send();
+});
+
+win.open();
+
+function decodeLine(encoded) {
+	var len = encoded.length;
+	var index = 0;
+	var array = [];
+	var lat = 0;
+	var lng = 0;
+          
+	while (index < len) {
+		var b;
+		var shift = 0;
+		var result = 0;
+		do {
+			b = encoded.charCodeAt(index++) - 63;
+			result |= (b & 0x1f) << shift;
+			shift += 5;
+		} while (b >= 0x20);
+		var dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+		lat += dlat;
+		
+		shift = 0;
+		result = 0;
+		do {
+			b = encoded.charCodeAt(index++) - 63;
+			result |= (b & 0x1f) << shift;
+			shift += 5;
+		} while (b >= 0x20);
+		var dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+		lng += dlng;
+
+		array.push([lat * 1e-5, lng * 1e-5]);
+	}
+ 	return array;
+}
+</pre></code> 
+
+<h4>Community Discussion</h4>
+[<a href="http://developer.appcelerator.com/question/142490/android-mapview-addroute-is-extremely-slow-for-long-routes" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/142490/android-mapview-addroute-is-extremely-slow-for-long-routes</a>]
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2012-11-20
+
+   I calculated that you are creating a line with 25,115 points. That's a lot of points for Android devices to handle all at once. Your best bet is to use some kind of technique to make sure the path is simplified when zooming out, or draw it to a bitmap. There's some examples in the following links:
+   <a href="http://stackoverflow.com/questions/4710098/problem-with-large-number-of-markers-on-the-map/4825908#4825908" rel="nofollow" target="_blank">http://stackoverflow.com/questions/4710098/problem-with-large-number-of-markers-on-the-map/4825908#4825908</a>
+   <a href="http://stackoverflow.com/questions/6666723/how-to-make-route-drawing-more-efficient" rel="nofollow" target="_blank">http://stackoverflow.com/questions/6666723/how-to-make-route-drawing-more-efficient</a>
+   <a href="http://stackoverflow.com/questions/11590169/drawing-filtering-100k-points-to-mapview-in-android" rel="nofollow" target="_blank">http://stackoverflow.com/questions/11590169/drawing-filtering-100k-points-to-mapview-in-android</a>
+   I'm closing it for now as I don't believe this is a problem with Titanium. If you think otherwise, I'd be happy to re-open.</li>
+<li>Mauro Parra-Miranda 2013-11-24
+
+   Invalid issue. </li>
+</ol>
+
+
+<p><a href="/AC/AC-2566.json">JSON Source</a></p>

@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-15514] HTTPClient: Disparity between All Platforms for Handling Content-Type Header"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-26T22:13:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, iOS, MobileWeb</td></tr>
+<tr><th>Labels</th><td>parity</td></tr>
+<tr><th>Reporter</th><td>Benjamin Hatfield</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2013-10-17T20:15:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-24T20:54:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+ENVIRONMENT:
+Mac OS X 10.8.4
+Appcelerator Studio, build: 3.2.0.201310141852 (all platforms except MW)
+Titanium Studio, build: 3.1.3.GA (for MW only)
+TiSDK 3.2.0.v20131015134843
+Android 4.2.2 / API Level 17
+iOS 7.0 / Xcode 5
+Google Chrome Version 30.0.1599.101
+BlackBerry SDK 10.2.0.15
+
+REPRODUCTION:
+1. Add/run the server code on your machine with Apache and PHP enabled.  I placed mine in my ~/Sites/ directory.
+2. Replace <IP_ADDRESS> with your local IP (and "/~username" if needed).
+3. Launch the client code below on the different emulator/simulators/browser and press the Submit button.  See the console log output.
+
+RESULTS:
+Content-Type header varies based on the platform and data type sent.
+
+On the Android and iOS platforms:
+
+  * If you are sending a JavaScript object, the content type is set to <code>multipart/form-data</code>.
+  * For all other data types on Android, the content type is set to <code>application/x-www-form-urlencoded</code>.
+  * For all other data types on iOS, the content type is **NOT** set.
+
+On the BlackBerry, Mobile Web and Tizen platforms, the content type is always set to <code>application/x-www-form-urlencoded</code> as the default.
+
+EXPECTED RESULTS:
+Platforms should be somewhat more cohesive.
+
+
+SERVER CODE (server.php):
+<code><pre>
+<?php
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: X-Requested-With, Origin, X-Titanium-Id, Content-Type, Accept');
+ 
+if(strtoupper($_SERVER['REQUEST_METHOD']) === 'POST') {
+    $image = $_FILES[image];
+    echo json_encode((object) array('header' => apache_request_headers()));
+}
+?>
+
+
+</pre></code>
+
+CLIENT CODE (app.js):
+
+<code><pre>
+
+    var form_url = 'http://<IP_ADDRESS>/server.php';
+ 
+    var win = Ti.UI.createWindow({
+        layout : 'vertical',
+        backgroundColor : '#fff'
+    });
+    var txtTitle = Ti.UI.createTextField({
+        top : '80dp',
+        value : 'My Photo Title'
+    });
+    win.add(txtTitle);
+      
+    var anImageView = Ti.UI.createImageView({
+        image : 'images/flower.jpg',
+        width : 50,
+        height : 50,
+ 
+    });
+    anImageView.addEventListener('load', function() {
+        Ti.API.info('Image loaded!');
+    });
+ 
+    win.add(anImageView);
+ 
+    var btnSubmit = Ti.UI.createButton({
+        title : 'Submit'
+    });
+    btnSubmit.addEventListener('click', function(e) {
+        // Send with HTTPClient
+ 
+        var c = Ti.Network.createHTTPClient({
+            onload : function() {
+                Ti.API.info(this.responseText);
+                Ti.API.info("TEXT:   " + this.responseText);
+                json = JSON.parse(this.responseText);
+                Ti.API.info('json' + json);
+            },
+            onerror : function(e) {
+                Ti.API.info("STATUS: " + this.status);
+                Ti.API.info("TEXT:   " + this.responseText);
+                Ti.API.info("ERROR:  " + e.error);
+            },
+            timeout : 50000
+        });
+        c.enableKeepAlive = false;
+        c.open('POST', form_url); 
+
+        //c.setRequestHeader('Content-Type', 'multipart/form-data');
+        //c.send(Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "/images/flower.jpg"));
+        //c.send('String!');
+        //c.send(anImageView.toBlob());
+        
+        c.send({
+            title : txtTitle.value,
+            image : Ti.Utils.base64encode(anImageView.image)
+        });
+        
+        
+    });
+    win.add(btnSubmit);
+ 
+    win.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Lee Morris 2017-08-24
+
+   Mobile Web has been deprecated and will be removed in fixVersion 7.0.0.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15514.json">JSON Source</a></p>

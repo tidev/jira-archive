@@ -1,0 +1,135 @@
+---
+title: "[TIMOB-1877] iOS - errors and intermittent crash with email test case"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Hold</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-15T03:04:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.6.0 M07</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>apple, bug, crash, defect, ios, release-1.6.0</td></tr>
+<tr><th>Reporter</th><td>Thomas Huelbert</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:04:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-03T07:01:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>4th gen iPod touch (4.1) with mobile sdk build 1.4.2.dc7b90</p>
+<p>1.BaseUI&gt;views&gt;Email dialog<br>
+2.select an image (I used a previous screen shot) and enter a valid
+email, send it<br>
+3.check output while its happening</p>
+<p>output:Wed Sep 22 10:07:37 eWorld sandboxd[1536] :
+KitchenSink(1533) deny file-write-data
+/private/var/mobile/Media/PhotoData</p>
+<p>Wed Sep 22 10:08:04 eWorld KitchenSink[1533] : DA|Could not open
+the lock file at /tmp/DAAccountsLoading.lock. We'll load the
+accounts anyway, but bad things may happen</p>
+<p>Wed Sep 22 10:08:04 eWorld sandboxd[1539] : KitchenSink(1533)
+deny file-read-data /private/var/tmp/DAAccountsLoading.lock</p>
+<p>I crashed once at this point. Not sure if this a downstream
+crash from a mem leak or not.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Thomas Huelbert 2011-04-15
+
+   <div><p>Wed Sep 22 10:08:04 eWorld KitchenSink[1533] : DA|Could not open
+   the lock file at /tmp/DAAccountsLoading.lock. We'll load the
+   accounts anyway, but bad things may happen</p>
+   <p>this line above is new, marking as regression, other output goes
+   back to 1.4.0 at least</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>While debugging, I came across this bit:</p>
+   <p>2011-01-24 14:25:28.854 Titanium[38516:307] Using two-stage
+   rotation animation. To use the smoother single-stage animation,
+   this application must remove two-stage method implementations.<br>
+   2011-01-24 14:25:54.508 Titanium[38516:307] Using two-stage
+   rotation animation is not supported when rotating more than one
+   view controller or view controllers not the window delegate</p>
+   <p>The stack trace was thus:</p>
+   <p>0 0x3108676c in NSLog ()<br>
+   1 0x3163d2c0 in -<a href="">UIWindow
+   _setRotatableClient:toOrientation:duration:force:</a><br>
+   2 0x3163c19a in -<a href="">UIWindowController
+   transition:fromViewController:toViewController:target:didEndSelector:</a><br>
+   3 0x3163bad2 in -<a href="">UIViewController
+   presentModalViewController:withTransition:</a><br>
+   4 0x3163b246 in -<a href="">UIViewController
+   presentModalViewController:animated:</a><br>
+   5 0x001191f8 in -[TiApp attachModal:toController:animated:]
+   (self=0x517110, <em>cmd=0x24246f, modalController=0x5af100,
+   presentingController=0x53b150, animated=1 '\001') at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/../Classes/TiApp.mm:560<br>
+   6 0x0011775c in -[TiApp showModalController:animated:]
+   (self=0x517110,</em> cmd=0x23544c, modalController=0x5af100,
+   animated=1 '\001') at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/../Classes/TiApp.mm:595<br>
+   7 0x000c1770 in -[MediaModule displayModalPicker:settings:]
+   (self=0x5ae900, <em>cmd=0x23df10, picker</em>=0x5af100,
+   args=0x5aece0) at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/../Classes/MediaModule.m:159<br>
+   8 0x000c25a6 in -[MediaModule showPicker:isCamera:] (self=0x5ae900,
+   <em>cmd=0x23dee9, args=0x5aece0, isCamera=0 '\000') at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/../Classes/MediaModule.m:327<br>
+   9 0x000c7042 in -[MediaModule openPhotoGallery:]
+   (self=0x5ae900,</em> cmd=0x23d45f, args=0x5aece0) at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/../Classes/MediaModule.m:787<br>
+   10 0x349c42ea in -<a href="">NSObject(NSObject)
+   performSelector:withObject:</a><br>
+   11 0x3109a824 in <strong>NSThreadPerformPerform ()<br>
+   12 0x349dbf24 in</strong>
+   CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION
+   <strong>()<br>
+   13 0x349adba6 in</strong> CFRunLoopDoSources0 ()<br>
+   14 0x349ad44a in __CFRunLoopRun ()<br>
+   15 0x349ad276 in CFRunLoopRunSpecific ()<br>
+   16 0x349ad17e in CFRunLoopRunInMode ()<br>
+   17 0x311dc5f2 in GSEventRunModal ()<br>
+   18 0x311dc69e in GSEventRun ()<br>
+   19 0x315b0122 in -<a href="">UIApplication _run</a><br>
+   20 0x315ae12e in UIApplicationMain ()<br>
+   21 0x000043ce in main (argc=1, argv=0x2ffff5ec) at
+   /CodeValhalla/Appcelerate/mobile/iphone/iphone/main.m:28</p>
+   <p>Note that this is because of the camera roll in Apple's own
+   code, not ours, so this part is nothing we can do about.</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Hunh. Turns out that the origional bug is also Apple's
+   fault.</p>
+   <p>Trapping on NSLog causes this to catch in the middle of entering
+   an email address into the email dialog (Apple's code). The trace is
+   in thread 21:</p>
+   <p>0 0x3108676c in NSLog ()<br>
+   1 0x32ba43a8 in DALogV ()<br>
+   2 0x32ba4282 in <em>DALog ()<br>
+   3 0x32ba3f7e in -<a href="">DAAccountManager reloadAccounts</a><br>
+   4 0x32ba3ce2 in -<a href="">DAAccountManager init</a><br>
+   5 0x32ba3bd4 in +<a href="">DAAccountManager sharedInstance</a><br>
+   6 0x3282ca0c in -<a href="">MFFindSearchableStoresOperation
+   main</a><br>
+   7 0x310889ee in -<a href="">__NSOperationInternal start</a><br>
+   8 0x31088752 in -<a href="">NSOperation start</a><br>
+   9 0x3109d57a in</em> <em>__startOperations_block_invoke_2 ()<br>
+   10 0x30ec3984 in</em> dispatch_call_block_and_release ()<br>
+   11 0x30ec4764 in <em>dispatch_worker_thread2 ()<br>
+   12 0x30e68680 in</em> pthread_wqthread ()<br>
+   13 0x30e61198 in start_wqthread ()</p>
+   <p>Titanium makes no mention of MMFindSearchable or
+   DAAccountManager, leading me to believe this is entirely instigated
+   outside our control. Oh Apple, what surprises don't you have for
+   us?</p></div></li>
+<li>Lee Morris 2017-03-03
+
+   Closing ticket due to time passed and irrelevance. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1877.json">JSON Source</a></p>

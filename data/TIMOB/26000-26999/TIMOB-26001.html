@@ -1,0 +1,248 @@
+---
+title: "[TIMOB-26001] Android custom Module : Unable to connect WIFI of Android 8 devices "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-13T18:36:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-05-01T17:05:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-13T18:36:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We are using below code to connect to Android device Wifi programatically. This code is working fine Android devices 7 and below. Same code is not working in Android 8. We have developed sample app in Android studio where we are able to connect to WIFI using wifiManager manager class. Due to this we are suspecting this issue might exists only if we using Appcelerator module. Details are mentioned after the code.
+Code used to connect :
+<code><pre>
+List scanResultList = getScanningResults();
+int res =0;
+for (ScanResult result : scanResultList) {
+
+if (result.SSID.equals(networkSSID)) {
+
+try
+{
+WifiConfiguration wifiConfiguration = createAPConfiguration(
+networkSSID, networkPasskey, securityMode);
+this.wifiManager.setWifiEnabled(true);
+if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+wifiConfiguration.SSID = networkSSID;
+// int pri = 99;
+//wifiConfiguration.priority = wifiConfiguration.priority + 1;
+} else {
+wifiConfiguration.SSID = "\"" + networkSSID + "\"";
+wifiConfiguration.priority = 40;
+}
+while(!this.wifiManager.pingSupplicant())
+{
+Thread.sleep(1000);
+}
+res = this.wifiManager.addNetwork(wifiConfiguration);
+Log.i("WIFI_Connect", "# addNetwork returned " + res);
+if (res == -1) {
+// Get existed network id if it is already added to WiFi network
+this.wifiManager.updateNetwork(wifiConfiguration);
+res = getExistingNetworkId(networkSSID);
+Log.d("WIFI_Connect", "getExistingNetworkId: " + res);
+}
+this.wifiManager.disconnect();
+this.wifiManager.enableNetwork(res, true);
+//this.wifiManager.saveConfiguration();
+this.wifiManager.reconnect();
+return res;
+}catch(Exception ex)
+{
+Log.i("", "AddDynamicWifi--savewifi--Exception--" + ex);
+return 1;
+}
+}
+}
+
+return -1;
+
+
+private WifiConfiguration createAPConfiguration(String networkSSID,
+String networkPass, String capabilities) {
+this.wifiConfig.allowedKeyManagement.clear();
+WifiConfiguration wifiConfiguration = new WifiConfiguration();
+wifiConfiguration.allowedKeyManagement.clear();
+wifiConfiguration.status = WifiConfiguration.Status.ENABLED;
+//wifiConfiguration.priority = 40;
+wifiConfiguration.SSID = String.format("\"%s\"",
+new Object[] { networkSSID });
+
+Log.i("networkSSID", "=======" + wifiConfiguration.SSID);
+
+if (capabilities.toUpperCase().contains("WEP")) {
+Log.i("rht", "Configuring WEP");
+wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.RSN);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.WPA);
+wifiConfiguration.allowedAuthAlgorithms
+.set(WifiConfiguration.AuthAlgorithm.OPEN);
+wifiConfiguration.allowedAuthAlgorithms
+.set(WifiConfiguration.AuthAlgorithm.SHARED);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.CCMP);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.TKIP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP40);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP104);
+
+/* if (networkPass.matches("^[0-9a-fA-F]+$")) {
+wifiConfiguration.wepKeys[0] = networkPass;
+} else {
+wifiConfiguration.wepKeys[0] = "\"".concat(networkPass).concat(
+"\"");
+}*/
+wifiConfiguration.wepKeys[0] = String.format("\"%s\"",
+new Object[] { networkPass });
+Log.i("networkSSID", "=======" + wifiConfiguration.wepKeys[0]);
+wifiConfiguration.wepTxKeyIndex = 0;
+
+} else if (capabilities.toUpperCase().contains("WPA")) {
+Log.i("rht", "Configuring WPA");
+wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.WPA);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.WPA);
+wifiConfiguration.allowedAuthAlgorithms
+.set(WifiConfiguration.AuthAlgorithm.OPEN);
+wifiConfiguration.allowedKeyManagement
+.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.CCMP);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.TKIP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP40);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP104);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.CCMP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.TKIP);
+wifiConfiguration.preSharedKey = String.format("\"%s\"",
+new Object[] { networkPass });
+Log.i("network password WPA", "=======" + wifiConfiguration.preSharedKey);
+//wifiConfiguration.preSharedKey = "\"" + networkPass + "\"";
+
+} else if (capabilities.toUpperCase().contains("PSK")) {
+Log.i("rht", "Configuring PSK");
+wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+wifiConfiguration.preSharedKey = String.format("\"%s\"",
+new Object[] { networkPass });
+Log.i("network password PSK", "=======" + wifiConfiguration.preSharedKey);
+wifiConfiguration.hiddenSSID = true;
+wifiConfiguration.status = WifiConfiguration.Status.ENABLED;
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.TKIP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.CCMP);
+wifiConfiguration.allowedKeyManagement
+.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.TKIP);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.CCMP);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.RSN);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.WPA);
+
+} else {
+
+Log.i("rht", "Configuring OPEN network");
+wifiConfiguration.allowedKeyManagement
+.set(WifiConfiguration.KeyMgmt.NONE);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.RSN);
+wifiConfiguration.allowedProtocols
+.set(WifiConfiguration.Protocol.WPA);
+wifiConfiguration.allowedAuthAlgorithms.clear();
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.CCMP);
+wifiConfiguration.allowedPairwiseCiphers
+.set(WifiConfiguration.PairwiseCipher.TKIP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP40);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.WEP104);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.CCMP);
+wifiConfiguration.allowedGroupCiphers
+.set(WifiConfiguration.GroupCipher.TKIP);
+}
+
+return wifiConfiguration;
+
+}
+
+</pre></code>
+
+Please take a look on attached zip file.
+
+
+Note Our App which is consuming this module is targeted for Titanium SDK 5.5.1.GA.
+
+Let me know if you need more information.
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26001_65184/NetworkStatusTest.js">NetworkStatusTest.js</td></td><td>2018-05-17T23:31:40.000+0000</td><td>2811</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26001_65187/Screenshot_20180518-235114.png">Screenshot_20180518-235114.png</td></td><td>2018-05-18T17:52:25.000+0000</td><td>73867</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26001_65107/wificonnect.zip">wificonnect.zip</td></td><td>2018-05-01T17:04:01.000+0000</td><td>4684583</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-05-01
+
+   Titanium 5.5.1 targets API Level 23 (aka: Android 6.0).
+   
+   I suggest in Android Studio for you to target API Level 23 as well to see if you can reproduce this issue. (I suspect you are using a higher API Level.)
+   
+   Other than that, I don't see how Titanium could cause this issue. You may be running into breaking changes or issues with this API on Android 8.0 as can be seen by other devs here...
+   <a href="https://www.google.com/search?q=android+wifimanager+android+8+not+working+site:stackoverflow.com" rel="nofollow" target="_blank">https://www.google.com/search?q=android+wifimanager+android+8+not+working+site:stackoverflow.com</a></li>
+<li>Joshua Quick 2018-05-17
+
+   I just tested Titanium's "Ti.Network" JavaScript APIs via the attached [^NetworkStatusTest.js] and our "online" and "networkType" properties are definitely working correctly. I've tested it on the following real devices:
+   - Pixel XL (1st generation) running Android 8.0
+   - Pixel 2 running Android 8.1
+   
+   I've swiped down the status bar and disconnected/reconnected the device from WIFI by tapping the WIFI symbol. The app's network status labels were updated appropriately. The "online" property was set true when "networkTypeName" was set to "WIFI".
+   
+   I've tested this in Titanium 7.0.0 and 6.0.2. It works.
+   
+   If you're having problems in Titanium 5.x.x, then you may want to double check that the <code>"android.permission.ACCESS_NETWORK_STATE"</code> permission is being added to the <code>AndroidManifest.xml</code> file since it's required to acquire this information.
+   </li>
+<li>Joshua Quick 2018-05-18
+
+   From looking at our docs, I can see that description of <code>Ti.Network.online</code> is not correct. It states that indicates the device has Internet access. This is not true. It indicates the device is connected to the network. So, if you're connected to a private network without Internet access, this property will be set <code>true</code> as well. This is the correct behavior and how it work natively on both Android and iOS.
+   
+   We'll be correcting the documentation in the near future. See: [TIDOC-3190]</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26001.json">JSON Source</a></p>

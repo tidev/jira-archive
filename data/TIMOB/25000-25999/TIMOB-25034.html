@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-25034] Hyperloop: Properties from object in NSArray are undefined"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-15T14:11:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>CLBeacon, NSArray, hyperloop</td></tr>
+<tr><th>Reporter</th><td>Sandro Lain</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2017-07-28T08:17:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-11-15T14:11:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-07-28
+
+   Hey there, thank for the fixes, this is great! Can you open a Pull Request on the repository, so we can merge your changes? That's how it stays your contribution. If not interested, we can also schedule to make the change ourselves. Thanks again!</li>
+<li>Jan Vennemann 2017-07-28
+
+   [~sandrolain], can you please try to change the following:
+   
+   <code><pre>
+   var beacon = beacons.objectAtIndex(i);
+   </pre></code>
+   to
+   <code><pre>
+   var beacon = CLBeacon.cast(beacons.objectAtIndex(i));
+   </pre></code>
+   
+   Objects from arrays are always returned wrapped as an <code>NSObject</code> by default and you need to explicitly cast them to the actual type you want to access methods and properties from.
+   
+   [~hknoechel], we should maybe consider printing the JS prototype name alongside the native wrapped object for clearer log outputs. I also added this to TIDOC-2811 so it will be properly documented.</li>
+<li>Sandro Lain 2017-07-30
+
+   *Thank you!* I tried to convert objects and now the properties are visible.
+   At first it seemed not to work. I was using Hyperloop with Liveview enabled, and it seems that some changes to the code are not up to date on the device. I do not know if it was a problem only to my running, but sometimes I still had to recompile the app to learn the changes even though I saw the app to refresh.</li>
+<li>Sandro Lain 2017-08-05
+
+   I've encountered another problem getting access to the properties of Hyperloop instances.
+   
+   I'm developing an application that uses Core Bluetooth in iOS.
+   
+   When I look for information about services (instance of CBService) of a peripheral sometimes the value of "UUID" property is "undefined".
+   If I try to get the same property by casting it to the type from which it is derived (CBAttribute) I can read the popriety correctly.
+   
+   Apple references:
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbservice?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbservice?language=objc</a>
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbattribute?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbattribute?language=objc</a>
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbperipheral?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbperipheral?language=objc</a>
+   
+   Services are read after the invocation of:
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbperipheraldelegate/1518744-peripheral?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbperipheraldelegate/1518744-peripheral?language=objc</a>
+   
+   After the call to:
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbperipheral/1518706-discoverservices?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbperipheral/1518706-discoverservices?language=objc</a>
+   
+   
+   What's strange is that the "isPrimary" property of the CBService instance becomes "undefined" after I ran the second cast at CBAttribute, before cast it was valued!
+   
+   Report the part of the code involved (I can not return all the code because it is too large and involves the work for one of my clients):
+   
+   
+   <code><pre>
+   
+   for(var i = 0, len = peripheral.services.count; i < len; i++)
+   {
+   	var service = CBService.cast(peripheral.services.objectAtIndex(i));
+   	
+   	console.log("CBService.UUID: " + service.UUID);
+   	console.log("CBService.isPrimary: " + service.isPrimary);
+   	
+   	var attr = CBAttribute.cast(peripheral.services.objectAtIndex(i));
+   	
+   	console.log("CBAttribute.UUID: " + attr.UUID);
+   	console.log("CBService.isPrimary: " + service.isPrimary);
+   }
+   
+   </pre></code>
+   
+   
+   The console log:
+   
+   {noformat}
+   [INFO] :   CBService.UUID: undefined
+   [INFO] :   CBService.isPrimary: 1
+   [INFO] :   CBAttribute.UUID: Device Information
+   [INFO] :   CBService.isPrimary: undefined
+   [INFO] :   CBService.UUID: Battery
+   [INFO] :   CBService.isPrimary: 1
+   [INFO] :   CBAttribute.UUID: Battery
+   [INFO] :   CBService.isPrimary: undefined
+   {noformat}
+   
+   Similarly after calling "peripheral:didDiscoverCharacteristicsForService:error:"
+   I should have the "characteristics" (NSArray) property of the CBService instance valued but I get <null> as a value.
+   
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbperipheraldelegate/1518821-peripheral?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbperipheraldelegate/1518821-peripheral?language=objc</a>
+   <a href="https://developer.apple.com/documentation/corebluetooth/cbservice/1434319-characteristics?language=objc" rel="nofollow" target="_blank">https://developer.apple.com/documentation/corebluetooth/cbservice/1434319-characteristics?language=objc</a>
+   
+   
+   <code><pre>
+   
+   console.log(service.characteristics);
+   
+   for(var i = 0, len = service.characteristics.count; i < len; i++)
+   {
+   	var characteristic = CBCharacteristic.cast(service.characteristics.objectAtIndex(i));
+   	
+   	console.log(characteristic);
+   }
+   
+   console.log("Code not executed");
+   </pre></code>
+   
+   
+   {noformat}
+   [INFO] :   <null>
+   {noformat}
+   
+   
+   I also do not know if it is a problem with my Titanium Studio / Hyperloop installation but when there are errors in the Hyperloop code call, as for example, accessing unvaluated properties as if they were, the code is terminated but in the Titanium Console I have no report of error in the studio, and this takes a long time to waste.
+   </li>
+<li>Jan Vennemann 2017-08-07
+
+   [~sandrolain], thanks for all your input. I created TIMOB-25069 based on your findings and will further investigate the issue you are seeing there.
+   
+   Can you please create a new ticket for the other issue you are experiencing with unreported exceptions and create a minimal working example so we can reproduce it? Thanks a lot!</li>
+<li>Jan Vennemann 2017-11-15
+
+   Closing as a duplicate of TIMOB-25069 which covers the root issue of this ticket with an easier to reproduce example that is not tied to Bluetooth.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25034.json">JSON Source</a></p>

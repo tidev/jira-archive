@@ -1,0 +1,345 @@
+---
+title: "[TIMOB-3166] significant memory leak with thumbnails in tableview"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-05-11T17:13:03.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-11</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, klist, memory</td></tr>
+<tr><th>Reporter</th><td>Brian</td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:38:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-05-11T17:13:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>We are using Titanium 1.6RC1 with Developer 1.2.2 and think we
+have found a significant memory leak when displaying remote
+thumbnails in a tableview. Below is the code to reproduce.</p>
+<p>Upon running the code, just attach to the process using XCode
+Instruments. Then click the "Photos" button to bring up the grid of
+photos, then click back to close the window. Continue to do this
+over and over again and you will see the living memory allocations
+continue to increase to extremely high levels.</p>
+<p>Why doesn't closing a window free up all it's memory usage? I
+come from the Objective-C world and have created this same screen
+natively with no memory leaks. Am I missing something in our
+javascript code? This is a showstopper for us if we cannot find a
+solution.</p>
+<p>Thanks!</p>
+<p>Brian</p>
+<pre>
+<code>var tabGroup = Titanium.UI.createTabGroup({id:'tabGroup1'});
+ 
+win = Titanium.UI.createWindow({id:'win1',backgroundColor:'#fff'});
+var button = Ti.UI.createButton({title:'Photos',width:100, height:100});
+ 
+button.addEventListener('click', function() {
+    var photosWindow = Titanium.UI.createWindow({fullscreen:false});
+    var tableView = Ti.UI.createTableView({
+        separatorStyle:Ti.UI.iPhone.TableViewSeparatorStyle.NONE
+    });
+    photosWindow.add(tableView);
+ 
+    tab1.open(photosWindow, {animated:true});
+ 
+    var xhr = Titanium.Network.createHTTPClient();
+    xhr.onload = function() {
+        var list = JSON.parse(this.responseText).List;
+        var rowData = [];
+        for (var i = 0,count = list.length; i &lt; count; i += 4) {
+            var row = Ti.UI.createTableViewRow({
+                height:'auto',
+                selectedBackgroundColor: '#fff',
+                backgroundSelectedColor: '#fff',
+                className:'tvRow'
+            }),imgDimensions = 80;
+ 
+ 
+            var offSet = 0;
+            for (var j = 0; j &lt; 4; j++) {
+                var photo = list[i + j];
+                if (photo) {
+                    var photoView = Ti.UI.createImageView({
+                        top:0,
+                        left:offSet,
+                        height:imgDimensions,
+                        width:imgDimensions,
+                        image:photo.ThumbnailUrl
+                    });
+                    row.add(photoView);
+                    offSet += imgDimensions;
+                }
+            }
+            rowData.push(row);
+        }
+        tableView.setData(rowData);
+    };
+    var url = "<a href="http://idancemobile.com/event/e2e530/api/2.0/images/0" rel="nofollow" target="_blank">http://idancemobile.com/event/e2e530/api/2.0/images/0</a>";
+    xhr.open("GET", url);
+    xhr.send();
+});
+ 
+win.add(button);
+ 
+var tab1 = Titanium.UI.createTab({
+    id:'tab1',
+    window:win
+});
+ 
+tabGroup.addTab(tab1);
+ 
+tabGroup.open();</code>
+</pre></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Memory management is a priority for 1.7.0. Examples like this
+   help a great deal, especially since they include some information
+   about the original data being used.</p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>I created another example that better displays the image memory
+   issue in the tableview. When running the code below just keep
+   hitting "Refresh" and you will see the "available memory" as the
+   title. Eventually it gets so low that it crashes.</p>
+   <pre>
+   <code>var win = Titanium.UI.createWindow({fullscreen:false,backgroundColor:'#fff',title:Ti.Platform.availableMemory});
+   var button = Ti.UI.createButton({title:'Refresh',width:40, height:30});
+   
+   var tableView = Ti.UI.createTableView({
+       separatorStyle:Ti.UI.iPhone.TableViewSeparatorStyle.NONE
+   });
+   win.add(tableView);
+   
+   button.addEventListener('click', function() {
+       load();
+   });
+   
+   win.rightNavButton = button;
+   
+   var navGroup = Ti.UI.iPhone.createNavigationGroup({
+       window:win
+   });
+   
+   var main = Ti.UI.createWindow();
+   main.add(navGroup);
+   main.open();
+   
+   load();
+   
+   function load() {
+       var xhr = Titanium.Network.createHTTPClient();
+       xhr.onload = function() {
+           var list = JSON.parse(this.responseText).List;
+           var rowData = [];
+           for (var i = 0,count = list.length; i &lt; count; i += 4) {
+               var row = Ti.UI.createTableViewRow({
+                   height:'auto',
+                   selectedBackgroundColor: '#fff',
+                   backgroundSelectedColor: '#fff',
+                   className:'tvRow'
+               }),imgDimensions = 80;
+   
+   
+               var offSet = 0;
+               for (var j = 0; j &lt; 4; j++) {
+                   var photo = list[i + j];
+                   if (photo) {
+                       var photoView = Ti.UI.createImageView({
+                           top:0,
+                           left:offSet,
+                           height:imgDimensions,
+                           width:imgDimensions,
+                           image:photo.ThumbnailUrl
+                       });
+                       row.add(photoView);
+                       offSet += imgDimensions;
+                   }
+               }
+               rowData.push(row);
+           }
+           tableView.setData(rowData);
+           win.title = Ti.Platform.availableMemory;
+       };
+       var url = "<a href="http://api.plixi.com/api/tpapi.svc/json/photos" rel="nofollow" target="_blank">http://api.plixi.com/api/tpapi.svc/json/photos</a>";
+       xhr.open("GET", url);
+       xhr.send();
+   }</code>
+   </pre></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>Sorry for so many code posts :) But I think I have the perfect
+   example of what is going wrong....please use the following instead
+   of the previous two :) If you click the "Launch" button and then
+   click the back button over and over again you will see the
+   "available memory" continue to lower and eventually crash. I really
+   think that closing the photosWindow should release all the memory
+   it uses, rather than leaking. Also please test this using the real
+   device and NOT the simulator.</p>
+   <pre>
+   <code>var xhr = Titanium.Network.createHTTPClient();
+   
+   var launchWindow = Titanium.UI.createWindow({fullscreen:false,backgroundColor:'#fff'});
+   launchWindow.addEventListener('focus', function() {
+       launchWindow.title = Ti.Platform.availableMemory;
+   });
+   
+   var launchButton = Ti.UI.createButton({title:'Launch',width:100, height:100});
+   launchWindow.add(launchButton);
+   
+   launchButton.addEventListener('click', function() {
+       var photosWindow = Titanium.UI.createWindow({fullscreen:false,backgroundColor:'#fff',title:Ti.Platform.availableMemory});
+       var refreshButton = Ti.UI.createButton({title:'Refresh',width:40, height:30});
+   
+       var tableView = Ti.UI.createTableView({
+           separatorStyle:Ti.UI.iPhone.TableViewSeparatorStyle.NONE
+       });
+       photosWindow.add(tableView);
+   
+       refreshButton.addEventListener('click', function() {
+           load();
+       });
+   
+       photosWindow.rightNavButton = refreshButton;
+   
+       photosWindow.addEventListener('close', function() {
+           photosWindow.close();
+           launchWindow.title = Ti.Platform.availableMemory;
+       });
+   
+       navGroup.open(photosWindow, {animate:true});
+       load();
+       function load() {
+           xhr.onload = function() {
+               var list = JSON.parse(this.responseText).List;
+               var rowData = [];
+               for (var i = 0,count = list.length; i &lt; count; i += 4) {
+                   var row = Ti.UI.createTableViewRow({
+                       height:'auto',
+                       selectedBackgroundColor: '#fff',
+                       backgroundSelectedColor: '#fff',
+                       className:'tvRow'
+                   }),imgDimensions = 80;
+   
+   
+                   var offSet = 0;
+                   for (var j = 0; j &lt; 4; j++) {
+                       var photo = list[i + j];
+                       if (photo) {
+                           var photoView = Ti.UI.createImageView({
+                               top:0,
+                               left:offSet,
+                               height:imgDimensions,
+                               width:imgDimensions,
+                               image:photo.ThumbnailUrl
+                           });
+                           row.add(photoView);
+                           offSet += imgDimensions;
+                       }
+                   }
+                   rowData.push(row);
+               }
+               tableView.setData(rowData);
+               photosWindow.title = Ti.Platform.availableMemory;
+           };
+           var url = "<a href="http://api.plixi.com/api/tpapi.svc/json/photos" rel="nofollow" target="_blank">http://api.plixi.com/api/tpapi.svc/json/photos</a>";
+           xhr.open("GET", url);
+           xhr.send();
+       }
+   });
+   
+   var navGroup = Ti.UI.iPhone.createNavigationGroup({
+       window:launchWindow
+   });
+   
+   var main = Ti.UI.createWindow();
+   main.add(navGroup);
+   main.open();</code>
+   </pre></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>I wanted to mention that the last code post is using suggestions
+   made by folks in the Q&amp;Q forum...to call photosWindow.close on
+   the close event and to use a single HttpClient.</p>
+   <p>Also when the memory gets really low I see things like this in
+   the debug console in XCode:</p>
+   <p><a href="/projects/32238/changesets/INFO" title=
+   "Changeset [INFO]">[INFO]</a> Due to memory conditions, 0 of 3244
+   images were unloaded from cache.</p>
+   <p>Why would it unload 0 images if it got a memory warning? Seems
+   like this is a big issue too.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Once again, not picking up the github commit.</p>
+   <p>TESTING:</p>
+   <p>There are two levels of testing that need to be conducted.</p>
+   <h2>INSTRUMENTS</h2>
+   <ul>
+   <li>Run the 3rd provided sample code (or bugtests 3166 -
+   semi-automated). It will help to put the 'refresh' load() call on a
+   timer (inside an anonymous callback function) to semi-automate the
+   test.</li>
+   <li>Click 'launch'</li>
+   <li>Click 'refresh' (or, click it repeatedly if not automating...
+   but you'll have to click it 100s of times.)</li>
+   <li>NOTE: The 'free memory' number provided by the app is NOT
+   accurate.</li>
+   <li>Watch the memory. With each reload of the images, it should
+   spike and then decrease (slightly). This is the tableview purging
+   its views. Keep the app running for as long as possible.</li>
+   <li>Eventually, there will be a memory warning. When this occurs,
+   memory should drop SHARPLY and there should also be a message in
+   the console indicating that the image cache was purged ("[INFO] Due
+   to memory conditions, X of Y image cache entries were unloaded from
+   cache.")</li>
+   <li>NOTE: Especially in the case of automation, there may be a
+   crash. Whether this is caused by instrumentation or by internal
+   issues, I'm unsure.</li>
+   </ul>
+   <h2>W/OUT INSTRUMENTS</h2>
+   <ul>
+   <li>Run 3rd provided sample code (or bugtests 3166 -
+   semi-automated). Again, put the load() call for the 'refresh'
+   button on a timer for semi-automation.</li>
+   <li>Click 'launch'</li>
+   <li>Click 'refresh' (or, again, click repeatedly if not
+   automated)</li>
+   <li>Eventually there will be memory warnings.</li>
+   <li>The app should NOT crash.</li>
+   </ul></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/10c2ba87ab69e00ee963e38bd272ab5c8438aec4"
+   title=
+   "Changeset [10c2ba87ab69e00ee963e38bd272ab5c8438aec4]">[10c2ba87ab69e00ee963e38bd272ab5c8438aec4]</a>)
+   [<a href="/projects/32238/tickets/3166" title=
+   "Ticket #3166">#3166</a>] Properly handle the case where
+   modalDelegate is 'self', which is pretty much always. <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/10c2ba87ab69e00ee963e38bd272ab5c8438aec4" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/10c2ba87ab69e00ee963e38bd272ab5c8438aec4</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/10c2ba87ab69..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/10c2ba87ab69...</a></a></p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>Would it be possible to back port this to 1.6.x? We cannot wait
+   until the end of May for 1.7</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>You can just get a CI build or pull directly from github. This
+   will not be backported to 1.6.x.</p></div></li>
+<li>Eric Merriman  2011-05-11
+
+   No longer able to reproduce with iPhone 4, iOS 4.3.3. KS 1.7.0, build 1.7.0.879871b. Used the 3rd added code, but used instruments to monitor memory. Opened the thumbnail view repeatedly for over 5 mins. Memory leak not detected. Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3166.json">JSON Source</a></p>

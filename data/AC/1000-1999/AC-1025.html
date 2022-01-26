@@ -1,0 +1,262 @@
+---
+title: "[AC-1025] Android: Map - application crash when adding the map component"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-09-28T15:37:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>TCSupportTriage</td></tr>
+<tr><th>Reporter</th><td>Anna Tchevardov</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2014-09-01T09:26:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:37:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+When loading the map just after the login process, the map crashes pretty often, producing the following error: "Unfortunately, AppName has stopped". This intermittent crash occurs while adding the map component to its parent's view.
+Some more information about the application:
+•  There is only one "heavy window" in the application (only one activity at once). The map is loaded on a view. 
+•  The application window is fully loaded and displayed when loading the map component.
+•  The parent view is already a part of the views' hierarchy when loading the map component.
+•  There is only one map component in the application.
+
+<h4>Test case</h4>
+<code><pre>
+// Pseudo code representing an attempt to delay the addition of the map the view hierarchy
+// If the map is put directly in the XML template, this leads to an immediate crash.
+var win = Titanium.UI.createWindow({
+    title:'Window',
+});
+win.open();
+
+var mapView = require('ti.map').createView({
+ animate : false,
+ regionFit : true,
+ userLocation : true,
+ mapType : Alloy.Globals.Map.NORMAL_TYPE
+});
+
+var mapContainer = Titanium.UI.createView();
+
+// We now suspect that the crash could happen when we open new windows/activities during map initialization
+var winWaiter = Titanium.UI.createWindow({
+    title:'Please wait...',
+});
+winWaiter.open();
+
+// Foo application process code
+setTimeout(function() {
+ winWaiter.close();
+}, 1500);
+
+// Intermittent crash when adding the view
+mapContainer.add(mapView);
+ </pre></code>
+
+<h4>Logs</h4>
+
+Log of the crash when the fragments are not controlled properly:
+<code><pre>
+java.lang.IllegalStateException: Can not perform this action after onSaveInstanceState
+ at android.support.v4.app.FragmentManagerImpl.checkStateLoss(FragmentManager.java:1327)
+ at android.support.v4.app.FragmentManagerImpl.enqueueAction(FragmentManager:1338)
+ at android.support.v4.app.BackStackRecord.commitInternal(BackStackRecord.java:595)
+ at android.support.v4.app.BackStackRecord.commit(BackStackRecord:574)
+ at android.support.v4.app.DialogFragment.show(DialogFragment:127)
+ </pre></code>
+
+General error log:
+<code><pre>
+[ERROR] :  TiApplication: (main) [10692,10692] Sending event: exception
+on thread: main msg:java.lang.RuntimeException: Unable to pause activity
+{com.ourapplication/org.appcelerator.titanium.TiTranslucentActivity}:
+java.lang.IllegalStateException: Can not perform this action after onSaveInstanceState; Titanium 3.2.3,2014/04/22 10:17,b958a70
+[ERROR] :  TiApplication: java.lang.RuntimeException: Unable to pause activity 
+{com.ourapplication/org.appcelerator.titanium.TiTranslucentActivity}:
+java.lang.IllegalStateException: Can not perform this action after onSaveInstanceState
+[ERROR] :  TiApplication:     at android.app.ActivityThread.performPauseActivity(ActivityThread.java:3196)
+[ERROR] :  TiApplication:     at android.app.ActivityThread.performPauseActivity(ActivityThread.java:3151)
+[ERROR] :  TiApplication:     at android.app.ActivityThread.handlePauseActivity(ActivityThread.java:3129)
+[ERROR] :  TiApplication:     at android.app.ActivityThread.access$900(ActivityThread.java:159)
+[ERROR] :  TiApplication:     at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1333)
+[ERROR] :  TiApplication:     at android.os.Handler.dispatchMessage(Handler.java:99)
+[ERROR] :  TiApplication:     at android.os.Looper.loop(Looper.java:176)
+[ERROR] :  TiApplication:     at android.app.ActivityThread.main(ActivityThread.java:5419)
+[ERROR] :  TiApplication:     at java.lang.reflect.Method.invokeNative(Native Method)
+[ERROR] :  TiApplication:     at java.lang.reflect.Method.invoke(Method.java:525)
+[ERROR] :  TiApplication:     at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1046)
+[ERROR] :  TiApplication:     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:862)
+[ERROR] :  TiApplication:     at dalvik.system.NativeStart.main(Native Method)
+[ERROR] :  TiApplication: Caused by: java.lang.IllegalStateException: Can not perform this action after onSaveInstanceState
+[ERROR] :  TiApplication:     at android.support.v4.app.FragmentManagerImpl.checkStateLoss(FragmentManager.java:1343)
+[ERROR] :  TiApplication:     at android.support.v4.app.FragmentManagerImpl.enqueueAction(FragmentManager.java:1361)
+[ERROR] :  TiApplication:     at android.support.v4.app.BackStackRecord.commitInternal(BackStackRecord.java:595)
+[ERROR] :  TiApplication:     at android.support.v4.app.BackStackRecord.commit(BackStackRecord.java:574)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.view.TiUIFragment.<init>(TiUIFragment.java:49)
+[ERROR] :  TiApplication:     at ti.map.TiUIMapView.<init>(TiUIMapView.java:59)
+[ERROR] :  TiApplication:     at ti.map.ViewProxy.createView(ViewProxy.java:68)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:463)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:449)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:487)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:471)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:449)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:487)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:471)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:449)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.handleAdd(TiViewProxy.java:566)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:218)
+[ERROR] :  TiApplication:     at android.os.Handler.dispatchMessage(Handler.java:95)
+[ERROR] :  TiApplication:     at org.appcelerator.kroll.common.TiMessenger.dispatchMessage(TiMessenger.java:389)
+[ERROR] :  TiApplication:     at org.appcelerator.kroll.common.TiMessenger.dispatchPendingMessages(TiMessenger.java:374)
+[ERROR] :  TiApplication:     at org.appcelerator.kroll.common.TiMessenger$2.getResult(TiMessenger.java:252)
+[ERROR] :  TiApplication:     at org.appcelerato
+[ERROR] :  TiApplication:     at org.appcelerator.kroll.common.TiMessenger.sendBlockingRuntimeMessage(TiMessenger.java:186)
+[ERROR] :  TiApplication:     at org.appcelerator.kroll.KrollProxy.fireSyncEvent(KrollProxy.java:763)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.TiBaseActivity.onPause(TiBaseActivity.java:975)
+[ERROR] :  TiApplication:     at org.appcelerator.titanium.TiActivity.onPause(TiActivity.java:44)
+[ERROR] :  TiApplication:     at android.app.Activity.performPause(Activity.java:5474)
+[ERROR] :  TiApplication:     at android.app.Instrumentation.callActivityOnPause(Instrumentation.java:1250)
+[ERROR] :  TiApplication:     at android.app.ActivityThread.performPauseActivity(ActivityThread.java:3182)
+[ERROR] :  TiApplication:     ... 12 more
+ </pre></code>
+
+<h4>Discussions</h4>
+<a href="http://developer.appcelerator.com/question/176956/map-crash-in-android-application#comment-217798" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/176956/map-crash-in-android-application#comment-217798</a>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-1025_55176/Bug.txt">Bug.txt</td></td><td>2015-04-29T19:29:15.000+0000</td><td>1163</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Anna Tchevardov 2014-10-16
+
+   Is there any news regarding the issue?</li>
+<li>Terry Morgan 2014-12-09
+
+   *edit* I just answered my own question. It looks like the navigation drawer window I'm using has a bug that causes mapviews to crash the app in exactly the manner described above. See <a href="https://github.com/manumaticx/Ti.DrawerLayout/issues/4" rel="nofollow" target="_blank">https://github.com/manumaticx/Ti.DrawerLayout/issues/4</a> </li>
+<li>Radamantis Torres-Lechuga 2015-04-06
+
+   [~Anna] is this still an issue, we can not replicate</li>
+<li>Anna Tchevardov 2015-04-21
+
+   Yes, it's still a big issue.</li>
+<li>Anna Tchevardov 2015-04-21
+
+   Are there any particular configurations to add in the tiapp.xml for the map module?
+   Right now, we have these configurations:
+                     <activity 
+              	   android:name="ti.modules.titanium.map.TiMapActivity"
+               	   android:clearTaskOnLaunch="true"
+                      android:alwaysRetainTaskState="false"
+               	   android:finishOnTaskLaunch="true"
+               	   android:hardwareAccelerated="true"
+                	   /> 
+   </li>
+<li>Radamantis Torres-Lechuga 2015-04-21
+
+   [~Anna] you must follow the docs, please check that you have your keys and everything configured correctly, here's the documentation:
+   [Map Module| <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Modules.Map ]
+   
+   </li>
+<li>Anna Tchevardov 2015-04-28
+
+   Radamantis, 
+   The bug that I described in this issue is fixed in the version 4.0.0
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/3c79460d4c79473637902179d1524b41d4ea55b5" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/3c79460d4c79473637902179d1524b41d4ea55b5</a>
+   
+   
+   </li>
+<li>Anna Tchevardov 2015-04-29
+
+   Please check the attached file. 
+   It explains the issue and provides the test case.</li>
+<li>Radamantis Torres-Lechuga 2015-04-29
+
+   [~Anna] if this has been fixed in 4.0.0 we are going to close it as fixed, are you positive that you can not reproduce anymore with 4.0.0?
+   
+   Thanks</li>
+<li>Anna Tchevardov 2015-04-30
+
+    No, this issue cannot be closed since 4.0.0 GA is not released yet. Once it's available, I'll check it and tell you if it's OK.
+    Do you know when 4.0.0 GA will be released? 
+    </li>
+<li>Motiur Rahman 2015-08-27
+
+    Hello,
+    
+    We have tested this issue again and it works as expected.
+    Check map image: <a href="http://oi62.tinypic.com/2e33jwl.jpg" rel="nofollow" target="_blank">http://oi62.tinypic.com/2e33jwl.jpg</a>
+    
+    *Result:* It's not a bug.
+    
+    *Steps to Test:*
+    1. Create a classic project.
+    2. Paste this code in app.js file.
+    3. Add the map module and API key in tiapp.xml file.
+    4. Run this code with the testing environment.
+    
+    *Testing Environment:*
+    Command-Line Interface, version 4.1.2,
+    Ti SDK: 4.1.0.GA,
+    Android Version: 4.2.2, 4.4.2, 5.1.0,
+    Map module: 2.3.1,
+    Studio Version: 4.1.1
+    
+    <code><pre>
+    var win = Titanium.UI.createWindow({
+    	title : 'Window',
+    });
+    win.open();
+    
+    var MapModule = require('ti.map');
+    
+    var mapView = MapModule.createView({
+    	animate : false,
+    	regionFit : true,
+    	userLocation : true,
+    	mapType : MapModule.NORMAL_TYPE
+    });
+    
+    var mapContainer = Titanium.UI.createView();
+    
+    // We now suspect that the crash could happen when we open new windows/activities during map initialization
+    var winWaiter = Titanium.UI.createWindow({
+    	title : 'Please wait...',
+    });
+    winWaiter.open();
+    
+    // Foo application process code
+    setTimeout(function() {
+    	winWaiter.close();
+    }, 1500);
+    
+    // Intermittent crash when adding the view
+    mapContainer.add(mapView);
+    win.add(mapContainer);
+    
+    </pre></code>
+    
+    
+    Please let us know your test results if you notice the error existing.
+    </li>
+</ol>
+
+
+<p><a href="/AC/AC-1025.json">JSON Source</a></p>

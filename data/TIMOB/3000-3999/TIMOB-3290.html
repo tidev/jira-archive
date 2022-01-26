@@ -1,0 +1,345 @@
+---
+title: "[TIMOB-3290] Android: TabGroup never translucent even if translucent theme applied to TiTabActivity"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T02:01:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-10</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, defect, release-1.6.1, release-1.7.0, reported-1.6.0, rplist</td></tr>
+<tr><th>Reporter</th><td>Bill Dawson</td></tr>
+<tr><th>Assignee</th><td>Bill Dawson</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:41:27.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T02:01:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>For an activity window to be translucent, Android appears to
+require that you set the activity's theme to a translucent theme in
+the AndroidManifest.xml -- <a href=
+"<a href="http://groups.google.com/group/android-developers/browse_thread/thread/599807e7818f926f/db8fd5c21ae8f0ac?show_docid=db8fd5c21ae8f0ac" rel="nofollow" target="_blank">http://groups.google.com/group/android-developers/browse_thread/thread/599807e7818f926f/db8fd5c21ae8f0ac?show_docid=db8fd5c21ae8f0ac</a>">
+it does not appear to be possible to successfully set a translucent
+theme -- or a transparent window background -- at runtime</a>.</p>
+<p>You could, for example, use a custom AndroidManifest.xml in your
+Titanium application and set the TiActivity as such:</p>
+<pre>
+<code>&lt;activity android:configChanges="keyboardHidden|orientation" android:name="ti.modules.titanium.ui.TiActivity" android:theme="@android:style/Theme.Translucent"/&gt;</code>
+</pre>
+<p>TiActivity is the activity we use for all "heavyweight" windows
+in Titanium. The above change to the TiActivity's manifest entry --
+adding
+<code>android:theme="@android:style/Theme.Translucent"</code>
+successfully makes your windows translucent by default. (In code,
+you can then give a <code>backgroundColor</code> to a window if you
+don't want it to be translucent.)</p>
+<p>When you use a TabGroup, however, you need to consider the theme
+for the <strong><code>TiTabActivity</code></strong>, which is the
+activity we use for TabGroups. So this <strong>should
+work</strong>:</p>
+<pre>
+<code>&lt;activity android:configChanges="keyboardHidden|orientation" android:name="ti.modules.titanium.ui.TiTabActivity" android:theme="@android:style/Theme.Translucent"/&gt;</code>
+</pre>
+<p>But, in fact, it's not working. The reason is because we
+explicitly -- in our Java code -- set the Android TabHost's
+background drawable to a <code>ColorDrawable</code> with color
+value <code>#ff1a1a1a</code>.</p>
+<p>SO ... to re-create the failcase, follow these rather elaborate
+steps...</p>
+<ul>
+<li>
+<p>Create a new Titanium application.</p>
+</li>
+<li>
+<p>Make this its app.js:</p>
+</li>
+</ul>
+<pre>
+<code class=
+"javascript">Ti.UI.backgroundImage = 'KS_nav_ui.png'; // Set the root background to show an (ugly, stretched) image
+var tabGroup = Titanium.UI.createTabGroup();
+var win1 = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'transparent'
+});
+var tab1 = Titanium.UI.createTab({  
+    icon:'KS_nav_views.png',
+    title:'Tab 1',
+    window:win1
+});
+var win2 = Titanium.UI.createWindow({  
+    title:'Tab 2',
+    backgroundColor:'transparent'
+});
+var tab2 = Titanium.UI.createTab({  
+    icon:'KS_nav_ui.png',
+    title:'Tab 2',
+    window:win2
+});
+tabGroup.addTab(tab1);  
+tabGroup.addTab(tab2);  
+tabGroup.open();</code>
+</pre>
+<ul>
+<li>
+<p>Run the app once so that it generates our default
+AndroidManifest.xml.</p>
+</li>
+<li>
+<p>Create the folder <code>platform/android</code> under the
+project's root folder.</p>
+</li>
+<li>
+<p>Copy <code>build/android/AndroidManifest.xml</code> into
+<code>platform/android</code>. This tells Titanium you want to use
+a custom AndroidManifest.xml.</p>
+</li>
+<li>
+<p>Edit <code>platform/android/AndroidManifest.xml</code></p>
+</li>
+<li>
+<p>Search for <code>TiTabActivity</code>. When you find it, add
+this attribute to its element:
+<code>android:theme="@android:style/Theme.Translucent"</code> so
+that the complete element looks like:</p>
+</li>
+</ul>
+<pre>
+<code>&lt;activity android:configChanges="keyboardHidden|orientation" android:name="ti.modules.titanium.ui.TiTabActivity" android:theme="@android:style/Theme.Translucent"/&gt;</code>
+</pre>
+<ul>
+<li>
+<p>Save these changes you've made to
+<code>platform/android/AndroidManifest.xml</code>.</p>
+</li>
+<li>
+<p>Re-launch the application. You will see that although you have
+specified a translucent theme for our tab Activity, you still won't
+be able to see through to the default background, which is the
+image KS_nav_ui.png.</p>
+</li>
+</ul></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/843c806d1c07731e5bd6643b37ce5015e0134695"
+   title=
+   "Changeset [843c806d1c07731e5bd6643b37ce5015e0134695]">[843c806d1c07731e5bd6643b37ce5015e0134695]</a>)
+   If TabGroup passed a backgroundColor, use it instead of the default
+   #ff1a1a1a we've been setting. This allows people to set
+   'transparent', for example, and then use Theme.Translucent on
+   TiTabActivity to let their tabs be transparent. Also remove
+   duplicate entries from generated AndroidManifest.xml in case user
+   puts one of our default activities into of tiapp.xml (such as if
+   they wanted to apply a custom theme to it.) [<a href=
+   "/projects/32238/tickets/3290" title="Ticket #3290">#3290</a>]
+   <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/843c806d1c07731e5bd6643b37ce5015e0134695" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/843c806d1c07731e5bd6643b37ce5015e0134695</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/843c806d1c07..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/843c806d1c07...</a></a></p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/0a693f4dae443f4381269afebbcdffd24e5e8100"
+   title=
+   "Changeset [0a693f4dae443f4381269afebbcdffd24e5e8100]">[0a693f4dae443f4381269afebbcdffd24e5e8100]</a>)
+   If TabGroup passed a backgroundColor, use it instead of the default
+   #ff1a1a1a we've been setting. This allows people to set
+   'transparent', for example, and then use Theme.Translucent on
+   TiTabActivity to let their tabs be transparent. Also remove
+   duplicate entries from generated AndroidManifest.xml in case user
+   puts one of our default activities into of tiapp.xml (such as if
+   they wanted to apply a custom theme to it.) [<a href=
+   "/projects/32238/tickets/3290" title="Ticket #3290">#3290</a>]
+   <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/0a693f4dae443f4381269afebbcdffd24e5e8100" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/0a693f4dae443f4381269afebbcdffd24e5e8100</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/0a693f4dae44..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/0a693f4dae44...</a></a></p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>So with this fix in place, here are the instructions for getting
+   (and testing) transparent tab windows:</p>
+   <ul>
+   <li>
+   <p>You can get rid of the custom AndroidManifest.xml from my
+   instructions above (if you're using the same project to test the
+   fix). I made a change that makes it easier to just update a single
+   Activity rather than pull over the whole AndroidManifest.xml. The
+   next step takes advantage of that change.</p>
+   </li>
+   <li>
+   <p>Open your tiapp.xml and put an entry for the TiTabActivity in
+   the <code>&lt;android&gt;&lt;manifest&gt;&lt;application&gt;</code>
+   section. On that entry, you're going to assign the
+   Theme.Translucent theme to that activity. Such as this:</p>
+   </li>
+   </ul>
+   <pre>
+   <code>&lt;android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>"&gt;
+       &lt;manifest&gt;
+           &lt;application&gt;
+               &lt;activity android:name="ti.modules.titanium.ui.TiTabActivity"
+                   android:configChanges="keyboardHidden|orientation"
+                   android:theme="@android:style/Theme.Translucent"
+               /&gt;
+           &lt;/application&gt;
+       &lt;/manifest&gt;
+   &lt;/android&gt;</code>
+   </pre>
+   <ul>
+   <li>In your app.js, create a TabGroup and set its
+   <code>backgroundColor:'transparent'</code> -- that's not required
+   in iOS, but it is for Android, because otherwise the default
+   background color that we set for tab groups will be applied. Also
+   set the constituent windows' <code>backgroundColor:
+   'transparent'</code>. Here is a good example app.js that does
+   both:</li>
+   </ul>
+   <pre>
+   <code class="javascript">Ti.UI.backgroundImage = 'KS_nav_ui.png';
+   var tabGroup = Titanium.UI.createTabGroup({backgroundColor: 'transparent'});
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'transparent',
+       fullscreen:false
+   });
+   var tab1 = Titanium.UI.createTab({  
+       icon:'KS_nav_views.png',
+       title:'Tab 1',
+       window:win1
+   });
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'transparent',
+       fullscreen:false
+   });
+   var tab2 = Titanium.UI.createTab({  
+       icon:'KS_nav_ui.png',
+       title:'Tab 2',
+       window:win2
+   });
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+   tabGroup.open();</code>
+   </pre>
+   <ul>
+   <li>
+   <p>Note that that sample app.js also sets an ugly, stretched bitmap
+   on the root background, so that you can see if transparency is
+   actually working.</p>
+   </li>
+   <li>
+   <p>Run the app -- you should be able to see the ugly bitmap, which
+   means the tabgroup and the tab windows are transparent.</p>
+   </li>
+   </ul></div></li>
+<li>Natalie Huynh 2011-04-15
+
+   <div><p>Tested with Titanium SDK version: 1.7.0 (03/08/11 13:41 1dbf930)
+   on<br>
+   Samsung Galaxy 2.2<br>
+   Nexus One 2.2.2<br>
+   Emulator 2.1</p></div></li>
+<li>Dennis Schneider 2011-04-15
+
+   <div><p>Hi Bill,</p>
+   <p>I tried the code above and it works, but on my HTC Desire HD
+   it's always in fullscreen mode. The bar at the top is missing.
+   Sometimes the empty bar pops up and disappears again a few seconds
+   later.</p>
+   <p>Kind regards,<br>
+   Dennis</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>Yup, Android has an annoyance whereby if you open a translucent
+   window from a fullscreen window, then the translucent window will
+   also be fullscreen, <em>even if you don't want it to be.</em> :\
+   It's really annoying. There appears to be no way around it.</p>
+   <p>So what's happening is that since the "launch" theme is
+   fullscreen (the fullscreen splash screen), the translucent "window"
+   (the TabGroup) which gets launched from it is also fullscreen. It
+   doesn't happen for non-translucent windows. Very weird.</p>
+   <p>There are a couple of things you can try. The first one works
+   for sure, the second one I haven't tried.</p>
+   <ol>
+   <li>
+   <p>Change the launch theme to <strong>not</strong> be fullscreen.
+   If you look in the generated AndroidManifest.xml, you'll see that
+   the first activity definition -- the one that carries your
+   application's name -- has
+   <code>android:theme="@style/Theme.Titanium</code>. Now if you look
+   at <code>build/android/res/values/theme.xml</code>, you'll see that
+   <code>Theme.Titanium</code> inherits from the Android built-in
+   theme named <code>Theme.NoTitleBar.Fullscreen</code>. You can make
+   a custom version of this theme.xml:</p>
+   <ul>
+   <li>In your project root, create
+   <code>platform/android/res/values</code>, then copy this theme.xml
+   file into that folder and edit it.</li>
+   <li>Change the <code>Theme.NoTitleBar.Fullscreen</code> to
+   <code>Theme.NoTitleBar</code> and save the file.</li>
+   <li>Now "touch" your tiapp.xml file (i.e, do something to update
+   its file date/time). I'm not sure this step is necessary, but it's
+   a good idea in this case.</li>
+   <li>Re-launch your app. You'll see that your splash screen is no
+   longer fullscreen (which might be annoying), but also your
+   translucent TabGroup will not be fullscreen anymore.</li>
+   </ul>
+   </li>
+   <li>
+   <p>Keep the launch screen as a fullscreen, but put a
+   non-fullscreen-window between the launch window (splash) and the
+   tabgroup. <strong>I have not tried this.</strong> For example, in
+   app.js you'd <code>createWindow({fullscreen:false,
+   url:'launch.js'})</code> (etc.), then launch.js you'd have the code
+   to open the TabGroup immediately. (For createTabGroup, you would
+   want to also set <code>exitOnClose:true</code> so that the app
+   closes when you back out of the TabGroup -- otherwise you would end
+   up setting at that launch.js window which is useless.)</p>
+   </li>
+   </ol>
+   <p>Hope that helps,</p>
+   <p>Bill</p></div></li>
+<li>Dennis Schneider 2011-04-15
+
+   <div><p>Hi Bill,</p>
+   <p>the first approach works great so far! But as soon as I put the
+   device to the landscape mode the splash screen covers the root
+   background. I was able to use a workaround by setting the
+   background image again on orientationchange, but sometimes this
+   doesn't work as desired.</p>
+   <p>Would it be possible that I add you to my contacts in Skype? I
+   have some more bugs to share ;) Maybe you can send your Skype name
+   by email to <a href=
+   "mailto:dennis@wunderkinder.com">dennis@wunderkinder.com</a>. That
+   would be really great!!</p>
+   <p>Thank you very much</p>
+   <p>Kind regards,<br>
+   Dennis</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/0cfa014353f9af858ff975a9ae1eb6823ced0966"
+   title=
+   "Changeset [0cfa014353f9af858ff975a9ae1eb6823ced0966]">[0cfa014353f9af858ff975a9ae1eb6823ced0966]</a>)
+   If TabGroup passed a backgroundColor, use it instead of the default
+   #ff1a1a1a we've been setting. This allows people to set
+   'transparent', for example, and then use Theme.Translucent on
+   TiTabActivity to let their tabs be transparent. Also remove
+   duplicate entries from generated AndroidManifest.xml in case user
+   puts one of our default activities into of tiapp.xml (such as if
+   they wanted to apply a custom theme to it.) [<a href=
+   "/projects/32238/tickets/3290" title="Ticket #3290">#3290</a>]
+   <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/0cfa014353f9af858ff975a9ae1eb6823ced0966" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/0cfa014353f9af858ff975a9ae1eb6823ced0966</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/0cfa014353f9..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/0cfa014353f9...</a></a></p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3290.json">JSON Source</a></p>

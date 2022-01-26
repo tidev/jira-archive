@@ -1,0 +1,170 @@
+---
+title: "[TIMOB-6303] Android: Contacts: Rhino/v8, crashes when pressing BACK key in Display People"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-01T16:03:25.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>branch-v8, qe-port</td></tr>
+<tr><th>Reporter</th><td>Ping Wang</td></tr>
+<tr><th>Assignee</th><td>Opie Cyrus</td></tr>
+<tr><th>Created</th><td>2011-11-23T16:53:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-08-13T12:58:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+To reproduce:
+1) KS -> Phone -> Contacts -> Display people
+2) choose one contact
+3) press BACK key
+Then the program crashes. The error message is:
+***************************************************
+E/AndroidRuntime( 2584): FATAL EXCEPTION: main
+E/AndroidRuntime( 2584): java.lang.RuntimeException: Unable to resume activity {com.appcelerator.titanium/org.appcelerator.titanium.TiActivity}: java.lang.IllegalStateException: trying to requery an already closed cursor
+E/AndroidRuntime( 2584):   at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2227)
+E/AndroidRuntime( 2584):   at android.app.ActivityThread.handleResumeActivity(ActivityThread.java:2255)
+E/AndroidRuntime( 2584):   at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1028)
+E/AndroidRuntime( 2584):   at android.os.Handler.dispatchMessage(Handler.java:99)
+E/AndroidRuntime( 2584):   at android.os.Looper.loop(Looper.java:132)
+E/AndroidRuntime( 2584):   at android.app.ActivityThread.main(ActivityThread.java:4025)
+E/AndroidRuntime( 2584):   at java.lang.reflect.Method.invokeNative(Native Method)
+E/AndroidRuntime( 2584):   at java.lang.reflect.Method.invoke(Method.java:491)
+E/AndroidRuntime( 2584):   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:841)
+E/AndroidRuntime( 2584):   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:599)
+E/AndroidRuntime( 2584):   at dalvik.system.NativeStart.main(Native Method)
+E/AndroidRuntime( 2584): Caused by: java.lang.IllegalStateException: trying to requery an already closed cursor
+E/AndroidRuntime( 2584):   at android.app.Activity.performRestart(Activity.java:4394)
+E/AndroidRuntime( 2584):   at android.app.Activity.performResume(Activity.java:4420)
+E/AndroidRuntime( 2584):   at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2217)
+E/AndroidRuntime( 2584):   ... 10 more
+W/ActivityManager(  141):   Force finishing activity com.appcelerator.titanium/org.appcelerator.titanium.TiActivity
+W/ActivityManager(  141): Activity pause timeout for ActivityRecord{4119f5b8 com.appcelerator.titanium/org.appcelerator.titanium.TiActivity}
+***************************************************
+
+Can not reproduce this issue on HTC 2.3.4.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Clément Prévost 2011-11-27
+
+   I have a similar issue.
+   
+   Myapp is basically a dialer, with a contact list, and a search box.
+   The app launches, display the UI, show the contact list.
+   Pressing the menu button show a menu with only one item: "Preferences".
+   Pressing this item show the android preferences for this app (/platform/android/xml/preferences.xml).
+   
+   Then if I press the back button the app totally crash.
+   
+   Here is my app.js code (notice the getAllPeople call).
+   
+   ===============================================================
+   var win = Titanium.UI.createWindow({
+   	id:'win',
+   	url:'ui/base.js',
+   	exitOnClose: true,
+   	contacts: Ti.Contacts.getAllPeople(),
+   });
+   ===============================================================
+   
+   And in base.js I create an android menu bind to the android preferences.
+   
+   ===============================================================
+   var activity = Ti.Android.currentActivity;
+   activity.onCreateOptionsMenu = function(e) {
+   	e.menu.add({
+   		title : 'Preferences'
+   	}).addEventListener('click', function(e) {
+   		Ti.UI.Android.openPreferences();
+   	});
+   }
+   ===============================================================
+   
+   This is the error report from the android emulator process console:
+   
+   ===============================================================
+   E/TiUncaughtHandler( 1717): (main) [28494,32944] Sending event: exception on thread: main msg:java.lang.RuntimeException: Unable to resume activity {com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity}: android.database.StaleDataException: Attempted to access a cursor after it has been closed.; Titanium 1.7.5,2011/11/02 17:00,ab20af7
+   E/TiUncaughtHandler( 1717): java.lang.RuntimeException: Unable to resume activity {com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity}: android.database.StaleDataException: Attempted to access a cursor after it has been closed.
+   E/TiUncaughtHandler( 1717): 	at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2443)
+   E/TiUncaughtHandler( 1717): 	at android.app.ActivityThread.handleResumeActivity(ActivityThread.java:2471)
+   E/TiUncaughtHandler( 1717): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1172)
+   E/TiUncaughtHandler( 1717): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+   E/TiUncaughtHandler( 1717): 	at android.os.Looper.loop(Looper.java:137)
+   E/TiUncaughtHandler( 1717): 	at android.app.ActivityThread.main(ActivityThread.java:4340)
+   E/TiUncaughtHandler( 1717): 	at java.lang.reflect.Method.invokeNative(Native Method)
+   E/TiUncaughtHandler( 1717): 	at java.lang.reflect.Method.invoke(Method.java:511)
+   E/TiUncaughtHandler( 1717): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:784)
+   E/TiUncaughtHandler( 1717): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:551)
+   E/TiUncaughtHandler( 1717): 	at dalvik.system.NativeStart.main(Native Method)
+   E/TiUncaughtHandler( 1717): Caused by: android.database.StaleDataException: Attempted to access a cursor after it has been closed.
+   E/TiUncaughtHandler( 1717): 	at android.database.BulkCursorToCursorAdaptor.throwIfCursorIsClosed(BulkCursorToCursorAdaptor.java:75)
+   E/TiUncaughtHandler( 1717): 	at android.database.BulkCursorToCursorAdaptor.requery(BulkCursorToCursorAdaptor.java:144)
+   E/TiUncaughtHandler( 1717): 	at android.database.CursorWrapper.requery(CursorWrapper.java:182)
+   E/TiUncaughtHandler( 1717): 	at android.app.Activity.performRestart(Activity.java:4505)
+   E/TiUncaughtHandler( 1717): 	at android.app.Activity.performResume(Activity.java:4531)
+   E/TiUncaughtHandler( 1717): 	at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2433)
+   E/TiUncaughtHandler( 1717): 	... 10 more
+   D/dalvikvm( 1717): GC_CONCURRENT freed 171K, 5% free 7869K/8263K, paused 9ms+11ms
+   E/AndroidRuntime( 1717): FATAL EXCEPTION: main
+   E/AndroidRuntime( 1717): java.lang.RuntimeException: Unable to resume activity {com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity}: android.database.StaleDataException: Attempted to access a cursor after it has been closed.
+   E/AndroidRuntime( 1717): 	at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2443)
+   E/AndroidRuntime( 1717): 	at android.app.ActivityThread.handleResumeActivity(ActivityThread.java:2471)
+   E/AndroidRuntime( 1717): 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1172)
+   E/AndroidRuntime( 1717): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+   E/AndroidRuntime( 1717): 	at android.os.Looper.loop(Looper.java:137)
+   E/AndroidRuntime( 1717): 	at android.app.ActivityThread.main(ActivityThread.java:4340)
+   E/AndroidRuntime( 1717): 	at java.lang.reflect.Method.invokeNative(Native Method)
+   E/AndroidRuntime( 1717): 	at java.lang.reflect.Method.invoke(Method.java:511)
+   E/AndroidRuntime( 1717): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:784)
+   E/AndroidRuntime( 1717): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:551)
+   E/AndroidRuntime( 1717): 	at dalvik.system.NativeStart.main(Native Method)
+   E/AndroidRuntime( 1717): Caused by: android.database.StaleDataException: Attempted to access a cursor after it has been closed.
+   E/AndroidRuntime( 1717): 	at android.database.BulkCursorToCursorAdaptor.throwIfCursorIsClosed(BulkCursorToCursorAdaptor.java:75)
+   E/AndroidRuntime( 1717): 	at android.database.BulkCursorToCursorAdaptor.requery(BulkCursorToCursorAdaptor.java:144)
+   E/AndroidRuntime( 1717): 	at android.database.CursorWrapper.requery(CursorWrapper.java:182)
+   E/AndroidRuntime( 1717): 	at android.app.Activity.performRestart(Activity.java:4505)
+   E/AndroidRuntime( 1717): 	at android.app.Activity.performResume(Activity.java:4531)
+   E/AndroidRuntime( 1717): 	at android.app.ActivityThread.performResumeActivity(ActivityThread.java:2433)
+   E/AndroidRuntime( 1717): 	... 10 more
+   W/ActivityManager(   87):   Force finishing activity com.prevost.irishdialer/.IrishDialerActivity
+   W/ActivityManager(   87): Activity pause timeout for ActivityRecord{4124da40 com.prevost.irishdialer/.IrishDialerActivity}
+   W/NetworkManagementSocketTagger(   87): setKernelCountSet(10021, 1) failed with errno -2
+   W/NetworkManagementSocketTagger(   87): setKernelCountSet(10049, 0) failed with errno -2
+   I/Process ( 1717): Sending signal. PID: 1717 SIG: 9
+   I/ActivityManager(   87): Process com.prevost.irishdialer (pid 1717) has died.
+   W/InputDispatcher(   87): channel '41348050 com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity (server)' ~ Consumer closed input channel or an error occurred.  events=0x8
+   E/InputDispatcher(   87): channel '41348050 com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity (server)' ~ Channel is unrecoverably broken and will be disposed!
+   I/WindowManager(   87): WIN DEATH: Window{413627a8 com.prevost.irishdialer/ti.modules.titanium.ui.android.TiPreferencesActivity paused=false}
+   I/WindowManager(   87): WIN DEATH: Window{41348050 com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity paused=false}
+   W/InputDispatcher(   87): Attempted to unregister already unregistered input channel '41348050 com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity (server)'
+   I/WindowManager(   87): WINDOW DIED Window{41348050 com.prevost.irishdialer/com.prevost.irishdialer.IrishDialerActivity paused=false}
+   E/InputDispatcher(   87): Received spurious receive callback for unknown input channel.  fd=191, events=0x8
+   W/InputManagerService(   87): Got RemoteException sending setActive(false) notification to pid 1717 uid 10049
+   W/ActivityManager(   87): Activity destroy timeout for ActivityRecord{4124da40 com.prevost.irishdialer/.IrishDialerActivity}
+   W/ActivityManager(   87): Activity destroy timeout for ActivityRecord{412aaf78 com.prevost.irishdialer/ti.modules.titanium.ui.android.TiPreferencesActivity}
+   ===============================================================</li>
+<li>Ping Wang 2011-11-28
+
+   May be resolved by PR <a href="https://github.com/appcelerator/titanium_mobile/pull/778" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/778</a></li>
+<li>Hieu Pham 2011-12-01
+
+   Cannot reproduce with latest master</li>
+<li>Rima Umbrasas 2012-08-13
+
+   Verified fixed with 
+   mobile sdk-2.2.0.v20120810080115
+   Titanium Studio, build: 2.1.1.201207271312
+   Device:
+   Galaxy S III Android version 4.0.4
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6303.json">JSON Source</a></p>

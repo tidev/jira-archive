@@ -1,0 +1,133 @@
+---
+title: "[TIMOB-23638] Android: Unable to debug an application with newer V8"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-02T13:28:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ewan Harris</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-07-14T14:31:27.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+
+When debugging a project on Titanium SDK 6.0.0+ on Android, the debugger does not work at all.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-07-14
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/8136" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8136</a></li>
+<li>Christopher Williams 2016-07-21
+
+   For QE: V8 used to have a piece that would open a socket and handle connections to the debugger directly. With the update to V8, I needed to re-implement that piece since it had been removed. So really, the test here is simply to ensure you can debug applications on Titanium 6.0.0+ with Studio (ideally an alloy and classic project).</li>
+<li>Ashraf Abu 2016-07-29
+
+   [~cwilliams] I just happened to try this again on master as well as the build for master 6.0.0.v20160728020336.
+   
+   Perhaps it could be my environment but debugging doesn't seem to be working again for me. I'm currently still checking this out. Trying to see if I can get it working.</li>
+<li>Christopher Williams 2016-08-01
+
+   Crap, yeah this was working with the PR, we both had it working, right?
+   
+   Anyways, I see that:
+   1. It doesn't work with run-on-main-thread on.
+   2. It crashes with it off:
+   <code><pre>
+   [INFO] :   OpenGLRenderer: Initialized EGL, version 1.4
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410] JNI DETECTED ERROR IN APPLICATION: thread Thread[1,tid=3181,Native,Thread*=0xf4074500,peer=0x7499b258,"main"] using JNIEnv* from thread Thread[1,tid=3181,Native,Thread*=0xf4074500,peer=0x7499b258,"main"]
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]     in call to NewString
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]     from void org.appcelerator.kroll.runtime.v8.JSDebugger.nativeProcessDebugMessages()
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410] "main" prio=5 tid=1 Runnable
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   | group="main" sCount=0 dsCount=0 obj=0x7499b258 self=0xf4074500
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   | sysTid=3181 nice=0 cgrp=default sched=0/0 handle=0xf7758c00
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   | state=R schedstat=( 0 0 0 ) utm=7 stm=3 core=1 HZ=100
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   | stack=0xff0f9000-0xff0fb000 stackSize=8MB
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   | held mutexes= "mutator lock"(shared held)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #00 pc 0058bae2  /system/lib/libart.so (art::DumpNativeStack(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, int, char const*, art::ArtMethod*, void*)+226)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #01 pc 0055172e  /system/lib/libart.so (art::Thread::Dump(std::__1::basic_ostream<char, std::__1::char_traits<char> >&) const+286)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #02 pc 003a461f  /system/lib/libart.so (art::JavaVMExt::JniAbort(char const*, char const*)+1247)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #03 pc 003a5c9c  /system/lib/libart.so (art::JavaVMExt::JniAbortV(char const*, char const*, char*)+116)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #04 pc 00163950  /system/lib/libart.so (art::ScopedCheck::AbortF(char const*, ...)+62)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #05 pc 0016d84c  /system/lib/libart.so (art::ScopedCheck::CheckThread(_JNIEnv*)+1692)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #06 pc 0016e421  /system/lib/libart.so (art::ScopedCheck::Check(art::ScopedObjectAccess&, bool, char const*, art::JniValueType*) (.constprop.114)+1489)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #07 pc 0017c02c  /system/lib/libart.so (art::CheckJNI::NewString(_JNIEnv*, unsigned short const*, int)+620)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #08 pc 002c461b  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (titanium::TypeConverter::jsStringToJavaString(_JNIEnv*, v8::Local<v8::String>)+91)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #09 pc 002bb9d4  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (titanium::JSDebugger::MessageHandler(v8::Debug::Message const&)+84)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #10 pc 0076de12  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (v8::internal::Debug::NotifyMessageHandler(v8::DebugEvent, v8::internal::Handle<v8::internal::JSObject>, v8::internal::Handle<v8::internal::JSObject>, bool)+1266)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #11 pc 0076e243  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (v8::internal::Debug::ProcessDebugEvent(v8::DebugEvent, v8::internal::Handle<v8::internal::JSObject>, bool)+195)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #12 pc 0076e38e  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (v8::internal::Debug::OnDebugBreak(v8::internal::Handle<v8::internal::Object>, bool)+206)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #13 pc 0076e4b2  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (v8::internal::Debug::ProcessDebugMessages(bool)+226)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #14 pc 004d0469  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (v8::Debug::ProcessDebugMessages(v8::Isolate*)+41)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #15 pc 002bbbcf  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (titanium::JSDebugger::processDebugMessages()+31)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #16 pc 002bbc84  /data/app/com.axway.debug.test-2/lib/x86/libkroll-v8.so (Java_org_appcelerator_kroll_runtime_v8_JSDebugger_nativeProcessDebugMessages+20)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   native: #17 pc 003c2794  /data/app/com.axway.debug.test-2/oat/x86/base.odex (Java_org_appcelerator_kroll_runtime_v8_JSDebugger_nativeProcessDebugMessages__+104)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at org.appcelerator.kroll.runtime.v8.JSDebugger.nativeProcessDebugMessages(Native method)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at org.appcelerator.kroll.runtime.v8.JSDebugger.access$000(JSDebugger.java:29)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at org.appcelerator.kroll.runtime.v8.JSDebugger$1.run(JSDebugger.java:65)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at android.os.Handler.handleCallback(Handler.java:739)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at android.os.Handler.dispatchMessage(Handler.java:95)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at android.os.Looper.loop(Looper.java:148)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at android.app.ActivityThread.main(ActivityThread.java:5417)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at java.lang.reflect.Method.invoke!(Native method)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:726)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:616)
+   [INFO] :   art: art/runtime/java_vm_ext.cc:410]
+   [ERROR] :  art: Unexpected time out during dump checkpoint.
+   [INFO] :   art: art/runtime/barrier.cc:90] Check failed: count_ == 0 (count_=1, 0=0) Attempted to destroy barrier with non zero count
+   [INFO] :   art: art/runtime/runtime.cc:366] Runtime aborting --- recursively, so no thread-specific detail!
+   [INFO] :   art: art/runtime/runtime.cc:366]
+   
+   </pre></code></li>
+<li>Christopher Williams 2016-08-01
+
+   The more I look at this issue, the more I am confused.
+   
+   So, I think there's a possible bug around the JNIEnv issue I noted, and I have a local fix for that. But I am getting crashes and odd behavior left and right here.
+   
+   I _think_ we may be running into a V8 GC race issue, similar to: <a href="https://github.com/nodejs/node/issues/7654" rel="nofollow" target="_blank">https://github.com/nodejs/node/issues/7654</a>
+   
+   If I run a local Appc Studio dev intense through Eclipse under the debugger, I can avoid the crashes by breaking in Java code that firs events down to V8. So it appears there may be some GC race condition involved.
+   
+   I'm testing with run-on-main-thread turned to true. But I'm also almost never getting it to stop on an actual breakpoint. I see the commands to set the breakpoint, but it never seems to actually hit the breakpoint!</li>
+<li>Christopher Williams 2016-08-01
+
+   Spoke too soon. This plays a role with the recent changes to fix the actual names used for __filename and __dirname. Apparently the debugger code in Studio always hacks off the leading '/', and therefore the name Studio's debugger uses and the name used by V8 don't match. That's why the breakpoints never got "hit".
+   
+   So to sum up:
+   - There's a bug with the handling of JNIEnv sometimes, I have a local fix.
+   - I think there's a V8 GC race condition bug that was triggering constantly for me before, but now won't.
+   - The changes to use proper absolute paths for __filename caused a mismatch between Studio and V8 in file naming. This will require a fix to Studio to retain the leading slash (or maybe toggle behavior based on SDK version?)</li>
+<li>Christopher Williams 2016-08-01
+
+   We may want to update the V8 patch rev to grab the latest fixes on 5.1.x branch. I see one related to debugging: <a href="https://github.com/v8/v8/commit/4bf0f334fdca37c55e28cff7281d6b548e7f98cf" rel="nofollow" target="_blank">https://github.com/v8/v8/commit/4bf0f334fdca37c55e28cff7281d6b548e7f98cf</a></li>
+<li>Christopher Williams 2016-08-01
+
+   Setting run-on-main-thread to false seems to have brought back the GC crashing/race issue for me. Ugh.</li>
+<li>Christopher Williams 2016-08-01
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/8185" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8185</a></li>
+<li>Christopher Williams 2016-08-01
+
+    <a href="https://github.com/appcelerator/titanium_studio/pull/793" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_studio/pull/793</a></li>
+<li>Ashraf Abu 2016-08-02
+
+    Both Titanium SDK and Studio PR are merged.</li>
+<li>Eric Merriman  2018-08-06
+
+    Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23638.json">JSON Source</a></p>

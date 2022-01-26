@@ -1,0 +1,289 @@
+---
+title: "[TIMOB-26607] Android: Camera media json contains whole folder tree"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, engSchedule, file</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-09-18T18:20:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-25T15:38:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<code><pre>
+var win = Titanium.UI.createWindow();
+var btn = Ti.UI.createButton({
+	title: "cam"
+});
+win.add(btn);
+btn.addEventListener("click", function() {
+	Ti.Media.showCamera({
+		success: function(e) {
+			outputFile(e.media.file);
+		},
+		animate: false
+	});
+})
+
+function outputFile(f) {
+	console.log(f.nativePath);
+	console.log(f.directoryListing);
+	if (f.parent!=null){
+		outputFile(f.parent);
+	}
+}
+
+win.open();
+</pre></code>
+
+Not sure if it's by design or needed somewhere but when you print out the media that is returned by the camera you'll find folder/file structure from your app up to the root folder:
+
+The output from the above code on my phone will be:
+
+<code><pre>
+{
+    "height": 2368,
+    "type": 1,
+    "mimeType": "image/jpeg",
+    "text": null,
+    "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp/tia737439898.jpg",
+    "width": 4208,
+    "length": 2104961,
+    "file": {
+        "writable": true,
+        "executable": false,
+        "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp/tia737439898.jpg",
+        "name": "tia737439898.jpg",
+        "symbolicLink": false,
+        "size": 2104961,
+        "directoryListing": null,
+        "hidden": false,
+        "readonly": false,
+        "parent": {
+            "writable": true,
+            "executable": false,
+            "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp",
+            "name": "_tmp",
+            "symbolicLink": false,
+            "size": 4096,
+            "directoryListing": ["tia737439898.jpg", "remote-cache"],
+            "hidden": false,
+            "readonly": false,
+            "parent": {
+                "writable": true,
+                "executable": false,
+                "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache",
+                "name": "cache",
+                "symbolicLink": false,
+                "size": 4096,
+                "directoryListing": ["_tmp"],
+                "hidden": false,
+                "readonly": false,
+                "parent": {
+                    "writable": true,
+                    "executable": false,
+                    "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera",
+                    "name": "com.miga.testcamera",
+                    "symbolicLink": false,
+                    "size": 4096,
+                    "directoryListing": ["cache", "files"],
+                    "hidden": false,
+                    "readonly": false,
+                    "parent": {
+                        "writable": true,
+                        "executable": false,
+                        "nativePath": "file:///storage/emulated/0/Android/data",
+</pre></code>
+
+the next output will be all my folders on the SD card, then it will go up and show a warning
+<code><pre>
+W/miga.testcamera: type=1400 audit(0.0:48590): avc: denied { read } for name="/" dev="rootfs" ino=1 scontext=u:r:untrusted_app:s0:c512,c768 tcontext=u:object_r:rootfs:s0 tclass=dir permissive=0
+</pre></code> 
+since it's not rooted and can't access all the folders. So depending on your structure and the amount of folders you have the output will be very large. 
+It should stop at the app level if the information is not needed in any other place.
+
+Sure on android you can change the folder via code but the JSON output is cut of because it's too big and that is not needed in this case I think.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-06-18
+
+   [~michael], this issue was resolved in Titanium 8.0.0.
+   
+   We removed the "directoryListing" property from the <code>Ti.Filesystem.File</code> object. It's now a method instead that. So, doing a stringify on the object will no longer output the directory listing anymore.
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/39c330fc2d8730dcd31d5976f298289f963c2c57#diff-270689a7e55b3ec8920d9cfec7c0846a" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/39c330fc2d8730dcd31d5976f298289f963c2c57#diff-270689a7e55b3ec8920d9cfec7c0846a</a>
+   </li>
+<li>Michael Gangolf 2019-06-18
+
+   Yes, the directoryListing is gone but output with 8.0.1.GA is still
+   <code><pre>
+   {
+       "y": 0,
+       "x": 0,
+       "height": 2368,
+       "width": 4208,
+       "media": {
+           "height": 2368,
+           "type": 1,
+           "mimeType": "image/jpeg",
+           "text": null,
+           "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp/tia1364273087.jpg",
+           "width": 4208,
+           "length": 1982269,
+           "size": 9964544,
+           "file": {
+               "writable": true,
+               "executable": false,
+               "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp/tia1364273087.jpg",
+               "name": "tia1364273087.jpg",
+               "symbolicLink": false,
+               "size": 1982269,
+               "hidden": false,
+               "readonly": false,
+               "parent": {
+                   "writable": true,
+                   "executable": false,
+                   "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache/_tmp",
+                   "name": "_tmp",
+                   "symbolicLink": false,
+                   "size": 4096,
+                   "hidden": false,
+                   "readonly": false,
+                   "parent": {
+                       "writable": true,
+                       "executable": false,
+                       "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera/cache",
+                       "name": "cache",
+                       "symbolicLink": false,
+                       "size": 4096,
+                       "hidden": false,
+                       "readonly": false,
+                       "parent": {
+                           "writable": true,
+                           "executable": false,
+                           "nativePath": "file:///storage/emulated/0/Android/data/com.miga.testcamera",
+                           "name": "com.miga.testcamera",
+                           "symbolicLink": false,
+                           "size": 4096,
+                           "hidden": false,
+                           "readonly": false,
+                           "parent": {
+                               "writable": true,
+                               "executable": false,
+                               "nativePath": "file:///storage/emulated/0/Android/data",
+                               "name": "data",
+                               "symbolicLink": false,
+                               "size": 4096,
+                               "hidden": false,
+                               "readonly": false,
+                               "parent": {
+                                   "writable": true,
+                                   "executable": false,
+                                   "nativePath": "file:///storage/emulated/0/Android",
+                                   "name": "Android",
+                                   "symbolicLink": false,
+                                   "size": 4096,
+                                   "hidden": false,
+                                   "readonly": false,
+                                   "parent": {
+                                       "writable": true,
+                                       "executable": false,
+                                       "nativePath": "file:///storage/emulated/0",
+                                       "name": "0",
+                                       "symbolicLink": false,
+                                       "size": 4096,
+                                       "hidden": false,
+                                       "readonly": false,
+                                       "parent": {
+                                           "writable": false,
+                                           "executable": false,
+                                           "nativePath": "file:///storage/emulated",
+                                           "name": "emulated",
+                                           "symbolicLink": false,
+                                           "size": 4096,
+                                           "hidden": false,
+                                           "readonly": false,
+                                           "parent": {
+                                               "writable": false,
+                                               "executable": false,
+                                               "nativePath": "file:///storage",
+                                               "name": "storage",
+                                               "symbolicLink": false,
+                                               "size": 100,
+                                               "hidden": false,
+                                               "readonly": true,
+                                               "parent": {
+                                                   "writable": false,
+                                                   "executable": false,
+                                                   "nativePath": "file:///",
+                                                   "name": "",
+                                                   "symbolicLink": false,
+                                                   "size": 0,
+                                                   "hidden": false,
+                                                   "readonly": false,
+                                                   "parent": null,
+                                                   "apiName": "Ti.Proxy",
+                                                   "bubbleParent": true
+                                               },
+                                               "apiName": "Ti.Proxy",
+                                               "bubbleParent": true
+                                           },
+                                           "apiName": "Ti.Proxy",
+                                           "bubbleParent": true
+                                       },
+                                       "apiName": "Ti.Proxy",
+                                       "bubbleParent": true
+                                   },
+                                   "apiName": "Ti.Proxy",
+                                   "bubbleParent": true
+                               },
+                               "apiName": "Ti.Proxy",
+                               "bubbleParent": true
+                           },
+                           "apiName": "Ti.Proxy",
+                           "bubbleParent": true
+                       },
+                       "apiName": "Ti.Proxy",
+                       "bubbleParent": true
+                   },
+                   "apiName": "Ti.Proxy",
+                   "bubbleParent": true
+               },
+               "apiName": "Ti.Proxy",
+               "bubbleParent": true
+           },
+           "apiName": "Ti.Blob",
+           "bubbleParent": true
+       },
+       "code": 0,
+       "mediaType": "public.image",
+       "cropRect": {
+           "height": 2368,
+           "width": 4208,
+           "y": 0,
+           "x": 0
+       },
+       "success": true
+   }
+   </pre></code>
+   
+   The parent still goes up to file/// and leaving the app folder. The question is if that is necessary at all. </li>
+<li>Joshua Quick 2019-06-19
+
+   Oh... you're right.
+   
+   It sounds like we need to set up the "parent" property as *not* enumerable.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26607.json">JSON Source</a></p>

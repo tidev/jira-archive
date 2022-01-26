@@ -1,0 +1,230 @@
+---
+title: "[TIMOB-23884] iOS: SafariDialog is not redirecting back to app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-11T14:46:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Christy Thomas</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-09-08T23:01:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:52:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We are using ti.safaridialog to launch a web page in our app.  Our web page on submit will change the window.location.href to a url scheme we are using for our app (dwea://anything).  Instead of going back to the app the safaridialog stays up and the screen goes blank.  Hitting Done is the only way to get back.  This was working on iOS 9.3 and is no longer working with iOS 10.
+
+Also the link we are setting to href works in Safari and goes back to the app.  (dwea://anything)
+
+At first I thought this might be an Apple bug, but then I tried using Cluster, which is an app in the app store that uses SFSafariViewController and it works on iOS 10 and goes back to the app.
+<a href="https://library.launchkit.io/how-ios-9-s-safari-view-controller-could-completely-change-your-app-s-onboarding-experience-2bcf2305137f#.q0qo38uoi" rel="nofollow" target="_blank">https://library.launchkit.io/how-ios-9-s-safari-view-controller-could-completely-change-your-app-s-onboarding-experience-2bcf2305137f#.q0qo38uoi</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-09-09
+
+   Hello, Can you try with the latest SDK 5.4.0.GA? It would be helpful if you provide a full test case and a list of steps to follow for us to successfully regenerate the issue. We will look into it. Thanks.</li>
+<li>Christy Thomas 2016-09-09
+
+   I tried with 5.4.0.GA and I still see the same problem.
+   
+   I'm now working on a sample app with a repo for you.</li>
+<li>Hans Knöchel 2016-09-09
+
+   [~cthomas] I'm already investigating it by opening the dialog to a custom page that redirects to <code>fb://</code>. After clicking back, it will open the app again, which should match that behavior. If that does not work, I will create a quick app that redirects back so we have a full loop. I will update you when I know more. And just out of curiosity: It should have the same behavior on iOS 9, right?</li>
+<li>Christy Thomas 2016-09-09
+
+   Thanks.  This works great on iOS 9 and does not work on iOS 10.
+   
+   My safari dialog is presenting a web page with a button that redirects back to my app with window.location.href="myapp://".   I'm not clicking back.  The Done button in the safari dialog works fine.</li>
+<li>Christy Thomas 2016-09-09
+
+   I have a feeling it has to do with the resumed app event as we are looking for this and then we close the safari dialog.  My guess is the source may have changed.   I'm still troubleshooting and the unfortunate thing is I only have an iPad to test on and the debugging is very limited.  NSLog no longer works and nothing from titanium Ti.API.error is being output in the log.  <a href="https://forums.developer.apple.com/thread/49323" rel="nofollow" target="_blank">https://forums.developer.apple.com/thread/49323</a>
+   
+   <code><pre>
+   Ti.App.addEventListener('resumed', function(e) {
+           var args = Ti.App.getArguments();
+           // only do something if this was launched via safari dialog
+           if (args.source == 'com.apple.SafariViewService') {
+               Alloy.eventDispatcher.trigger('appLaunch:browserUrl', args); // this will close the safari dialog
+           }
+       }
+   });
+   </pre></code>
+   
+   </li>
+<li>Christy Thomas 2016-09-09
+
+   So I think it might be redirecting to the app, but the 'resumed' event is not being triggered.  This is where we then close the safari dialog.   Even if I remove the check for args.source it still doesn't close the safari dialog.</li>
+<li>Hans Knöchel 2016-09-09
+
+   Here is my current demo-code:
+   
+   <code><pre>
+   var safari = require("ti.safaridialog");
+   
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff"
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: "Open safari dialog"
+   });
+   
+   btn.addEventListener("click", function() {
+       Ti.API.warn("Clicked!");
+   
+       safari.open({
+   		url:"<a href="http://hans-knoechel.de/TIMOB-23884.php" rel="nofollow" target="_blank">http://hans-knoechel.de/TIMOB-23884.php</a>",
+   		title:"Hello World",
+   		tintColor:"red",
+   	});
+   });
+   
+   Ti.App.addEventListener("resumed", function() {
+       safari.close();
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code>
+   
+   It opens the Facebook-app and using the iOS 10 back-button in the top-left corner of the status-bar, we can trigger the event. Let me debug the source next.</li>
+<li>Christy Thomas 2016-09-09
+
+   You have a bit different repro than I do.  I'm not using a back-button in the top left corner of the status-bar.  I'm using a button on my web page that is opened in the safari dialog.
+   
+   I am using the safaridialogissue:// as the window.location.href that I defined in the plist section of my tiapp.xml file as shown below.
+   
+   <code><pre>
+               <key> CFBundleURLTypes </key>
+               <array>
+                   <dict>
+                       <key> CFBundleURLName </key>
+                       <string>com.test.safaridialogissue</string>
+                       <key> CFBundleURLSchemes </key>
+                       <array>
+                           <string>safaridialogissue</string>
+                       </array>
+                   </dict>
+               </array>
+   </pre></code>
+   
+   Change your <a href="http://hans-knoechel.de/TIMOB-23884.php" rel="nofollow" target="_blank">http://hans-knoechel.de/TIMOB-23884.php</a> to have the Open Facebook link actually open your app with the url scheme you define:
+   
+   <code><pre>
+   
+   <script>
+   function onClick() {
+       var url = 'safaridialogissue://';
+       alert('changing to ' + url);
+       window.location.href=url;
+   }
+   </script>
+   <input type="button" value="Click Me" onclick="onClick()"/>
+   </pre></code>
+   
+   
+   If I open my web page in Safari (click on the navigation icon in the safari dialog toolbar) and click on the 'Click Me' link it will go back to my app and close the safari dialog.  It will not close the safari dialog when clicking on 'Click Me' in the safari dialog.  Does the 'resumed' event no longer get called when it is resumed and a Safari Dialog is open?</li>
+<li>Christy Thomas 2016-09-09
+
+   Also tintColor setting is not working for me on iOS 10 (AC-4435).  I'm not seeing your "red" color either.  That worked in iOS 9.</li>
+<li>Hans Knöchel 2016-09-09
+
+    Yes, already have those covered in my changes (same with <code>preferredBarTintColor</code> that will be exposed as <code>barColor</code> on iOS 10). I will let you know about updated on the redirect thing before.</li>
+<li>Hans Knöchel 2016-09-11
+
+    [~cthomas] After some research, I first thought it's the same as in TIMOB-23890, but that's most likely something related to the FB-SDK, since native devs run into the same kind of issues. Then I found [this thread](<a href="https://forums.developer.apple.com/thread/62012)" rel="nofollow" target="_blank">https://forums.developer.apple.com/thread/62012)</a> that is suggesting to change the way to open the controller, so I will try that next. Another thing I noticed is that the dialog does not open modal but as a sub-window. Did you see this as well?</li>
+<li>Hans Knöchel 2016-09-11
+
+    Ok, I have the testing-environment set-up. I open the redirect-app from the web-url that is passed to the safaridialog. In that app, i have a "back to other app" button, that opens the app again. What I notice is that the source is "com.test.safaridialogissue", not "com.apple.SafariViewService" which makes sense, because the app is opened by a different app. So I'm coming to the conclusion that you should do the check whether the dialog is open our not by checking is <code>isOpen</code> property in the <code>resume</code> event instead. I guess Apple simply removed the "old" SafariViewService identifier to match the "actual" source-behavior. 
+    
+    Module-build (custom) used: <a href="https://www.dropbox.com/s/4k62a2ub51vrp51/ti.safaridialog-iphone-1.0.5.zip?dl=1" rel="nofollow" target="_blank">https://www.dropbox.com/s/4k62a2ub51vrp51/ti.safaridialog-iphone-1.0.5.zip?dl=1</a>
+    
+    Resolving this issue as "Not our Bug" for now, unless we find a different evidence. Thank you!</li>
+<li>Christy Thomas 2016-09-11
+
+    In my testing I am finding that 'resumed' in my test appcelerator app is not being triggered when calling safaridialogissue:// from the ti.safaridialog.  If I do safaridialogissue:// from the Safari browser 'resumed' is triggered.  I put an alert at the top of the event listener even before I am looking at the args.source from var args = Ti.App.getArguments();.  I only see the alert from Safari browser and not from ti.safaridialog.
+    
+    I'm going to try your ti.safaridialog that you uploaded.  I didn't see that in the above test.
+    
+    </li>
+<li>Hans Knöchel 2016-09-11
+
+    I am using the module build attached to the last comment, please test that and make sure the 1.0.5 is selected.</li>
+<li>Christy Thomas 2016-09-11
+
+    I tried your attached module and I still see 'resumed' is not being triggered.
+    
+    I did see the tintColor working so I know the new module is being used.   Thanks for that fix! </li>
+<li>Hans Knöchel 2016-09-11
+
+    Ok, so it must be something with your resume-event not being placed globally enough to be always called and/or some other process in your app is intercepting it. As I can not reproduce it, we can't do much right now.</li>
+<li>Christy Thomas 2016-09-11
+
+    I reproduced it in my app and this sample app below:
+    
+    <a href="https://www.dropbox.com/s/3zv12afg1ge64sp/SafariDialogIssue.zip?dl=0" rel="nofollow" target="_blank">https://www.dropbox.com/s/3zv12afg1ge64sp/SafariDialogIssue.zip?dl=0</a>
+    
+    Can you try this and see if you are able to reproduce the problem?</li>
+<li>Hans Knöchel 2016-09-12
+
+    There are many issues with your sample project:
+    - 5.4.0.GA instead of 5.5.0 used (required for iOS 10)
+    - The <code>CFBundleURLTypes</code> key (and others) contain spaces before and after the key/value
+    - The <code>resumed</code> event-listener is placed locally instead of globally (Alloy.js is for that)
+    
+    And finally, the <code>resumed</code> event is not supposed to fire when you work with the SafariDialog, because you don't leave the app. We just bubble the event from the native <code>- (void)applicationDidBecomeActive:(UIApplication *)application</code> delegate. And since that one does only fire after leaving and returning to the app, it won't be fired if you don't leave it. In my other use-case, I made two apps where I switched to that one and returned, which triggered the resumed event and closed the dialog. 
+    
+    *EDIT*: Just added another test-case to my environment: I can now confirm that the above delegate *does* fire for iOS < 10 but not on iOS 10. You might want to file a bugreport to Apple, I'm wondering why they changed that and if other people ran into that issue. But for now that is the best way to go. </li>
+<li>Christy Thomas 2016-09-12
+
+    I am unable to find out how to install 5.5.0.  It seems 5.4.0 is still the latest.  Where can I get the pre-release?
+    
+    Is that rule about the 'resumed' event not supposed to fire when you work with the SafariDialog new?  In iOS 9 it was fired.  If that is not the case how am I supposed to get something done in SafariDailog and then get back to my app?  The web page has to be able to interact with the app that was running.
+    
+    The whole point of using the SafariDialog is to gather additional information and then get back to the app.  What is the proper way to do that.  I want to get back to the same app, not another app.  I don't have 2 apps.
+    
+    EDIT: I do have an Apple bug open and I have added the information you gave me to it.  Thank you.  The Apple bug id is 28211987.</li>
+<li>Hans Knöchel 2016-09-12
+
+    The 5.5.0.GA will be released tomorrow with the official iOS 10 release. You can get the current build from [here|builds.appcelerator.com/#5_5_X], we well as from the Beta- and RC-versions we released over the last weeks. As said above, it seems like either Apple changed that behavior on purpose or they broke the functionality. It's nothing we intercept with our SDK. Let me check how the whole thing behaves natively, I get your point and trying to help as much as possible :-)
+    
+    *EDIT*: Thanks for the bugreport, I'm really interested on what they will answer. Thanks for that! Unfortunately, they have several more issues that were still present in the 7.0 GM last week, so there will likely be a 7.0.1 very soon, hopefully with that one as well - or they give a good reason why it's not firing.</li>
+<li>Christy Thomas 2016-09-12
+
+    I was looking at the apple UIApplicationDelegate and wondered if other events are calls are happening like applicationWillEnterForeground.
+    
+    The Cluster app that I originally posted in this ticket works with iOS 10 so they must have figured out a way to get back to the app after using SFSafariViewController.  They jump out to FB for login and then get back to the app and with my investigation it looks like they are using the url scheme to do so.
+    
+    I really appreciate all your help!
+    
+    I've had the Apple bug open since Thursday and no one has responded to it yet. Do you have any tricks to get action on that?  Maybe more than one person reporting it.</li>
+<li>Hans Knöchel 2016-09-12
+
+    I created a native reproducible case that you can hand out to Apple: <a href="https://www.dropbox.com/s/jqfz1rahowvl228/safaridialogtest.zip?dl=1" rel="nofollow" target="_blank">https://www.dropbox.com/s/jqfz1rahowvl228/safaridialogtest.zip?dl=1</a> As commented in the project, we might be able to expose a new event whenever the openURL delegate is called and provide the content of the launchOptions (aka Ti.App.getArguments()) there. Don't see a problem there. But that would go into 6.0.0, since 5.5.0 will already be released tomorrow.</li>
+<li>Hans Knöchel 2016-09-12
+
+    Follow-up ticket for that: TIMOB-23896</li>
+<li>Christy Thomas 2016-09-12
+
+    Thanks.  I have added that link to the Apple ticket.
+    
+    How long before 6.0.0?  That sounds like it will be a while vs a 5.6.0 release.
+    
+    Our customers will not be able to use our app as a result of this issue on iOS 10 and new iPads will come with 10 so they won't be able to avoid the update.</li>
+<li>Eric Merriman  2018-08-06
+
+    Closing as "not our bug". If you disagree, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23884.json">JSON Source</a></p>

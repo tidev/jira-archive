@@ -1,0 +1,292 @@
+---
+title: "[TIMOB-16879] ScrollableView: Add "insertViewsAt()" method"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-26T23:19:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android, iOS</td></tr>
+<tr><th>Labels</th><td>insert, scrollableView</td></tr>
+<tr><th>Reporter</th><td>Ed</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2014-04-16T21:27:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-14T13:12:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The ScrollableView currently supports the ".addView()" method to programmatically append additional views to the end of the collection. However, it has no method to insert one or more views at the beginning (prepend), or somewhere in the middle of the collection.
+
+A [suggested workaround](<a href="http://developer.appcelerator.com/question/161891/scrollable-view---insert-a-view-into-a-specific-spot)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/161891/scrollable-view---insert-a-view-into-a-specific-spot)</a> for this limitation involves getting the views array with .getViews(), updating the array, then re-assiging the views array back to the control with .setViews(). While this works, it is not efficient and causes significant flickering on the UI with complex views, every time .setViews() is used.
+
+It would be great to have a method like ".insertViewsAt(idx, views)" so one item (or more) can be prepended or inserted at specific locations without requiring the entire views collection to be re-bound and rendered.  
+
+This would also bring the ScrollableView control in line with ListView and TableView, both of which feature "insert" methods.
+
+In my particular case; I'm using a ScrollableView to page through over 500 views which are fairly complex. Loading all views into the ScrollableView is not an option as that takes too much memory and crashes the app.  My solution is to have a sliding range that loads 9 views at a time (4 before and 4 after the current page) on the ScrollableView.  And as the user moves left or right, it dynamically prepends or appends more views as needed, removing views also from the opposite end so only 9 views are loaded at any given time. Appending with addView() works well (no need for setViews(), so no flickering), but prepending with the getViews()/update/setViews() process does not work well in these situations.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-04-23
+
+   Thanks for the nice writeup. I am curious if you have played around with cacheSize property of ScrollableView for your use case.</li>
+<li>Ed 2014-04-23
+
+   </li>
+<li>Ritu Agrawal 2014-04-24
+
+   Moving this feature request to engineering for further evaluation and prioritization.</li>
+<li>Alexey Chulochnikov 2014-05-13
+
+   +1 for that feature</li>
+<li>Viktor Korol 2014-06-13
+
+   Please implement this feature.</li>
+<li>Nastya Lytvyn 2014-06-19
+
+   +1 !!!</li>
+<li>Creative 2015-08-04
+
+   +1, very much needed. There currently seems to be no way to have an endless scrolling scrollableview without flickerings.</li>
+<li>Tobias Høegh 2015-11-24
+
+   Hope to see this soon alive!</li>
+<li>Nuno Costa 2015-12-09
+
+   </li>
+<li>Jeff Antram 2016-02-11
+
+    @nuno, that's a different use case - vertical/horizontal layout container views.
+    
+    +1 for adding this feature</li>
+<li>Nuno Costa 2016-02-16
+
+    Any news on  insertViewsAt(index, views)   in order to add a bulk views in one operation ? 
+    
+    Thanks Nuno</li>
+<li>Tobias Høegh 2016-02-17
+
+    I know, not a cool solution. But if you just have to, then go for it. Maybe this could be made as an module. I just needed a addViewToStart (beginning) - so I manipulated the SDK (bad solution). But this could probably be used to be manipulated to make a function like insertViewAt() 
+    
+    <code><pre>
+    //Add this to TiUIScrollableViewProxy.m after addView 
+    -(void)addViewToStart:(id)args
+    {
+    	ENSURE_SINGLE_ARG(args,TiViewProxy);
+    
+    	[self lockViewsForWriting];
+    	[self rememberProxy:args];
+    	[args setParent:self];
+    	if (viewProxies != nil)
+    	{
+    		[viewProxies insertObject:args atIndex:0];
+    	}
+    	else
+    	{
+    		viewProxies = [[NSMutableArray alloc] initWithObjects:args,nil];
+    	}
+    	[self unlockViews];
+    	[self makeViewPerformSelector:@selector(addViewToStart:) withObject:args createIfNeeded:NO waitUntilDone:NO];
+    }
+    
+    //As well as this in TiUIScrollableView.m after addView
+    -(void)addViewToStart:(id)viewproxy
+    {
+    	[self refreshScrollView:[self bounds] readd:YES];
+    	[self setCurrentPage:NUMINT(1) animated:NUMBOOL(NO)];
+    }
+    
+    //As well as this in include/TiUIScrollableView.h after addView
+    -(void)addViewToStart:(id)viewproxy;
+    
+    //As well as this in Classes/TiUIScrollableView.h after addView
+    -(void)addViewToStart:(id)viewproxy;
+    
+    </pre></code>
+    </li>
+<li>Nuno Costa 2016-02-17
+
+    @Tobias Høegh, Thanks, Im testing!</li>
+<li>Nuno Costa 2016-02-17
+
+    @Tobias Høegh, can you please tell me what was your use case for? 
+     And how you implemented in js side? Was inside a loop like we with "addView " for infiniteve scroll
+    
+    
+    if I scroll to a point that I want insert views (pages )  at the top (index 0)  I just call like this:  (like infinitive scroll both directions)
+    
+    getPages(prev);
+    
+    <code><pre>
+    function getPages(prev) {
+        var cardView = {};
+        _.map(listArray, function(element) {
+            cardView = Alloy.createController('cardView', {
+                title : title,
+                imageThumb : element.image,
+            });
+    
+            if (prev === 'prev') {
+                // add the views to the TOP of any views that may have already in scrollableview
+                $.scrollAbleView.addViewToStart(cardView.getView());
+            } else {
+                // add the views to the end of list scrollableview
+                $.scrollPages.addView(cardView.getView());
+            }
+        });
+    }
+    </pre></code>
+    Now, if I scroll to the END of my list usually insert views normally  addView() method, in this case ,   I just call like this: (like infinitive scroll both directions)
+    
+    <code><pre>
+    getPages();
+    </pre></code>
+    
+    This make any sense to you?
+    PS. sorry for the format, not sure why so many spaces and P tags!</li>
+<li>Jeff Antram 2016-02-17
+
+    Adding this gist for reference
+    
+    [<a href="https://gist.github.com/dawsontoth/810171" rel="nofollow" target="_blank">https://gist.github.com/dawsontoth/810171</a>]
+    
+    Also, the setViews() method should not make the scrollableView flicker as it does at the moment.
+    </li>
+<li>Nuno Costa 2016-02-17
+
+    </li>
+<li>Jeff Antram 2016-02-17
+
+    @Nuno, nope, I don't see that issue at all. 
+    
+    I am building an infinite scrollable view, with no "insertAt" method, I'm using setViews as in Dawson Toth's gist. 
+    
+    The setViews() call results in a noticeable flicker on update.</li>
+<li>Nuno Costa 2016-02-18
+
+    @Tobias Høegh, that seams not doing what I want :(  
+    
+    "insertAt " aka  "preApend" items.
+    
+    "addView" aka "append item" does now!</li>
+<li>Tobias Høegh 2016-02-19
+
+    @nunocostapt I add 3 views on startup setting the currentPage to 1 (0,1,2) - is the user scrolling increasing, then I use addView when we get currentPage 2 or higher. On the opposite side, I call addViewToStart if the currentPage is 0. Check out my app and the due date picker or stats on top of profiles: <a href="https://itunes.apple.com/app/moogli/id1068103957" rel="nofollow" target="_blank">https://itunes.apple.com/app/moogli/id1068103957</a> - or check out the tweet I made: <a href="http://bit.ly/1RbK6fZ" rel="nofollow" target="_blank">http://bit.ly/1RbK6fZ</a>
+    
+    By the way, this infinite scrollable view is really not smooth and has a strange effect on scrolling slowly  <a href="http://bit.ly/1QNrkJ5" rel="nofollow" target="_blank">http://bit.ly/1QNrkJ5</a></li>
+<li>Jeff Antram 2016-02-19
+
+    That is the setViews call firing I think. 
+    
+    @Tobias have you looked at Android at all?</li>
+<li>Nuno Costa 2016-02-19
+
+    @Tobias Høegh  do you mind to share some piece of the code that please?</li>
+<li>Kiley Williams 2016-02-19
+
+    Just wanted to chime in here and say that this is something I wanted to file a long time ago, so +1 to this issue being fixed! an insertAt() or prepend() would be such a tremendous help. :)</li>
+<li>Carlos Henrique Zinato 2016-02-22
+
+    +1!</li>
+<li>Duy Bao Nguyen 2016-02-23
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7764" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7764</a></li>
+<li>Peter Friend 2016-03-09
+
+    +1 This is also something I've always wanted</li>
+<li>Chee Kiat Ng 2016-03-10
+
+    Thanks for the PR folks. We will look into this as soon as we can, because meanwhile, we are trying to make sure this UI component is working well on main thread and with auto layout. After this is stable (which is soon!), we will visit this PR.</li>
+<li>Kiley Williams 2016-04-15
+
+    @kiat, any updates/progress on this one?</li>
+<li>Hans Knöchel 2016-04-26
+
+    As discussed with [~bduyng@gmail.com], I did some minor refactoring on the initial PR to make it more generic. 
+    
+    Updated PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7966" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7966</a>
+    
+    Demo:
+    <code><pre>
+    var win = Ti.UI.createWindow();
+    
+    var view1 = Ti.UI.createView({ backgroundColor:'red' });
+    var view2 = Ti.UI.createView({ backgroundColor:'green' });
+    var view3 = Ti.UI.createView({ backgroundColor:'blue' });
+    
+    var scrollableView = Ti.UI.createScrollableView({
+      views:[view1,view2,view3],
+      showPagingControl:true
+    });
+    
+    win.add(scrollableView);
+    win.open();
+    
+    // insert a view at index 1
+    setTimeout(function(){
+      scrollableView.insertViewsAt(1, Ti.UI.createView({ backgroundColor:'yellow' }));
+      // NOW: red, -> yellow <-,green, blue
+    
+    }, 2000);
+    
+    // insert many views at index 1 (and 2, 3 since it's an array)
+    setTimeout(function(){
+      scrollableView.insertViewsAt(1, [
+        Ti.UI.createView({ backgroundColor:'purple' }),
+        Ti.UI.createView({ backgroundColor:'cyan' }),
+        Ti.UI.createView({ backgroundColor:'gray' })
+      ]);
+      // NOW: red, -> purple, cyan, gray <-, yellow, green, blue  
+    
+    }, 10000);
+    </pre></code></li>
+<li>Lokesh Choudhary 2016-07-07
+
+    Verified the implementation.
+    Works as expected.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio : 4.7.0.201606220541
+    Ti SDK :  5.4.0.v20160705213725
+    Ti CLI : 5.0.9
+    Alloy : 1.9.1
+    MAC El Capitan : 10.11.5
+    Appc NPM : 4.2.8-1
+    Appc CLI : 5.4.0-28
+    Node: 4.4.4
+    Nexus 6 - Android 6.0.1
+    </li>
+<li>Caio Iglesias 2016-07-13
+
+    I just tried this, and there doesn't seem to be a way to get away from flickering when adding views to position 0. :(
+    
+    Whenever a view is added to a position before your current page you get thrown around, and when you try to get back with setCurrentPage() it will flicker anyways.
+    </li>
+<li>Nuno Costa 2016-07-14
+
+    Caio Iglesias  yeah, Im in the same situation, I  added an array of 22 views to a position 0 to be at the very top, and when I try to get back with setCurrentPage() it will flicker anyways.  </li>
+<li>Nuno Costa 2016-10-28
+
+    Caio Iglesias and all, just and Update on this subject and related to  y above comment:
+    I added the prop. directly to .tss  
+    <code><pre>
+    cacheSize: 22
+    </pre></code>
+    
+    the same number (22) of the views that I have and will load in next round  and the flicker just gonne. :)
+    Im still testing with sdk 5.5.1</li>
+<li>Kiley Williams 2016-10-29
+
+    So if I understand this correctly, the cache size is what holds the views in place so that they don't move when new views are inserted?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16879.json">JSON Source</a></p>

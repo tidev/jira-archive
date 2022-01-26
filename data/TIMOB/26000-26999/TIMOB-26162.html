@@ -1,0 +1,167 @@
+---
+title: "[TIMOB-26162] iOS: Animation is not working when the app window is opened from the background."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-27T12:52:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>animation, ios, native_behavior</td></tr>
+<tr><th>Reporter</th><td>Jebun Naher</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2018-06-27T09:51:22.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-27T12:54:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Issue Description:*
+Animation is working fine if application is in foreground, but if we launch the app from background, animation is not working on iOS using ti SDK 7.2.0.GA, 7.0.2.GA. App just freezes. On android, it works as expected. 
+
+*Test Code:*
+*index.xml*
+<code><pre>
+<Alloy>
+	<Window class="container">
+		<View height="Ti.UI.SIZE" width = "100%" layout="vertical">
+			<Label id="title_lbl" touchEnabled="true"></Label>
+			<View id="progressBarView" height="5dp" backgroundColor= "#3340ae4d" width="218dp" top="16dp">
+				<View id="progressBarItemsView" height="Titanium.UI.FILL"  width="59dp" backgroundColor= "#40ae4d"></View>
+			</View>
+		</View>
+	</Window>
+</Alloy>
+</pre></code>
+
+*index.js*
+<code><pre>
+move($.progressBarItemsView);
+Ti.App.addEventListener("paused", onPausediOS);
+Ti.App.addEventListener("resumed", onResumediOS);
+function onPausediOS() {
+	move($.progressBarItemsView, true);
+}
+
+function onResumediOS() {
+	move($.progressBarItemsView, false);
+}
+
+/*function move(view) {
+ view.right = 0;
+ var origin = view.getRect();
+ var forth = Titanium.UI.createAnimation();
+ forth.duration = 1500;
+ forth.left = 0;
+ forth.autoreverse = true;
+ forth.repeat = 999999;
+ view.animate(forth);
+ }*/
+
+function move(view, pauseFlag) {
+	view.right = 0;
+	var origin = view.getRect();
+	var forth = Titanium.UI.createAnimation();
+	if (pauseFlag) {
+		forth.duration = 0;
+		forth.left = 0;
+		forth.autoreverse = false;
+		forth.repeat = 0;
+		//view.animate(forth);
+	} else {
+		Ti.API.info('pauseFlag>>>' + pauseFlag);
+		forth.duration = 1500;
+		forth.left = 0;
+		forth.autoreverse = true;
+		forth.repeat = 999999;
+		view.animate(forth);
+	}
+}
+
+$.index.open();
+</pre></code>
+
+*index.tss*
+<code><pre>
+".container": {
+	backgroundColor:"white"
+}
+
+"Label": {
+	width: Ti.UI.SIZE,
+	height: Ti.UI.SIZE,
+	color: "#000"
+}
+
+"#label": {
+	font: {
+		fontSize: 12
+	}
+}
+
+"#title_lbl":
+{
+	color: "#515151",
+	text: "Just a Moment . . .",
+	height: Titanium.UI.SIZE,
+	textAlign: Ti.UI.TEXT_ALIGNMENT_CENTER,
+	font: {
+		fontSize: "24sp",
+		//fontFamily: Alloy.Globals.IMG_CONFIG.FONT_SANS_REGULAR
+	},
+	touchEnabled: true,
+},
+</pre></code>
+
+*Steps to reproduce:*
+Run the test code.
+Observe that animation is working.
+Keep the app in background.
+Launch the app from background again and observe that animation does not work
+
+*Expected:*
+Animation should work when app is launched from background.
+
+*Actual:*
+Animation does not work
+
+*Test log:*
+<code><pre>
+[INFO] :   pauseFlag>>>undefined
+[DEBUG] :  Application booted in 3630.563974 ms
+[DEBUG] :  Firing app event: resumed
+[INFO] :   pauseFlag>>>false
+[WARN] :   New layout set while view [object progressBarItemsView] animating: Will relayout after animation.
+[WARN] :   New layout set while view [object progressBarItemsView] animating: Will relayout after animation.
+[WARN] :   New layout set while view [object progressBarItemsView] animating: Will relayout after animation.
+[WARN] :   New layout set while view [object progressBarItemsView] animating: Will relayout after animation.
+[DEBUG] :  Firing app event: paused
+[DEBUG] :  Firing app event: resumed
+[INFO] :   pauseFlag>>>false
+[DEBUG] :  Firing app event: paused
+[DEBUG] :  Firing app event: resumed
+[INFO] :   pauseFlag>>>false
+</pre></code>
+
+Dropbox link for animation POC:
+<a href="https://www.dropbox.com/s/pr2ua7ndz93pzhf/ProgressbarPOC.zip?dl=0" rel="nofollow" target="_blank">https://www.dropbox.com/s/pr2ua7ndz93pzhf/ProgressbarPOC.zip?dl=0</a>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-06-27
+
+   This is by Apple design - Animations should not be performed while the app is backgrounded. Quote from Apple:
+   {quote}
+   When your application goes into the background, all animations are removed from all layers. You will have to re-establish these animations each time you come to the foreground.
+   {quote}
+   Original discussion [here](<a href="https://forums.developer.apple.com/thread/15796)" rel="nofollow" target="_blank">https://forums.developer.apple.com/thread/15796)</a> and a similar discussion [here](<a href="https://github.com/airbnb/lottie-ios/issues/413)." rel="nofollow" target="_blank">https://github.com/airbnb/lottie-ios/issues/413).</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26162.json">JSON Source</a></p>

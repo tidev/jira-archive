@@ -1,0 +1,261 @@
+---
+title: "[TIMOB-25857] Android: Prevent stretching splash screen"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, Tooling</td></tr>
+<tr><th>Labels</th><td>android, fragmentation, splash-screen</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-03-12T10:58:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-14T17:30:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Right now for splash screens on android we add an activity in front of the app that displays the image. However, this image is fixed in size and when a photo is to be used as a splash screen a 9-patch image is not a solution.
+
+Instead, the image should not be stretching as was also asked on StackOverflow: <a href="https://stackoverflow.com/a/37616137/249710" rel="nofollow" target="_blank">https://stackoverflow.com/a/37616137/249710</a>
+
+The solution there is to change the activity with an ImageView and use the center-crop method. This will prevent stretching of the image.
+
+<code><pre>
+<RelativeLayout xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" 
+        android:src="@drawable/splash_bg"
+        android:scaleType="centerCrop"
+        />
+</RelativeLayout>
+</pre></code>
+
+*Expected Result*
+The image should not stretch but center crop instead. This will prevent any stretching and will allow the user to use photos as splash screens.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joren Vos 2018-03-12
+
+   Changing the activity in the Titanium SDK would be great, another improvement could be that, for example, Titanium searches if there is a _*activity_splash.xml*_ available under _*/platform/android/res/layout*_ and if so, set the contentView to this activity. If not, show the standard splash screen with the _*default.png*_ background.
+   
+   Using this approach makes it possible to create a separate, custom splash screen activity. This enabled full control to developer about the look and feel of the splash screen.</li>
+<li>Jason Priebe 2018-03-12
+
+   I agree with Joren that a custom activity would be nice.  Our stakeholders want to put a dynamic ad unit onto the splash screen, which we can't do currently.
+   
+   But please don't hold up the entire JIRA issue for that.  The centerCrop would fix a lot of problems, and it would do that with minimal effort.  We could use this feature right away!</li>
+<li>Joshua Quick 2018-03-12
+
+   </li>
+<li>Jason Priebe 2018-03-12
+
+   Makes sense to provide the option!</li>
+<li>Joren Vos 2018-03-12
+
+   Joshua,
+   
+   Best way to solve the issues you're mentioning is by implementing it the way I proposed. 
+   
+   When providing the possibility to set a custom splash screen, this gives the developer a lot of freedom:
+   - The developer wants to show a copyright not on the bottom of the screen? Right, add a label at the bottom of the activity.
+   - I need to have an image as a background and a centered company logo? Fine, I can add a fullscreen imageview for the background and another imageview above the first one for the logo.
+   
+   The proposed option to just let the user set "stretch", "crop", "letterbox" etc are also less "customizable" for the developer. If you let the user decide these properties in the tiapp.xml, it won't be that large effort to let the user provide the name for a custom splash screen activity that he puts in the platform/android/layout folder? When launching the app, just check if the provided layout exists in the path and if so, setContentView to this layout...?
+   
+   I hope you understand my concern about the importance of the possibility to create a custom splash screen activity. As a developer, I need to have the possibility to make my own decisions. If the only possibility for me would be to set the "stretch", "crop" etc, then in a few weeks I need to create a new feature request to have custom splash screen activity because of the need of an overlaying logo... </li>
+<li>Joshua Quick 2018-03-12
+
+   [~jvos], I think it's best to keep it simple.
+   
+   If you want something fully customizable, then you can set the splash to a blank image and create your own splash screen window via our existing Titanium APIs. From there you have far more control and can do more interesting things such as display a progress bar, activity indicator, etc. Doing it this way would also be portable between Android, iOS, and Windows.</li>
+<li>Joren Vos 2018-03-12
+
+   Hi Joshua,
+   
+   Thanks for your reply, but a blank image is the splash screen...? So I don't get how to create a splash screen via the Titanium API? Because that's after you've shown the user a blank screen for a few seconds...
+   
+   I tried some stuff, it should be quite easy to implement with some help of the TiRHelper.getResource(); class...There were many votes for this (simple) alternative instead of pimping the current background image. </li>
+<li>Joshua Quick 2018-03-12
+
+   On Android, we have what's called a launch activity (ie: our <code>TiLaunchActivity.java</code>) which is the first activity window that's shown on startup. This is the window that display the splash screen image. You can make the splash a pure all-black image. In your main script, create a Titanium window to display your splash screen window to your liking and switch to a fade transition effect. This will give the appearance of your app's custom splash screen window to have a fade-in effect. However, this is only a good solution if you move your app initialization/loading code to your custom splash window's "open" event.
+   
+   This is something I see mobile games do on both Android and iOS, because games like to show a loading startup screen with a progress indicator. On iOS, the "default.png" would be your all-black image.
+   
+   Not trying to cop-out here.
+   I'm trying to provide a portable/powerful/productive solution that'll work on all platforms.</li>
+<li>Jason Priebe 2018-03-12
+
+   Our experience is that the Ti splash screen on android is up for 3-4 seconds or more.  Way too long to leave the screen blank, IMHO.
+   
+   And I don't think we're doing a terrible amount of work before opening our first window.  We deliberately defer loading libraries, making network calls, creating expensive views, etc. until after the first window is opened.
+   
+   I did a little comparison between our app on iOS and on android.  On iOS, time to first usable information is about 4 seconds.  On android, it's about 10 seconds.
+   
+   Admittedly, our first view is a killer -- a webgl view that takes up half the screen along with a webview+canvas that is plotting a graph that is probably 14 megapixels (px, not dp).  But the difference is striking.</li>
+<li>Joren Vos 2018-03-13
+
+    I'm thinking from the point of view of our customer and the end user.
+    
+    On iOS, I'm currently using my own splashscreen using this property in the plist:
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    
+    That's nice, our customer is happy because of the beautiful splashscreen we made. Now we need to tell him that we can not provide the same experience on Android because the framework we're using doesn't allow overriding the splash activity...
+    
+    Showing a blank/black screen for a few seconds is unacceptable, that's the whole point of this issue. Currently, there is a stretched default-image. In my opinion, replacing this by a cropped imageview is a "quick short term" fix. I'm sure, letting the developer set the contentView of the splash screen would be a better improvement.</li>
+<li>Joshua Quick 2018-03-13
+
+    I'm pretty sure the loading of the C/C++ libraries is the source of the delay. This is something we can look into the future. Anyways, I hear you.
+    
+    I still think the 9-patch splash screen solution we provide is the better solution. This is a feature Google provides. The idea is you can control which parts of the image gets stretched and which parts don't. You would typically stretch the outer edges of the image, which is typically typically a border designed to be stretched (like how 9-patch button image themes work) or solid colors. The advantage is no parts of the image will get clipped due to cropping. The Android SDK comes with a "draw9patch" editor tool to help you create this.
+    <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Icons_and_Splash_Screens
+    <a href="https://developer.android.com/studio/write/draw9patch.html" rel="nofollow" target="_blank">https://developer.android.com/studio/write/draw9patch.html</a>
+    </li>
+<li>Joren Vos 2018-03-13
+
+    In my case, stretching is _*no option*_ as we’re using a photo as background image and a logo in the middle of the screen. The 9patch option Google provides is a generic option for various reasons, but not for a background. In other native apps, I can create a custom splash screen. That’s what we (myself and many other users) are asking. No 9patch, just a custom activity.</li>
+<li>Jason Priebe 2018-03-13
+
+    Believe me, I tried the 9-patch technique.  I worked on it for a full business day.  I could never get the image designed by our graphics team to work well.  It would work if you had a solid background, but with a photorealistic background, there's just no part of the background that can be stretched without unnatural distortion.
+    
+    I could probably get our design team to come up with an alternate design that is more 9-patch friendly, but the center crop seems like such a simple fix that would add a ton of versatility.  Then the deluxe solution that Joren is suggesting would take it to another level!</li>
+<li>Joshua Quick 2018-03-20
+
+    Here is an alternate solution that'll work "today".
+    
+    We currently provide the ability to override the theme of the splash screen activity as documented in the link below. You can do something similar and override how the background drawable is loaded.
+    <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/Icons_and_Splash_Screens-section-src-29004897_IconsandSplashScreens-Androidsplashscreenconsiderations
+    
+    First, modify your "tiapp.xml" to override the theme handling like the below. Note that for ".YourappnameActivity", you'll need to replace the "Yourappname" part with your project's name.  See the "AndroidManifest.xml" under your project's "build/android" directory for an example.
+    <code><pre>
+    <?xml version="1.0" encoding="UTF-8"?>
+    <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+    	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+    		<manifest>
+    			<application>
+    				<activity
+    					android:name=".YourappnameActivity"
+    					android:theme="@style/Theme.Custom.Splash"
+    					android:label="@string/app_name">
+    					<intent-filter>
+    						<action android:name="android.intent.action.MAIN"/>
+    						<category android:name="android.intent.category.LAUNCHER"/>
+    					</intent-filter>
+    				</activity>
+    			</application>
+    		</manifest>
+    	</android>
+    </ti:app>
+    </pre></code>
+    
+    In your project, create a "./platform/android/res/values" directory and add file "custom_theme.xml" with the following contents.  This will override Titanium's "windowBackground" handling.
+    <code><pre>
+    <?xml version="1.0" encoding="utf-8"?>
+    <resources>
+    	<style name="Theme.Custom.Splash" parent="@style/Theme.Titanium">
+    		<item name="android:windowBackground">@drawable/background_cropped</item>
+    	</style>
+    </resources>
+    </pre></code>
+    
+    In your project, create a "./platform/android/res/drawable" directory and add file "background_cropped.xml" with the following contents.  This will center the "background.png" splashscreen image your have instead of stretching, allowing the image to exceed the bounds of the screen. The 1st item in the layer-list will also render whatever color you want in for the parts around the image in case it's smaller than the screen.
+    <code><pre>
+    <?xml version="1.0" encoding="utf-8"?>
+    <layer-list xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+    	<item android:drawable="@android:color/white"/>
+    	<item>
+    		<bitmap android:src="@drawable/background" android:gravity="center"/>
+    	</item>
+    </layer-list>
+    </pre></code>
+    
+    Note that the above won't scale the image. It renders it as-is. So, it's not quite the same as the "cropCenter" scaling that Rene is requesting, but it may give you the effect you're looking for. There are other bitmap "gravity" settings you can play with as can be seen in the link below. And the above layer-list gives you the ability add other drawable types on top.
+    <a href="https://developer.android.com/reference/android/graphics/drawable/BitmapDrawable.html#attr_android:gravity" rel="nofollow" target="_blank">https://developer.android.com/reference/android/graphics/drawable/BitmapDrawable.html#attr_android:gravity</a>
+    
+    The bitmap drawable also supports a "tileMode" feature as well, which allows you to duplicate an image pattern over the entire view, without scaling. This isn't appropriate for photos, but displaying a tiled background is a cheaper solution memory-wise for low-end Android devices.
+    <a href="https://developer.android.com/reference/android/graphics/drawable/BitmapDrawable.html#attr_android:tileMode" rel="nofollow" target="_blank">https://developer.android.com/reference/android/graphics/drawable/BitmapDrawable.html#attr_android:tileMode</a></li>
+<li>Joren Vos 2018-03-21
+
+    Joshua, I'm not going to spend more words on it again: *I'm using a photo as a background*.
+    
+    I tried the workaround you provided, but as you're mentioning, it's not the best solution for using photos. Instead of difficult workarounds, give us (the developer) freedom about the Splash screen as I am able to have on iOS by providing a storyboard.
+    
+    Android doesn't have a splashscreen out of the box, so this is something Titanium introduced. It's not that hard to give us the possibility to override the splash activity I think?</li>
+<li>Jason Priebe 2018-03-21
+
+    Joren -- I think that Joshua was just providing this as another option that you could use until a better option is available.  I'm in the same situation as you; this non-scaled splash screen won't help us with our splash.
+    
+    I did not take Joshua's post to mean that they weren't going to work on other approaches.  In fact, I'm encouraged by the fact that this is marked for 7.1.1.</li>
+<li>Joshua Quick 2018-03-21
+
+    Right. I don't mind offering a crop zoom feature. I'm not saying no to the idea.
+    
+    What I'm posting above is an alternative solution for those who are interested. We already offer the ability to override the splash screen "drawable". And it's a commonly approach used by native Android developers. It also displays a splash screen like how it's done in WinRT universal apps too (doesn't scale the image at all and back-fills the surrounding area). Also, in the past, it was common to tile the image on Android instead of loading one large splash screen image since worst case scenario the app may be limited to a max heap size of 24 MB (avoids out-of-memory exceptions on low-end devices). The drawable-list approach has its merits.
+    </li>
+<li>Joshua Quick 2018-03-24
+
+    Bad news. I've spent a few days beating my head on this and have concluded that a cropped splash screen is *impossible* on OS versions older than Android 7.0.
+    
+    Cropping the splash via an ImageView is not an option because by that point it's already too late. It can take 1-2 seconds on a fast device before the 1st activity's <code>onCreate()</code> gets called via a cold app start, which is our first chance to load any views. On a low-end Android 4.1 device I have, it can take several seconds (worst-case ~10 seconds like [~jpriebe] has said) before the <code>Activity.onCreate()</code> gets called, which can be made even worse if the app is multidexed (we can't optimize the multidex file loading; that's done by Google). But that said, by the time Titanium's 1st Activity gets created, we're already loading your main JavaScript which has the ability to display UI. So, it's simply too late at this point.
+    
+    The "android:windowBackground" XML theme setting is the only viable option. Android loads this drawable on startup before Titanium's <code>Application</code> derived class gets created, which is why the splash appears so fast. Unfortunately, there's no hacks we can do to override how it's loaded (believe me, I tried). So, using Google's <code>Drawable</code> derived classes via the XML file as I've shown above is the only good solution and unfortunately none of Google's <code>Drawable</code> classes providing cropping support.
+    
+    One interesting thing to note is that Android 7.0 and above offers the ability to load custom Drawable classes from XML. We can create our own Drawable that does cropping (I've written one in about 1 hour), but such a feature would be limited to Android 7.0 and higher. Doesn't do us any good for older OS versions. Google documents this under the "Custom drawable" section here...
+    <a href="https://developer.android.com/reference/android/graphics/drawable/Drawable.html" rel="nofollow" target="_blank">https://developer.android.com/reference/android/graphics/drawable/Drawable.html</a>
+    
+    On Android 8.0, Google offers the ability to load an XML layout on app startup via the "android:windowSplashscreenContent" XML theme setting. Google loads this layout before our Java <code>Application</code> derived class gets created. So, this is their official splash screen support, but it doesn't do us any good on older Android OS versions either.
+    <a href="https://developer.android.com/reference/android/R.styleable.html#Window_windowSplashscreenContent" rel="nofollow" target="_blank">https://developer.android.com/reference/android/R.styleable.html#Window_windowSplashscreenContent</a>
+    
+    So, we have to conclude that this is a limitation on Google's end on devices older than Android 7.0. I just don't see any way to do it.
+    
+    Now, the "drawable-list" example I wrote up above is a pretty powerful solution. You can stack several drawables on top. Meaning you can display multiple images, shapes, fill colors, etc. And you have the ability to tile an image to fill the screen. There is a <code><scale/></code> drawable too which lets you scale up a <code><bitmap/></code>, but unfortunately there is no way to perfectly scale the image to just-fit the screen via XML. That can only be done programmatically but the <code>windowBackground</code> splash is loaded by Android before any Java code gets executed on our end. Everything must be done in XML.</li>
+<li>Joren Vos 2018-03-25
+
+    How about letting us change the contentView of the current splash screen instead of Titanium's activity containing a background image?
+    
+    I'm getting a bit tired of the discussion if it's possible or not on Android as I've created a *native app* in the past in which I have a cropped splash screen. Just sayin'... So it is possible.
+    
+    <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/TiRootActivity.java" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/TiRootActivity.java</a>
+    
+    In this file, lines 186-192 tell me that the background image is set as the background of the window. So, there is a window created somewhere in the code. It must be possible to give us the option do define the contentView of that window?
+    </li>
+<li>Joshua Quick 2018-03-26
+
+    [~jvos], I don't think you understand how this works on Android. Titanium is not loading the splash screen image. The Android OS is. It works like the "default.png" on iOS. How it works is that the Android OS displays a launch window using the app's "windowBackground" drawable *+before+* the application code is loaded. Meaning it's not our activity window. We can't set its content except on Android 8.0 and higher. We can only tell the Android OS what drawable we want to display via pure XML only. This is an optimization Google has made. By the time the Android OS does create the app's launcher activity, it'll swap in the <code>Window</code> and <code>DecoreView</code> it has already created before loading the app.
+    <a href="https://developer.android.com/topic/performance/launch-time.html" rel="nofollow" target="_blank">https://developer.android.com/topic/performance/launch-time.html</a>
+    
+    And yes, we can display a cropped image in the <code>TiRootActivity</code> as you've noted. In fact, I did exactly that just last week (I've done it before too). But the problem is that it displays the image too late. The <code>TiRootActivity.onCreate()</code> method doesn't get called until 1-10 seconds after a cold app startup depending on the speed of the device. Worst-case, on a low-end Android 4.1 device with multidexing enabled, you'll see the system's default dark gray gradient background on startup for about 10 seconds until the <code>TiRootActivity.onCreate()</code> has a chance to load the splash image. That's the problem. And the response from people on this ticket have stated that this would be unacceptable. Versus the "windowBackground" technique we're currently using loads the image instantly on a cold start, even on the slow low-end device.
+    
+    Also, the <code>onConfigurationChanged()</code> lines 186-192 you've noted does not load the image on startup. It reloads the background upon orientation change to grab a portrait/landscape image. If you comment out that code, you'll notice that the "windowBackground" splash image is still loaded on startup. This is because we're not loading it. The Android OS is.
+    
+    Here's the thing. By the time the <code>TiRootActivity</code> gets loaded, Titanium will load your main JavaScript. So, by that point, you can display a cropped image yourself via JavaScript. The amount of time between the <code>TiRootActivity.onCreate()</code> and the launch of your main JavaScript file is about 20-200 milliseconds on a cold start. It was 200 ms on my low-end Android 4.1 device that took about 10 seconds to call the Activity onCreate() method. So, this amount of time is negligible compared to the app load overhead that occurs before the activity gets created. My point being is if you're dead set in displaying an image via an Activity layout instead of Google's optimized "windowBackground", you can already do this today... but you'll have to live with that dark gradient background on startup until the activity window gets loaded.
+    </li>
+<li>Darius G 2019-06-09
+
+    Is any kind of progress on this topic? </li>
+<li>Joshua Quick 2019-06-10
+
+    [~dxgx82], the best solution is to use a 9-patch PNG for your splash.
+    <a href="https://developer.android.com/studio/write/draw9patch" rel="nofollow" target="_blank">https://developer.android.com/studio/write/draw9patch</a>
+    </li>
+<li>Darius G 2019-06-14
+
+    Thanks, Joshua. But problem is that i already using 9patch image from start. Android < 8 is looking OK but Android 8, 9 is streched... </li>
+<li>Joshua Quick 2019-06-14
+
+    [~dxgx82], with a 9-patch PNG, you can control which parts of the image is stretched and which parts are not. The most common way of making a splash on Android is to have a centered image and then stretch a solid background color around it. What you can't really do on Android is use photos for a splash since their is no native support to letterbox or crop the splash image on the Android OS' end.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25857.json">JSON Source</a></p>

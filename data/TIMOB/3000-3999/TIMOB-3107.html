@@ -1,0 +1,126 @@
+---
+title: "[TIMOB-3107] iOS: Controlling Distribution Build Number"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>cb-tooling, core</td></tr>
+<tr><th>Reporter</th><td>Alan Leard</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:37:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-12T08:11:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Customers would like to be able to control the distribution build number that is created and tacked on to the version number on distribution. It is currently set to a UNIX TIMESTAMP but apple offers the AGVTool to modify the number and our community would like to be able to control the number through TiDev.
+
+See tickets for reference:
+* <a href="http://developer.appcelerator.com/helpdesk/view/71611" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/71611</a>
+* <a href="http://developer.appcelerator.com/helpdesk/view/69721" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/69721</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Cyprian Kowalczyk 2015-03-10
+
+   According to [iTunes Connect Developer Guide](<a href="https://developer.apple.com/library/prerelease/ios/documentation/LanguagesUtilities/Conceptual/iTunesConnect_Guide/Chapters/UploadingBinariesforanApp.html)" rel="nofollow" target="_blank">https://developer.apple.com/library/prerelease/ios/documentation/LanguagesUtilities/Conceptual/iTunesConnect_Guide/Chapters/UploadingBinariesforanApp.html)</a> I should set a build number for the same app version like here:
+   
+   !<a href="https://www.evernote.com/shard/s2/sh/392ff7c1-ff94-4c94-a633-e28c2aeb8713/f2c9cb0d753df742038b0f30cbc0d12f/deep/0/Pasted-Image-10.03.2015" rel="nofollow" target="_blank">https://www.evernote.com/shard/s2/sh/392ff7c1-ff94-4c94-a633-e28c2aeb8713/f2c9cb0d753df742038b0f30cbc0d12f/deep/0/Pasted-Image-10.03.2015</a>,-10-06.png!
+   
+   As far as I can see Titanium sets the build number to be the same as app version number but this is not how iTunes Connect prerelease system works. Each pre-release app version has to be review which cases delays in testing new builds; builds does not require reviews.
+   
+   It is possible, but somehow undocumented and clunky, to control the build using the third dot in the version number so I have to set the version to <code>1.0.0.1</code> to have app version <code>1.0.0</code> and build number <code>1.0.0.1</code>.
+   
+   I think it should be at least documented.</li>
+<li>Shannon Hicks 2015-03-11
+
+   This is an excellent reason to give us control via tiapp.xml !</li>
+<li>Chris Barber 2016-08-19
+
+   You can manually do this by setting the version in a custom <code>Info.plist</code> or <code>AndroidManifest.xml</code> file. Or you can automate it by writing a custom Titanium CLI plugin that ties into the hook system.</li>
+<li>Ingo Muschenetz 2016-08-19
+
+   [~cbarber] can you illustrate how to do this manually?</li>
+<li>Alex Montgomery 2016-08-19
+
+   As far as I can tell, for iOS, Studio builds set CFBundleVersion to a millisecond-precision timestamp, but CLI builds copy the value of the <version> tag in tiapp.xml
+   
+   This causes HockeyApp and Testflight to be confused about what the newest version is, if you happen to use both Studio and the CLI on occasion. (e.g. quick fixes over SSH while 'on vacation')
+   
+   If the CLI could mimic Studio's behaviour by default, that'd be handy.
+   
+   My manual workaround is to run:
+   
+   {noformat}
+   node -e "console.log(Date.now());"
+   {noformat}
+   
+   
+   and copy the result to:
+   
+   {noformat}
+   <key>CFBundleVersion</key>
+   <string>timestamp goes here</string> 
+   {noformat}
+   
+   within the <ios> section of tiapp.xml.
+   
+   Yes, a script could solve this. However, last I looked, the tiapp.xml npm module did not support CFBundleVersion, and the CLI should really should match Studio builds by default, no?</li>
+<li>Chris Barber 2016-08-19
+
+   [~axmo] We only add the timestamp for device builds and when you select <code>iTunes Sync</code> for the device (which is what is autoselected if there are no devices present): <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L3691-L3698." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L3691-L3698.</a>
+   
+   We must insert this timestamp so that iTunes will properly overwrite the previous version prior to syncing. iTunes syncing should probably be ripped out since installing directly to device has worked for nearly 3 years and much faster.
+   
+   I'll get some examples as soon as I get a few minutes. Stay tuned.</li>
+<li>Chris Barber 2017-01-04
+
+   Upon further investigation, my initial assumptions regarding this issue are incorrect. I interpreted this issue as simply wanting a unique or incremented build number for each build that would be displayed by the app, in a custom analytics payload or API call, or in debug logging.
+   
+   However, I now interpret this issue as wanting to change the actual version being injected into the Info.plist or AndroidManifest.xml. There currently isn't a hook that allows you to do that without messing up the differential build system.
+   
+   You could write a hook that modifies the <code><version></code> read in from the tiapp.xml, but the version is used in several places, so that's not a good idea.
+   
+   You could write a hook that re-opens the Info.plist file and overrides the version, but you'd have to do it during the copy resource hook (and only first the first time) since you need to set the "forceRebuild" flag to true to invoke xcodebuild. This is super hacky.
+   
+   The best solution is there to be a hook in the build that lets you modify the version.</li>
+<li>Alex Montgomery 2017-01-04
+
+   [~cbarber] For me, your initial assumption was *correct*. I'm looking for a way to automatically increment the values for <code>CFBundleVersion</code> and <code>android:versionCode</code> when I kick off a build, whether from Studio or CLI (for my purposes, having the value be identical across iOS and Android would be fine, but I expect some workflows would need each platform to increment independently)
+   
+   To avoid unnecessary build number inflation, it might be best to limit the auto-increment to test and/or production builds.</li>
+<li>Hans Knöchel 2018-12-11
+
+   +1 for auto-bumping these number - but only on production builds. Writing a tiny hook to do this should be doable, I'll give it a shot. Integrating this into the SDK may be useful for some devs, but maybe confuses some others. What do you think [~cbarber]? </li>
+<li>Chris Barber 2018-12-11
+
+    [~hknoechel] Based on my comment above, apparently you can't cleanly implement this with hooks. We should probably just build in proper build number support. We need to figure out a few things before we do that:
+    
+    * Where is the build number stored? tiapp.xml? A dot file in the project dir?
+    * Do we track build numbers per platform?
+    * Do we enable this by default?
+    * Do we allow projects to opt-out of build numbers?
+    * Do we only increment for successful builds?
+    * Do we increment for certain targets only? (i.e. do we only do build numbers for dist builds?)
+    * How do we globally control build numbers across teams? Do we care that 2 people can generate different builds with the same build number?
+    
+    Pinging [~cwilliams], [~eharris], [~jvennemann], [~gmathews], [~bhouse], [~jquick], and [~topener] to discuss if this is a good idea and what's the best way to do this.</li>
+<li>Joshua Quick 2018-12-11
+
+    Personally, I would only use a feature like this for automated builds. I wouldn't want it to auto-increment for builds on my own dev machine. (Maybe some devs would like this, but me, no.)
+    
+    And odds are existing apps already deviate by version between platforms. So, I think we should handle versions separately per platform. And it's near impossible to get an app version to line-up between app stores anyways because you may have to re-submit a new version when failing an iOS app review or if an unexpected bug is found. Lining up versions between platforms is hopeless. Especially if your Android app is being distributed to multiple Android app stores (Google Play and Amazon) because they often require separate builds to include different libraries.</li>
+<li>Jan Vennemann 2018-12-12
+
+    I don't think we should implement a default behavior for this and rather just provide an interface for users to increment build numbers and let them write their own logic around it. As Chris already pointed out there are a lot of open questions around this and there are just too many factors to take into account. And as Josh said everyone might have different scenarios when they want or need to increment build numbers.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3107.json">JSON Source</a></p>

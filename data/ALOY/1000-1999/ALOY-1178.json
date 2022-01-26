@@ -1,0 +1,142 @@
+{
+	"id": "138392",
+	"key": "ALOY-1178",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2014-10-22T18:42:31.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "16596",
+				"name": "Alloy 1.6.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2015-05-21"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "fmiao",
+			"key": "fmiao",
+			"displayName": "Feon Sua Xin Miao",
+			"active": true,
+			"timeZone": "America/Vancouver"
+		},
+		"updated": "2015-06-08T17:39:22.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "13605",
+				"name": "Models"
+			}
+		],
+		"description": "Per http://developer.appcelerator.com/question/178611/data-is-not-saved-in-column-after-alter-table-through-alloy-migration \r\n\r\nAfter applying a migration that alters a table structure, data saved to the new columns is not persisted to the SQLite database.\r\n\r\n{code}\r\n// from the sample app, annotated\r\nfunction doClick(e) {\r\n\tvar m = Alloy.createModel('books');\r\n\tm.fetch({id: e.row.rowid}) // rowid is the alloy_id primary key\r\n\tTi.API.info(JSON.stringify(m.toJSON()));\r\n\t//  {\"title\":\"Changed\",\"alloy_id\":\"d6bfe744-8e7a-9b24-c958-1e4275318276\",\"pagecount\":null}\r\n\r\n\tm.save({title: 'Changed', pagecount: 200});\r\n\tTi.API.info(JSON.stringify(m.toJSON()));\r\n\t// {\"title\":\"Changed\",\"alloy_id\":\"d6bfe744-8e7a-9b24-c958-1e4275318276\",\"pagecount\":200}\r\n\r\n\t// but looking in the app's db, the pagecount column is still null\r\n\r\n\tAlloy.Collections.books.fetch();\r\n}\r\n{code}\r\n\r\nSample / test app attached. Also, screenshot of app's database after migration has been applied and a few new models have been added (any labeled Changed were added after the migration and should have a pagecount)\r\n\r\nThis behavior is present with Alloy 1.6.0-dev, 1.5.1, 1.4.1, and 1.3.1.\r\n",
+		"attachment": [
+			{
+				"id": "52114",
+				"filename": "app.zip",
+				"author": {
+					"name": "skypanther",
+					"key": "skypanther",
+					"displayName": "Tim Poulsen",
+					"active": true,
+					"timeZone": "America/New_York"
+				},
+				"created": "2014-10-22T18:42:31.000+0000",
+				"size": 7221,
+				"mimeType": "application/zip"
+			},
+			{
+				"id": "52115",
+				"filename": "Screen Shot 2014-10-22 at 2.41.05 PM.png",
+				"author": {
+					"name": "skypanther",
+					"key": "skypanther",
+					"displayName": "Tim Poulsen",
+					"active": true,
+					"timeZone": "America/New_York"
+				},
+				"created": "2014-10-22T18:42:31.000+0000",
+				"size": 281563,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "Models: Data not retrieved from/saved to a table altered via migration using a SQL statement",
+		"creator": {
+			"name": "skypanther",
+			"key": "skypanther",
+			"displayName": "Tim Poulsen",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "skypanther",
+			"key": "skypanther",
+			"displayName": "Tim Poulsen",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "329061",
+					"author": {
+						"name": "skypanther",
+						"key": "skypanther",
+						"displayName": "Tim Poulsen",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "On further investigation, this would never have worked with code as reported. The list of columns is built from the model definition. With a custom SQL command being used to alter the table, there's no way for the sync adapter to know of the existence of that new column.\r\n\r\nThe way to deal with this is to use this technique for adding a new column to the table:\r\n\r\nFirst, create your migration file (e.g. with {{alloy generate migration MODEL_NAME}})\r\n\r\nThen, add code like this to that file:\r\n\r\n{code}\r\nmigration.up = function(migrator) {\r\n   db.createTable({\r\n    \"columns\" : {\r\n      \"title\" : \"text\",\r\n      \"pagecount\": \"integer\" /* the new field */\r\n    },\r\n    \"adapter\": {\r\n      \"type\": \"sql\",\r\n      \"collection_name\": \"books\"\r\n    }\r\n  });\r\n};\r\n\r\nmigration.down = function(db) {\r\n};\r\n{code}\r\n\r\nNext, you must modify your original model file to also add that same new column. That's what the sync adapter is keyed off of to determine which fields data will be read from / written to.\r\n\r\nI'm re-casting this ticket as a feature request. Perhaps we could implement a function similar to createTable() (in the migration) that would alter the table to add the field; or, some means in the migration file to update the list of columns; or updated code in the model-generation script that would read the live db table's config.",
+					"updateAuthor": {
+						"name": "skypanther",
+						"key": "skypanther",
+						"displayName": "Tim Poulsen",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-10-22T20:54:49.000+0000",
+					"updated": "2014-10-22T20:54:49.000+0000"
+				}
+			],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

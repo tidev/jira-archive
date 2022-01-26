@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-27105] Android:Ti.Media.Sound is triggering error event handler "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-20T17:13:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rakhi Mitro</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-05-28T14:47:57.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-20T17:13:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In project, the customer is trying to download an audio file from server and playing it in Android application. In Android, with Titanium.Media.Sound API they are observing “error” event handler is being fired, even though the Audio is playing correctly. And this behaviour is being observed only in *Samsung S4 with OS version 4.4.2, Samsung G6 with OS version 8.0.0 and Samsung J7 with Os version 7.1.0*. 
+
+And it is working fine with out firing error event handler in Nexus with OS version 6.0.1, Google pixel with OS version 9.0. 
+
+
+
+*Note:* The customer's app is currently running with 7.5.2.GA . The issue is tested on our end with SDK 7.5.2.GA and 8.0.1.GA. The “error” event handler is being fired on *Samsung J7 Prime2 v8.0.0 device.*
+
+Test code:
+
+<code><pre>
+var accessToken;
+var win = Ti.UI.createWindow({
+	title : "Main window",
+	backgroundColor : "white" 
+});
+var button = Ti.UI.createButton({
+	title : "Audio"
+});
+button.addEventListener('click', function(e) {
+	var sound = Titanium.Media.createSound({
+		url: "SampleAudio.mp3",  
+		allowBackground : true,
+		volume : 1.0
+	});
+	sound.play();
+	sound.addEventListener('complete', function(evt1) {
+		sound.release();
+	});
+	sound.addEventListener('error', function(evt2){
+		Ti.API.info('Error in sound::'+JSON.stringify(evt2));
+		if (evt2.error.toLowerCase().trim() === 'unknown media issue.') {
+			return;
+		} else {
+			dialog = Ti.UI.createAlertDialog({
+				message : "Audio failed",
+				buttonNames : ['OK']
+			});
+			dialog.show();
+			sound.release();
+		}
+	});
+});
+win.add(button);
+win.open();
+
+</pre></code>
+
+*Test steps:*
+
+1.Create a classic app and replace app.js with the attached app.js file. 
+2. Download the sample audio file and place in Resources/android folder. 
+3.Run the app , "Click Audio" and you will observe the issue. 
+
+<code><pre>
+[INFO]  Error in sound::{"type":"error","source":{"volume":1,"url":"file:///android_asset/Resources/SampleAudio.mp3","time":0,"playing":true,"audioType":0,"looping":false,"paused":fals
+e,"duration":27745,"apiName":"Ti.Media.Sound","bubbleParent":true,"allowBackground":true,"state":3,"stateDescription":"playing","_events":{"complete":{},"error":{}}},"bubbles":false,"success
+":false,"code":-1,"error":"Unknown media issue.","cancelBubble":false}
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27105_66648/audioplayer_fulllog_8.0sdk.rtf">audioplayer_fulllog_8.0sdk.rtf</td></td><td>2019-05-28T14:43:48.000+0000</td><td>77330</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27105_66647/audioplayer_fulllog.rtf">audioplayer_fulllog.rtf</td></td><td>2019-05-28T14:43:48.000+0000</td><td>90416</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27105_66649/consoleLog_Samsung J7 Prime2 v8.0.0_7.5.2GA.txt">consoleLog_Samsung J7 Prime2 v8.0.0_7.5.2GA.txt</td></td><td>2019-05-28T14:42:51.000+0000</td><td>30743</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27105_66646/SampleAudio.mp3">SampleAudio.mp3</td></td><td>2019-05-28T14:45:44.000+0000</td><td>443926</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-06-15
+
+   I'm able to reproduce this issue on a Samsung Galaxy Tab 3.
+   
+   This device is natively reporting integer code <code>973</code> when this happens, which is not a documented constant. Apparently, this is a common issue as can be seen below.
+   <a href="https://stackoverflow.com/questions/22202745/what-is-mediaplayer-oninfolistener-code-973" rel="nofollow" target="_blank">https://stackoverflow.com/questions/22202745/what-is-mediaplayer-oninfolistener-code-973</a>
+   <a href="https://stackoverflow.com/questions/27912581/what-does-mediaplayer-info-warning-973-0-mean" rel="nofollow" target="_blank">https://stackoverflow.com/questions/27912581/what-does-mediaplayer-info-warning-973-0-mean</a>
+   <a href="https://github.com/google/ExoPlayer/issues/6029" rel="nofollow" target="_blank">https://github.com/google/ExoPlayer/issues/6029</a>
+   
+   I don't think there is anything we can do about it. Some devices just don't following Google's documented rules. The good news is that the audio still plays. So, checking the error message like you're doing and ignoring it is really the only option. I do recommend that you check if the event's "code" property is set to <code>-1</code> instead of looking at the string. A value of <code>-1</code> is more of a warning where the audio is still playable but the system is saying there is something it doesn't like about the audio file.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Media.Sound-event-error
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27105.json">JSON Source</a></p>

@@ -1,0 +1,101 @@
+---
+title: "[TIMOB-19981] iOS: FileStream Significant memory leak while reading/writing files using FileStream"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2015-12-07T22:48:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TCSupportTriage, ios, memory</td></tr>
+<tr><th>Reporter</th><td>Fernando Manzano</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2015-01-08T22:21:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T21:46:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+PROBLEM:
+
+When you want to read or write a file using FileStream.read(buffer) and FileStream.write(buffer), the memory used to store the data read/written is leaked, leading to a crash after writing/reading files for a few minutes.
+
+TEST CASE:
+
+This is how the file is read:
+<code><pre>
+while (true) {
+		
+		var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "image.png");
+		var fileStream = file.open(Ti.Filesystem.MODE_READ);
+		var buffer = Ti.createBuffer({
+			length: 1024 * 10
+		});
+		
+		while (fileStream.read(buffer) > 0) {}
+		
+		file = null;
+		fileStream.close();
+		fileStream = null;
+		buffer.release();
+		buffer = null;
+}
+</pre></code>
+This is how the file is written:
+<code><pre>
+while (true) {
+		
+		var file = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, "output.txt");
+		var fileStream = file.open(Ti.Filesystem.MODE_WRITE);
+		var buffer = Ti.createBuffer({
+			value: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut nisi felis, ultrices nec blandit vitae, efficitur a lacus. Nunc nec neque eleifend, aliquam leo id, scelerisque dolor. Suspendisse potenti. Pellentesque feugiat volutpat dictum. Morbi et massa venenatis lectus sodales maximus. In id ornare justo. Duis a nulla tincidunt, laoreet leo nec, aliquam ex. Nunc condimentum tellus justo, non efficitur magna viverra sit amet. Sed lectus neque, placerat non posuere in, faucibus quis nisl. Aliquam lobortis est eget felis varius, a placerat ex interdum. Aenean sit amet tempor turpis. Fusce at faucibus nisi. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Phasellus lacus enim, efficitur eget egestas vitae, viverra vel neque. Donec orci lacus, consectetur sit amet placerat vel, pharetra nec odio. Quisque tempus nulla diam, id aliquet tellus pharetra et. Pellentesque id urna non nisi commodo aliquam. Praesent nec porttitor metus, ac finibus purus. Curabitur vel magna libero. Duis cursus diam sapien, eu finibus erat rutrum sed. Fusce viverra dictum erat cursus finibus. Maecenas lobortis neque libero, et porttitor tortor tincidunt eu. Mauris commodo interdum urna ac egestas. Fusce vehicula egestas risus et efficitur. Suspendisse nisl ex, sagittis nec neque vitae, malesuada vulputate justo. Vivamus aliquet lorem tellus, et convallis felis sollicitudin a. Vestibulum non lacus ut metus placerat feugiat vel sit amet nunc. Pellentesque vestibulum, turpis nec feugiat tincidunt, arcu lorem iaculis felis, eget mattis arcu nunc non mi. Phasellus eros erat, condimentum nec varius ac, eleifend non tortor. Nunc pellentesque purus non lorem ultrices rhoncus. Integer in efficitur dolor. Aenean laoreet et dolor placerat accumsan."
+		});
+		
+		var bytesWritten = 0;
+		while (bytesWritten < 1024*1014) {
+			bytesWritten += fileStream.write(buffer);
+		}
+		
+		file = null;
+		fileStream.close();
+		fileStream = null;
+		buffer.release();
+		buffer = null;
+		
+	}
+</pre></code>
+In both cases the heap grows until the app crashes. I've attached an image which shows how the heap grows.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19981_53489/instruments-heap-grow.png">instruments-heap-grow.png</td></td><td>2015-01-08T22:21:19.000+0000</td><td>280639</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Pedro Enrique 2015-12-07
+
+   I do not see a bug here, the code is not realistic and it is creating a memory leak. Let me explain; by creating a <code>while(true)</code> you're not allowing the javascript engine to do its garbage collection, and thus creating a memory leak, infinite loop, etc. A better test case would be to create a <code>setInterval</code> instead
+   <code><pre>
+   setInterval(function() {
+       // code here
+   },100);
+   </pre></code>
+   I tested this and the allocation in instruments do not go up.
+   </li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as invalid with reference to previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19981.json">JSON Source</a></p>

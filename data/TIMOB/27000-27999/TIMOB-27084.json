@@ -1,0 +1,250 @@
+{
+	"id": "173635",
+	"key": "TIMOB-27084",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20791",
+				"name": "Release 8.0.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-06-18"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-05-23T20:02:44.000+0000",
+		"created": "2019-05-17T03:53:11.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"aar",
+			"android",
+			"build",
+			"engSchedule",
+			"manifest",
+			"tiapp.xml",
+			"timodule"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "57640",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"outwardIssue": {
+					"id": "173589",
+					"key": "TIMOB-27058",
+					"fields": {
+						"summary": "Android: unable to call TiActivityResultHandler usage with msal library",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "None",
+							"id": "6"
+						},
+						"issuetype": {
+							"id": "7",
+							"description": "gh.issue.story.desc",
+							"name": "Story",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-05-23T20:02:44.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "*Summary:*\r\nThe \"tiapp.xml\" file's \"AndroidManifest.xml\" settings is unable to override the XML elements such as {{<activity/>}}, {{<receiver/>}}, etc. that are defined in a native module's \"timodule.xml\" or a native AAR library's embedded \"AndroidManifest.xml\".\r\n\r\n*Example Use-Case:*\r\nMicrosoft's authentication library (aka: MSAL) requires the app developer to override its {{com.microsoft.identity.client.BrowserTabActivity}} in the app project's \"AndroidManifest.xml\" and add an intent-filter to it. This is needed the Chrome web browser app will return the end-user back to the app that requested single-signon.\r\nhttps://github.com/Azure-Samples/ms-identity-android-native\r\n\r\n*Steps to Reproduce:*\r\n# Create a Titanium Classic \"Default Project\".\r\n# Insert the android manifest XML settings below into the \"tiapp.xml\" file.\r\n# Create the follow subfolders under the project: {{./platform/android}}\r\n# Copy this ticket's [^msal-0.2.2.aar] file to the {{./platform/android}} folder.\r\n# Build the app for Android.\r\n# Go to the project's {{./build/android}} directory via Finder/WindowsExplorer.\r\n# Open the \"AndroidManifest.xml\" file.\r\n# Notice that the {{<intent-filter/>}} shown below was not injected into the \"AndroidManifest.xml\" file. _(This is the bug.)_\r\n\r\n{code:xml}\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<ti:app xmlns:ti=\"http://ti.appcelerator.org\">\r\n\t<android xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n\t\t<manifest>\r\n\t\t\t<application>\r\n\t\t\t\t<activity android:name=\"com.microsoft.identity.client.BrowserTabActivity\">\r\n\t\t\t\t\t<intent-filter>\r\n\t\t\t\t\t\t<action android:name=\"android.intent.action.VIEW\"/>\r\n\t\t\t\t\t\t<category android:name=\"android.intent.category.DEFAULT\"/>\r\n\t\t\t\t\t\t<category android:name=\"android.intent.category.BROWSABLE\"/>\r\n\t\t\t\t\t\t<data android:scheme=\"msauth\" android:host=\"my.domain.com\" android:path=\"my-path\"/>\r\n\t\t\t\t\t</intent-filter>\r\n\t\t\t\t</activity>\r\n\t\t\t</application>\r\n\t\t</manifest>\r\n\t</android>\r\n</ti:app>\r\n{code}\r\n\r\n*Recommended Fix:*\r\nWe should change the {{finalAndroidManifest}} merge order in the SDK's \"_build.js\" script [here|https://github.com/appcelerator/titanium_mobile/blob/2a16df7481b0a3331d2f56365463f0a9a8031d09/android/cli/commands/_build.js#L3909]. The order should be:\r\n# {{this.androidLibraries.forEach(/* finalAndroidManifest.merge(am) */)}}\r\n# {{this.modules.forEach(/* finalAndroidManifest.merge(am) */)}}\r\n# {{finalAndroidManifest.merge(customAndroidManifest)}}\r\n# {{finalAndroidManifest.merge(tiappAndroidManifest)}}\r\n\r\n----\r\n*Work-Around:*\r\nDelete the XML setting that you want to override from the \"timodule.xml\" file or AAR file. Note that you can unzip an AAR file, change its embedded \"AndroidMainfest.xml\" file, and then re-zip it. Changing the AAR library's extension from \".aar\" to \".zip\" is an easy way to unzip it.",
+		"attachment": [
+			{
+				"id": "66610",
+				"filename": "msal-0.2.2.aar",
+				"author": {
+					"name": "jquick",
+					"key": "jquick",
+					"displayName": "Joshua Quick",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-05-17T03:27:40.000+0000",
+				"size": 158980,
+				"mimeType": "application/octet-stream"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: \"tiapp.xml\" is unable to override \"AndroidManifest.xml\" settings defined in AAR or \"timodule.xml\"",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1136,
+				"state": "closed",
+				"name": "2019 Sprint 11",
+				"startDate": "2019-05-18T17:39:52.830Z",
+				"endDate": "2019-05-31T17:39:00.000Z",
+				"completeDate": "2019-06-04T21:37:11.485Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "448495",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/10884",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-17T23:46:02.000+0000",
+					"updated": "2019-05-17T23:46:02.000+0000"
+				},
+				{
+					"id": "448499",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (8.0.x): https://github.com/appcelerator/titanium_mobile/pull/10900",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-18T00:16:20.000+0000",
+					"updated": "2019-05-18T00:16:20.000+0000"
+				},
+				{
+					"id": "448564",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR passed. jenkin is failing test. waiting for resolving jenkin failure to merge",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-21T18:43:16.000+0000",
+					"updated": "2019-05-21T18:43:16.000+0000"
+				},
+				{
+					"id": "448625",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix on SDK 8.1.0.v20190523084559 and 8.0.2.v20190522031334. Works as expected.\r\n{CODE}\r\nOperating System\r\n  Name                        = Mac OS X\r\n  Version                     = 10.13.6\r\n  Architecture                = 64bit\r\n  # CPUs                      = 8\r\n  Memory                      = 17179869184\r\nNode.js\r\n  Node.js Version             = 8.9.1\r\n  npm Version                 = 5.5.1\r\nTitanium CLI\r\n  CLI Version                 = 5.1.1\r\nTitanium SDK\r\n  SDK Version                 = 8.1.0.v20190523084559 and 8.0.2.v20190522031334\r\nCli =7.0.11\r\nStudio =5.1.2.201903111843\r\n{CODE}",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-23T20:02:40.000+0000",
+					"updated": "2019-05-23T20:02:40.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

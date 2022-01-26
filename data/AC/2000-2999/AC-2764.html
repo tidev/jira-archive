@@ -1,0 +1,179 @@
+---
+title: "[AC-2764] Event fired from addEventListener breaks CommonJS Monkey Patch"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-19T03:35:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Nic Jansma</td></tr>
+<tr><th>Assignee</th><td>Paul Dowsett</td></tr>
+<tr><th>Created</th><td>2011-11-11T14:47:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am using CommonJS modules in my app, along with a "Monkey Patch" similar to this Gist: <a href="https://gist.github.com/1207520." rel="nofollow" target="_blank">https://gist.github.com/1207520.</a>  The Monkey Patch ensures that require()d modules are only interpreted once -- after the first require(), subsequent require()s pulls the module out of the scriptRegistry cache.
+
+I've made a minor change to the Monkey Patch script to NOT "root" the module if there is an export of the same name, as well as add some debug logging.  No other changes are made.  The changes I've made are below.
+
+The issue that I'm having is as follows: 
+1) In app.js, the first thing I do is Monkey Patch the current script context.
+2) Next, I create a window, and add an event handler for the 'focus' event.
+3) In the 'focus' event handler, I require(test2), which goes to the Monkey Patch.  Since this is the first time the module test2 is required, Monkey Patch forwards it to the real require(), and the module test2 is interpreted.
+4) Next, I require(test1). Again, this is the first time test1 is required, so it is interpreted.
+5) However, in test1, I require(test2).  This require() call does NOT go to the Monkey Patch -- the "real" require() is called, and my Monkey Patch is never called.  This is the bug.  All modules require()d in test1 (and sub-modules, etc) are NOT Monkey Patched.
+
+This causes performance problems, as most of the require() calls in my modules are not passed through the Monkey Patch handler.
+
+I can only repro this issue when the require(test2)/require(test1) sequence are called in the 'focus' and similar event handler.  If these calls are placed in the app.js context, everything works ok -- the require()s in test1 are patched properly.  Other event handlers for the window, such as 'open' also appear to repro this problem.
+
+Here's a reduced repro:
+<code><pre>
+// monkey patch first
+require('requirePatch').monkeyPatch(this);
+
+// create a window
+var win1 = Ti.UI.createWindow();
+
+// hook the focus event of the window to know when we should create our view
+win1.addEventListener('focus', function(e){
+    Ti.API.info("win1 focus event");     
+
+    // Load test2, the first time this is attemped.
+    // The monkeyPatch works, require()s it, and saves it in the script registry.
+    // TEST2 should be printed once at this point, and this is the only time it should be printed.
+    Ti.API.info("win1 focus event: SHOULD print TEST2:");  
+    require('test2');
+    Ti.API.info("win1 focus event: (SHOULD have printed TEST2)");
+    
+    // Load test1, which also loads test2.  At this point, for some reason, 
+    // running the context inside test1, require won't be monkey patched.
+    // This is where the problem occurs: TEST2 should *not* be printed again, but is.
+    // None of the modules loaded under test1 will have monkeyPatch working.
+    require('test1');
+});
+
+// create tabs to show 
+var tabGroup = Ti.UI.createTabGroup();
+tabGroup.addTab(Ti.UI.createTab({
+    window: win1
+}));
+tabGroup.open();
+</pre></code>
+
+<code><pre>
+Ti.API.info("TEST1");
+
+// THE BUG: For some reason, require isn't monkey patched any more.
+// TEST2 will be printed again as test2 is re-interpreted at this point.
+Ti.API.info("TEST1: SHOULD NOT print TEST2:");  
+require('test2'); 
+Ti.API.info("TEST1: (SHOULD NOT have printed TEST2)");
+</pre></code>
+
+<code><pre>
+Ti.API.info("TEST2");
+</pre></code>
+
+<code><pre>
+exports.monkeyPatch = function(object) {
+    Ti.API.info('requirePatch.monkeyPatch()');
+    
+    var scriptRegistry = {};
+    var oldRequire = object.require;
+
+    if(object && !object.monkeyPatchRequire) {
+        
+        Ti.API.info('requirePatch.monkeyPatch(): Installing');
+        
+        object.require = function(moduleName) {
+            
+            Ti.API.info('requirePatch.monkeyPatch().require(): ' + moduleName + ' ' + (scriptRegistry[moduleName] ? 'HIT' : 'MISS'));
+            
+            if(!scriptRegistry[moduleName]) {
+                var mod = oldRequire(moduleName);
+                scriptRegistry[moduleName] = mod;
+            }
+
+            return scriptRegistry[moduleName];
+        };
+
+        object.monkeyPatchRequire = true;
+    }
+};
+</pre></code>
+
+Here's the output from running this:
+{noformat}
+I/TiAPI   ( 5665): (kroll$1: app://app.js) [12,731] requirePatch.monkeyPatch()
+I/TiAPI   ( 5665): (kroll$1: app://app.js) [5,736] requirePatch.monkeyPatch(): Installing
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [74,507] win1 focus event
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [4,511] win1 focus event: SHOULD print TEST2:
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [3,514] requirePatch.monkeyPatch().require(): test2 MISS
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [18,656] TEST2
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [5,661] win1 focus event: (SHOULD have printed TEST2)
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [22,683] requirePatch.monkeyPatch().require(): test1 MISS
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [33,925] TEST1
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [7,932] TEST1: SHOULD NOT print TEST2:
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [6,994] TEST2
+I/TiAPI   ( 5665): (kroll$2: file:///android_asset/Resources/app.js) [22,1016] TEST1: (SHOULD NOT have printed TEST2)
+{noformat}
+
+The second-to-last line of output should NOT be "TEST2", which means that the module "test2.js" was re-interpreted.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nic Jansma 2011-11-22
+
+   When could I expect a triage of this bug?
+   
+   Unfortunately, I think this will block shipping on Android for us.
+   
+   If you have any insight on how I could avoid the issue as well, that would be helpful.
+   
+   Thanks!</li>
+<li>Paul Dowsett 2011-12-07
+
+   Nic
+   
+   I am sorry for the delay. Since you raised this ticket, we have rewritten require for 1.8, and it now uses a modification of nodejs' require system. Are you able to test whether your issue still exists using the latest continuous build (master/1.8.0.1)?
+   
+   Thanks in advance</li>
+<li>Nic Jansma 2011-12-08
+
+   Thanks Paul.  It appears v1.8.0.1.v20111207180431 fixes this issue (though there are a lot of other things that v1.8.0.1 appears to break in my current app).</li>
+<li>Paul Dowsett 2011-12-08
+
+   Yes, that is true. I am sorry if this causes you some inconvenience short term, but revising your app for 1.8.0.1 will be really worth it.
+   
+   </li>
+<li>Paul Dowsett 2011-12-08
+
+   <code><pre>
+   Many thanks for your attention Paul. As I noted in JIRA, v1.8.0.1.v20111207180431 no longer has the problem. However, many other things appear broken in my app due to 1.8.0.1 changes. Should I be spending time trying to migrate to v1.8.0.1 at this point, or would you recommend I wait until it's a bit stabler?
+   </pre></code>
+   
+   Nic, 1.8.0.1 is currently scheduled for release in December. I would definitely recommend moving your app to it, as I know of major projects using it successfully.
+   
+   Thanks</li>
+<li>Paul Dowsett 2011-12-19
+
+   Nic
+   
+   As require now works as expected with 1.8.0.1, and Titanium's CommonJS is in accordance with the spec, the monkeypatch is obsolete. Hence, I will close this ticket.
+   
+   Incidentally, there will be a guide published within the next few days to explain how to use require and CommonJS in the best way.
+   
+   Thank you for the effort you put into this.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2764.json">JSON Source</a></p>

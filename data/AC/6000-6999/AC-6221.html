@@ -1,0 +1,173 @@
+---
+title: "[AC-6221] Local Html based web view not working on sdk 8"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2019-05-11T00:20:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Peter Ladis</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-04-19T23:10:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-11T00:20:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When I run sdk 8. My web view loads but the display is super small.  Any js events inside the html don’t work properly.  Is there any way to get the 7.4.2 functionality back 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-04-20
+
+   The old iOS native <code>UIWebView</code> has been deprecated by Apple. As of Titanium 8.0.0, the <code>Ti.UI.WebView</code> has been re-implemented to use Apple's <code>WKWebView</code> which does have some breaking changes on Apple's end.
+   
+   For your local HTML files, you'll need to add the following <code><meta></code> tag so that it'll scale the contents like how it worked before.
+   <code><pre>
+   <!DOCTYPE html>
+   <html>
+   	<head>
+   		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+   	</head>
+   	<body>
+   		<p>Hello World</p>
+   	</body>
+   </html>
+   </pre></code>
+   </li>
+<li>Joshua Quick 2019-04-20
+
+   Also, I've tested iOS' <code>WebView</code> with a locally loaded HTML string as shown below. The below code tests interop between the HTML JavaScript and the Titanium JavaScript via <code>Ti.App.fireEvent()</code> and the new async <code>WebView.evalJS()</code> feature. It works fine.
+   
+   <code><pre>
+   var htmlText =
+   		'<!DOCTYPE html>' +
+   		'<html>' +
+   		'	<head>' +
+   		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+   		'	</head>' +
+   		'	<body>' +
+   		'		<p>HTML JavaScript Interop Test</p>' +
+   		'		<p id="label"></p>' +
+   		'	</body>' +
+   		'	<script>' +
+   		'		document.addEventListener("DOMContentLoaded", function(e) {' +
+   		'			Ti.API.info("@@@ Firing events from HTML");' +
+   		'			Ti.App.fireEvent("app:htmlLoaded", { isRequestingStartTimer: true });' +
+   		'			Ti.App.fireEvent("app:htmlRequestingShowToast", { message: "DOMContentLoaded" });' +
+   		'		});' +
+   		'		function updateLabelTo(x) {' +
+   		'			document.getElementById("label").innerHTML = x;' +
+   		'		}' +
+   		'	</script>' +
+   		'</html>';
+   
+   var window = Ti.UI.createWindow();
+   var webView = Ti.UI.createWebView({
+   	html: htmlText,
+   });
+   window.add(webView);
+   window.open();
+   
+   var timerId;
+   var timerCount;
+   function updateWebView() {
+   	timerCount = 5;
+   	function onUpdate() {
+   		if (timerCount > 0) {
+   			Ti.API.info("@@@ Calling evalJS()");
+   			webView.evalJS("updateLabelTo('Reload in:  " + timerCount + "')", function() {});
+   //webView.evalJS("updateLabelTo('Reload in:  " + timerCount + "')");
+   			timerCount--;
+   		} else {
+   			Ti.API.info("@@@ Reloading WebView");
+   			clearInterval(timerId);
+   			timerId = null;
+   			timerCount = 5;
+   			webView.html = htmlText;
+   		}
+   	}
+   	timerId = setInterval(function(e) {
+   		onUpdate();
+   	}, 1000);
+   	onUpdate();
+   }
+   
+   var useHtmlLoadedEvent = true;
+   if (useHtmlLoadedEvent) {
+   	Ti.App.addEventListener("app:htmlLoaded", function(e) {
+   		Ti.API.info("@@@ Received event 'htmlLoaded'");
+   		if (e.isRequestingStartTimer) {
+   			updateWebView();
+   		}
+   	});
+   } else {
+   	webView.addEventListener("load", function(e) {
+   		Ti.API.info("@@@ Received WebView event 'load'");
+   		updateWebView();
+   	});
+   }
+   
+   Ti.App.addEventListener("app:htmlRequestingShowToast", function(e) {
+   	if (Ti.App.Android || Ti.App.Windows) {
+   		if (e.message) {
+   			Ti.UI.createNotification({
+   				message: e.message,
+   				duration: Ti.UI.NOTIFICATION_DURATION_SHORT,
+   			}).show();
+   		}
+   	}
+   });
+   </pre></code>
+   
+   Can you give us an example of what's not working for you please? Thanks.</li>
+<li>Joshua Quick 2019-04-20
+
+   My above test was missing a <code>Ti.App.addEventListener()</code> in the HTML's JavaScript. So, I also ran the below which exercises this as well. This too works fine for me in iOS with Titanium 8.0.0.
+   <code><pre>
+   var htmlText =
+   		'<!DOCTYPE html>' +
+   		'<html>' +
+   		'	<head>' +
+   		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+   		'	</head>' +
+   		'	<body>' +
+   		'		<p>HTML Fire Event Test</p>' +
+   		'		<p id="label"></p>' +
+   		'	</body>' +
+   		'	<script>' +
+   		'		Ti.App.addEventListener("app:webViewEval", function(e) {' +
+   		'			eval(e.javaScriptString)' +
+   		'		});' +
+   		'	</script>' +
+   		'</html>';
+   
+   var window = Ti.UI.createWindow();
+   var webView = Ti.UI.createWebView({
+   	html: htmlText,
+   });
+   window.add(webView);
+   window.open();
+   
+   var count = 1;
+   setInterval(function(e) {
+   	Ti.App.fireEvent('app:webViewEval', {
+   		javaScriptString: 'document.getElementById("label").innerHTML = "Counter: ' + count + '"',
+   	});
+   	count++;
+   }, 1000);
+   </pre></code>
+   </li>
+<li>Sharif AbuDarda 2019-04-23
+
+   Hello, I have tested the sample code by Joshus above of local HTML with SDK 8.0.0.GA in iOS. Works fine on my end. Please share sample code can reproduce the issue. We will test it on our end. Thanks.</li>
+</ol>
+
+
+<p><a href="/AC/AC-6221.json">JSON Source</a></p>

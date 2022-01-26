@@ -1,0 +1,98 @@
+---
+title: "[MOD-2590] Android: Modules "ti.barcode" and "facebook" conflict as of 9.0.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-04-22T17:31:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Barcode</td></tr>
+<tr><th>Labels</th><td>android, facebook, gradle, module, ti.barcode</td></tr>
+<tr><th>Reporter</th><td>Srinivasan Pulipakkam</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2020-03-30T19:26:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-04-22T17:31:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+An Android app build will fail if it include the following modules at the same time...
+* ti.barcode (v5.0.0)
+* facebook (v9.0.0)
+
+*Steps to reproduce:*
+<h4>Create a new project targeting Titanium 9.0.0.</h4>
+<h4>Set up the "tiapp.xml" with the below modules.</h4>
+<h4>Build for Android.</h4>
+
+<code><pre>
+<ti:app>
+	<modules>
+		<module platform="android">facebook</module>
+		<module platform="android">ti.barcode</module>
+	</modules>
+</ti:app>
+</pre></code>
+
+*Result:*
+You'll get several build error regarding duplicate Java classes under the "com.google.zxing" package.
+<code><pre>
+[ERROR] :  [GRADLE] java.lang.RuntimeException: Duplicate class com.google.zxing.BarcodeFormat found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+[ERROR] :  [GRADLE]   Duplicate class com.google.zxing.Binarizer found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+[ERROR] :  [GRADLE]   Duplicate class com.google.zxing.BinaryBitmap found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+[ERROR] :  [GRADLE]   Duplicate class com.google.zxing.ChecksumException found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+[ERROR] :  [GRADLE]   Duplicate class com.google.zxing.DecodeHintType found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+[ERROR] :  [GRADLE]   Duplicate class com.google.zxing.Dimension found in modules core-3.3.3.jar (com.google.zxing:core:3.3.3) and core-3.3.3.jar (ti:barcode:5.0.0)
+</pre></code>
+
+*Cause:*
+When we migrated the "facebook" module to gradle for Titanium 9.0.0, it ended up including the same zxing core library that our "ti.barcode" module uses which caused the above class name conflict.
+[facebook-common/build.gradle#L39](<a href="https://github.com/facebook/facebook-android-sdk/blob/ca9ba9cee5ababe944619aee76884708acc6b482/facebook-common/build.gradle#L39)" rel="nofollow" target="_blank">https://github.com/facebook/facebook-android-sdk/blob/ca9ba9cee5ababe944619aee76884708acc6b482/facebook-common/build.gradle#L39)</a>
+
+*Solution:*
+Update the "ti.barcode" module's "build.gradle" file to use the below dependencies and delete it's "lib" folder of JARs. This way gradle/maven's dependency management can resolve this for us.
+<code><pre>
+dependencies {
+	implementation 'com.google.zxing:core:3.4.0'
+	implementation 'com.google.zxing:android-core:3.3.0'
+	implementation 'com.google.zxing:android-integration:3.3.0'
+}
+</pre></code>
+
+*Work-Around:*
+Add file <code>./platform/android/build.gradle</code> under your project with below contents.
+_(Note that this work-around will need to be removed when we fix the "ti.barcode" module or else a runtime error will occur.)_
+<code><pre>
+configurations {
+	implementation {
+		// Work-around which excludes ZXing JARs until "ti.barcode" module has been updated to v5.0.1.
+		// You'll need to remove this once you upgrade to "ti.barcode" 5.0.1 or else runtime errors will occur.
+		exclude group: 'com.google.zxing', module: '*'
+	}
+}
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-03-30
+
+   PR: <a href="https://github.com/appcelerator-modules/ti.barcode/pull/126" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.barcode/pull/126</a></li>
+<li>Lokesh Choudhary 2020-03-31
+
+   FR Passed.
+   PR Merged.</li>
+<li>Lokesh Choudhary 2020-04-22
+
+   Verified the fix with module 5.0.1.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/MOD/MOD-2590.json">JSON Source</a></p>

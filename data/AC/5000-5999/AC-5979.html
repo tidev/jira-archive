@@ -1,0 +1,152 @@
+---
+title: "[AC-5979] iOS 12 - TabGroup.activeTab.openWindow opens window blank"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-02T09:50:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>David Bankier</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2018-10-17T06:32:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-02T09:50:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When using <code>TabGroup.activeTab.openWindow</code> the windows that opens sometimes does not appear. The sample code below generally replicates the problem the first time the function is called, without the (code heavy) window, instead a black screen appears.
+
+<code><pre>
+'use strict';
+function createWindow() {
+  var win = Ti.UI.createWindow();
+
+  function getRandomColor() {
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
+  function rand() {
+    return Math.floor(Math.random() * 10);
+  }
+  function createRow(i) {
+    var r = Ti.UI.createTableViewRow({
+      backgroundColor: getRandomColor(),
+      height: 50
+    });
+    var l = Ti.UI.createLabel({
+      text: 'Loading...' + i,
+      left: 0
+    });
+    r.add(l);
+    r.go = function() {
+      setTimeout(function() {
+        l.text = 'Loaded ' + i;
+        //r.backgroundColor = getRandomColor();
+        l.animate({
+          duration: 500,
+          autoreverse: true,
+          repeat: 5,
+          left: 250
+        });
+      }, rand() * 200);
+    };
+    return r;
+  }
+  var rows = [];
+  for (var i = 0; i < 10000; i++) {
+    rows.push(createRow(i));
+  }
+
+  function createSection() {
+    var s = Ti.UI.createTableViewSection();
+    rows.forEach(r => {
+      s.add(r);
+      setTimeout(function() {
+        r.go();
+      }, 0);
+    });
+    return s;
+  }
+
+  var table = Ti.UI.createTableView({
+    data: [createSection()]
+  });
+
+  win.add(table);
+  return win;
+}
+
+function createTabGroup() {
+  var tabs = ['blue', 'red', 'green', 'yellow'].map(function(c) {
+    var win = Ti.UI.createWindow({
+      backgroundColor: c,
+      title: c
+    });
+    win.add(Ti.UI.createLabel({ text: 'I am a' + c + ' window.' }));
+    win.addEventListener('click', openTab);
+
+    var tab = Ti.UI.createTab({
+      window: win,
+      title: c
+    });
+    return tab;
+  });
+  var tabGroup = Ti.UI.createTabGroup({
+    tabs: tabs
+  });
+  return tabGroup;
+}
+var tabGroup = createTabGroup();
+
+let win;
+function openTab() {
+  //if (win) { tabGroup.activeTab.close(win); }
+  win = createWindow();
+  tabGroup.activeTab.open(win);
+}
+setInterval(openTab, 3000);
+
+tabGroup.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>David Bankier 2018-10-17
+
+   This can be replicated in the simulator and with or without jscore.</li>
+<li>Jan Vennemann 2018-10-17
+
+   So i guess this is just an example to replicate the problem, right? Anyhow, the excessive use of <code>setTimeout(func, 0)</code> seems to be an issue. What happens under the hood is that a new thread will be created so the timer does not block on the main thread until it is triggered. You call <code>setTimeout</code> 10000 times every three seconds in this example. All these calls pile up until eventually it crashes somewhere in the internal thread handling of the kernel because the device cannot process all these threads fast enough. I had ~1500 threads active at the time of the crashes which is just way too much for the OS to handle.
+   
+   Removing the <code>setTimeout</code> removed the main issue for me and more windows opened after some time. However, i guess you were doing this to properly schedule the <code>animate</code> calls after adding a new row?
+   </li>
+<li>David Bankier 2018-10-17
+
+   This is just example code.
+   
+   The issue happens even without the interval/timeout. I am using it to save clicks and taps as it is hard to replicate.
+   I have large apps where tapping on a menu item opens a window in this manner (without a timeout) and sometimes appears blank.</li>
+<li>Jan Vennemann 2018-10-17
+
+   Can you provide a sample project? With the example code the app is crashing due to the massive amount of threads. On sim it's going black for a short time but then it also crashes. Are you seeing crashes too? Do you have crash reports you can share? Or will it just open a black window but keeps running?</li>
+<li>Keith Storm 2018-11-19
+
+   I am experiencing this same issue on my apps as well. Not using any setTimeout code. Just randomly get a blank window instead of my window with tableview. The app does not crash for me, just blank window. It appears to happen more frequently on older devices. It is pretty common with iPhone 6 devices.</li>
+<li>Sharif AbuDarda 2018-11-20
+
+   Hello [~kstorm001], Can you provide a standalone sample code that generates the issue for the older iOS device? We will lest on our end. Thanks.</li>
+</ol>
+
+
+<p><a href="/AC/AC-5979.json">JSON Source</a></p>

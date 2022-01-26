@@ -1,0 +1,255 @@
+---
+title: "[TIMOB-7051] iOS: UI.imageView - changing image property results in memory leak"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-22T18:40:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-02, Release 2.0.0, Release 1.8.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_imageview, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Cécile Adam</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-01-06T08:08:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-02-22T18:40:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+I have an ImageView, clicking on the right, i want to change its image to the next image, clicking to the left, to the previous image, for browsing 50 images.
+
+Changing the <code>image</code> property of the imageView causes a memory leak which never recovers when using 1.8.0.1.
+
+Note that there is no memory leak when using 1.7.5.
+
+
+<h4>Test case</h4>
+
+<code><pre>
+(function(){ 
+	var screenWidth = Ti.Platform.displayCaps.platformWidth; 
+	Ti.UI.setBackgroundColor('#000'); 
+	
+	var win = Ti.UI.createWindow({ 
+		backgroundColor:'#000000', 
+		fullscreen: true 
+	}); 
+	
+	win.open(); 
+	
+	var currentImage=1; 
+	var max = 20; 
+	
+	var myImageView = Ti.UI.createImageView({ 
+		image: 'img/'+currentImage+'.jpg', 
+		touchEnabled:false 
+	}); 
+	win.add(myImageView); 
+	
+	function setImage(view, image){ 
+		view.image = 'img/'+image+'.jpg'; 
+	} 
+	
+	win.addEventListener('click', function(e){ 
+		if(e.x > (screenWidth/2)){ 
+		currentImage++; 
+		if (currentImage>max) { 
+		currentImage=1; 
+		} 
+		} else { 
+		currentImage--; 
+		if(currentImage<1){ 
+		currentImage=max; 
+		} 
+		} 
+		
+		setImage(win.children[0], currentImage); 
+		
+		Ti.API.info("memory = "+Ti.Platform.availableMemory); 
+	}); 
+	
+	setInterval(function() {
+		win.fireEvent('click');
+	}, 100);
+})(); 
+</pre></code>
+
+<h4>Logs</h4>
+
+<code><pre>
+[INFO] One moment, building ...
+[INFO] Titanium SDK version: 1.8.0.1 (12/22/11 13:09 fbdc96f)
+[INFO] iPhone Device family: universal
+[INFO] iPhone SDK version: 5.0
+[INFO] iPhone simulated device: iphone
+[INFO] Performing full rebuild. This will take a little bit. Hold tight...
+[INFO] Skipping JS compile, running from simulator
+[INFO] Performing clean build
+[INFO] Launching application in Simulator
+[INFO] Launched application in Simulator (11.92 seconds)
+[INFO] Found 5.0 patch installed
+[INFO] Application started
+[INFO] ImageViewTest/1.0 (1.8.0.1.fbdc96f)
+[INFO] memory = 3222.25
+[INFO] memory = 3208.1328125
+[INFO] memory = 3196.17578125
+[INFO] memory = 3184.48828125
+[INFO] memory = 3172.92578125
+[INFO] memory = 3159.390625
+[INFO] memory = 3145.64453125
+[INFO] memory = 3133.76171875
+[INFO] memory = 3125.4140625
+[INFO] memory = 3124.609375
+[INFO] memory = 3112.7421875
+[INFO] memory = 3100.7890625
+[INFO] memory = 3089.1484375
+[INFO] memory = 3074.5859375
+[INFO] memory = 3062.8671875
+[INFO] memory = 3050.9921875
+[INFO] memory = 3039.40625
+[INFO] memory = 3027.44921875
+[INFO] memory = 3015.515625
+[INFO] memory = 3000.921875
+[INFO] memory = 3000.96875
+</pre></code>
+
+<code><pre>
+[INFO] One moment, building ...
+[INFO] Titanium SDK version: 1.7.5
+[INFO] iPhone Device family: universal
+[INFO] iPhone SDK version: 5.0
+[INFO] iPhone simulated device: iphone
+[INFO] Performing full rebuild. This will take a little bit. Hold tight...
+[INFO] Skipping JS compile, running from simulator
+[INFO] Performing clean build
+[INFO] Launching application in Simulator
+[INFO] Launched application in Simulator (12.99 seconds)
+[INFO] Found 5.0 patch installed
+[INFO] Application started
+[INFO] ImageViewTest/1.0 (1.7.5.ab20af7)
+[INFO] memory = 3165.79296875
+[INFO] memory = 3153.82421875
+[INFO] memory = 3154.390625
+[INFO] memory = 3154.45703125
+[INFO] memory = 3154.53515625
+[INFO] memory = 3154.6015625
+[INFO] memory = 3154.66015625
+[INFO] memory = 3152.76953125
+[INFO] memory = 3152.890625
+[INFO] memory = 3152.98046875
+[INFO] memory = 3153.0703125
+[INFO] memory = 3157.1953125
+</pre></code>
+
+<h4>Workaround</h4>
+
+Although it's depreciated, using the <code>url</code> instead of <code>image</code> property resolves the issue.
+
+<h4>Discussions</h4>
+
+Q&A: [changing image of an imageview does not free memory](<a href="http://developer.appcelerator.com/question/130317/changing-image-of-an-imageview-does-not-free-memory)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/130317/changing-image-of-an-imageview-does-not-free-memory)</a>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-7051_24952/ImageViewTest.zip">ImageViewTest.zip</td></td><td>2012-01-06T08:08:06.000+0000</td><td>1623750</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2012-01-06
+
+   Thanks for raising this ticket.
+   
+   In order for me to escalate it to the core team, all the fields must be complete. Please check it against the [JIRA Ticket Checklist](<a href="https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)</a>, and add any missing information.  For the description, you can use [this template](<a href="https://wiki.appcelerator.org/display/guides/JIRA+Ticket+Template)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/JIRA+Ticket+Template)</a> as a starting point.
+   
+   Furthermore, a test case must be included in the body of the ticket and run without modification, as per the [Creating a Test Case](<a href="https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-CreatingaTestCase)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-CreatingaTestCase)</a> section.
+   
+   Lastly, please provide the link to the Q&A, where you asked the community about this issue. This is a pre-requisite to raising tickets.
+   
+   Thanks in advance for your cooperation.
+   
+   </li>
+<li>Cécile Adam 2012-01-06
+
+   Thanks, I made the changes you asked. Hope I did it well, I a newbie with JIRA :-(</li>
+<li>Paul Dowsett 2012-01-06
+
+   Almost there, Cecile - I don't think it runs in its current form though.
+   
+   I have a strong suspicion that this issue is not a bug, but the approach you have used. It's crucial that you remove all references to any objects (although particularly Titanium objects) as soon as they are no longer needed, in order for them to be garbage-collected. See [Garbage Collection by Reference Counting](<a href="http://docstore.mik.ua/orelly/webprog/jscript/ch11_03.htm#jscript4-CHP-11-SECT-3.2)" rel="nofollow" target="_blank">http://docstore.mik.ua/orelly/webprog/jscript/ch11_03.htm#jscript4-CHP-11-SECT-3.2)</a> for an explanation of the problem in layman's terms and Rick Blalock's informative [Your Apps are Leaking – Controlling Memory Leaks](<a href="http://vimeopro.com/appcelerator/codestrong-2011/video/29804284)." rel="nofollow" target="_blank">http://vimeopro.com/appcelerator/codestrong-2011/video/29804284).</a>
+   
+   </li>
+<li>Paul Dowsett 2012-01-06
+
+   Cecile
+   
+   Although the above references will be useful, I have now reproduced your issue with a simpler test case. I will let you know my findings next week.
+   
+   Thanks</li>
+<li>Cécile Adam 2012-01-08
+
+   Found something perhaps interesting !
+   
+   if I set the image with the url property instead of the image property it's OK !!!
+   (ie myImageView.url instead of myImageView.image)
+   
+   But, as it's deprecated, would prefer another solution !
+   
+   Thanks</li>
+<li>Paul Dowsett 2012-01-10
+
+   I have tested this and can confirm that the behavior is as described. Escalating now.</li>
+<li>Stephen Tramer 2012-01-16
+
+   There is a good chance this is not a memory leak. For performance (and memory usage for multiple-loaded image) reasons, we cache images in memory when they are loaded from disk. When there is danger of the system having a memory panic, this entire cache is purged.</li>
+<li>Cécile Adam 2012-01-16
+
+   thank you Steven, but my experience is that the app crashes.
+   when on the device (iPad) the app received a memory warning Level 2, then crashes
+   
+   I'm very disappointed because it worked like a charm with SDK 1.7.5</li>
+<li>Stephen Tramer 2012-01-16
+
+   Do you have a crash log that can be attached to the ticket?</li>
+<li>Cécile Adam 2012-01-17
+
+    don't know how to attach file as I don't seem to have the right to edit this issue.
+    
+    So, the console : <a href="http://pastie.org/3199910" rel="nofollow" target="_blank">http://pastie.org/3199910</a>
+    And the crashlog : <a href="http://pastie.org/3199922" rel="nofollow" target="_blank">http://pastie.org/3199922</a></li>
+<li>Stephen Tramer 2012-01-17
+
+    This looks like an issue unrelated to caching - it seems to be being caused by some of our property setters. I'm working on resolving it right now.</li>
+<li>Wilson Luu 2012-01-23
+
+    Closing bug. Verified fix on:
+    
+    SDK build: 1.9.0.v20120121223134
+    Titanium Studio, build: 1.0.8.201201210622
+    Xcode: 4.2
+    OS: Mac OS X Lion (10.7.2)
+    Device: iPad 2 (5.0.1)</li>
+<li>Cécile Adam 2012-01-24
+
+    works fine, thanxs</li>
+<li>Wilson Luu 2012-02-01
+
+    updated labels</li>
+<li>Stephen Tramer 2012-02-22
+
+    Reopening to edit sample JS.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7051.json">JSON Source</a></p>

@@ -1,0 +1,132 @@
+---
+title: "[TIMOB-11752] Android: Globals not accessible in CommonJS modules"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-29T00:04:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.2, Release 3.1.0, 2013 Sprint 02 Core, 2013 Sprint 02</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-port, triage</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2012-11-13T20:04:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-08-01T16:30:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*DISCLAIMER:* I know this isn't technically an Android bug. It's just a "one of these things is not like the others" situation that is causing headaches for Alloy developers (others too i assume).
+
+<h4>Problem</h4>
+
+iOS and Mobileweb have access to global variables in their commonjs modules. Android does not. From what I understand, Android is actually implementing commonjs appropriately and globals should *NOT* be accessible in commonjs modules. 
+
+The typical complaint I hear is "I did this code in iOS and it doesn't work on Android". WRT Alloy, people constantly complain that the builtin Alloy namespace is not accessible in their custom, non-controller JS libraries on Android. This is because iOS and Mobileweb make Alloy available globally. While it may be convenient on those platforms, it's not actually how it should be implemented. This is just a symptom of the deeper problem of disparity in the commonjs implementations.
+
+While the technical issue is clear, the answer is a little muddier. The "right" answer would be to _not_ make globals available in commonjs modules in iOS and Mobileweb, just like Android, as this adheres to the actual Commonjs spec. Unfortunately, that is bound to break a lot of existing apps that rely on this improper implementation. The "safe" answer would likely be to make globals accessible in Android commonjs modules. It diverges from the spec, but will solve these problems and would be the change most transparent to the developer base. From Alloy's perspective, either is fine, but we just need parity one way or the other.
+
+<h4>Proposed Solution</h4>
+
+One of 2 solutions would create parity between the platforms:
+
+<h4>Make globals inaccessible in commonjs modules in iOS and Mobileweb</h4>
+<h4>Make globals accessible in commonjs modules in Android</h4>
+
+<h4>Test Case</h4>
+
+<h4>app.js</h4>
+<code><pre>
+var someGlobal = { someValue: 1 };
+require('someModule');
+</pre></code>
+
+<h4>someModule.js</h4>
+<code><pre>
+alert(someGlobal.someValue);
+</pre></code>
+
+On iOS and Mobileweb the app will pop open an alert box with the number *1* in it. On Android, it will fail with the exception seen in the attached screenshot.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-11752_33430/Screen Shot 2012-11-13 at 3.04.11 PM.png">Screen Shot 2012-11-13 at 3.04.11 PM.png</td></td><td>2012-11-13T20:04:39.000+0000</td><td>58038</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Josh Roesslein 2012-11-17
+
+   I think it may be fine exposing the globals and running all modules within the same JS context.
+   It's not clear if CommonJS requires complete isolation by running modules in their own contexts.
+   I know Node by default does NOT create a new context for each module, so you can access the globals.
+   I think the important thing about modules is providing a "private" space and allowing them to only
+   export what they want to be "public". I believe we do provide this important feature in all platforms.
+   
+   As for why we use a new context for each module on Android, I recall there being a technical reason,
+   but we may be able to work around it. The plus side of not creating contexts is "instanceof" testing
+   is less weird (since each module has its own context, they each have their own built-in objects).
+   
+   Before we do anything we should probably put together a formal specification and testing strategy.
+   I think this would go a long way in getting us to parity and documenting how modules work in Titanium. </li>
+<li>Tony Lukasavage 2012-11-30
+
+   So what is the path forward? Is this going to be addressed in a upcoming release? If so, is it safe to assume that Android will make globals accessible throughout modules like mobileweb and ios?</li>
+<li>Tim Poulsen 2012-12-11
+
+   I would prefer modules to be isolated and w/out access to the global space of the calling context. It's not that hard to pass in required objects or require() in a sub-module. It forces separation and discipline and better lends itself to creating stand-alone modules that can be easily dropped into another project.</li>
+<li>David Bankier 2013-01-13
+
+   If you need a work around now, I released an example of how to make Android behave like iOS.
+   
+   Blog:   <a href="http://www.yydigital.com/blog/2013/1/13/Achieving_Require_Parity" rel="nofollow" target="_blank">http://www.yydigital.com/blog/2013/1/13/Achieving_Require_Parity</a>
+   Github: <a href="https://github.com/dbankier/GlobalRequire" rel="nofollow" target="_blank">https://github.com/dbankier/GlobalRequire</a></li>
+<li>Tony Lukasavage 2013-01-14
+
+   Nice work David. I'm not making the decisions, but I'm guessing the platform-level solution will take a similar route, giving Android the behavior of Mobileweb and iOS.</li>
+<li>Ivan Skugor 2013-01-14
+
+   I totally agree with Tim.
+   
+   
+   
+   NodeJs permits access to global scope variables (by error or not) and it has its own mechanism of creating and using global variables (via "GLOBALS"), but - everybody everywhere discourages usage of global variables for a reason. We may not like tons of "require"s on top of every module (I hate it TBH), but it certainly has great benefits.</li>
+<li>Allen Yeung 2013-01-23
+
+   Solved by <a href="https://github.com/appcelerator/titanium_mobile/pull/3757" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3757</a></li>
+<li>Anshu Mittal 2013-01-29
+
+   Tested with: 
+   SDK:3.1.0.v20130128172329,3.0.2.v20130128174806
+   Studio:3.0.2.201301251115
+   Device: iPhone3GS(v 5.0.1), Android Emulator(2.3)</li>
+<li>Bryan Hughes 2013-02-08
+
+   FYI Mobile Web does NOT share global contexts between modules! app.js is evaluated in global space though, so variables declared _only in app.js_ are available globally. This is actually a bug in Mobile Web and is not supposed to be the behavior.</li>
+<li>Sindre Sorhus 2013-02-21
+
+    Sad to see you're going with fixing it for users using it wrong instead of fixing the actual problem correctly... Please consider changing this in the next major release.</li>
+<li>Ingo Muschenetz 2013-02-28
+
+    To clarify, this was "fixed" as a side effect of TIMOB-12286, but this is not the intended end goal. We would prefer to not allow globals as specified above, but it is the lesser of two evils when compared with the Android memory leak.
+    
+    Instead, we are marking this usage as unsupported and deprecated, where it could be removed at any point, and likely will be in the future. In the meantime, users who wish to use globals in Alloy applications can use:
+    
+    <code><pre>
+    var Alloy = require('alloy');
+    </pre></code>
+    
+    instead. I have filed a related ticket to update the documentation discussing global usage and proper approaches.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11752.json">JSON Source</a></p>

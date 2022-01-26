@@ -1,0 +1,101 @@
+---
+title: "[TIMOB-25726] Android: Ensure device's installed Google Play Services is available/updated on app startup"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-31T12:28:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, google-play-services, module</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-01-26T02:54:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-31T12:28:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The Google Play Services libraries (included with "ti.playservices" module) are merely an interface to the installed Google Play Services app/apk. The app must ensure that Google Play Services is installed on the device and that its apk version is greater or equal to the version of the Google Play Services libraries that the app includes... or else the library's APIs will fail or throw an exception.
+
+Google documents the above here...
+<a href="https://developers.google.com/android/guides/setup#ensure_devices_have_the_google_play_services_apk" rel="nofollow" target="_blank">https://developers.google.com/android/guides/setup#ensure_devices_have_the_google_play_services_apk</a>
+
+*Feature Requirements:*
+<h4>The Google Play Services check should be done when the Titanium splashscreen is displayed (ie: TiLaunchActivity.java) and before executing the "app.js" script.</h4>
+<h4>Do not run the check if "ti.playservices" module is not included in the app. (In this case, assume app does not use Google Play Services.)</h4>
+<h4>If Google Play Services is found to be too old or disabled, display an alert asking end-user to resolve it. Keep the end-user on the launcher screen in this case.</h4>
+<h4>If end-user chooses to update Google Play Services, remain on the launcher screen until the download completes, then proceed on to execute the "app.js" script.</h4>
+<h4>Do not display an alert if the device does not have Google Play installed and proceed to execute the "app.js" script. In this case, assume the app is not distributed via the Google Play app store (such as Amazon) or the app is running via an emulator without Google Play installed.</h4>
+<h4>Add "tiapp.xml" boolean property "ti.playservices.validate.on.startup" which when set <code>false</code> will disable this feature. In this case, it is the app developer's responsibility to manage this.</h4>
+
+*Note:*
+Currently, Titanium's "ti.playservices" module purposely uses Google Play Services library versions a few revs old to avoid the failure mentioned above. Once we update a Titanium app to install the newest version of Google Play Services on startup, we no longer have to fear this issue and we can keep the module's libraries up-to-date.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25726_64764/UpdateScreenshot.png">UpdateScreenshot.png</td></td><td>2018-01-26T23:31:02.000+0000</td><td>367411</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-01-26
+
+   Following up our discussion on Github, I disagree that we should show any alert for the developer. The developer should understand that he_she needs to check for the play-services him_herself and break if not installed. Otherwise, I see tickets like "Unwanted alert shown" and "Cannot change alert title" incoming. If we can provide a way where the developer can check the status, there is nothing else we should do for him / her. I'd be interested how other frameworks solve that and how developers would prefer the way it's handled.</li>
+<li>Joshua Quick 2018-01-26
+
+   [~hknoechel], I think you misunderstood how this works. If the version installed on the device is too old, then we would display a "localized" alert to the end-user (not the developer) for permission to download the newest version via Google's makeGooglePlayServicesAvailable() API. There is no API to download the newest version without showing an alert. This is the only means of doing so.
+   <a href="https://developers.google.com/android/reference/com/google/android/gms/common/GoogleApiAvailability.html#makeGooglePlayServicesAvailable(android.app.Activity)" rel="nofollow" target="_blank">https://developers.google.com/android/reference/com/google/android/gms/common/GoogleApiAvailability.html#makeGooglePlayServicesAvailable(android.app.Activity)</a>
+   
+   You're expected to do this on app launch. That's how Google documents it. That's how most apps handle it. Please trust me on this. I've done this before.
+   
+   Now, I am okay with us adding a "tiapp.xml" option to disable this feature upon app launch and have the Titanium developer do this themselves. But that should be something the developer knowing opts-in to where our documentation then points them to the "ti.playservices" where they must do this themselves.</li>
+<li>Greg 2018-05-24
+
+   FWIW, we use an updated ti.playservices (11.8.0) and perform the API level availability check on demand later in the app lifecycle through our own module using GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this) (which can be run from a background service on app launch if the app uses one).  
+   
+   We can then choose to run makeGooglePlayServicesAvailable (which we have modified to broadcast an app event on completion) when the app is active in the foreground. 
+   
+   We need this level of control for our use case so if this is not going to be the appcelerator approach, then it would be very beneficial to provide a tiapp.xml option to allow developers disable the automatic update if a developer wants to control the update themselves as we do currently.  </li>
+<li>Joshua Quick 2018-05-25
+
+   [~miniman42], yes, I think making it settable via a property in the "tiapp.xml" is a good way to go too. By default, we'll handle it on startup. But with this property you can disable it and handle it yourself (you're opting-in to handling it yourself).</li>
+<li>Gary Mathews 2019-02-26
+
+   ti.playservices: <a href="https://github.com/appcelerator-modules/ti.playservices/releases/tag/16.1.2" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.playservices/releases/tag/16.1.2</a>
+   
+   Can use the <code>makeGooglePlayServicesAvailable</code> method to determine Google Play Services compatibility.</li>
+<li>Greg 2019-02-26
+
+   @gmathews Can we control this behaviour with a tiapp.xml property as per my comment above?</li>
+<li>Gary Mathews 2019-02-27
+
+   [~miniman42] By default this check is disabled unless <code>PlayServices.makeGooglePlayServicesAvailable(callback)</code> is called. So it's not necessary to have a <code>tiapp.xml</code> property here.</li>
+<li>Joshua Quick 2020-01-23
+
+   PR: <a href="https://github.com/appcelerator-modules/ti.playservices/pull/32" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.playservices/pull/32</a>
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/11456" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11456</a>
+   </li>
+<li>Lokesh Choudhary 2020-01-29
+
+   FR Passed.</li>
+<li>Christopher Williams 2020-01-30
+
+    merged to master for 9.0.0</li>
+<li>Sohail Saddique 2020-01-31
+
+    Ticket verified on build: 9.0.0.v20200130113429. Ticket closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25726.json">JSON Source</a></p>

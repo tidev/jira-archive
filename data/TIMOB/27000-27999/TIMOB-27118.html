@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-27118] Android: TabGroup close() wrongly fires "close" event twice"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-09-10T05:06:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>TabGroup, android, close, engSchedule, event</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2019-06-01T02:53:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-09-10T05:06:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+When calling a <code>TabGroup</code> object's <code>close()</code> method, that <code>TabGroup</code> will fire a "close" event twice when it shouldn't.
+
+If you tap the Android "Back" button, then it will correctly fire the "close" event only once. This is only an issue when calling the <code>close()</code> method.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>Tap on the "Show TabGroup" button.</h4>
+<h4>Tap on the "Close TabGroup" button.</h4>
+<h4>Notice in the log that a <code>"TabGroup 'close'"</code> was logged twice. _(This is the bug.)_</h4>
+<h4>Tap on the "Show TabGroup" button.</h4>
+<h4>Tap on the Android "Back" button to close the <code>TabGroup</code>.</h4>
+<h4>Notice in the log that <code>"TabGroup 'close'"</code> was only logged once. _(This is correct.)_</h4>
+
+<code><pre>
+var TAB_GROUP_REQUESTING_CLOSE_EVENT_NAME = "tabGroup:requestingClose";
+
+function createTab(title) {
+	var window = Ti.UI.createWindow({ title: title });
+	window.add(Ti.UI.createLabel({ text: title + " View" }));
+	var closeButton = Ti.UI.createButton({
+		title: "Close TabGroup",
+		bottom: "20%",
+	});
+	closeButton.addEventListener("click", function() {
+		Ti.App.fireEvent(TAB_GROUP_REQUESTING_CLOSE_EVENT_NAME);
+	});
+	window.add(closeButton);
+	var tab = Ti.UI.createTab({
+		title: title,
+		window: window,
+	});
+	return tab;
+}
+
+var parentWindow = Ti.UI.createWindow();
+var showTabGroupButton = Ti.UI.createButton({ title: "Show TabGroup" });
+showTabGroupButton.addEventListener("click", function() {
+	function onRequestingClose() {
+		tabGroup.close();
+	}
+	var tabGroup = Ti.UI.createTabGroup({
+		tabs: [createTab("Tab 1"), createTab("Tab 2"), createTab("Tab 3")],
+	});
+	if (Ti.App.iOS) {
+		tabGroup.backgroundColor = "white";
+	}
+	tabGroup.addEventListener("open", function(e) {
+		Ti.App.addEventListener(TAB_GROUP_REQUESTING_CLOSE_EVENT_NAME, onRequestingClose);
+		Ti.API.info("@@@ TabGroup 'open' event was fired.");
+	});
+	tabGroup.addEventListener("close", function(e) {
+		Ti.App.removeEventListener(TAB_GROUP_REQUESTING_CLOSE_EVENT_NAME, onRequestingClose);
+		Ti.API.info("@@@ TabGroup 'close' event was fired.");
+	});
+	tabGroup.open();
+});
+parentWindow.add(showTabGroupButton);
+parentWindow.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Yordan Banev 2019-07-19
+
+   PR (master):<a href="https://github.com/appcelerator/titanium_mobile/pull/11062" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11062</a></li>
+<li>Keerthi Mahalingam 2019-07-31
+
+   FR passed. Tab group close event fired only once. works as expected.PR will be merged after 8.1.0 GA </li>
+<li>Yordan Banev 2019-08-26
+
+   PR (8_3_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/11175" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11175</a></li>
+<li>Christopher Williams 2019-09-09
+
+   merged master PR. Closed 8_3_X PR as that branch will be going away and master is current 8.3.0 target.</li>
+<li>Keerthi Mahalingam 2019-09-10
+
+   Verified the fix on sdk 8.3.0.v20190909144256. Tabgroup works as expected.
+   <code><pre>
+   Test Environment:
+    Name                        = Mac OS X
+     Version                     = 10.14.5
+     Architecture                = 64bit
+     # CPUs                      = 12
+     Memory                      = 17179869184
+   Node.js
+     Node.js Version             = 10.16.2
+     npm Version                 = 6.9.0
+   Titanium CLI
+     CLI Version                 = 5.2.1
+   Titanium SDK
+     SDK Version                 = 8.3.0.v20190909144256
+   Device -samsung s5 android 6
+   Emulator- pixel android 9
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27118.json">JSON Source</a></p>

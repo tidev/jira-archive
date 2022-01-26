@@ -1,0 +1,542 @@
+---
+title: "[AC-1306] ListView - first section doesn't scroll when doing pull to refresh"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-09-02T05:52:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ivan Skugor</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2014-09-08T16:24:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:37:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello.
+
+
+To see this issue, run this code:
+
+<code><pre>
+var win = Ti.UI.createWindow({backgroundColor: 'white', top: 20});
+var listView = Ti.UI.createListView({height:'90%', top:0});
+var sections = [];
+
+var fruitSection = Ti.UI.createListSection({ headerTitle: 'Fruits'});
+var fruitDataSet = [
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Apple'}},
+    {properties: { title: 'Banana'}},
+];
+fruitSection.setItems(fruitDataSet);
+sections.push(fruitSection);
+
+var vegSection = Ti.UI.createListSection({ headerTitle: 'Vegetables'});
+var vegDataSet = [
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Carrots'}},
+    {properties: { title: 'Potatoes'}},
+];
+vegSection.setItems(vegDataSet);
+
+var fishSection = Ti.UI.createListSection({ headerTitle: 'Fish'});
+var fishDataSet = [
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Cod'}},
+    {properties: { title: 'Haddock'}},
+];
+fishSection.setItems(fishDataSet);
+listView.sections = sections;
+var refreshCount = 0;
+
+function getFormattedDate(){
+    var date = new Date();
+    return date.getMonth() + '/' + date.getDate() + '/' + date.getFullYear() + ' ' + date.getHours() + ':' + date.getMinutes();
+}
+
+function resetPullHeader(){
+    actInd.hide();
+    imageArrow.transform=Ti.UI.create2DMatrix();
+    if (refreshCount < 2) {
+        imageArrow.show();
+        labelStatus.text = 'Pull down to refresh...';
+        labelLastUpdated.text = 'Last Updated: ' + getFormattedDate();
+    } else {
+        labelStatus.text = 'Nothing To Refresh';
+        labelLastUpdated.text = 'Last Updated: ' + getFormattedDate();
+        listView.removeEventListener('pull', pullListener);
+        listView.removeEventListener('pullend', pullendListener);
+        eventStatus.text = 'Removed event listeners.';
+    }
+    listView.setContentInsets({top:0}, {animated:true});
+}
+
+function loadTableData()
+{
+    if (refreshCount == 0) {
+        listView.appendSection(vegSection);
+    } else if (refreshCount == 1) {
+        listView.appendSection(fishSection);
+    } 
+    refreshCount ++;
+    resetPullHeader();
+}
+
+function pullListener(e){
+    eventStatus.text = 'EVENT pull FIRED. e.active = '+e.active;
+    if (e.active == false) {
+        var unrotate = Ti.UI.create2DMatrix();
+        imageArrow.animate({transform:unrotate, duration:180});
+        labelStatus.text = 'Pull down to refresh...';
+    } else {
+        var rotate = Ti.UI.create2DMatrix().rotate(180);
+        imageArrow.animate({transform:rotate, duration:180});
+        if (refreshCount == 0) {
+            labelStatus.text = 'Release to get Vegetables...';
+        } else {
+            labelStatus.text = 'Release to get Fish...';
+        }
+    }
+}
+
+function pullendListener(e){
+    eventStatus.text = 'EVENT pullend FIRED.';
+ 
+    if (refreshCount == 0) {
+        labelStatus.text = 'Loading Vegetables...';        
+    } else {
+        labelStatus.text = 'Loading Fish...';
+    }
+    imageArrow.hide();
+    actInd.show();
+    listView.setContentInsets({top:80}, {animated:true});
+    setTimeout(function(){
+        loadTableData();
+    }, 2000);
+}
+
+var tableHeader = Ti.UI.createView({
+    backgroundColor:'#e2e7ed',
+    width:320, height:80
+});
+
+var border = Ti.UI.createView({
+    backgroundColor:'#576c89',
+    bottom:0,
+    height:2
+});
+tableHeader.add(border);
+
+var imageArrow = Ti.UI.createImageView({
+    image:'<a href="https://github.com/appcelerator/titanium_mobile/raw/master/demos/KitchenSink/Resources/images/whiteArrow.png" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/raw/master/demos/KitchenSink/Resources/images/whiteArrow.png</a>',
+    left:20, bottom:10,
+    width:23, height:60
+});
+tableHeader.add(imageArrow);
+
+var labelStatus = Ti.UI.createLabel({
+    color:'#576c89',
+    font:{fontSize:13, fontWeight:'bold'},
+    text:'Pull down to refresh...',
+    textAlign:'center',
+    left:55, bottom:30,
+    width:200
+});
+tableHeader.add(labelStatus);
+
+var labelLastUpdated = Ti.UI.createLabel({
+    color:'#576c89',
+    font:{fontSize:12},
+    text:'Last Updated: ' + getFormattedDate(),
+    textAlign:'center',
+    left:55, bottom:15,
+    width:200
+});
+tableHeader.add(labelLastUpdated);
+
+var actInd = Ti.UI.createActivityIndicator({
+    left:20, bottom:13,
+    width:30, height:30
+});
+tableHeader.add(actInd);
+listView.pullView = tableHeader;
+listView.addEventListener('pull', pullListener);
+listView.addEventListener('pullend',pullendListener);
+
+var eventStatus = Ti.UI.createLabel({
+    font:{fontSize:13, fontWeight:'bold'},
+    text: 'Event data will show here',
+    bottom:0,
+    height:'10%'
+})
+
+win.add(listView);
+win.add(eventStatus);
+win.open();
+</pre></code>
+
+
+
+Pull down list view so loading starts. Then, try to scroll list view. You should see that rows are scrolling, but first section view stays fixed (other seems fine).
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ivan Skugor 2014-10-28
+
+   More info about this issue:
+   
+   
+   Seems like RefreshControl has the same issue:
+   
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	top: 20
+   });
+   
+   var counter = 0;
+   
+   function genData() {
+   	var data = [];
+   	var i=1;
+   	for (i=1;i<=3;i++) {
+   		data.push({ properties: { title: 'ROW ' + (counter + i) }})
+   	}
+   	counter += 3;
+   	return data;
+   }
+   
+   var section = Ti.UI.createListSection({ headerTitle: 'Section' });
+   
+   section.setItems(genData());
+   
+   var control = Ti.UI.createRefreshControl({
+   	tintColor: 'red'
+   });
+   
+   var listView = Ti.UI.createListView({
+   	sections:[section],
+   	refreshControl:control
+   });
+   
+   control.addEventListener('refreshstart',function(e){
+   	Ti.API.info('refreshstart');
+   	setTimeout(function(){
+   		Ti.API.debug('Timeout');
+   		section.appendItems(genData());
+   		control.endRefreshing();
+   	}, 5000);
+   });
+   
+   win.add(listView);
+   win.open();
+   </pre></code>
+   
+   Pull to refresh, then scroll up. You'll see the same issue.
+   
+   
+   
+   
+   I did some research, seems like the problem is that RefreshControl is being added as table view child:
+   
+   <a href="http://stackoverflow.com/questions/15233147/header-displaced-in-tableview-with-uirefreshcontrol" rel="nofollow" target="_blank">http://stackoverflow.com/questions/15233147/header-displaced-in-tableview-with-uirefreshcontrol</a>
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L636" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L636</a>
+   
+   
+   I tried suggested workaround suggested there, basically, commented out: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L631" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L631</a>
+   
+   and replaced <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L636" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIListView.m#L636</a> with
+   
+   <code><pre>
+   if (tableController == nil) {
+       tableController = [[UITableViewController alloc] init];
+       [TiUtils configureController:tableController withObject:nil];
+       tableController.tableView = [self tableView];
+   }
+   tableController.refreshControl = [_refreshControlProxy control];
+   </pre></code>
+   
+   
+   and the issue is gone.
+   
+   
+   
+   I would make pull request, but tbh I'm not iOS developer :) so I'm not sure is solution ok.
+   If someone could take a look and see if solution is ok and make changes in Ti repository, that would be great because we would at least have some workaround for this issue.
+   
+   
+   
+   Also, original issue may happen because of same reason, but I can't fix it since my Objective-C knowledge is ... limited. :)
+   But, I found solution that works: <a href="https://github.com/enormego/EGOTableViewPullRefresh" rel="nofollow" target="_blank">https://github.com/enormego/EGOTableViewPullRefresh</a> If it will help.
+   
+   
+   Thanks.</li>
+<li>Papia Chowdhury 2015-08-31
+
+   Hello,
+   
+   I have tested both the user's provided test cases in my environment and observed that pull to refresh works perfectly for me. It is perhaps no longer and issue for you. I will mark this ticket resolved. You can re-open if you have a test case to reproduce it.
+   
+   *Testing Environment:*
+   Appcelerator Studio, build: 4.2.0.201508141038
+   Titanium SDK: 4.1.0 GA
+   iOS simulator: iphone 5s(v8.1)
+   OS X version: 10.9.5
+   
+   *Steps to Test:*
+   1. Run below codes on simulator.
+   2. Pull down listview
+   3. and try to scroll down
+   
+   You will see that rows are scrolling and list section updates perfectly.
+   
+   *Test Case: 1*
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor: 'white', top: 20});
+   var listView = Ti.UI.createListView({height:'90%', top:0});
+   var sections = [];
+    
+   var fruitSection = Ti.UI.createListSection({ headerTitle: 'Fruits'});
+   var fruitDataSet = [
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Apple'}},
+       {properties: { title: 'Banana'}},
+   ];
+   fruitSection.setItems(fruitDataSet);
+   sections.push(fruitSection);
+    
+   var vegSection = Ti.UI.createListSection({ headerTitle: 'Vegetables'});
+   var vegDataSet = [
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Carrots'}},
+       {properties: { title: 'Potatoes'}},
+   ];
+   vegSection.setItems(vegDataSet);
+    
+   var fishSection = Ti.UI.createListSection({ headerTitle: 'Fish'});
+   var fishDataSet = [
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Cod'}},
+       {properties: { title: 'Haddock'}},
+   ];
+   fishSection.setItems(fishDataSet);
+   listView.sections = sections;
+   var refreshCount = 0;
+    
+   function getFormattedDate(){
+       var date = new Date();
+       return date.getMonth() + '/' + date.getDate() + '/' + date.getFullYear() + ' ' + date.getHours() + ':' + date.getMinutes();
+   }
+    
+   function resetPullHeader(){
+       actInd.hide();
+       imageArrow.transform=Ti.UI.create2DMatrix();
+       if (refreshCount < 2) {
+           imageArrow.show();
+           labelStatus.text = 'Pull down to refresh...';
+           labelLastUpdated.text = 'Last Updated: ' + getFormattedDate();
+       } else {
+           labelStatus.text = 'Nothing To Refresh';
+           labelLastUpdated.text = 'Last Updated: ' + getFormattedDate();
+           listView.removeEventListener('pull', pullListener);
+           listView.removeEventListener('pullend', pullendListener);
+           eventStatus.text = 'Removed event listeners.';
+       }
+       listView.setContentInsets({top:0}, {animated:true});
+   }
+    
+   function loadTableData()
+   {
+       if (refreshCount == 0) {
+           listView.appendSection(vegSection);
+       } else if (refreshCount == 1) {
+           listView.appendSection(fishSection);
+       } 
+       refreshCount ++;
+       resetPullHeader();
+   }
+    
+   function pullListener(e){
+       eventStatus.text = 'EVENT pull FIRED. e.active = '+e.active;
+       if (e.active == false) {
+           var unrotate = Ti.UI.create2DMatrix();
+           imageArrow.animate({transform:unrotate, duration:180});
+           labelStatus.text = 'Pull down to refresh...';
+       } else {
+           var rotate = Ti.UI.create2DMatrix().rotate(180);
+           imageArrow.animate({transform:rotate, duration:180});
+           if (refreshCount == 0) {
+               labelStatus.text = 'Release to get Vegetables...';
+           } else {
+               labelStatus.text = 'Release to get Fish...';
+           }
+       }
+   }
+    
+   function pullendListener(e){
+       eventStatus.text = 'EVENT pullend FIRED.';
+    
+       if (refreshCount == 0) {
+           labelStatus.text = 'Loading Vegetables...';        
+       } else {
+           labelStatus.text = 'Loading Fish...';
+       }
+       imageArrow.hide();
+       actInd.show();
+       listView.setContentInsets({top:80}, {animated:true});
+       setTimeout(function(){
+           loadTableData();
+       }, 2000);
+   }
+    
+   var tableHeader = Ti.UI.createView({
+       backgroundColor:'#e2e7ed',
+       width:320, height:80
+   });
+    
+   var border = Ti.UI.createView({
+       backgroundColor:'#576c89',
+       bottom:0,
+       height:2
+   });
+   tableHeader.add(border);
+    
+   var imageArrow = Ti.UI.createImageView({
+       image:'<a href="https://github.com/appcelerator/titanium_mobile/raw/master/demos/KitchenSink/Resources/images/whiteArrow.png" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/raw/master/demos/KitchenSink/Resources/images/whiteArrow.png</a>',
+       left:20, bottom:10,
+       width:23, height:60
+   });
+   tableHeader.add(imageArrow);
+    
+   var labelStatus = Ti.UI.createLabel({
+       color:'#576c89',
+       font:{fontSize:13, fontWeight:'bold'},
+       text:'Pull down to refresh...',
+       textAlign:'center',
+       left:55, bottom:30,
+       width:200
+   });
+   tableHeader.add(labelStatus);
+    
+   var labelLastUpdated = Ti.UI.createLabel({
+       color:'#576c89',
+       font:{fontSize:12},
+       text:'Last Updated: ' + getFormattedDate(),
+       textAlign:'center',
+       left:55, bottom:15,
+       width:200
+   });
+   tableHeader.add(labelLastUpdated);
+    
+   var actInd = Ti.UI.createActivityIndicator({
+       left:20, bottom:13,
+       width:30, height:30
+   });
+   tableHeader.add(actInd);
+   listView.pullView = tableHeader;
+   listView.addEventListener('pull', pullListener);
+   listView.addEventListener('pullend',pullendListener);
+    
+   var eventStatus = Ti.UI.createLabel({
+       font:{fontSize:13, fontWeight:'bold'},
+       text: 'Event data will show here',
+       bottom:0,
+       height:'10%'
+   })
+    
+   win.add(listView);
+   win.add(eventStatus);
+   win.open();
+   </pre></code>
+   
+   *Test Case: 2*
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	top: 20
+   });
+    
+   var counter = 0;
+    
+   function genData() {
+   	var data = [];
+   	var i=1;
+   	for (i=1;i<=3;i++) {
+   		data.push({ properties: { title: 'ROW ' + (counter + i) }})
+   	}
+   	counter += 3;
+   	return data;
+   }
+    
+   var section = Ti.UI.createListSection({ headerTitle: 'Section' });
+    
+   section.setItems(genData());
+    
+   var control = Ti.UI.createRefreshControl({
+   	tintColor: 'red'
+   });
+    
+   var listView = Ti.UI.createListView({
+   	sections:[section],
+   	refreshControl:control
+   });
+    
+   control.addEventListener('refreshstart',function(e){
+   	Ti.API.info('refreshstart');
+   	setTimeout(function(){
+   		Ti.API.debug('Timeout');
+   		section.appendItems(genData());
+   		control.endRefreshing();
+   	}, 5000);
+   });
+    
+   win.add(listView);
+   win.open();
+   </pre></code>
+   
+   Thanks.</li>
+<li>Ivan Skugor 2015-10-06
+
+   Papia Chowdhury, I can still see the issue. Please retest on device.
+   
+   
+   Run your test case, do pull to refresh and while app is refreshing, scroll down. I can see section title still floating and not scrolling properly.
+   I tested using TiSDK 5.0.2 on iPhone 5s running iOS 9.</li>
+</ol>
+
+
+<p><a href="/AC/AC-1306.json">JSON Source</a></p>

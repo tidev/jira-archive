@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-18280] iOS: Resizing ListView with all items filtered out crashes with NSRangeException"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-21T01:01:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>keyboard, listview, popover, searchview</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Shuo Liang</td></tr>
+<tr><th>Created</th><td>2014-12-19T09:39:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-11-21T01:01:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you have used a SearchBar to filter out all items in a ListView that then resizes because it is contained in a Popover that resizes because the soft keyboard hides, the app crashes.
+
+*NOTE:* This issue looks very similar to TIMOB-18260, but the fix for that bug doesn't fix this bug and the stack trace is very different as well.
+
+Looking at this stack trace the issue seems to be related with resizing the list and containing it in a Popover is just a typical situation where this happens.
+
+The actual exception is:
+
+<code><pre>
+*** Terminating app due to uncaught exception 'NSRangeException', reason '*** -[__NSArrayM objectAtIndex:]: index 0 beyond bounds for empty array'
+</pre></code>
+
+<h4>Test Case</h4>
+
+Run an app with the following code on an iPad. Best is to use a device with no hardware keyboard. In Simulator you need to use Cmd+K at first to bring up the soft keyboard.
+
+1. Tap the button to open the popover.
+2. Tap the searchbar to bring up the soft keyboard, resizing the popover and list view.
+3. Search for anything to filter out all items (since they don't have a <code>searchableText</code>.
+4. Hit *Search* or the dedicated key to hide the soft keyboard.
+5. See the app crash soon after.
+
+<code><pre>
+var w = Ti.UI.createWindow({
+  backgroundColor: 'white'
+});
+
+var b = Ti.UI.createButton({
+  title: 'Click Me'
+});
+
+b.addEventListener('click', function() {
+
+  var cw = Ti.UI.createWindow({
+    width: 300
+  });
+
+  var items = [];
+
+  for (var i = 1; i <= 50; i++) {
+    items.push({
+      properties: {
+        title: 'Row #' + i
+      }
+    });
+  }
+
+  var lv = Ti.UI.createListView({
+    searchView: Ti.UI.createSearchBar(),
+    sections: [Ti.UI.createListSection({
+      items: items
+    })]
+  });
+
+  cw.add(lv);
+
+  var p = Ti.UI.iPad.createPopover({
+    contentView: cw
+  });
+
+  p.show({
+    view: b
+  });
+});
+
+w.add(b);
+w.open();
+</pre></code>
+
+<h4>Console log</h4>
+
+<code><pre>
+[ERROR] The application has crashed with an uncaught exception 'NSRangeException'.
+[ERROR] Reason:
+[ERROR] *** -[__NSArrayM objectAtIndex:] index 0 beyond bounds for empty array
+[ERROR] Stack trace:
+[ERROR]
+[ERROR] 0   CoreFoundation                      0x2c79549f <redacted> + 126
+[ERROR] 1   libobjc.A.dylib                     0x3a21dc8b objc_exception_throw + 38
+[ERROR] 2   CoreFoundation                      0x2c6a99e1 <redacted> + 0
+[ERROR] 3   listresize                          0x001f0fa9 listresize + 1347497
+[ERROR] 4   listresize                          0x001f73dd listresize + 1373149
+[ERROR] 5   UIKit                               0x2ff1d787 <redacted> + 474
+[ERROR] 6   UIKit                               0x2ff1d84b <redacted> + 54
+[ERROR] 7   UIKit                               0x2ff12fa1 <redacted> + 2268
+[ERROR] 8   UIKit                               0x2fd1d927 <redacted> + 226
+[ERROR] 9   UIKit                               0x2fd1d803 <redacted> + 1098
+[ERROR] 10  UIKit                               0x2fd1ca59 <redacted> + 264
+[ERROR] 11  UIKit                               0x2fc6c491 <redacted> + 808
+[ERROR] 12  UIKit                               0x2fc6c15b <redacted> + 258
+[ERROR] 13  UIKit                               0x302b35f7 <redacted> + 42
+[ERROR] 14  CoreFoundation                      0x2c6bc48f <redacted> + 86
+[ERROR] 15  CoreFoundation                      0x2c6bc38b <redacted> + 202
+[ERROR] 16  UIKit                               0x2fc5cc7b <redacted> + 118
+[ERROR] 17  UIKit                               0x2fc521bb <redacted> + 530
+[ERROR] 18  listresize                          0x00105bc9 listresize + 383945
+[ERROR] 19  UIKit                               0x2fc6c491 <redacted> + 808
+[ERROR] 20  UIKit                               0x2fc6c15b <redacted> + 258
+[ERROR] 21  CoreFoundation                      0x2c6bc48f <redacted> + 86
+[ERROR] 22  CoreFoundation                      0x2c6bc38b <redacted> + 202
+[ERROR] 23  UIKit                               0x2fc5cc7b <redacted> + 118
+[ERROR] 24  UIKit                               0x2fc521bb <redacted> + 530
+[ERROR] 25  listresize                          0x00105bc9 listresize + 383945
+[ERROR] 26  UIKit                               0x2fc6c491 <redacted> + 808
+[ERROR] 27  UIKit                               0x2fc6c15b <redacted> + 258
+[ERROR] 28  CoreFoundation                      0x2c6bc48f <redacted> + 86
+[ERROR] 29  CoreFoundation                      0x2c6bc38b <redacted> + 202
+[ERROR] 30  UIKit                               0x2fc5cc7b <redacted> + 118
+[ERROR] 31  UIKit                               0x2fc521bb <redacted> + 530
+[ERROR] 32  UIKit                               0x2fc6c491 <redacted> + 808
+[ERROR] 33  UIKit                               0x2fc6c15b <redacted> + 258
+[ERROR] 34  CoreFoundation                      0x2c6bc48f <redacted> + 86
+[ERROR] 35  CoreFoundation                      0x2c6bc38b <redacted> + 202
+[ERROR] 36  UIKit                               0x2fc5cc7b <redacted> + 118
+[ERROR] 37  UIKit                               0x2fc521bb <redacted> + 530
+[ERROR] 38  UIKit                               0x2fe87087 <redacted> + 218
+[ERROR] 39  UIKit                               0x2fc5524f <redacted> + 514
+[ERROR] 40  QuartzCore                          0x2f67da0d <redacted> + 136
+[ERROR] 41  QuartzCore                          0x2f6793e5 <redacted> + 360
+[ERROR] 42  UIKit                               0x2fc67987 <redacted> + 138
+[ERROR] 43  UIKit                               0x2fc52267 <redacted> + 702
+[ERROR] 44  UIKit                               0x2fe88209 <redacted> + 784
+[ERROR] 45  UIKit                               0x302f5317 <redacted> + 110
+[ERROR] 46  UIKit                               0x2fc88d63 <redacted> + 482
+[ERROR] 47  UIKit                               0x2fc9e8fd <redacted> + 64
+[ERROR] 48  UIKit                               0x302f5211 <redacted> + 372
+[ERROR] 49  Foundation                          0x2d49af99 __NSFireDelayedPerform + 468
+[ERROR] 50  CoreFoundation                      0x2c75bc87 <redacted> + 14
+[ERROR] 51  CoreFoundation                      0x2c75b803 <redacted> + 650
+[ERROR] 52  CoreFoundation                      0x2c759a53 <redacted> + 1418
+[ERROR] 53  CoreFoundation                      0x2c6a73c1 CFRunLoopRunSpecific + 476
+[ERROR] 54  CoreFoundation                      0x2c6a71d3 CFRunLoopRunInMode + 106
+[ERROR] 55  GraphicsServices                    0x33a3c0a9 GSEventRunModal + 136
+[ERROR] 56  UIKit                               0x2fcb6fa1 UIApplicationMain + 1440
+[ERROR] 57  listresize                          0x000aed07 listresize + 27911
+[ERROR] 58  libdyld.dylib                       0x3a79daaf <redacted> + 2
+[ERROR] *** Terminating app due to uncaught exception 'NSRangeException', reason '*** -[__NSArrayM objectAtIndex:]: index 0 beyond bounds for empty array'
+[ERROR] *** First throw call stack:
+[ERROR] (0x2c79549f 0x3a21dc8b 0x2c6a99e1 0x1f0fa9 0x1f73dd 0x2ff1d787 0x2ff1d84b 0x2ff12fa1 0x2fd1d927 0x2fd1d803 0x2fd1ca59 0x2fc6c491 0x2fc6c15b 0x302b35f7 0x2c6bc48f 0x2c6bc38b 0x2fc5cc7b 0x2fc521bb 0x105bc9 0x2fc6c491 0x2fc6c15b 0x2c6bc48f 0x2c6bc38b 0x2fc5cc7b 0x2fc521bb 0x105bc9 0x2fc6c491 0x2fc6c15b 0x2c6bc48f 0x2c6bc38b 0x2fc5cc7b 0x2fc521bb 0x2fc6c491 0x2fc6c15b 0x2c6bc48f 0x2c6bc38b 0x2fc5cc7b 0x2fc521bb 0x2fe87087 0x2fc5524f 0x2f67da0d 0x2f6793e5 0x2fc67987 0x2fc52267 0x2fe88209 0x302f5317 0x2fc88d63 0x2fc9e8fd 0x302f5211 0x2d49af99 0x2c75bc87 0x2c75b803 0x2c759a53 0x2c6a73c1 0x2c6a71d3 0x33a3c0a9 0x2fcb6fa1 0xaed07 0x3a79daaf)
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18280_53308/listresize  19-12-14 10-29.crash">listresize  19-12-14 10-29.crash</td></td><td>2014-12-19T09:39:16.000+0000</td><td>48715</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-18280.json">JSON Source</a></p>

@@ -1,0 +1,171 @@
+---
+title: "[TIMOB-15188] iOS7: Tapping Tab Orphans Windows on Tab's Stack"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-16T17:59:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 19, 2013 Sprint 19 API, Release 3.1.3, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_tabgroup, qe-manualtest, regression, triage</td></tr>
+<tr><th>Reporter</th><td>Alastair Price</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-15T21:40:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-07T20:34:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+In version 3.1.3 and above tapping the tab's button to return to the root window of the tab orphans any windows between the current window and the root window. This works as expected in 3.1.2 GA but 3.1.3 has serious regression bug
+
+<h4>Why This Is A Problem</h4>
+Orphaned windows equate to leaked memory. Windows in the middle of the root and last window are orphaned and all resources are trapped. Causes crash on device after lots of use.
+
+<h4>Expected Behavior</h4>
+Tapping the tab's button should close every window that is open on that tab's stack, not just the current window. On version 3.1.2 it does the following which is correct:
+
+<code><pre>
+[ERROR] :  Opened: A
+[ERROR] :  Opened: B
+[ERROR] :  Opened: C
+[ERROR] :  Closed: C
+[ERROR] :  Closed: B
+[ERROR] :  Closed: A
+</pre></code>
+
+<h4>Reproduction</h4>
+Drop the following in an app.js. Use the Open Window A, B & C buttons to drill through the widows. Notice in the log which windows were opened, and which were closed. Tap the tab to return to root and only the last window (window c) is closed.
+
+<h4>Test Case</h4>
+<code><pre>
+// Create Tab Group
+var tabGrp = Ti.UI.createTabGroup({
+	backgroundColor:'white',
+});
+
+// Tab Window 1
+var win1 = Ti.UI.createWindow({
+	backgroundColor:'red',
+	title:'Tab 1'
+});
+var button1 = Ti.UI.createButton({ title: 'Open Window A' });
+button1.addEventListener('click', function(event) {
+	tab1.open(winA);
+});
+win1.add(button1);
+
+// Tab Window 2
+var win2 = Ti.UI.createWindow({
+	backgroundColor:'green',
+	title:'Tab 2'
+});
+
+// Tab Window 3
+var win3 = Ti.UI.createWindow({
+	backgroundColor:'blue',
+	title:'Tab 3'
+});
+
+// Child Window A
+var winA = Ti.UI.createWindow({
+	backgroundColor:'yellow',
+	title:'Window A'
+});
+var buttonA = Ti.UI.createButton({ title: 'Open Window B' });
+buttonA.addEventListener('click', function(event) {
+	tab1.open(winB);
+});
+winA.add(buttonA);
+winA.addEventListener('open', function(event) {
+	Ti.API.error('Opened: A');
+});
+winA.addEventListener('close', function(event) {
+	Ti.API.error('Closed: A');
+});
+
+// Child Window B
+var winB = Ti.UI.createWindow({
+	backgroundColor:'yellow',
+	title:'Window B'
+});
+var buttonB = Ti.UI.createButton({ title: 'Open Window C' });
+buttonB.addEventListener('click', function(event) {
+	tab1.open(winC);
+});
+winB.add(buttonB);
+winB.addEventListener('open', function(event) {
+	Ti.API.error('Opened: B');
+});
+winB.addEventListener('close', function(event) {
+	Ti.API.error('Closed: B');
+});
+
+// Child Window C
+var winC = Ti.UI.createWindow({
+	backgroundColor:'yellow',
+	title:'Window C'
+});
+winC.addEventListener('open', function(event) {
+	Ti.API.error('Opened: C');
+});
+winC.addEventListener('close', function(event) {
+	Ti.API.error('Closed: C');
+});
+
+// Add Tabs
+var tab1 = Ti.UI.createTab({window:win1,title:'TAB1'});
+var tab2 = Ti.UI.createTab({window:win2,title:'TAB2'});
+var tab3 = Ti.UI.createTab({window:win3,title:'TAB3'});
+tabGrp.addTab(tab1);
+tabGrp.addTab(tab2);
+tabGrp.addTab(tab3);
+
+// Open Tab Group
+tabGrp.open();
+</pre></code>
+
+<h4>Logs</h4>
+<code><pre>
+[ERROR] :  Opened: A
+[ERROR] :  Opened: B
+[ERROR] :  Opened: C
+[ERROR] :  Closed: C
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2013-09-16
+
+   Valid Bug. Memory Leak.</li>
+<li>Vishal Duggal 2013-09-16
+
+   Pull pending
+   master - <a href="https://github.com/appcelerator/titanium_mobile/pull/4690" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4690</a>
+   3_1_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/4691" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4691</a></li>
+<li>Alastair Price 2013-09-16
+
+   Thanks for resolving so quickly!</li>
+<li>Priya Agarwal 2013-09-17
+
+   Verified the Fix with:
+   Appcelerator Studio: 3.1.3.201309132456
+   SDK: 3.1.3.v20130916153052
+   acs:1.0.6
+   alloy:1.2.2-cr
+   npm:1.3.2
+   titanium:3.1.2
+   titanium-code-processo:1.0.2
+   OSX: 10.8.4
+   Xcode:5.0 GM seed
+   Devices: Simulator(v7.0),ipod Touch2(v7.0)
+   
+   Tapping the tab's button now closes every window that is open on that tab's stack, not just the current window.Working Fine.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15188.json">JSON Source</a></p>

@@ -1,0 +1,196 @@
+---
+title: "[TIMOB-16176] Android: Cannot change TextField value in change event handler"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, change, textfield</td></tr>
+<tr><th>Reporter</th><td>Natasha Pecanova</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2013-10-24T07:05:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-30T14:16:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+changing the value of the text field in change handler is not possible. 
+textField.addEventListener("change", function(){ 
+textField.value = textField.value.replace(/some regex/,"");
+}   
+this code is crushing whole device. I have to restart the device. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2013-10-27
+
+   Hi
+   
+   I tested this *change* event using the sample below. Can you please give my code a try to see if this solves your issue. If not, please post your test case so that we can help.
+   
+   *Test Environment*
+   Titanium SDK 3.1.2 & SDK 3.1.3 GA
+   android 4.2.2 Real device. 
+   
+   *Test Case*
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   backgroundColor:'#fff'
+   });
+   
+   // Create a TextField.
+   var tf1 = Titanium.UI.createTextField({
+   	color : '#336699',
+   	height : 35,
+   	top : 10,
+   	left : 10,
+   	width : 250,
+   	borderStyle : Titanium.UI.INPUT_BORDERSTYLE_ROUNDED
+   });
+   
+   win.add(tf1);
+   
+   var l = Titanium.UI.createLabel({
+   	top : 50,
+   	left : 10,
+   	width : 300,
+   	height : 'auto',
+   	color : '#777',
+   	font : {
+   		fontSize : 13
+   	},
+   	text : 'do something like click a button...'
+   });
+   win.add(l);
+   tf1.addEventListener('change', function(e) {
+   	//l.text = 'change received, event val = ' + e.value + '\nfield val = ' + tf1.value;
+   	l.text = 'change received, field val = ' + tf1.value;
+   });
+   win.open();
+   
+   </pre></code>
+   
+    </li>
+<li>Mauro Parra-Miranda 2013-10-29
+
+   Hello,
+   
+   please provide a full test case. 
+   
+   Best,
+   
+   Mauro </li>
+<li>Natasha Pecanova 2013-10-29
+
+   add one text field 
+   add change listener
+   
+   on IOS you will not have a problem 
+   on Android it recursively calls change  handler function
+   
+   textField.addEventListener("change", function(){ textField.value =  textField.value.replace(/,/g, '.'); } 
+   
+   testing if there is a need of changing the value should solve the problem. 
+   </li>
+<li>Mauro Parra-Miranda 2013-10-29
+
+   Natasha, 
+   a full test case is the entire code, an app.js that reproduces the issue. 
+   
+   Best,
+   
+   Mauro </li>
+<li>Ritu Agrawal 2014-01-12
+
+   Reopening this ticket as we can reproduce this issue on Android platform. I had to shut down my phone as the application went into infinite recursion.</li>
+<li>Eduardo Silva 2014-10-28
+
+   This bug also happens with version 3.4.0.GA.</li>
+<li>Daniel Hernández Jara 2015-02-14
+
+   Same problem in version 3.5.0... In native implementations are a lot of solutions... one of this solutions is edit theme for the editText and set the attribute "android:focusableInTouchMode=true" i don't know if this works... but i'll try and commend here.</li>
+<li>Daniel Hernández Jara 2015-02-14
+
+   i came with a patch solution:
+   <code><pre>
+   ...
+   
+   var textField = Ti.UI.createTextField();
+   
+   function myFunction() {
+        // Remove listener to avoid infinite loop.
+        if (OS_ANDROID){
+   	    textField.removeEventListener('change', myFunction);
+        }
+        
+   
+        //Then use the normal replace in IOS and "The Solution" in Android
+        //RegEx accept number values with the format x*,xx
+        if (OS_IOS) {
+   	   textField.value = textField.value.replace(/[^\d,]|(,{2,})|(,\d*,)|(,\d{3,})|^(?!\d),/, "");
+        } else {
+   	   changeValue(textField.value.replace(/[^\d,]|(,{2,})|(,\d*,)|(,\d{3,})|^(?!\d),/, ""));
+        }
+   }
+   
+   function changeValue(value) {
+        //Do the replace.
+        textField.value = value;
+        
+        //Put the cursor in the end of the value in the textfield
+        textField.setSelection(textField.value.length, textField.value.length);	
+        
+        //Add the event 'change'.
+        setTimeout(function() {
+             textField.addEventListener('change', myFunction);
+        }, 100);
+   }
+   
+   textField.addEventListener('change', myFunction);
+   </pre></code>
+   
+   
+   I hope this will help mean while you guys.
+   
+   </li>
+<li>Darius G 2016-07-11
+
+   Just informing that problem exists: 5.3.1GA
+   Android: 6.0.1 real device.
+   onchange value changing gives infinity loop
+   
+   Thanks *Daniel Hernández Jara* your workaround works!</li>
+<li>Brian García 2017-04-07
+
+    Still happens with the latest SDK</li>
+<li>Clément Blanco 2017-12-21
+
+    Not answering the problem, just a bit more elegant way to find your way around it using underscore.js:
+    
+    <code><pre>
+    textField.addEventListener("change", _.debounce(function(e) {
+        e.source.value = e.value = doSomethingToMyValue(e.value);
+        e.source.setSelection(e.value.length, e.value.length);
+    }, 100, true));
+    </pre></code>
+    
+    The downside being not being able to type text rapidly and having to wait about a second before typing the cursor is in place again...</li>
+<li>Johnson Joseph 2018-02-02
+
+    This problem exists in Android in the Titanium 7.0.1GA</li>
+<li>Clément Blanco 2018-02-05
+
+    Can we get someone to look at this please?</li>
+<li>Jason Kneen 2019-04-30
+
+    This is still an issue in 8.0.0.GA</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16176.json">JSON Source</a></p>

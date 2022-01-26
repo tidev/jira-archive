@@ -1,0 +1,225 @@
+---
+title: "[TIMOB-18401] Module using Google Maps SDK works fine when run with 3.4.1.GA crashes with 3.5.0.GA"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-01-21T22:19:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.5.1, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>3.5.0, crash, docs, module, qe-verified</td></tr>
+<tr><th>Reporter</th><td>Moshe Marciano</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2015-01-16T09:22:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-02-20T00:17:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+two years ago I developed an iOS module that wrapped around Google Maps for iOS SDK to return support for Google maps on Titanium projects.
+
+{quote}
+<a href="https://marketplace.appcelerator.com/apps/5076?restoreSearch=true#" rel="nofollow" target="_blank">https://marketplace.appcelerator.com/apps/5076?restoreSearch=true#</a>!overview
+{quote}
+
+this worked fine and with every major Titanium SDK release I rebuilt, tested and it always worked fine.
+
+I used to run it using
+
+
+.../3.5.0.GA/titanium.py run
+
+
+
+but that doesn't work anymore, instead I run
+
+
+{quote}
+python build.py
+{quote}
+
+
+which works although it will not run in simulator which adds up to development time.
+
+the thing is that when I tried
+
+{quote}
+xcrun lipo -info build/...... .a
+{quote}
+
+I only got i386
+
+
+
+so I had to recreate a new module using the new titanium CLI, change the GUID and add my objective c classes and Google framework setup guide to it.
+
+then after building again I managed to get it to support all architectures, so you may want to update the docs for veteran module developers.
+
+
+
+now for the main issue:
+
+I use the module in a 10 lines demo app which just opens a window and adds an instance of Google  maps, I build it with 3.4.1.GA SDK and it runs fine in the simulator. I also used the latest 1.9.1 version of Google's framework
+
+I then simply changed the tiapp.xml to use 3.5.0.GA instead, the simulator opened, I see my debug printouts and then the app crashes, according to xcode it crashes due to a memory release that was not allocated. 
+
+{quote}
+malloc: *** error for object 0xffcb5f0: pointer being freed was not allocated ***
+*** set a breakpoint in malloc_error_break to debug
+{quote}
+
+I tried to set the above breakpoint, I tried to see the xcode stack when it crashes but it is of no use, it crashes somewhere in the tile drawing of the Google Maps framework but it will not do so if run through SDK 3.4.1.GA...
+
+
+Fact is, that from all the components used here the only variable that changed is the Titanium SDK version. so my guess is something in the list of changes of the new SDK broke something and some of the older apps won't work anymore. This module is used by many Titanium developers and is bundled with their published apps.
+
+
+
+to sum up:
+
+1. module + SDK 3.4.1.GA + Google SDK 1.9.1 = works
+2. module + SDK 3.5.0.GA + Google SDK 1.9.1 = crash
+3. xCode project + Google SDK 1.9.1 + sample app = works
+4. older module build compiled months ago + SDK 3.5.0.GA = crash
+
+
+
+attached is a sample project. it has a module folder with three versions, the 1.9.3 was built with 3.5.0.GA and supports 64-bit, the rest are older 32-bit only created with older SDKs (3.4.0 and earlier)
+
+
+you will need to get the Google SDK
+
+{quote}
+<a href="https://developers.google.com/maps/documentation/ios/" rel="nofollow" target="_blank">https://developers.google.com/maps/documentation/ios/</a>
+{quote}
+
+you will also need to tell the module where to find the google framework in the module.xcconfig file per the module docs
+
+
+
+if you need a license key for it drop me an email : canufind1 at gmail
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18401_53692/GoogleMapsTestModule.zip">GoogleMapsTestModule.zip</td></td><td>2015-01-19T17:14:42.000+0000</td><td>1019941</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18401_53655/mapTest2.zip">mapTest2.zip</td></td><td>2015-01-16T09:22:26.000+0000</td><td>9396562</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Moshe Marciano 2015-01-19
+
+   Jon, any news?</li>
+<li>Jon Alter 2015-01-19
+
+   Hey [~moshebox@gmail.com], we are still working on this. We have been able to reproduce your issue and are working on tracking down the problem.</li>
+<li>Pedro Enrique 2015-01-20
+
+   Moshe, I found the problem with this. There was a conflict with the titanium debugger library and the google maps library. It was a compiler flag on the debugger. I submitted a PR and it should get in pretty soon. The debugger is not open sourced, but we'll update this jira ticket when it gets merged.</li>
+<li>Pedro Enrique 2015-01-20
+
+   PR for master <a href="https://github.com/appcelerator/titanium_mobile/pull/6587" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6587</a>
+   PR for 3.5.x <a href="https://github.com/appcelerator/titanium_mobile/pull/6588" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6588</a></li>
+<li>Moshe Marciano 2015-01-20
+
+   Pedro, that's great news, Thank you very much, waiting for the merge  so I can guide other developers how to patch their local SDK 3.5.0.GA so they can build their apps until an official fixed SDK is released.</li>
+<li>Pedro Enrique 2015-01-20
+
+   Moshe,
+   See if you can pull the changes and try it yourself, just replace the debugger with the one in the PR. Let us know if any other issues come up. This will be merged sometime tomorrow PST time.</li>
+<li>Moshe Marciano 2015-01-20
+
+   Pedro,
+   
+   I did and it works, it does not crash.
+   
+   problem is, the app.js in my original attachment was a strip down version that only created the main map view.. after trying the stripped down version successfully I tried the full demo app.js with the new 1.9.3 module (no code changes, 64 bit enabled per 3.5.0.GA release notes guidelines) ....and it crashed again :(
+   
+   maybe there is something else other than the debugger at play?
+   
+   full app.js: <a href="https://dl.dropboxusercontent.com/u/172026/app.js" rel="nofollow" target="_blank">https://dl.dropboxusercontent.com/u/172026/app.js</a></li>
+<li>Pedro Enrique 2015-01-20
+
+   Thanks Moshe, I'll take a look</li>
+<li>Moshe Marciano 2015-01-21
+
+   Pedro,
+   
+   just to be sure, I removed any debugging logs or code comments I had in place when trying to trace this problem and rebuilt and checked the module.
+   
+   up to date 1.9.3 version here : <a href="https://dl.dropboxusercontent.com/u/172026/com.moshemarciano.googlemaps-iphone-1.9.3.zip" rel="nofollow" target="_blank">https://dl.dropboxusercontent.com/u/172026/com.moshemarciano.googlemaps-iphone-1.9.3.zip</a>
+   
+   I then tried it and it crashed, opened it in xCode and it seems to crash on the TiBindingTiValueFromNSObject function.
+   
+   version 1.9.1 of the module included in the original attachment is the same code base compiled to 32 bit with 3.4.1.GA, it has no such problems even when run using SDK 3.5.0.GA....</li>
+<li>Pedro Enrique 2015-01-21
+
+    Moshe, looks like the problem might be in the module. I debugged it as well, just like you did. Place this in KrollMethod.m just before
+    		return [KrollObject toValue:[o context] value:result];
+    
+    <code><pre>
+    NSLog(@"\n\n");
+    NSLog(@"---- %@", o); // Method name
+    NSLog(@"---- %@", result); // Result of method call
+    </pre></code>
+    Looks like the "addMarker" method is supposed to return something but it's not returning anything. As if the function where this
+    <code><pre>
+    -(id)addMarker
+    {
+        // some code
+        // notice the return type is "id" but I'm returning nothing.
+    }
+    </pre></code></li>
+<li>Moshe Marciano 2015-01-21
+
+    Pedro,
+    
+    you were right :)
+    
+    how could you tell the return type is wrong? when I added these debug lines it told me which function is it but did not trace the return type or the actual error.
+    
+    anyway, it seems to work now, I will do more testing to be sure.
+    
+    a few last questions:
+    
+    1. how could you tell?
+    2. any idea when this fix will be part of an official release? I need to tell developers how to get it and patch locally
+    3. the fact is that before 3.5.0 (or maybe before xCode 6.1?) this would not result with an error or crash, and this means that many other modules that has little bugs like this may now crash apps, isn't that behaviour change problematic?</li>
+<li>Pedro Enrique 2015-01-21
+
+    Hi Moshe
+    
+    1. I did not know for that this was the case for certain, just a gut feeling and experience (I've seen this type of crash before)
+    2. This should be in 3.5.X and master later today
+    3. Correct, the crash is on the module and the module developer is responsible. The fact that it did not crash before is a mystery to me, or that it even compiles, having a return type and not a return statement. Nothing we can do here.</li>
+<li>Moshe Marciano 2015-01-21
+
+    thank you Pedro</li>
+<li>Ewan Harris 2015-02-20
+
+    Verified fix on:
+    
+    Mac OSX 10.10.2
+    Appcelerator Studio, build: 3.4.2.201502181619
+    Titanium SDK build: 3.5.1.v20150219140555
+    Titanium CLI, build: 3.4.2-alpha
+    Alloy: 1.5.1
+    Xcode 6.1.1
+    iPad Mini 3 (8.1.3)
+    
+    Built a module using the GMaps SDK, installed an app to device with the module and verified the crash on 3.5.0.GA. The app no longer crashes on 3.5.1 SDK
+    
+    Closing ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18401.json">JSON Source</a></p>

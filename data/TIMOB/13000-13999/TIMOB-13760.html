@@ -1,0 +1,93 @@
+---
+title: "[TIMOB-13760] V8 Waits Too Long to GC and Causes Major Hiccups / Slow Downs."
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rick Blalock</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-05-06T14:01:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:04:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+V8 can wait too long to release memory which in turn causes the native side to go berserk in releasing memory which can causes some slow ups / stuttering in an app.  I've seen this on any major Android app where we've tested through the app thoroughly and for a longer duration of time than just 4-5 min.
+
+
+-- OLD SUGGESTION BUT IS NOT THE STATED PROBLEM --
+Maybe the answer is to expose a method to force garbage collection on V8?
+
+Ref.  <a href="http://www.my-ride-home.com/2011/01/v8-garbage-collection/" rel="nofollow" target="_blank">http://www.my-ride-home.com/2011/01/v8-garbage-collection/</a>
+
+Node has a way to expose the GC control:
+<code>node --expose-gc</code>
+
+Then in the app:
+<code>global.gc();</code>
+
+Would be nice to have this level of control.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2013-05-06
+
+   I understand the desire, but calling GC manually is a last resort. [~mlangston], any thoughts?</li>
+<li>Matt Langston 2013-05-07
+
+   I understand and empathize with the reporter's concern, and have experienced similar problems with another customer. Unfortunately, explicitly calling V8's gc won't solve his particular issue.
+   
+   The root cause of the reporter's problem is two-fold:
+   
+   1. There is garbage to be collected. We have seen with another customer that garbage can be reduced or eliminated by simple software engineering techniques (more details below) and may be an option for the reporter.
+   
+   2. When there are objects that share memory between the Dalvik VM and the V8 VM, then the two garbage collectors can be too decoupled from each other. In these instances the two garbage collectors need to be better coordinated, and will require Titanium platform changes in how memory is managed between the two VMs.
+   
+   We studied both of these root causes in some detail with another customer having problems with memory pressure, and based on our data and experience there are several reasons we should not expose access to any garbage collector (V8 or otherwise) as a part of the Titanium API:
+   
+   1. The customer I worked with was having performance and memory pressure issues. Upon investigation we discovered that they were calling the system's gc, and based on careful measurement that this was responsible for a large portion of their performance issues. Removing this one line from their app improved its performance noticeably. The lesson we learned is that a VM's garbage collector is "smarter" at collecting garbage at the appropriate times than any developer can ever be. In this particular customer's case we taught them how not to generate garbage in the first place. This not only reduced their memory footprint, but also improved their app's performance.
+   
+   2. The garbage collector is an implementation detail of the platform that we don't currently have any control over. Therefore, V8's gc should not be a part of Titanium's public API.
+   
+   3. Calling V8's gc does not (and should not) trigger a garbage collection. This is contrary to many developer's expectations who are not familiar with garbage collector algorithms and internals. This is what tripped up the the customer I referred to above. In particular, Titanium customers should not (and do not) have to be familiar with garbage collector algorithms and internals.
+   
+   I would recommend that the reporter profile their app and look for tight loops, and then investigate these loops for variables that can be hoisted outside of the loop. This may help him mitigate (if not eliminate) his memory pressure issues as it did with the customer I cited.
+   
+   
+   </li>
+<li>Rick Blalock 2013-05-08
+
+   I changed the title and modified the description because I was blurring a possible solution with the problem.
+   
+   I dont want to confuse the "need a way to manually cause GC" with the root issue:
+   
+   V8 doesn't release memory until it needs to (e.g. when it's getting low on it).  This is a big problem for Ti apps because memory doesn't get cleaned up until wayyyyy too late which can cause an app to appear as if it's froze for a few seconds or in the best case scenario stutter for a few seconds.
+   
+   The platform needs to manage this more aggressively, especially on Android where there are such small limits.  On iOS, JSCore seems to be much more aggressive and responsive around GC.  Without making semi-educated suggestions on how to mitigate this, what can be done so Ti Android apps dont pause for several seconds after continued use because of the GC?</li>
+<li>Rick Blalock 2013-05-08
+
+   As a side question:  How do I find out what version of V8 we are using so I can compare?  It looks like some of the newer versions have much more incremental / zealous GC routines.</li>
+<li>Ingo Muschenetz 2013-05-08
+
+   [~rblalock] and [~mlangston]. I believe the preference is to avoid needing to call GC to being with, no? Once a GC happens, it was my understanding that it happened in such a way that it would cause UI freezes, or can that be avoided?</li>
+<li>Matt Langston 2013-05-08
+
+   The latest Titanium release 3.1.0.GA uses V8 version 3.9.24.2.</li>
+<li>Rick Blalock 2013-05-08
+
+   @Ingo - I've been told since we've implemented V8 that it can't be avoided from the Ti developer POV.  So I'm bringing this up to see if there's a way to prevent the UI freezes or hiccups because of GC.</li>
+<li>Josh Roesslein 2013-05-14
+
+   Incremental GC was added in 3.9. So we do have that in our current V8 build.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13760.json">JSON Source</a></p>

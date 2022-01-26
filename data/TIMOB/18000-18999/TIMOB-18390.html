@@ -1,0 +1,243 @@
+---
+title: "[TIMOB-18390] iOS: App crashes after receiving some push notifications in background"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2015-03-26T23:35:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.4.1, Release 3.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TCSupport, ios, push, pushnotification</td></tr>
+<tr><th>Reporter</th><td>Patrik Stutz</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2015-01-08T11:49:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:02:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+I've discovered a bug where the app crashes when it receives some (3+) push notifications while the iPhone's screen is turned off and the app is in background.
+
+<h4>Steps to reproduce </h4>
+1. Create a new mobile project
+2. Add this code to the app via app.js
+<code><pre>
+var win = Ti.UI.createWindow({backgroundColor:"green"});
+win.open();
+
+var callbacks = {
+    types: [
+    Titanium.Network.NOTIFICATION_TYPE_BADGE,
+    Titanium.Network.NOTIFICATION_TYPE_SOUND,
+    Titanium.Network.NOTIFICATION_TYPE_ALERT
+    ],
+    success:function(e){
+        console.log("SUCCESS",e.deviceToken);
+        subscribeACS(e.deviceToken);
+    },
+    error:function(e){
+        console.log("ERROR",new Date().toTimeString());
+    },
+    callback: function(e){
+        console.log("CALLBACK",new Date().toTimeString());
+    }
+};
+
+if(Ti.App.iOS.registerUserNotificationSettings){ 
+    function onUserNotificationSettings(){
+        delete callbacks.types;
+        Ti.Network.registerForPushNotifications(callbacks);
+        Ti.App.iOS.removeEventListener("usernotificationsettings",onUserNotificationSettings);
+    }
+    Ti.App.iOS.addEventListener("usernotificationsettings",onUserNotificationSettings)
+    Ti.App.iOS.registerUserNotificationSettings(callbacks)
+}else{
+    Ti.Network.registerForPushNotifications(callbacks)
+}
+
+
+function subscribeACS(token){
+	var Cloud = require('ti.cloud');
+	Cloud.PushNotifications.subscribeToken({
+	    channel: 'testChannel',
+	    device_token: token
+	}, function (e) {
+	    if (e.success) {
+	        alert('Success');
+	    } else {
+	        alert('Error:\n' +
+	            ((e.error && e.message) || JSON.stringify(e)));
+	    }
+	});
+}
+</pre></code>
+3. Please replace the ACS keys with your own and the GUID with your own. 
+4. Install to device
+<code><pre>ti build -p ios -T device</pre></code>
+5. Open App
+Allow it to retrieve a device token (used below)
+6. Send 2 notifications
+<code><pre>for i in <code>seq 1 2</code>; do curl -X POST -F "channel=testChannel" -F "to_tokens=<DEVICE TOKEN>" -F "payload=$i" "<a href="https://api.cloud.appcelerator.com/v1/push_notification/notify_tokens.json?key=" rel="nofollow" target="_blank">https://api.cloud.appcelerator.com/v1/push_notification/notify_tokens.json?key=</a><YOUR ACS KEY>&pretty_json=true";done</pre></code>
+7. You'll see "CALLBACK..." in console logs
+8. Background app with home button
+9. Send 3+ noticiations
+<code><pre>for i in <code>seq 1 3</code>; do curl -X POST -F "channel=testChannel" -F "to_tokens=<DEVICE TOKEN>" -F "payload=$i" "<a href="https://api.cloud.appcelerator.com/v1/push_notification/notify_tokens.json?key=" rel="nofollow" target="_blank">https://api.cloud.appcelerator.com/v1/push_notification/notify_tokens.json?key=</a><ACS KEY>&pretty_json=true";done</pre></code>
+10. You should now get the crash in the console
+
+
+
+<h4>Extra information</h4>
+After some push notifications, the 'callback' function does not get called anymore. After that, when I turn the screen back on, the app crashes completely with an error in the console.
+
+This happens on at least iPhone 5S, iPhone 6 and iPhone 6 Plus and is a critical bug since it prevents users from receiving important notifications!
+
+I've put together an example app & server and closely documented this issue at: <a href="https://github.com/VanCoding/iOS-Push-Bug" rel="nofollow" target="_blank">https://github.com/VanCoding/iOS-Push-Bug</a>
+
+Using this you can reproduce this error on your own.
+
+I'm using SDK 3.4.0.GA btw.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18390_53707/crash_log.txt">crash_log.txt</td></td><td>2015-01-19T18:09:14.000+0000</td><td>2285</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-18390_53601/tc 2.zip">tc 2.zip</td></td><td>2015-01-14T23:08:18.000+0000</td><td>2461545</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Seth Toda 2015-01-09
+
+   Hello [~VanCoding],
+   
+   I had difficulty testing this and will try again tomorrow. Curious, have you tried 3.4.1.GA?
+   
+   - Seth</li>
+<li>Patrik Stutz 2015-01-09
+
+   Hi Seth
+   
+   I've now tried it with 3.4.1.GA. It's exactly the same :(
+   
+   Please let me know what difficutlies you have, I of course will help you with every single step, if needed.
+   This bug is actually preventing me from publishing my app to the app store since our customer does not want the app to be published with this problem still existing.
+   So I'm a bit in a hurry to fix this and of course have every time you need to me to help you.
+   
+   Sadly, you still have to generate the certificates & provisioning profiles on you own due to apples stupid polices... :(
+   
+   Thanks for working on this issue!</li>
+<li>Patrik Stutz 2015-01-12
+
+   Hi Seth
+   
+   Now that the weekend's over I'm curious if you were able to reproduce the bug.
+   You said that you'll try again. Have you already done it?
+   
+   Thanks :)</li>
+<li>Seth Toda 2015-01-12
+
+   Hello [~VanCoding], 
+   
+   I'm not entirely sure how to create the pfx you want in your setup step 2. Do I need to use keychain access to create it? Since I'm having trouble using your script I'll use our [ACS](<a href="http://docs.appcelerator.com/cloud/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/cloud/latest/#</a>!/api/PushNotifications-method-notify_tokens) notify API to send push notifications in the same frequency. I'll let you know what happens. 
+   
+   Thank you,
+   Seth</li>
+<li>Seth Toda 2015-01-12
+
+   Hello [~VanCoding] ,
+   
+   Here is my test:
+   
+   Device: iPhone 6 (8.1.1)
+   SDK: 3.4.1.GA
+   
+   1. Open app, green screen shows, I receive device id in logs
+   2. I lock the phone and send 5 push notifications it quick succession. 
+   3. I do not see any callbacks fired while device is locked. I do however see the callbacks if I repeat these steps while the app is open (expected behavior). 
+   
+   I also see the callback if my device is locked, and I swipe to open a specific notification. 
+   
+   I can share my slightly modified revision of your code (for using ACS) if you like. </li>
+<li>Patrik Stutz 2015-01-12
+
+   Hi Seth
+   
+   That's strange!
+   As described at the top, I DO get callbacks fired when the device is locked/the app is in background. But after some notifications (this can neen more than 5 notifications, but usually already happens after 3) i stop receiving them. And then, when I unlock the phone (and not open a specific notification), I get the error I mentioned and the app crashes.
+   
+   Its actually easy to generate the pfx file using "openssl pkcs12 -export -in my.cer -inkey my.key -out mycert.pfx", make sure the key and the certificate are both in the pem format.
+   I'm of course interested in your code, maybe it's a problem with the way that node-apn sends the notifications, who knows.
+   
+   But the problem really exists. I've tried iPhone 5S, iPhone 6 & iPhone 6 Plus, so... :S</li>
+<li>Seth Toda 2015-01-12
+
+   [~VanCoding],
+   Do you leave the app and lock the device or just lock the device?
+   
+   While i work on creating the pfx you might want to check that your payload matches our documentation:
+   <a href="http://docs.appcelerator.com/cloud/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/cloud/latest/#</a>!/api/PushPayload
+   
+   Thanks,
+   Seth</li>
+<li>Patrik Stutz 2015-01-13
+
+   It actually does not matter if i first put the app to the background and then lock, or just lock. The app crashes as soon as it resumes either thorugh unlocking the screen (when the app was not paused before) or resuming the app.
+   
+   As you can see in my litte node-apn server, the payload should be okay. Nothing special about it :/
+   
+   It's really strange that I get this error on all devices and you don't...
+   
+   Thank you very much for checking it!</li>
+<li>Seth Toda 2015-01-13
+
+   Hello [~VanCoding],
+   
+   I was able to recreate your crash with your node script and our ACS push notifications. 
+   It looks like a problem when using <code><pre><key>UIBackgroundModes</key></pre></code> in Tiapp.xml. The problem disappears entirely if it is removed (possible temporary solution for you). 
+   
+   And the error only occurs for x ≥ 3 messages while the app is backgrounded. I'll get some additional eyes on this issue. </li>
+<li>Patrik Stutz 2015-01-13
+
+    Hi Seth
+    
+    I'm so glad that you cloud reproduce the bug and are now looking forward to fix it.
+    
+    Sadly, removing the UIBackgroundModes flag also means not receiving push notifications when the app is in background anymore. So that's not really a workaraound :(
+    The only option I have is to wait until this bug gets fixed, which I hope will be the case as soon as possible.
+    
+    Thanks for your work, Seth :)</li>
+<li>Seth Toda 2015-01-13
+
+    [~VanCoding],
+    Might be worth exploring <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/guide/iOS_Background_Services to see if it still errors with that. </li>
+<li>Patrik Stutz 2015-01-15
+
+    My customer forces me to ask you for the deadline until when this issue will be fixed. Can you give me an expected fix date?
+    Thank you very much!</li>
+<li>Seth Toda 2015-01-15
+
+    [~VanCoding], some of our team members are still working on the test cases so it might be several weeks at this point. </li>
+<li>Patrik Stutz 2015-01-20
+
+    Dear Seth Toda, thank you for your reply. We do have a deadline from our customer to let the app work by end of January. It would be really great if you can help us with this matter so that we will not get in trouble with our customer. Thank you very much in advance.</li>
+<li>Chee Kiat Ng 2015-03-17
+
+    If I'm not mistaken, removing the UIBackgroundModes 'remote-notifications' should not affect the app receiving push notifications in background. It will continue to work. See <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/guide/Subscribing_to_push_notifications-section-37551717_Subscribingtopushnotifications-ObtainingadevicetokenoniOS for how to receive push notifications on iOS 7 and > iOS8. Once push notifications are received in background or foreground, by pressing on the notification, it will bring the app to the foreground and proceed to the callback 'receivePush'.
+    
+    Unless you want to do something in the background when the notification is received, you will want to explore notification actions that will allow this in > iOS8. Example here: <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/guide/iOS_Interactive_Notifications</li>
+<li>Lee Morris 2017-03-24
+
+    Closing ticket as invalid with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18390.json">JSON Source</a></p>

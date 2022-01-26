@@ -1,0 +1,108 @@
+---
+title: "[TIMOB-6424] Android: Ti.UI.createImageView fails to either find or decode remote initial image"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2012-03-12T14:42:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5, Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Dustin Hyde</td></tr>
+<tr><th>Assignee</th><td>Marshall Culpepper</td></tr>
+<tr><th>Created</th><td>2011-12-01T15:55:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-10T19:18:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Ti.UI.createImageView fails to decode image on creation (log attached) in Android 2.2 (NookColor and Emulator). The Android 2.3.6 Device and Tab 3.1 have a separate error of filenotfound (attached), but the iPhone Simulator 5.0 and iPhone 5.0 correctly load and decode the remote image. Local images work in all cases.
+
+Android 2.2 Error Log Excerpt:
+
+12-01 14:12:07.093: W/TiDrawableReference(374): (main) [6,1703] Bitmap bounds could not be determined.  If bitmap is loaded, it won't be scaled.
+12-01 14:12:07.103: D/skia(374): --- SkImageDecoder::Factory returned null
+12-01 14:12:07.113: E/TiUIImageView(374): (main) [20,1723] Max retries reached, giving up decoding image source: <a href="http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg" rel="nofollow" target="_blank">http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg</a>
+
+Android 2.3.6, 3.1 Error Log Excerpt:
+
+12-01 15:11:26.505: E/TiDownloadManager(2872): (pool-3-thread-1) [365,13155] Exception downloading <a href="http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg" rel="nofollow" target="_blank">http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg</a>
+12-01 15:11:26.505: E/TiDownloadManager(2872): java.io.FileNotFoundException: <a href="http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg" rel="nofollow" target="_blank">http://www.zoomout.gr/assets/media/PICTURES/???????/651_thumb1.jpg</a>
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at org.apache.harmony.luni.internal.net.www.protocol.http.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:521)
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at java.net.URL.openStream(URL.java:645)
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:134)
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1088)
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:581)
+12-01 15:11:26.505: E/TiDownloadManager(2872): 	at java.lang.Thread.run(Thread.java:1019)
+
+Steps to Reproduce:
+
+1. Run the following code in a new app.
+
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+var win = Titanium.UI.createWindow({backgroundColor:'#fff'});
+var test_img = Titanium.UI.createImageView({image:'<a href="http://www.zoomout.gr/assets/media/PICTURES/" rel="nofollow" target="_blank">http://www.zoomout.gr/assets/media/PICTURES/</a>ΜΟΥΣΙΚΗ/651_thumb1.jpg'}); 
+win.add(test_img);
+win.open();
+</pre></code>
+
+Expected Result:
+
+Image should download, decode and display.
+
+Actual Result:
+
+No image displays, errors log to the console. Android 2.2 has decode errors, Android 2.3.6 has filenotfound errors, iOS Simulators/Devices work correctly.
+
+Note:
+
+The local image 'KS_nav_ui.png' works as expected across platforms.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6424_24432/2.2 imageview decode error log.txt">2.2 imageview decode error log.txt</td></td><td>2011-12-01T15:55:06.000+0000</td><td>4767</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6424_24431/2.3.6 filenotfound error.txt">2.3.6 filenotfound error.txt</td></td><td>2011-12-01T15:55:06.000+0000</td><td>2011</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hieu Pham 2012-03-12
+
+   This bug has been fixed a while back. The fix is simple in JS:
+   <code><pre>
+   
+   
+   // this is a remote URL with a UTF-8 character encoded. We should be able
+   // to fetch this image OK
+   
+   var test_img = Titanium.UI.createImageView({
+   		image: '<a href="http://www.zoomout.gr/assets/media/PICTURES/" rel="nofollow" target="_blank">http://www.zoomout.gr/assets/media/PICTURES/</a>' + encodeURIComponent('ΜΟΥΣΙΚΗ') + '/651_thumb1.jpg'
+   
+   }); 
+   
+   win.add(test_img);
+   </pre></code></li>
+<li>Marshall Culpepper 2012-03-12
+
+   It is not possible for us to automatically URL-encode specific portions of URLs, because we can't know if (or what parts) of the URL are safe for encoding.
+   
+   iOS does have some automagic here, but IIRC there are cases where it will break and be too optimistic about encoding (which there is no way to get out of).
+   
+   We provide a method already for allowing explicit control of URL encoding called <code>encodeURIComponent</code></li>
+<li>Lee Morris 2017-03-10
+
+   Closing ticket as the issue will not fix.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6424.json">JSON Source</a></p>

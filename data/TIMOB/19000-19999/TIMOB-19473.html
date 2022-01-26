@@ -1,0 +1,168 @@
+---
+title: "[TIMOB-19473] iOS9: Ti Contact might lead to a app crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-09-09T00:13:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>contacts</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2015-09-07T11:20:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-09-09T03:27:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce</h4>
+1.Simply run the following code.
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+
+var win1 = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+
+var addButton = Ti.UI.createButton({
+	title: "Add Contact",
+	top: "100",
+	left: "100"
+});
+addButton.addEventListener('click', function() {
+	addToDeviceContacts('Lorem', 'Ipsum');
+});
+win1.add(addButton);
+
+var searchButton = Ti.UI.createButton({
+	title: "Search Contact",
+	top: "300",
+	left: "100"
+});
+searchButton.addEventListener('click', function() {
+	var flag = searchPhoneBookContact('Lorem', 'Ipsum');
+	if (flag == true) {
+		alert("Contact Available");
+	} else if (flag == false) {
+		alert(" Contact Not Available");
+	}
+});
+win1.add(searchButton);
+
+win1.open();
+
+function addToDeviceContacts(firstname, lastname) {
+	if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_AUTHORIZED) {
+		addContact(firstname, lastname);
+	} else if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_UNKNOWN) {
+		Ti.Contacts.requestAuthorization(function(e) {
+			if (e.success) {
+				addContact(firstname, lastname);
+			} else {
+				addressBookDisallowed();
+			}
+		});
+	} else {
+		addressBookDisallowed();
+	}
+};
+
+function addContact(firstname, lastname) {
+	var work_address = {
+		
+	};
+	work_address.Street = 'street';
+	work_address.City = 'workAddress';
+	work_address.Country = 'country';
+
+	var tempMobile = '9999988888';
+	var tempPhone = '000000000';
+	var tempEmail = 'test@gmail.com';
+
+	var contact = Titanium.Contacts.createPerson({
+		firstName : (firstname != undefined) ? (firstname) : 'FirstName',
+		lastName : (lastname != undefined) ? (lastname) : 'LastName',
+		email : {
+			work : [tempEmail]
+		},
+		address : {
+			work : [work_address]
+		},
+		phone : {
+			mobile : [tempMobile],
+			"main" : [tempPhone]
+		},
+		note : 'Saved from app'
+	});
+	
+	alert('Contact saved');
+}
+
+function searchPhoneBookContact(firstname, lastname) {
+	if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_AUTHORIZED) {
+		var flag = performSearchFunction(firstname, lastname);
+		return flag;
+	} else if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_UNKNOWN) {
+		Ti.Contacts.requestAuthorization(function(e) {
+			if (e.success) {
+				var flag = performSearchFunction(firstname, lastname);
+				return flag;
+			} else {
+				Ti.API.info("address book disallowed");
+			}
+		});
+	} else {
+		Ti.API.info("address book disallowed");
+	}
+}
+
+function performSearchFunction(firstname, lastname) {
+	Ti.API.info("Address book Allowed");
+	if (Ti.Contacts.getPeopleWithName(firstname + ' ' + lastname).length > 0) {
+		return true;
+	} else {
+		return false;
+	}
+};
+
+function addressBookDisallowed() {
+	alert('Phone book can not be accessed from this app!! Access denied');
+}
+</pre></code>
+2.Click the add button to add a new contact
+3.Click the search button.
+
+<h4>Result:</h4>
+App will crash.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2015-09-08
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7135" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7135</a>
+   5_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7136" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7136</a></li>
+<li>Hans Knöchel 2015-09-09
+
+   Approved & merged, thank you [~cng]!</li>
+<li>Satyam Sekhri 2015-09-09
+
+   The app does not crash.
+   Verified on:
+   Mac OS 10.10.4
+   Appc CLI NPM: 4.2.0-1
+   Appc CLI Core: 5.0.0-45
+   Titanium CLI: 5.0.1
+   SDK: 5.0.0.v20150908171508
+   Appc Studio: 4.3.0.201509031836
+   Xcode: 7 beta 6
+   iPhone6 (v9.0 b5), iPhone6 Plus (v8.3)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19473.json">JSON Source</a></p>

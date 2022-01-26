@@ -1,0 +1,136 @@
+---
+title: "[TIMOB-19283] Cannot build to iOS 9 device using appc run"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-09-14T17:08:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.0.0</td></tr>
+<tr><th>Reporter</th><td>Satyam Sekhri</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2015-07-29T07:15:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-09-14T17:08:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+An error is shown while trying to build to a iOS 9 device
+
+Steps to reproduce:
+1. Create a new titanium project using "appc new"
+2. Go to the project folder and try to build the project to iOS 9 device using "appc run" or "appc ti build"
+
+Actual Result:
+An error is shown
+<code><pre>
+[INFO]  Installing app on device: AppC S iPhone6
+[ERROR] Failed to copy app to device (0xe8000005)
+[ERROR] An error occurred during build after 26s 626ms
+[ERROR] Failed to copy app to device (0xe8000005)
+ 
+TRACE  | titanium exited with exit code 1
+ERROR  | Error: ti run exited with error code 1
+    at ChildProcess.<anonymous> (/Users/ssekhri/.appcelerator/install/4.2.0-1/package/node_modules/appc-cli-titanium/plugins/run.js:89:66)
+    at ChildProcess.emit (events.js:117:20)
+    at Process.ChildProcess._handle.onexit (child_process.js:820:12)
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Eric Wieber 2015-07-29
+
+   I encounter this as well, using:
+   
+   MacOS 10.11
+   Studio 4.1.1.201507141126
+   Ti SDK 4.2.0.v20150729134419
+   Appc NPM 4.1.0
+   Appc CLI 4.2.0-1
+   Ti CLI 4.1.2
+   Alloy 1.6.2
+   Node v0.10.37
+   Java 1.7.0_45
+   preproduction
+   Xcode 7b4
+   
+   Building for iOS 9 devices fails with the above error. iOS 9 simulator works as expected.</li>
+<li>Tim Poulsen 2015-09-01
+
+   Builds to device using the <code>ti</code> command likewise fail:
+   
+   <code><pre>
+   > ti build -p ios -T device
+   ....
+   [INFO]  Finished building the application in 1m 13s 188ms
+   [INFO]  Installing app on device: ACV's iPhone
+   [ERROR] An error occurred during build after 1m 28s 625ms
+   [ERROR] Failed to copy app to device (0xe8000005)
+   </pre></code>
+   
+   SDK 5.0.0.v20150829212027
+   CLI 4.1.5
+   iPhone 5, iOS 9 beta
+   Xcode 7 beta 5
+   
+   </li>
+<li>Tim Poulsen 2015-09-01
+
+   This worked for me once, but subsequent builds fail with the previously listed error.
+   
+   1. Connect your device to your Mac
+   2. Open Xcode-beta (not Xcode, if you have both installed)
+   3. Choose Window, Devices
+   4. If necessary, select your iPhone/iPad
+   5. Just wait until the "processing symbol files" process is complete. Then, you can <code>ti build</code> successfully. I haven't tried <code>appc run</code> but I suspect it's the same.
+   
+   Editing one last time -- builds to device work every other time for me. One builds fails, then I simply re-run the same command and it works fine. It makes no difference if the app is running on device or is closed when I build.</li>
+<li>Fokke Zandbergen 2015-09-01
+
+   Some ideas mentioned in the Titans flow:
+   
+   - <a href="https://www.npmjs.com/package/ios-deploy" rel="nofollow" target="_blank">https://www.npmjs.com/package/ios-deploy</a> (said to work when Ti fails)
+   - <a href="https://forums.xamarin.com/discussion/27430/error-on-debug-ios" rel="nofollow" target="_blank">https://forums.xamarin.com/discussion/27430/error-on-debug-ios</a> (similar problem)</li>
+<li>Tim Poulsen 2015-09-10
+
+   I spotted the following the logs on one of the failed build/installs. It mentions symlinks being forbidden. Perhaps this is the reason for the failed install?
+   
+   <code><pre>
+   Sep 10 17:39:20 ACVs-iPhone com.apple.StreamingUnzipService[172] <Warning>: -[StreamingUnzipper _supplyBytes:length:withReply:]:1343: Invalid symlink: /private/var/mobile/Media/PublicStaging/DEMO.app/iTunesArtwork -> /Users/timpoulsen/repos/acvmobile_skypanther/iTunesArtwork (absolute symlinks are forbidden)
+   Sep 10 17:39:20 ACVs-iPhone streaming_zip_conduit[171] <Warning>: __dispatch_source_read_socket_block_invoke_2167:297: Stream extractor got error: Error Domain=SZExtractorErrorDomain Code=2 "Invalid symlink: /private/var/mobile/Media/PublicStaging/DEMO.app/iTunesArtwork -> /Users/timpoulsen/repos/acvmobile_skypanther/iTunesArtwork (absolute symlinks are forbidden)" UserInfo={SZExtractorFunctionNameErrorKey=-[StreamingUnzipper _supplyBytes:length:withReply:], NSFilePath=/private/var/mobile/Media/PublicStaging/DEMO.app/iTunesArtwork, NSLocalizedDescription=Invalid symlink: /private/var/mobile/Media/PublicStaging/DEMO.app/iTunesArtwork -> /Users/timpoulsen/repos/acvmobile_skypanther/iTunesArtwork (absolute symlinks are forbidden), SZExtractorSourceFileLineErrorKey=1343}
+   </pre></code></li>
+<li>Chris Barber 2015-09-10
+
+   [~timpoulsen] The MobileDevice error 0xe8000005 is unknown. I have no idea what triggers this.
+   
+   Looking at your logs in your previous comment, I see the symlink reference. You can try to build with <code>\-\-force\-copy</code> and see if that fixes it.
+   
+   Recently I "fixed" something where iTunes artwork was being copied for device and dist-appstore builds, but really only needed to be copied for dist-adhoc builds. I also remove iTunesArtwork from the symlink blacklist (<a href="https://github.com/appcelerator/titanium_mobile/commit/7639da56fdcbbb31c9188d15c70c0da363689cd0#diff-f430483233aa01af5b10df8390f9635dL3946)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/7639da56fdcbbb31c9188d15c70c0da363689cd0#diff-f430483233aa01af5b10df8390f9635dL3946).</a> The reason why is the copyResources() build step copies from the Resources directory, not the project root, so you'll never copy an iTunesArtwork, so there's no reason to try to ignore it. The latest code does not symlink iTunesArtwork anyways.</li>
+<li>Tim Poulsen 2015-09-11
+
+   Adding <code>--force-copy</code> seems to have fixed this. I did about a dozen builds to device using this option, all worked, and I got icons and launch images every time.</li>
+<li>Chris Barber 2015-09-11
+
+   I can't seam to reproduce your log message above. I have no clue what the StreamingUnzipService is, but device builds do not include a iTunesArtwork anymore.</li>
+<li>Eric Merriman  2015-09-14
+
+   [~timpoulsen] Hi there!
+   
+   I was unable to reproduce with either multiple Kitchensink (from master, but with added DefaultIcon.png to avoid icon errors) or default alloy app installs using appc run. I used:
+   Mac OS 10.10.3
+   Alloy: 1.7.7
+   Titanium CLI: 5.0.3
+   Appc CLI: 5.0.0-51
+   Appc CLI NPM: 4.2.0-8
+   Titanium SDK version 5.0.0.v20150911123911
+   Appcelerator Studio, build: 4.3.0.201509031836
+   Xcode 7 GM Seed</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19283.json">JSON Source</a></p>

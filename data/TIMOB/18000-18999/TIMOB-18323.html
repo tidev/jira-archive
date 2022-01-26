@@ -1,0 +1,64 @@
+---
+title: "[TIMOB-18323] Windows: UI-related module should be notified when app window is ready"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-01-07T01:03:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2015-01-06T20:54:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-14T19:13:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Some UI-related modules like <code>Ti.Gesture</code>,  <code>Ti.Accelerometer</code> and <code>Ti.Platform.DisplayCaps</code> needs reference to "current display information" (<code>Windows::Graphics::Display::DisplayInformation</code>) to initialize internal state, but currently initializing it at module constructor is causing crash.
+
+Let say we have <code>Gesture</code> module and want to get current view after module is initialized, to initialize event listener. We could do it at constructor like below...
+
+<code><pre>
+c++
+  Gesture::Gesture() {
+   //  we want display information to initialize orientation event
+    const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
+    display->OrientationChanged += ....
+  }
+</pre></code>
+
+Unfortunately, this ends up crash with following error. Note that WinRT complains about thread usage, but it is not quite right. Seems like problem here is that CoreWindow is not initialized at the moment.
+
+<code><pre>
+WinRT information: Windows.Graphics.Display: 
+GetForCurrentView must be called on a thread that is associated with a CoreWindow.
+</pre></code>
+
+So, what we actually need is "callback" which is called when window is ready. UI-related module should get notified after window is ready, so that it can setup UI-related stuff safely. It could be something like this:
+
+<code><pre>
+// override
+void Gesture::OnTitaniumMainWindowReady() {
+    // ok, now we can get current view safely
+    const auto display = Windows::Graphics::Display::DisplayInformation::GetForCurrentView
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kota Iguchi 2015-01-07
+
+   Fixed by PR #51</li>
+<li>Lee Morris 2017-03-14
+
+   Closing ticket as fixed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18323.json">JSON Source</a></p>

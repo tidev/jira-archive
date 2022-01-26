@@ -1,0 +1,698 @@
+---
+title: "[TIMOB-18952] Windows: Implement support for background services (or tiled applications)"
+---
+<table>
+<tr><th>Type</th><td>Epic</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 4.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>Services, Windows</td></tr>
+<tr><th>Reporter</th><td>Jörgen Buder</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2015-05-27T08:24:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-05-23T14:17:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Trying to find this feature in the JIRA space but did not..
+
+In Windows Phone we need to be able to run a solution where we can manage updates from GPS and interact with HTTPRequest, much like you can do with background services in iOS and Android. From the Windows Phone API we need to support this in some way. One solution can be to used tiled applications, however I am not sure at the moment if this is the best implementation solution. 
+
+After some investigation I believe we need to support this:
+[<a href="https://msdn.microsoft.com/en-us/library/windows/apps/hh202942(v=vs.105).aspx" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/hh202942(v=vs.105).aspx</a>]
+and that we need the periodic och resource intensive scheduled task. Important notice is also that we with those tasks have access to Geolocation API and WebHTTPRequests, which would be a minimum requirement. Geolocation has a limitation of cached data deliver with only 15 min realtime updates . . 
+
+(note: we are currently implementing this for a possible major client with multi target platform support (BB, Win, iOS and Android) we are interested to prioritize this and if possible contribute in some way into Windows Phone SDK so we have some minium support for this. My concern is that it is core app affected since we are talking about threading and support in background, so question is how complicated this is)
+
+Do you have any input or comments around this support? We need this support (including webHTTP and Geolocation) by mid June at the very latest. :) ;)
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jörgen Buder 2015-06-08
+
+   Iterating...
+   
+   After having the initial discussion with Chris a GA is not planned for June and not certain for the next one either. So chances are we will implement this for use in Win SDK.
+   
+   The way we will go about to do this will be the scheduled task for recourse intensive or periodic task to be able to read the GPS now and then, but in general to support background services.
+   
+   Our main plan is to make two distinct project one without the classic syntax with only GPS readings, and one based on Alloy, then linking them in native so that the classic one becomes the scheduled task, then rebuilding from native command line to construct the final schedules task based mobile app. We think this can be done, any comment is welcome..
+   
+   best</li>
+<li>Jörgen Buder 2015-07-07
+
+   Hi Chris
+   
+   I Noticed your brief update and attention to this issue.
+   
+   Please note we have spend a sufficient amount of time creating a build with Ti into which we have added a scheduled task that does work in this case. I have some ideas how to reproduce this love the CLI and it would be similar to the way I understand it is used in the Android and iOS environments, there was a few things needed to be set to register the two projects together, and I have screenshots of all these settings including a step by step how to to reproduce. Obvisouly from here I would need your input and review to understand if this is possible to do from your CLI perspective and then we should discuss how to implement the feature. I have a clear picture of how I will do this unless you get support in there, but if we cooperate maybe we can both save some time. Also my current client will need this in due time. Let me know what you think we should do now..
+   </li>
+<li>Christopher Williams 2015-07-07
+
+   I don't have any specific timeline/roadmap for when we plan to do this, but if you have a working POC/implementation then I'm interested to hear/see what you did.</li>
+<li>Jörgen Buder 2015-07-08
+
+   *Solution proposal, please review*
+   
+   This is the goal of our Scheduled Tasks implementation from a Titanium perspective. We have today a running exmaple of this with the main core app in Ti Alloy, but have not yet parsed in the scheduled task ti classic code, this should not be a problem.
+   
+   Simply, I want to specify a filename as a propertie for windows, like for instance: 
+   
+   <property name="ti.windows.scheduledtask" type="string">background.js</property>
+   
+   As the permissions seems to be inherited these are not necessary to be reused in the background task. The idea is then that the main project builds as standard Alloy based app, as a post build (or parallel) we rename the background.js file and put it into a classic Titanium project as app.js, and then build the classic project as well. We will end up with two distinctive projects with Ti code running. The classic project will only support the non UI APIs, I am not sure how to “limit” this, but generally no Alloy.
+   
+   At this point, we will go into the workspace of the visual studio and start reconfiguring the main project by adding references and settings according to the below screenshots. Additionally we have to set trigger entry points into the scheduled task. The best way to achieve this is to copy over a template schedules task into the workspace of the main app. Please see the screenshot of the workspace below. 
+   
+   At this stage we would then copy over the generated windows phone classes (from the classic project) into the schedules task template and add an entry point in the main classes to run the Ti code in the schedules task. I am concluding that there would be no problem using for instance GPS reading, HTTP client calls and Notifications like so in the example below.
+   
+   When the code is in and all the triggers are set (including the time to run, which is minimum 15 min), we need to manually build the workspace again in studio and deploy, this is done from command line of course. This solution by the way is a schedules periodic task, which enables me to do GPS, HTTP and Notifications to the main app. 
+   
+   Below I have tried to make a more detailed how to list to reproduce, but I think I need to further detail it to make it possible for you to use. 
+   
+   Additionally I have already a running project like this with the exclusion of copy over the schedules task classic Ti code into the main apps scheduled task template. The code uses a proof of concept main core Ti app and a generally created (templete) scheduled task. The scheduled task still lacks the read classic ti code generated.
+   
+   *_At this point in time I would like to know if this is possible and doable in the CLI and SDK you have today, and if so, what are the steps and entry points into the CLI to implement this? If you agree this is feasible maybe we can work together to make this happen, it would be most critical to us to get this support and I think also from a community and marketing perspective, an app that can´´ do background readings and reporting is not much use._*
+   
+   I would also like to know if this is the way we do Android and iOS today, i.e. I could reuse some of the architecture in there to make this feature for windows?
+   
+   *I would love to contribute but I need your constant help to find out where to change the CLI code. Other than that I think I can handle it.*
+   
+   If you want the code I have that runs I can send it to you, but the code has hardcoded (for some reason in VS) paths in my temp directories.
+   
+   I will be able to use Windows resources but it will cost us to further lay out the windows workspace correctly, but so far I get notifications from the scheduled task running. 
+   
+   One bug so far, which we have not solved, if I click a notification and the app starts, for some reason on my setup concurrent notifications crash. This does not happen on the same project that the Windows dude is running so solvable.
+   
+   
+   Steps to create schedules tasks in Windows SDK:
+   
+   <h4>Build main project into native stub</h4>
+   <h4>Build separate classic project and build into stub</h4>
+   <h4>Work in the “temp” directory and build from there</h4>
+   <h4>Insert into main.cpp and the Start() function this code (see below) to register the service</h4>
+   <h4>Create a classic project and insert template class code (classes we use)</h4>
+   <h4>Configure into manifest file of the main app entry class name</h4>
+   <h4>Configure into manifest the time trigger</h4>
+   <h4>Configure into manifest the entry point</h4>
+   <h4>Add build dependency on main project that it depends on service project</h4>
+   <h4>Add reference in main project pointing to service project</h4>
+   <h4>Add any assets missing to be able to build (png files)</h4>
+   <h4>(Copy over custom code from classic project into template project, this is not yet done)</h4>
+   <h4>Build the main project to targets, debug, release or package.</h4>
+   
+   attachements
+   
+   4 - Insert into main.cpp
+   
+   bool registrationIsRequired = true;
+   	  auto iter = BackgroundTaskRegistration::AllTasks->First();
+   	  if (iter->HasCurrent) {
+   		  do {
+   			  auto guid = iter->Current->Key;
+   			  IBackgroundTaskRegistration^ task = iter->Current->Value;
+   			  //task->Unregister(true);
+   			  registrationIsRequired = false;
+   		  } while (iter->MoveNext());
+   	  }
+   
+   	  if (registrationIsRequired) {
+   		  BackgroundTaskBuilder^ myTaskBuilder = ref new BackgroundTaskBuilder();
+   		  BackgroundExecutionManager::RequestAccessAsync();
+   		  myTaskBuilder->SetTrigger(ref new TimeTrigger(16, false));
+   		  //myTaskBuilder->SetTrigger(ref new SystemTrigger(SystemTriggerType::TimeZoneChange, false));
+   		  myTaskBuilder->TaskEntryPoint = "Tasks.BackgroundTaskSample";
+   		  myTaskBuilder->Name = "MyBackgroundTask";
+   
+   		  BackgroundTaskRegistration^ taskReg = myTaskBuilder->Register();
+   	  }
+   	  // end
+   
+   5 - add BackgroundTaskSample and pch classes
+   
+   How do I upload images here?
+   
+   Regards
+   
+   /Jörgen</li>
+<li>Christopher Williams 2015-07-22
+
+   [~buder] I'm not sure I 100% follow this suggested implementation. I would expect we'd like try and get an API similar to say the Android implementation described here: <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Android.Service
+   
+   We haven't done a deep enough dive to have a suggested implementation yet (from our side).
+   
+   If you're suggesting creating a separate project/app/DLL/winmd to hold the background task - that could be done similarly to how we generate a TitaniumWindows_Native WinRT component that gets built as a sub-project of the user's app.
+   See: 
+   - <a href="https://github.com/appcelerator/titanium_mobile_windows/tree/master/templates/build/Native" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/tree/master/templates/build/Native</a>
+   - <a href="https://github.com/appcelerator/titanium_mobile_windows/blob/master/templates/build/CMakeLists.txt.ejs#L58" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/blob/master/templates/build/CMakeLists.txt.ejs#L58</a>
+   
+   As far as hooking that into the tiapp.xml, I would like that to be done similarly to how we do for Android, but underneath the <windows> tag where we hooked up Capabilities: <a href="https://github.com/appcelerator/titanium_mobile_windows/blob/master/cli/commands/_build/generate.js#L253" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/blob/master/cli/commands/_build/generate.js#L253</a>
+   </li>
+<li>Jörgen Buder 2015-08-10
+
+   Agree to most I think. I also want it to be similar to Android and iOS and I think this is possible, I need help though to understand where we can add code to try this out in the CLI. Where are the hooks, where do we add code for the different stages, etc
+   </li>
+<li>Jörgen Buder 2015-12-18
+
+   Small comment, if this is possible to do with Hyperloop it would simplify things but I am not 100% confides it is possible, the main thing for the context of the schedules task is that it must be able to run our JS code and get the geolocation and http requests at the same tim we want to use our existing JS libraries for encryption and packaging to the API calls. Also with the anatomy of the solution we have done that was working it was in fact a parallel project needed in Visual Studio so we had to set up a unik project and link it to the main app as mentioned above, I do not see how this would be possible to do in hyper loop, ALSO we have to consider the productivity of hyper loop, can we use that for a real client case? I would be so happy if we could but please get back to me about the path we should take here..</li>
+<li>Jörgen Buder 2016-02-15
+
+   Hi,
+   
+   Since I have been working to get attention to this issue, please let me know if you need assistance, I will talk to my contact today and sync how to proceed, and thank you for your attention... 
+   
+   Also please let me know if there is anything confusing about the feature, and do keep in mind I have a scheduled task "running" in my POC when trying this some time ago...
+   
+   Thanks</li>
+<li>Kota Iguchi 2016-02-17
+
+   [~buder] Could you list up some of Windows API that you have used in your POC? I mean I am looking into [Windows.ApplicationModel.Background](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/windows.applicationmodel.background.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/windows.applicationmodel.background.aspx)</a> API now and I am wondering if you were able to use geolocation API in background. I was able to find only "geofencing" API for background task ([LocationTrigger](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/windows.applicationmodel.background.locationtrigger.aspx))" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/windows.applicationmodel.background.locationtrigger.aspx))</a>, and I'm not quite sure if that is what you need. I have tried <code>Windows::Devices::Geolocation</code> API on my POC but it did not quite work well with background tasks for me.</li>
+<li>Jörgen Buder 2016-02-17
+
+    Hi
+    
+    Lets be clear here, the scheduled task was in native of course (that we did), as a Ti JS context is what we are looking for. ;) The only API we used was the notification API, but as I remember it right now accessing GPS and HTTP should be no problem. The requirement here is that we must be able to access the GPS, HTTP and use common js libraries, simply a Ti JS context similar to the Android service context...
+    
+    Keep in mind we have a native windows app that uses schedules tasks and location services with HTTP APIs...
+    
+    I can take a look at the code we did which is very limited, the thing we concluded was that we were able to add a scheduled task by creating a additional project by the side if the main app, and then configure it to be a scheduled task, generating notifications every 30 min. I can provide code and configuration for you but I think my project is statically linked on my file system, let me know where I can give it to you..
+    
+    I checked out your links, and it seems to be updated for Windows 10, and I did not see support for "background tasks" in the WP 8.1 docs that I was told you support, is this an update ?
+    
+    The name of the way we did this was "schedules task" but maybe this is the same. I just want to make sure we are looking at the same thing here. It has been some time since I did this so I need to dig back in, I will do this asap and give you more detail...
+    
+    Is it possible to have a closer chat on slack or on Skype? It is easier to progress faster that way.. ;)
+    
+    </li>
+<li>Jörgen Buder 2016-02-17
+
+    I tried to locate my old files but I will unfortunately have to leave now, I can return tonight and locate the files used before and see if I can open the latest projekt we did in Visual... </li>
+<li>Kota Iguchi 2016-02-18
+
+    [~buder] Do you have any POC code for use of geolocation in background? I found that Geolocator API doesn't work in background, but I expect you made it working, right?</li>
+<li>Jörgen Buder 2016-02-18
+
+    Hi, no I did not, but accessing geolocation in Windows Phone and in some sort of background mode must be possible, or else there is no use for the platform. :) 
+    
+    My client have a windows phone app running a full application that extracts GPS location in the background, exactly how I do not know right now and of course *that is native windows phone...*
+    
+    I will have to spend some time to get back into Windows and I will really soon, but until then, we have to discuss some architectural metadata here.
+    
+    The supported Windows platform that I am using from Titanium is in Windows Phone 8 (or 8.1) not sure. But the one I could install from the common line for Windows in windows OS. From there I compile and run some Ti code from our app (now it does not compile because I have to fix the newest updates)
+    
+    From what I have seen using geolocation would work fine from native code and accessing this in a scheduled task should be no difference from main context.
+    
+    Now with that said again the BIG question here is how to support a background running service (task) that can run Ti code so that we can access the Geolocation HTTP (and maybe the Notificaiton) system. I think the big question is:
+    
+    What is the Appceelrator Windows team best recommendation to implement such a backgournd service (task) so that all Ti APIs can be used?
+    
+    The way we tried to solve this was by trying to implement a second context tied to the main app. We thought that if we can do this we can run a Ti main Windows app and then create a side project with the same Ti context and ru the Ti APIs from there, but since I am not very well into the CLI and build systems I am not sure.
+    
+    When I briefly spoke to Jeff about it he said this could be done with Hyperloop, and if this is so I am open to such a solution since it will then also support reading native values which is a requirement as well (we need the sim card Mnc and Mcc values)
+    
+    I have a meeting tonight about this issue and how to proceed so let me do that first and get back to you..
+    
+    Thanks for you attention..
+    
+    </li>
+<li>Kota Iguchi 2016-02-18
+
+    After some investigation, I found that the supported API regarding background task is very different between Windows Phone 8.0 and 8.1. I'm planning to leverage [BackgroundTask](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)</a> mechanics for Windows Phone 8.1. The good thing is Windows 10 has similar API regarding background tasks, so we'll be able to leverage WP 8.1 codebase on Windows 10.  
+    
+    Regarding geolocation support from background, from what I see, yes it's supported, but it's limited. As far as I can see Windows Phone 8.1 (and Windows 10) actually supports location services in the background via [LocatinTrigger](<a href="https://technet.microsoft.com/en-us/windows.applicationmodel.background.locationtrigger)" rel="nofollow" target="_blank">https://technet.microsoft.com/en-us/windows.applicationmodel.background.locationtrigger)</a>, but Microsoft stated it's used for geofencing. I have also observed [Geolocator](<a href="https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)</a> API does not work in background on Windows Phone 8.1. So we might want to develop a geofencing API for Titanium, but is that what you need? Or we might want to hack around geofencing API to actually "track" geolocation in background?</li>
+<li>Kota Iguchi 2016-02-19
+
+    Developer Note: On Windows 10, there's another way to track location: [App Lifecycle: From Activation and Suspension to Background Execution and Multitasking in Universal Windows Apps](<a href="https://www.suchan.cz/2015/05/tldw-build-2015-app-lifecycle-from-activation-and-suspension-to-background-execution-and-multitasking-in-universal-windows-apps/)." rel="nofollow" target="_blank">https://www.suchan.cz/2015/05/tldw-build-2015-app-lifecycle-from-activation-and-suspension-to-background-execution-and-multitasking-in-universal-windows-apps/).</a> Found that it mentions missing background tracking API for Windows Phone 8.1.
+    
+    {quote}
+    Previously if user switched from app A to app B, app A was suspended with no way to continue running.
+    In Windows 10 it's possible to request Extended Execution from OS. App must provide reason for extended execution: ExtendedExecutionReason.LocationTracking or SavingData or Unspecified. This is basically the replacement for background location tracking API in Windows Phone 8, that was missing in Windows Phone 8.1.
+    {quote}
+    </li>
+<li>Jörgen Buder 2016-02-19
+
+    I want to send you code but I cannot, we need NDA and secure work zone... lets fix this...
+    
+    So does this mean that you support the Windows 10 tracking? Or does this mean you say that no Windows phone out there can track location when app is not running ? That makes no sense to me. ;)
+    
+    I am not sure at what level your latest Win support is? Can it use Win 10 APIs? If it cannot is the only way the Win 8.1?
+    
+    </li>
+<li>Kota Iguchi 2016-02-19
+
+    yeah, I didn't want to say [Geolocator](<a href="https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)</a>  doesn't work in backgound with Windows Phone 8.1, but from what I can tell I'm observing it actually doesn't work.
+    
+    ok, here's a difference between Windows Phone 8.1 and Windows 10 (Mobile) regarding location tracking in background as far as I see. Note that when I say "Windows 10", it means Windows 10 Universal Store app, which works with Windows 10 as well as Windows 10 Mobile.
+    
+    
+    - Windows Phone 8.1 ... [Geofencing](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)</a> with [BackgroundTask](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)</a> and [LocationTrigger](<a href="https://technet.microsoft.com/en-us/windows.applicationmodel.background.locationtrigger)" rel="nofollow" target="_blank">https://technet.microsoft.com/en-us/windows.applicationmodel.background.locationtrigger)</a>
+    - Windows 10 (Mobile) ...  [Geolocator](<a href="https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)</a> as well as [Geofencing](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)</a> with [Extended Execution](<a href="https://msdn.microsoft.com/en-us/magazine/mt590969.aspx)." rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/magazine/mt590969.aspx).</a>
+    
+    So what I mean here is Windows 10 (Mobile) supports location tracking in background. Windows Phone 8.1 only supports [Geofencing](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/dn631756.aspx)</a>  API and I suspect that's not quite what you need.
+    </li>
+<li>Kota Iguchi 2016-02-22
+
+    After some more investigation I was finally able to make [Geolocator](<a href="https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/library/windows/apps/windows.devices.geolocation.geolocator.aspx)</a> work with [BackgroundTask](<a href="https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/mt299103.aspx)</a> on WP 8.1. (y) It does not seem to be stable on my Lumia (sometimes geolocation event is not fired), but since I'm not sure if it's a general problem or specific to my device, let me create POC for that and let's see how it goes with you guys then. I'll push first POC for the background service with HTTP and Geolocation access this week.</li>
+<li>Kota Iguchi 2016-02-24
+
+    <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/566" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/566</a></li>
+<li>Jörgen Buder 2016-02-29
+
+    Isa this available in Nightly build? Also will this be kind of the same for Win 10, and did you test that in Win 10?
+    
+    I have now a Phone 8,1 and a Windows 8.1 desktop installation, I will try to upgrade to latest Studio (which has never worked there) and see if I can build my original app again this was possible before but I have had many problems to do that lately, then I will try your patch in Phone8.1, I hope to have a technical discussion today about the complete support plan...
+    
+    What is required to run this in Win 10? Win 10 desktop with a Visual 2013 pro and a Phone 10 mobile SDK? Any instruktions for that somewhere?
+    
+    thanks</li>
+<li>Christopher Williams 2016-02-29
+
+    [~buder]
+    I just merged the PR now, so it'll land in a build of the master SDK later today (there's a backlog of builds now, si I don't know how long yet). The idea here is that the API and usage will be the same for Windows 8.1 Store/Phone and Windows 10 universal.
+    
+    Kota's PR (<a href="https://github.com/appcelerator/titanium_mobile_windows/pull/566)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/566)</a> outlines sample usage and details on getting it enabled in your app (you need to do some tiapp.xml voodoo).
+    
+    I'll note here that this API is a little closer to the Ti.App.iOS.BackgroundService Api than the Ti.Android.Service one. One major difference is that you register a timer task with a callback function and some optional arguments for time to fire (in minutes, 15 is minimum) and one-time or recurring. The others (Android/iOS APIs) take a JS object with an "url" property pointing at a JS file defining the service.
+    
+    We're looking to see if this works for you and can meet your needs. We'll also likely need to do some work around trying to align the APIs between iOS/Android/Windows.</li>
+<li>Christopher Williams 2016-03-01
+
+    [~buder] The initial implementation has landed in master SDK builds. You should be able to do: <code>appc ti sdk install -b master</code> to grab it and test it out.</li>
+<li>Jörgen Buder 2016-03-09
+
+    Hi
+    
+    I noticed you set this one in resolved, for us we cannot yet conclude that it works, and there are many questions that need to be noted, for instance does the context support everything you can expect, For instance can I use all the standard none UI Ti. APIs? I will need things like Ti.App.Properties so I can exchange data to main app, I need the Ti.Stream, Ti.Geolocation and Ti.Buffer working, and I will use the local notification system to crate notification in the top bar, I will use commonjs libraries in the context and I will want to know that I can run this both in Windows Phone 8.1 SDK and maybe primarily in win 10 mobile SDK. Successfully..
+    
+    I also need to know how the callback is running, does it wake up the full app thread, so that I can safely use things like updating UI components during it´s execution time without violating any architectural specifications of Win apps both in 8.1 and 10. If the callback is running in it´s own thread, then what happens if it is scheduled to die by the OS, how do I restart only the service? In android you use alarm manager to handle this. As you can see there is a number of important questions that needs answers to be able to develop the background service correctly or it will fail (as it does in Android if you account for things begin available where they are not if the service restarts)
+    
+    I hope all these concerns make sense to you, because when you start using such a service there are a number of issues that may arise...
+    
+    Regards</li>
+<li>Kota Iguchi 2016-03-09
+
+    [~buder], Titanium background services runs on Windows Phone 8.1 as well as Windows 10 Mobile/Store. Since it uses [Windows Background Task TimerTrigger](<a href="https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/run-a-background-task-on-a-timer-)" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/run-a-background-task-on-a-timer-)</a>, all limitation in TimerTrigger may be applied to <code>Ti.App.Windows.BackgroundService</code> too. For instance you can't use any UI components since background service has no UI. Take a look at the comments in [background sercie example in the PR](<a href="https://github.com/appcelerator/titanium_mobile_windows/pull/566)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/566).</a> Ti.Stream and Ti.Buffer should work. Especially note that Ti.Geolocation does not work, use <code>Ti.App.Windows.BackgroundService.locationServiceEnabled</code> instead (also take a look at the example above)</li>
+<li>Kota Iguchi 2016-03-09
+
+    For more information on how Windows Background Service should work, you might want to check out [official information from MS](<a href="https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/guidelines-for-background-tasks)." rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/windows/uwp/launch-resume/guidelines-for-background-tasks).</a> FYI we use <code>TimerTrigger</code> to implement <code>Ti.App.Windows.BackgroundService</code>.</li>
+<li>Jörgen Buder 2016-03-15
+
+    Just  a brief note, I was able to run the example but only when the app is running, when I back or go to the tile desktop there do not seem to be anymore updates, this is on emulator.
+    
+    I have tested the same thing on device running Phone 8.1 and so far it does not run, now I test with the app "open" to see if it triggs.. what is your experience? It seems from the comments both here and on github that it should indeed run in the background even if the app is not in foreground, right ?</li>
+<li>Jörgen Buder 2016-03-15
+
+    There is something strange going on, when my display goes to sleep the app is shut down, am I doing this wrong? Do I need to make some setting in the app manifest to keep it alive? I tried running the app and pbserved that it did report back, then when the display is off and I open the phone the app is closed, it is not even in the long press back arrow list. So any feedback would be nice.
+    
+    The only place where I get it to run is in the emulator with the display that seems to be on by default all the time..
+    
+    :)</li>
+<li>Kota Iguchi 2016-03-16
+
+    Yes, background service should work even when app is not foreground. Note that in order to enable background service for your app, you need to set appropriate <code>Extension</code> and <code>BackgroundTasks</code> in <code>tiapp.xml</code> like [described in the example](<a href="https://github.com/appcelerator/titanium_mobile_windows/pull/566)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/566).</a> Typical configuration would be like below (enable background task with internet connection and geolocation).
+    
+    <code><pre>
+    <windows>
+      <manifest>
+        <Extensions>
+            <Extension Category="windows.backgroundTasks" EntryPoint="TitaniumWindows_Ti.BackgroundServiceTask">
+              <BackgroundTasks>
+                <Task Type="timer" />
+              </BackgroundTasks>
+            </Extension>
+        </Extensions>
+        <Capabilities>
+          <Capability Name="internetClient" />
+          <DeviceCapability Name="location" />
+        </Capabilities>
+      </manifest>
+    </windows>
+    </pre></code></li>
+<li>Jörgen Buder 2016-03-16
+
+    Have been trying to get this running now both on emulator and device with no good luck, best case was when app is in foreground and running in emulator where it run for 2,5 hours but then stopped, I am not able to get it running on any other target at all. Not in foreground and not in background. 
+    
+    I did set all the manifest stuff you suggested. NOTE that the callback is running in the emulator when in foreground so basically the callback is triggered but it does not work on device or if I turn the app to background, either in emulator or device, at that point the app usually turns off (shuts down)
+    
+    I read the documentation and now pinned the app to the start screen, as the docs say this is a requirement to let background processes run, this did unfortunately not help much. 
+    
+    As part of this running on device I still can´t get print logs so I have to log to server to see it, and this is verified working as I do that first run... and I can see the report..
+    
+    It is time for a webex call I think to sort these things out...
+    
+    Or do you have any obvious idea to solve this?
+    
+    thanks</li>
+<li>Kota Iguchi 2016-03-17
+
+    [~buder] Hmm. I'm now trying to separate the issue to see if it's a general Windows issue or Titanium issue. What kind of device are you using? Also, please give us your output from <code>ti info -t windows</code>. Also, can you paste/attach your <code>tiapp.xml</code>?
+    </li>
+<li>Jörgen Buder 2016-03-17
+
+    </li>
+<li>Jörgen Buder 2016-03-17
+
+    Nokia Lumia 925 running Windows Phone 8.1 Update
+    
+    OS Version 8.10.14226.359
+    
+    The Tapp.xml may not be appropriate to send here, can I use other channel ? The app is sensitive and I cannot risk that, what exactly do you need to know ? 
+    
+    The Windows section looks like this:
+    <windows>
+            <manifest>
+            	<Extensions>
+    		        <Extension Category="windows.backgroundTasks" EntryPoint="TitaniumWindows_Ti.BackgroundServiceTask">
+    		          <BackgroundTasks>
+    		            <Task Type="timer" />
+    		          </BackgroundTasks>
+    		        </Extension>
+    		    </Extensions>
+                <Capabilities>
+                    <Capability Name="internetClient"/>
+                    <DeviceCapability Name="location"/>
+                </Capabilities>
+            </manifest>
+        </windows>
+    
+    and I use:
+    <property name="ti.windows.publishername" type="string">CN=Jörgen Buder</property>
+    
+    enough?
+    
+    regards</li>
+<li>Jörgen Buder 2016-03-17
+
+    Also, is there a possibility we can solve this more one on one? This takes way to much time. ;) I can share my environment to you over team view?
+    
+    Thanks</li>
+<li>Kota Iguchi 2016-03-18
+
+    Thanks for the information. That helps.
+    
+    {quote}
+    Titanium CLI
+    CLI Version = 4.1.0-dev
+    {quote}
+    
+    Isn't that too old? You might want to <code>appc setup</code> to update the Ti CLI.
+    
+    {quote}
+    Microsoft (R) Visual Studio 12.0 (selected)
+    Path = C:\Program Files (x86)\Microsoft Visual Studio 12.0\
+    CLR Version = v4.0.30319
+    MSBuild Version = v12.0.31101.0
+    {quote}
+    
+    This looks good. I noticed <code>ti info</code> doesn't show versions of WP 8.1 sdk. Please make sure to get latest emulators. [Windows Phone 8.1 Update and Emulators](<a href="https://www.microsoft.com/en-us/download/details.aspx?id=43719)." rel="nofollow" target="_blank">https://www.microsoft.com/en-us/download/details.aspx?id=43719).</a>
+    
+    {quote}
+    Nokia Lumia 925 running Windows Phone 8.1 Update
+    OS Version 8.10.14226.359
+    {quote}
+    
+    I'm using Lumia 630 and it says it has Windows Phone 8.1 Update with 8.10.14234.375. Is that the latest version you can get? I'm afraid if OS version affects those weird behavior around background services...
+    
+    Also, I think I see another issue around logging in Titanium CLI. I suspect it does not output logs during app is in background, which makes you difficult to see if background service is alive or not. I'm looking into the issue.</li>
+<li>Kota Iguchi 2016-03-22
+
+    I keep looking into this issue but I should say background services on Ti is still unstable. As far as I see it seems it behaves differently between Windows Phone/Store/8.1/10 and even minor version of each OS. I suspect it has something to do with restriction of thread, process or memory usage on use of background services, and I expect it still needs some more time to investigate. I'll keep you guys updated on this.</li>
+<li>Kota Iguchi 2016-03-30
+
+    Re-opening this, as background service is still unstable. As far as I can see runtime limitation for background services on Windows Phone are hard and it prevents JavaScriptCore to invoke JavaScript callback unfortunately. I'm thinking about introducing much more lightweight implementation for it so we can at least send current location in background.</li>
+<li>Jörgen Buder 2016-03-31
+
+    Hi Kota,
+    
+    When I looked at this the most common usage was the one with the 15 min time trigger, I don´t know if any other that would work better , but in any case, do remember that the context needs to be able to support the Ti JS context whatever implementation you do. We need to be able to access native API calls, commonjs modules etc, and finally do the HTTP requests. ;)
+    
+    Please let me know your status on any other solution, thanks</li>
+<li>Jörgen Buder 2016-04-04
+
+    Do you have any update on this please, I need to know where we stand...</li>
+<li>Kota Iguchi 2016-04-04
+
+    Yeah, I still have been investigating why it's unstable. It basically takes time because you can't control when background task fired. For technical notes, as far as I can see background task on Windows Phone is executed by background task host executable that is independent from the app. Problem here is that it can't use much resources (i.e. memory) to execute JavaScript context (and also Ti context of course) in background host, from what I observed. Because background host is independent from the app, only thing you can do make communication between app and the background host is to use local file or local settings as far as I see. In addition to that, in order to enable JavaScript context in background host, you'll actually need to have two instances of JavaScript/Titanium context, but it's too much for Windows Phone. So what I'm trying is to let background host to just focus on collecting geo-location and send http request when necessary. In that case, once app become foreground you can use stored geo-location data from JavaScript context. I'm working on second PoC and I'll let you guys know when it's ready.</li>
+<li>Jörgen Buder 2016-04-05
+
+    I could see the issue reopened, thank you, can I help in any way? I am here to help, testing or investigation or what ever is needed...
+    
+    thanks</li>
+<li>Jörgen Buder 2016-04-05
+
+    I read your comments above and there is a few critical things you need to know which we have to run when we run the Ti code in the background.
+    
+    1. The code must be able to get the location by asking the Ti.Geolocation for a long/lat as a minimum
+    2. The code have to be able to import some libraries (commonjs) that generates encryption for the HTTP Post that we use to send the data to server. That contains of about 4 - 5 common JS libraries in JS. Can this pose a problem regarding the memory issue or is the Ti JS motor so much bigger that it is not compareable?
+    3. Along with the data we send we read some native variables from the platform not available in the SDK, like simMnc and some network data variables, I am (as you may see form stack overflow and the issue about docs for getting native modules building) using a simple but critical native module that I require in, it consists of a simple loop that generates a variable (key) and also we use that same module to access these variables, basically just reading them and returning them. If I get the native modules to actually build and generate my module zip file this should be a no brainer, but again, how does this affect your findings in terms of memory?
+    4. About communicating to the main app, the way we do this today is to save the last known location obj in a Ti.Platform.Properties.setString(); which we then pick up from the main app when it is resumed. As far as I know that Ti API is in fact a swap file which I can access, so that should work right?
+    5. Since the local notification is not supported we will have to use a second native module to support creating a notification for the user, as the background task is asking server if there is new data to notify the user of. So again we have to be able to either have the notification API supported (I think there is in fact a Ticket for this) or we will make a module that does this, in fact we already have a C++ code snippet running in the background task context so I think it may be a simple thing to achieve..
+    
+    Questions:
+    
+    When you say you are focusing on "only" the HTTP and geolocation retreival does this mean significant limitation to the way we can run our code in that handler? It sound like you are creating a JS engine that only supports part of the full context, is that correct? Possible?
+    
+    Your other PoC, can you briefly tell me what that is instead? 
+    
+    Thanks</li>
+<li>Kota Iguchi 2016-04-05
+
+    Thanks for the providing your use case, that helps. So the issue I am seeing (the memory issue) prevents us from invoking JavaScript code in background. Once the app is foreground, you should be able to use your commonJS module and custom module as usual. 
+    
+    So basic idea is let the background service just focusing on collecting ge-location & http access. Let me show you a sample code that I'm thinking from your use case:
+    
+    <code><pre>
+    var your_crypt = require('your_encryption_CommonJS_module');
+    var some_other_custom_module = require('your_custom_module');
+    var win = Ti.UI.createWindow();
+    
+    // Fired when the application returns to the foreground.
+    win.addEventListener('resumed', function() {
+    	// Get all geolocation that is collected in background
+    	var locations = Ti.App.Windows.BackgroundService.locations;
+    
+    	var url = '<a href="http://example.com/api/location?" rel="nofollow" target="_blank">http://example.com/api/location?</a>';
+    	var param = '';
+    	for (var i = 0; i < locations; i++) {
+    		param += locations[i].latitude  + '&';
+    		param += locations[i].longitude + '&';
+    		param += locations[i].timestamp + '&'; 
+    		param += some_other_custom_module.MNC();
+    	}
+    	url += your_crypt.encrypt(param);
+    
+    	// send locations to somewhere
+    	var client = Ti.Network.createHTTPClient({
+    		onload : function(e) {  }
+    	});
+    	client.open("GET", url);
+    	client.send();	
+    });
+    
+    // Enable geolocation in background
+    Ti.App.Windows.BackgroundService.locationServiceEnabled = true;
+    
+    win.open();
+    </pre></code>
+    
+    Again, basic idea here is to reduce JavaScript context execution in background.
+    Does this make sense? Please note that this is not a final spec. I'd like to hear your use case and suggestion.
+    
+    My question is,
+    Do you want to send geo-location to specific URL in background? Is there a use case why it can't be sent in foreground? I mean, in my example you can collect geo-locaiton in background, but http access is done when app is foreground.
+    
+    I'm not yet sure about notification...I think we rather want to discuss it in TIMOB-20578.</li>
+<li>Jörgen Buder 2016-04-05
+
+    Hi
+    
+    Yes unfortunately the whole app core functionality is sending location from background when app is NOT in foreground, the app basically tracks (location) the user to be able to push critical personal news events, so what will happen in the background service is exactly this:
+    
+    1. Retrieve the fresh location
+    2. Prepare this data by accessing encryption JS library and native Windows module to generate key and get native variables.
+    3. Send the location to the server (encrypted data)
+    4. Retrieve from server data to be notified to the user
+    5. Create a notification (if needed from step 4) (this notification is then used by the user to open the app, which then displays the new news to the user.
+    
+    So as you can see there is all these things that need to be done in the background every Nth minute without the user ever opening the app, this is how this app works today with iOS and Android.
+    
+    Step 4 and 5 can only be omitted if the Windows SDK supports Push notifications, which would then trigger a notification to the user that opens the app..
+    
+    I would love to share code with you to more clearly describe the use case but it is under NDA, so I need different channel for that..
+    
+    Can I help you more at this stage? I am available and want to help you the most I can
+    
+    I have more time tonight after 8 pm CET... but I am constantly keeping my eyes on this thread/ticket... thanks 
+    </li>
+<li>Jörgen Buder 2016-04-05
+
+    The way I see it is that if the first implementation we did would run consistently I think we would be ok, right ?
+    
+    Is there some way of getting around the problem? Limiting the JS motor footprint? 
+    
+    When we specify the callback we set in the first solution you gave us it kind of was a Ti context, is it possible to add a native module as a callback for this? It does NOT solve my problems but I am just curious if that would work?
+    
+    Like for instance: var task = Ti.App.Windows.BackgroundService.registerTimerTask(callback, 15, false);
+    
+    and the call back would be a :
+    
+    var nat = require('native'); or similar 
+    
+    and then that would run according to the time trigger we have, this of course shortcuts the whole Ti context in the background task, which is what we need, BUT would it be possible?
+    
+    In other words running a native background trigger that actually will then stay alive ?
+    
+    </li>
+<li>Kota Iguchi 2016-04-05
+
+    Thanks, I understand your use case (y)
+    
+    > The way I see it is that if the first implementation we did would run consistently I think we would be ok, right ?
+    
+    Yes. I think your use case does require JavaScript/Ti context execution in background...I'd like to spend more time to workaround the issue.
+    
+    > is it possible to add a native module as a callback for this?
+    
+    I think that is a interesting idea. I'll look into it.</li>
+<li>Jörgen Buder 2016-04-05
+
+    The only bad thing with a native module running as call back is that I loose all ways to use JS code... :(
+    
+    But it is interesting to see if that is possible, but please understand it is not a solution...
+    
+    /Jörgen</li>
+<li>Jörgen Buder 2016-04-05
+
+    just a means to understand if the trigger stays alive..</li>
+<li>Jörgen Buder 2016-04-07
+
+    Sorry to pick on you ;) But have you had any progress this week? Just wanted to know if you need more info or if I can help more..
+    
+    THANKS for your efforts</li>
+<li>Kota Iguchi 2016-04-07
+
+    No particular update for now. I think I have all information I need, I'll let you know whenever necessary. Thanks.</li>
+<li>Kota Iguchi 2016-04-08
+
+    After lots of investigation & trial, I almost came up with a conclusion that it is _not_ possible to enable JavaScript/Ti context in background service. It's obviously too much to have two JavaScript/Ti instances at once (foreground & background), and the platform does not allow it. It's too much enough to screw up things (app freeze / device forced to restart, etc).
+    
+    We have one more choice so far then: (it's actually [~buder]'s idea): which is
+    
+    *Implement background trigger extension by native module (C++)*.
+    
+    Yes I feel very unfortunate to say this :( but I think that's also a interesting idea. This should enable native module to react when background trigger is fired. Because it's a native module, you should be able to do anything you need. This means you need to code with C++ instead of JS (too bad) but at least we have last resort to implement custom logic. Does this make sense? Please note that I have been testing lot of alternatives on actual device etc but I was not able to make it work unfortunately, so I think this is an actual last resort for us.  /cc [~buder] [~cwilliams]
+    
+    </li>
+<li>Jörgen Buder 2016-04-11
+
+    So this means we need an urgent call and meeting... as this is not actually a good solution for us... I will talk to Chris but need more attention to this..</li>
+<li>Jörgen Buder 2016-04-11
+
+    Kota, Can I ask you to verify that a backgrund module really can run in the background running native code, while you do that I will assemble the people. Important here will be to enable the same features like location, and then calling HTTP Post, what we also must have is an encryption library similar to our own, generating keys and encrypting data... is this natively available?
+    
+    Thanks
+    
+    </li>
+<li>Jörgen Buder 2016-04-11
+
+    For instance can I do this in the native background module to generate keys and encrypt the data send by the POST: 
+    
+    <a href="http://www.lookitskris.com/tripledes-encryption-in-winrt/" rel="nofollow" target="_blank">http://www.lookitskris.com/tripledes-encryption-in-winrt/</a>
+    
+    Is this is the correct C++ code and can it be used natively in Win 8.1 and Win 10 later ?
+    
+    thanks</li>
+<li>Christopher Williams 2016-04-11
+
+    That code is marked as WinRT, so hopefully would work in 8.1/10, but I haven't checked all the APIs to be 100% certain. The code is C# code, though - not C+\+. You'd need to rewrite it in C+\+/CX (which wouldn't bee too hard, since it's pretty much the same APIs/names, mostly just minor syntax changes)</li>
+<li>Kota Iguchi 2016-04-12
+
+    Like Chris noted, we are using C+\+/CX. I found a official sample code using crypotography: [Cryptography and Certificate sample](<a href="https://code.msdn.microsoft.com/windowsapps/Cryptography-and-3305467b)" rel="nofollow" target="_blank">https://code.msdn.microsoft.com/windowsapps/Cryptography-and-3305467b)</a> </li>
+<li>Kota Iguchi 2016-04-13
+
+    Split native module ticket into TIMOB-23205 so that we can focus on the work item.</li>
+<li>Jörgen Buder 2016-04-15
+
+    Hi Kota
+    
+    If you have some code to checkin is it possible I can have the code to nightly build and try it out? Preferably with a small guide on how to add the native callback into the background service..
+    
+    It would be very valueable for us to test this during the weekend..</li>
+<li>Kota Iguchi 2016-04-16
+
+    Once TIMOB-23205 is merged you should be able to try it out. Yes, I try to update module development guide too... 
+    Draft: <a href="https://appcelerator.github.io/appc-docs/platform/latest/#" rel="nofollow" target="_blank">https://appcelerator.github.io/appc-docs/platform/latest/#</a>!/guide/Windows_Module_Development_Guide </li>
+<li>Jörgen Buder 2016-04-22
+
+    In my efforts to try this out I have to ask you how do I retrieve the geolocation object that I got in your first solution with Ti Context? I have to be able to extract the latest geolocation in the callback but I have no idea how to get that, will it be an argument like the one you used? (_e) ??
+    
+    Or do I have to call some native code to get the location? I have the location enabled already and I am getting it in the main app from the Ti.Geolocatoin.getCurrentLocation API, so it feels like it should be really easy to to that ? Do you have any idea because our overall requirements for the service was to be able to use those APIs from the Ti context and now when we cant those are issues for us... I will try find data about it, but please help me if you can... you have so much better experience with Win than I do..
+    
+    Thanks
+    
+    Note: I am trying to test the background service but not yet a result, I will let you know..
+    
+     </li>
+<li>Jörgen Buder 2016-04-22
+
+    Looking at this: 
+    
+    <a href="https://msdn.microsoft.com/en-us/library/windows/apps/jj206956(v=vs.105).aspx" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/jj206956(v=vs.105).aspx</a>
+    
+    but I worry about the Async because for instance in iOS push notifications if I run something async and then the handler is ended the OS marks the handler as "bad" since it runs code outside of the scope, so if the async method (and this is stated in the docs above too) is running after it is stopped it will be bad..
+    
+    What do you think?
+    
+    Regards</li>
+<li>Jörgen Buder 2016-04-22
+
+    Does not seem to support some classes like IBox and UINT, not sure why..</li>
+<li>Jörgen Buder 2016-04-22
+
+    Every time I get some code from MSDN tat is C++ and is suppose to work I have problems with types, how does this relate to the module implementation that you have for Ti ? I think it is important to document that because every time I gett som code I have to add things like Platform:: and I have to investigate and change class references etc. I am not sure why I have to do this, like in this case, why is not UINT supported? Why is not IBox supported? It is frustrating to not have a clear picture of the requirements on the code that can be used in the module implementation...
+    
+    Is there any information about this somewhere?
+    
+    thanks </li>
+<li>Kota Iguchi 2016-04-22
+
+    Maybe missing <code>#include</code>? Especially for debugging background service, I would suggest creating stand-alone Windows Phone Universal App project (C+\+/CX) from Visual Studio and then creates <code>Windows::ApplicationModel::Background::IBackgroundTask</code> C+\+/CX class, and debug it through debugger of Visual Studio, since there's no Titanium involved when it comes to background service. Debugging background service using Titanium CLI will be hard, I would say. In that case after debugging <code>IBackgroundTask</code>, you should be able to just copy/paste the code to Titanium native module. Note that communication between foreground app and background service can be tricky because background service is an independent executable. You can use local file or local settings (LocalSettings) to share information between fthem as far as I know.</li>
+<li>Jörgen Buder 2016-04-22
+
+    Ok, I know you said this before, thing Is I have never done that so it will be covering new ground, never the less why would the code not compile? It is one thing it will not run but it does not compile, feels like the context of the module is not that same as standard native code...
+    
+    </li>
+<li>Christopher Williams 2016-04-22
+
+    [~buder] The code you linked to is an article for Windows Phone 8, so it may or may not work, I'm not sure.
+    
+    Anyways, You have to look auth the sample code in totality. It appears you don't have a C++ background, so the syntax/usage may be unfamiliar. In any case, IBox is an interface in the Platform namespace. You need to use the full name, unless you declare you're using that namespace. I don't know where UINT is defined, looks like maybe a macro for a basic type?
+    
+    I assume you're reacting to this line in the linked sample?
+    <code><pre>
+    geolocator->DesiredAccuracyInMeters = (Platform::IBox<UINT>^)(PropertyValue::CreateUInt32(accuracyInMeters));
+    </pre></code>
+    
+    In that case, I'm not even sure you need to do the boxing yourself. I think you can just use an int, and Windows will take care of boxing/unboxing for you if it needs to.</li>
+<li>Jörgen Buder 2016-04-28
+
+    This may sound like a stupid question but when I try to run the app on the device I can see that the registering or something with the background service is crashing on device, but NOT on emulator. What devices did you test this on ?
+    
+    I have a Lumia 925
+    
+    Please respond as I am desperately (without logs) trying to verify your solution..
+    
+    /J</li>
+<li>Kota Iguchi 2016-04-28
+
+    I'm using Lumia 630 with Windows Phone 8.1 Update (8.10.14234.375).</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18952.json">JSON Source</a></p>

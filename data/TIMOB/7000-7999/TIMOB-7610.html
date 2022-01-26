@@ -1,0 +1,139 @@
+---
+title: "[TIMOB-7610] Android: MapView crashes when annotation has ordinary view as rightView property"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-31T16:25:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Arthur Evans</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2012-02-09T22:13:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-10T19:17:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A fatal exception occurs when selecting an annotation that has an instance of Ti.UI.View passed as the rightView parameter.
+
+- This error doesn't occur if you pass an instance of ImageView as rightView and leave leftView unset. The image view is displayed as expected.
+- It does occur if you specify the Ti.UI.View instance as either leftView or rightView, and set the ImageView as the other view.
+- It doesn't occur if you set a Ti.UI.View instance to leftView and leave rightView unset. Although in this case, the view still isn't displayed.
+
+Test case:
+
+<code><pre>
+
+var win = Titanium.UI.createWindow({
+	modal : true,
+	backgroundColor : 'white'
+});
+
+// an image view...
+var pane = Ti.UI.createImageView({
+	image : 'pin2.png',
+	width : 30,
+	height : 30
+})
+
+// and a plain view
+var plain = Titanium.UI.createView({
+	width : 20,
+	height : 20,
+	backgroundColor : '#336699'
+});
+
+var atlantaParams = {
+	latitude : 33.74511,
+	longitude : -84.38993,
+	title : "Atlanta, GA",
+	subtitle : 'Atlanta Braves Stadium\nfoo',
+	pincolor : Titanium.Map.ANNOTATION_GREEN,
+	animate : true,
+	//	leftView : pane,
+	rightView : plain
+};
+
+var atlanta = Titanium.Map.createAnnotation(atlantaParams);
+
+// CREATE MAP VIEW
+//
+var mapview = Titanium.Map.createView({
+	mapType : Titanium.Map.STANDARD_TYPE,
+	region : {
+		latitude : 33.74511,
+		longitude : -84.38993,
+		latitudeDelta : 0.5,
+		longitudeDelta : 0.5
+	},
+	animate : true,
+	regionFit : true,
+	userLocation : true,
+	annotations : [atlanta]
+});
+
+mapview.selectAnnotation(atlanta);
+win.add(mapview);
+win.open();
+</pre></code>
+
+Stack trace:
+<code><pre>
+
+E/AndroidRuntime( 1387): FATAL EXCEPTION: main
+E/AndroidRuntime( 1387): java.lang.NullPointerException
+E/AndroidRuntime( 1387): 	at ti.modules.titanium.map.TiOverlayItemView.setItem(TiOverlayItemView.java:191)
+E/AndroidRuntime( 1387): 	at ti.modules.titanium.map.TiMapView.showAnnotation(TiMapView.java:493)
+E/AndroidRuntime( 1387): 	at ti.modules.titanium.map.TiMapView.doSelectAnnotation(TiMapView.java:727)
+E/AndroidRuntime( 1387): 	at ti.modules.titanium.map.TiMapView.handleMessage(TiMapView.java:471)
+E/AndroidRuntime( 1387): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+E/AndroidRuntime( 1387): 	at android.os.Looper.loop(Looper.java:123)
+E/AndroidRuntime( 1387): 	at android.app.ActivityThread.main(ActivityThread.java:4627)
+E/AndroidRuntime( 1387): 	at java.lang.reflect.Method.invokeNative(Native Method)
+E/AndroidRuntime( 1387): 	at java.lang.reflect.Method.invoke(Method.java:521)
+E/AndroidRuntime( 1387): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:868)
+E/AndroidRuntime( 1387): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:626)
+E/AndroidRuntime( 1387): 	at dalvik.system.NativeStart.main(Native Method)
+</pre></code>
+
+Given the peculiar left/right behavior, I noted that the line we crash on,
+TiOverlayItemView.java:191:
+
+
+191                 rightPane.addView(rightView.peekView().getNativeView());
+
+Does not match the corresponding code for leftView:
+
+167                 leftPane.addView((leftView.getOrCreateView()).getNativeView());
+
+Although otherwise the handling of these views appears to be identical.
+
+Also, I wonder if this behavior explains some of the peculiarities reported in TIMOB-5038,
+where the annotation is not being updated.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Arthur Evans 2012-03-12
+
+   I tested the fix I suggested above. It appears that replacing peekView() with getOrCreateView() does indeed prevent the crash. However, it's only a partial fix, because an instance of Ti.UI.View still isn't displayed, while an instance of Ti.UI.ImageView *is* displayed.
+   
+   It is beyond my abilities to divine why this might be.
+   
+   However, when I tried a label as the rightView, I noted that the label shows up, but its width and height values are not honored--instead, it's sized to fit the text content. The image view, however, scales to the specified size. Maybe this is something to do with how the sizes are enforced on the underlying native views?
+   </li>
+<li>Karl Rowley 2012-07-31
+
+   This is a duplicate of [TIMOB-7610], which is resolved as "Fixed".  I verified that the code shown here works with that fix.</li>
+<li>Lee Morris 2017-03-10
+
+   Closing ticket as duplicate.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7610.json">JSON Source</a></p>

@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-25899] Android: Modify JSON.stringify(Error) to not return "{}""
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-09-19T21:34:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, error, json, json.stringify, parity</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-03-23T19:24:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-10-05T18:52:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello !
+We were trying to log some handled exceptions with the APM module for Android (apm.logHandledException( ) ) and we just noticed whenever we try to instantiate a Javascript Error in Android , this always comes out as an empty object ( { } ), where as, when doing the very same thing in iOS will work with no issues.
+This however, has only been tested in simulators/emulators.
+
+It was also tested with Ti SDK 7.x and 6.x. In both cases new Error seems to be broken in Android, but working in iOS.
+
+
+Sample app: <a href="https://propelics.box.com/s/q8nryev5c6fc8eqzl3rem21jjd792vj4" rel="nofollow" target="_blank">https://propelics.box.com/s/q8nryev5c6fc8eqzl3rem21jjd792vj4</a>
+<code><pre>
+var e = new Error('Some error');
+var e2 = new Error();
+
+console.log('e=' + JSON.stringify(e));
+console.log('e2=' + JSON.stringify(e2));
+</pre></code>
+
+Steps to reproduce:
+1) Take a look at index.js and see how we're trying to instantiate 2 Error objects, then printing them in the console.
+2) Run the application in Android (we've been using emulators with Android 6.0 and 7.1.1)
+3) When the application launches look at the console. The printed logs will be empty objects:
+[INFO] e={}
+[INFO] e2={}
+4) Re-run the app in iOS
+5) Observe the console output and how actual error objects will be printed:
+[INFO] e={"line":55,"column":19,"sourceURL":"file:///Users/user/Library/Developer/CoreSimulator/Devices/63801195-0FE5-4A3F-9615-F1ABAAB35DFC/data/Containers/Bundle/Application/D4F143DB-E591-4258-9567-6D294EBEB265/BlankApp.app/alloy/controllers/index.js"}
+[INFO] e2={"line":56,"column":20,"sourceURL":"file:///Users/user/Library/Developer/CoreSimulator/Devices/63801195-0FE5-4A3F-9615-F1ABAAB35DFC/data/Containers/Bundle/Application/D4F143DB-E591-4258-9567-6D294EBEB265/BlankApp.app/alloy/controllers/index.js"}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-03-23
+
+   The <code>Error</code> object is probably fine. This is likely an issue with <code>JSON.stringify()</code> not knowing how to enumerate the <code>Error</code> object's fields.</li>
+<li>Ewan Harris 2018-03-23
+
+   For reference: 
+   V8 bug around Error properties not being enumerable <a href="https://bugs.chromium.org/p/v8/issues/detail?id=1595" rel="nofollow" target="_blank">https://bugs.chromium.org/p/v8/issues/detail?id=1595</a> 
+   Node bug for this behaviour: <a href="https://github.com/nodejs/node-v0.x-archive/issues/1634" rel="nofollow" target="_blank">https://github.com/nodejs/node-v0.x-archive/issues/1634</a> (their fix at the time <a href="https://github.com/nodejs/node-v0.x-archive/commit/389e2a07e676e5be3b8cbd94f0a0f7ebccb47f47)" rel="nofollow" target="_blank">https://github.com/nodejs/node-v0.x-archive/commit/389e2a07e676e5be3b8cbd94f0a0f7ebccb47f47)</a>
+   
+   Interestingly doing {var e = new Error('Some error');{Ti.API.info(e);}} gives <code>[INFO]  Error: Some error</code>. In console.js we probably want to check if what we're passing to Ti.API.<level> is an error and format it. I'm not sure what we can do on the Java side to print the stack as I'm unfamiliar with that code.
+   
+   For now if the users wants to they can access the stack directly or pass in the property names on Error to JSON.stringify, see below
+   
+   <code><pre>
+   var e = new Error('Some error');
+   
+   // Log all properties on Error
+   console.log('e=' + JSON.stringify(e, Object.getOwnPropertyNames(e)));
+   // gives [INFO]  e={"stack":"Error: Some error\n    at /app.js:1:20\n    at Module._runScript (ti:/module.js:596:17)\n    at Module.load (ti:/module.js:105:7)\n    at Function.Module.runModule (ti:/module.js:74:9)","message":"Some error"}
+   
+   // Log only stack
+   console.log('e.stack=' + e.stack);
+   // gives 
+   // [INFO]  e.stack=Error: Some error
+   // [INFO]  at /app.js:1:20
+   // [INFO]  at Module._runScript (ti:/module.js:596:17)
+   // [INFO]  at Module.load (ti:/module.js:105:7)
+   // [INFO]  at Function.Module.runModule (ti:/module.js:74:9)
+   </pre></code></li>
+<li>Christopher Williams 2018-05-14
+
+   It sounds like this behavior is actually according to the ES5 spec in V8.
+   
+   If you'd like to log an Error, you could always build the string manually. The most important property is <code>stack</code>, which holds the message and stacktrace of the error and would likely hold all the info you'd want. They also typically have a <code>message</code> property which is just the message passed in (so here it'd be <code>'Some error'</code>).
+   <code><pre>
+   Ti.API.error(error.stack);
+   </pre></code>
+   
+   We also added a <code>nativeStack</code> property for any under the hood java stacktrace on Android (if we had one), which will land in 7.2.0. The relevant tickets are: TIMOB-25963
+    and TIMOB-25965 (though I'm not sure they were updated to note the new property).
+   
+   So, long story short: the properties on Error are not enumerable by default on V8 due to complying more strictly to the ES5 spec, but it's relatively easy to just log the <code>stack</code> property if it's available, and fall back to the <code>message</code> property if not.
+   
+   But we may want to alter our JSON.stringify impl on Android to specifically handle this case.</li>
+<li>Joshua Quick 2018-06-16
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10112" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10112</a></li>
+<li>Lokesh Choudhary 2018-09-18
+
+   FR Passed.
+   
+   <code>JSON.stringify(Error)</code> returns the appropriate error & not {}.
+   
+   Studio Ver:     5.1.1.201809051655
+   SDK Ver:        7.5.0 local build
+   OS Ver:         10.13.5
+   Xcode Ver:      Xcode 9.4.1
+   Appc NPM:       4.2.13
+   Appc CLI:       7.0.6
+   Daemon Ver:     1.1.3
+   Ti CLI Ver:     5.1.1
+   Alloy Ver:      1.13.2
+   Node Ver:       8.9.1
+   NPM Ver:        5.5.1
+   Java Ver:       10.0.2
+   Devices:        ⇨ google Nexus 5 (Android 6.0.1)
+                   ⇨ google Nexus 6P (Android 8.1.0)
+   Emulator:       ⇨ Android 4.1.2
+   </li>
+<li>Lokesh Choudhary 2018-09-19
+
+   PR Merged.</li>
+<li>Keerthi Mahalingam 2018-10-05
+
+   Verified the fix on SDK 7.5.0.v20181004095510. Error returns correctly. Closing.
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Architecture                = 64bit
+   Node.js
+     Node.js Version             = 8.9.1
+     npm Version                 = 5.5.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Titanium SDK
+     SDK Version                 =7.5.0.v20181004095510
+   Device			      =Oneplus 5T Android 8
+   					Pixel android 6 emulator 
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25899.json">JSON Source</a></p>

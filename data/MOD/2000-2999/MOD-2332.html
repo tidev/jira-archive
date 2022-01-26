@@ -1,0 +1,148 @@
+---
+title: "[MOD-2332] Android: EncryptedDatabase - Fix "loadLibs" error, update SQLCipher to 3.5.7, handle Ti.Blob"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-11T16:38:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Ti.EncryptedDatabase 3.0.0</td></tr>
+<tr><th>Components</th><td>Encrypted SQLite DB</td></tr>
+<tr><th>Labels</th><td>android</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Created</th><td>2017-04-14T21:53:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+* update the SQLCipher library 
+* handle blobs
+* fix loadLibs error:
+
+PR: <a href="https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/pull/20" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/pull/20</a>
+
+{noformat}
+
+[WARN]  W/System.err: java.lang.NullPointerException: Attempt to invoke virtual method 'java.io.File android.content.Context.getFilesDir()' on a null object reference
+[WARN]  W/System.err:     at net.sqlcipher.database.SQLiteDatabase.loadLibs(SQLiteDatabase.java:169)
+[WARN]  W/System.err:     at appcelerator.encrypteddatabase.EncrypteddatabaseModule.open(EncrypteddatabaseModule.java:64)
+[WARN]  W/System.err:     at org.appcelerator.kroll.runtime.v8.V8Function.nativeInvoke(Native Method)
+[WARN]  W/System.err:     at org.appcelerator.kroll.runtime.v8.V8Function.callSync(V8Function.java:57)
+[WARN]  W/System.err:     at org.appcelerator.kroll.runtime.v8.V8Function.call(V8Function.java:43)
+[WARN]  W/System.err:     at ti.modules.titanium.TitaniumModule$Timer.run(TitaniumModule.java:147)
+[WARN]  W/System.err:     at android.os.Handler.handleCallback(Handler.java:739)
+[WARN]  W/System.err:     at android.os.Handler.dispatchMessage(Handler.java:95)
+[WARN]  W/System.err:     at android.os.Looper.loop(Looper.java:158)
+[WARN]  W/System.err:     at android.app.ActivityThread.main(ActivityThread.java:7231)
+[WARN]  W/System.err:     at java.lang.reflect.Method.invoke(Native Method)
+[WARN]  W/System.err:     at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1230)
+[WARN]  W/System.err:     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1120)
+
+{noformat}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Gangolf 2017-04-14
+
+   Remove old files according to:
+   
+   {quote}If your previous usage of SQLCipher for Android was packaged as a zip archive that included 3 .so files per platform (i.e., libdatabase_sqlcipher.so, libsqlcipher_android.so, and libstlport_shared.so), you should remove all of those. Our new packaging will only include one .so file (i.e., libsqlcipher.so) for each native platform. In addition to the different native libraries, you should also remove the ICU zip file (i.e., icudt46l.zip) previously included within the assets directory of your application.{quote}
+   
+   
+   Test code will follow!</li>
+<li>Sharif AbuDarda 2017-04-15
+
+   Thanks for submitting the request. Our engineers will look into it. </li>
+<li>Michael Gangolf 2017-04-16
+
+   *Testcase:*
+   
+   <code><pre>
+   var dbobj = require("appcelerator.encrypteddatabase");
+   var instance = null;
+   var dataTofetch = null;
+   var win = Ti.UI.createWindow({
+   	backgroundColor: "#fff"
+   });
+   var img = Ti.UI.createImageView({
+   	width: 100,
+   	height: 100
+   });
+   win.add(img);
+   var blob = Ti.UI.createView({
+   	width: 100,
+   	height: 100,
+   	backgroundColor: "red"
+   }).toImage();
+   
+   function init() {
+   	dbobj.setPassword('secret');
+   	Ti.API.info("Opening DB...");
+   	instance = dbobj.open('test.db');
+   }
+   
+   function setup() {
+   	instance.execute("CREATE TABLE IF NOT EXISTS testtable(id integer PRIMARY KEY, image BLOB);");
+   	instance.execute("INSERT OR IGNORE INTO testtable(id,image) VALUES (?,?)", 1, blob);
+   }
+   
+   function insert() {
+   	var dataToInsertHandle = instance.execute("SELECT id FROM testtable ORDER BY id DESC LIMIT 1;");
+   	var dataToInsert = null;
+   	if (dataToInsertHandle.isValidRow()) {
+   		dataToInsert = (dataToInsertHandle.fieldByName('id') + 1);
+   		dataTofetch = dataToInsert;
+   	}
+   	instance.execute("INSERT OR IGNORE INTO testtable(id,image) VALUES (?,?)", dataToInsert, blob);
+   }
+   
+   function fetch() {
+   	var rowValue = null;
+   	var rowHandle = instance.execute("SELECT * FROM testtable WHERE id=" + dataTofetch + ";");
+   	if (rowHandle.isValidRow()) {
+   		console.log(rowHandle.fieldByName('id'));
+   		console.log(typeof rowHandle.fieldByName('image'));
+   		img.image = rowHandle.fieldByName('image');
+   	}
+   }
+   init();
+   setup();
+   insert();
+   fetch();
+   win.open();
+   </pre></code>
+   
+   *Output:*
+   
+   Current version 2.0.2:
+   * typeof rowHandle.fieldByName('image') is "String" (before it was always applying toString to all elements, even blobs); 
+   * no red square is displayed (Could not open stream to get bitmap)
+   
+   Patched version 2.0.3: 
+   * typeof is object
+   * red square is displayed</li>
+<li>Joshua Quick 2017-04-17
+
+   Tested the above on an Android 7.0 device. It works.
+   
+   I've also tested loading an image file to a blob and verified that I could save/load it to/from database successfully.
+   
+   <code><pre>
+   var blob = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "assets/images/AppcLogo.png").read();
+   </pre></code></li>
+<li>Gary Mathews 2017-12-14
+
+   [~hknoechel] [~lchoudhary] I included these changes into version <code>3.0.0</code> of the module.</li>
+<li>Eric Merriman  2018-08-06
+
+   Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/MOD/MOD-2332.json">JSON Source</a></p>

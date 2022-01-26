@@ -1,0 +1,175 @@
+---
+title: "[TIMOB-26246] Android: Handle Android P insetting/display-cutout"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-10-25T14:05:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, inset</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-07-27T23:11:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-10T23:20:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Android 9.0 (aka: Android P) will support devices with "iPhone X" style frame insetting where the top frame cuts into the top status bar.
+ !AndroidP_Inset.png|thumbnail! 
+
+We'll need to provide APIs to better support this device feature. Preferably re-use the existing APIs used by iPhone X such as our <code>Window.extendSafeArea</code> property.
+
+*Note 1:*
+Android 9.0 (API Level 28) provides new APIs to help with us. They're listed here...
+<a href="https://developer.android.com/preview/features#cutout" rel="nofollow" target="_blank">https://developer.android.com/preview/features#cutout</a>
+
+Quick reference...
+<a href="https://developer.android.com/reference/android/view/DisplayCutout" rel="nofollow" target="_blank">https://developer.android.com/reference/android/view/DisplayCutout</a>
+<a href="https://developer.android.com/reference/android/view/WindowManager.LayoutParams#LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES" rel="nofollow" target="_blank">https://developer.android.com/reference/android/view/WindowManager.LayoutParams#LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES</a>
+
+Also, the window won't render into the cutout unless we set additional window flags such as the following...
+<code><pre>
+WindowManager.LayoutParams attributes = getWindow().getAttributes();
+attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+getWindow().setAttributes(attributes);
+</pre></code>
+
+*Note 2:*
+Huawei has their own custom notch support on Android 8 which they document in the link below. Note that these are not official Google Android APIs.
+<a href="https://developer.huawei.com/consumer/en/devservice/doc/30210" rel="nofollow" target="_blank">https://developer.huawei.com/consumer/en/devservice/doc/30210</a>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26246_65397/AndroidP_Inset.png">AndroidP_Inset.png</td></td><td>2018-07-27T23:05:48.000+0000</td><td>215944</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-07-28
+
+   [~jquick] Quick PoC of the Android safe-area [here](<a href="https://github.com/hansemannn/titanium_mobile/commit/0d73f7b7ebc6ddbb1a798e536bd2902e934babe8)." rel="nofollow" target="_blank">https://github.com/hansemannn/titanium_mobile/commit/0d73f7b7ebc6ddbb1a798e536bd2902e934babe8).</a> It currently does not build due  to missing symbols, although 28 is installed. Not sure how to fix that so far!</li>
+<li>Joshua Quick 2018-08-07
+
+   [~hknoechel], we need to update all of the "build.properties" files to build with API Level 28 and link to the newest libraries. But before we do that, we've got to install API Level 28 on the Jenkins nodes first. I'll talk to the team here about it.
+   
+   I've already written up a ticket to build with API Level 28 here: [TIMOB-26261]
+   We'll handle this part on our end. Once done/merged, you can update your branch and be able to build it.
+   Thanks for digging into it anyways. We'll get there.
+   
+   _*Edit:* Also, we shouldn't modify the Jenkins nodes until after the 7.3.0 GA release. We don't want to risk breaking Jenkins right now._</li>
+<li>Joshua Quick 2018-09-26
+
+   I'm now thinking that on Android P, we should always set up the window layout to render under the notch (like iOS) and instead tie our <code>Ti.UI.Window.extendSafeArea</code> property to Android's Java <code>View.setFitSystemWindows()</code> method since this controls whether or not Titanium's views will be rendered within the safe area.
+   <a href="https://developer.android.com/reference/android/view/View.html#setFitsSystemWindows(boolean)" rel="nofollow" target="_blank">https://developer.android.com/reference/android/view/View.html#setFitsSystemWindows(boolean)</a>
+   
+   The reason is because before Android P, you already had the ability to set up a translucent top status bar and bottom navigation bar via a "theme", but Titanium has never offered the ability to render content under those bars before. We can use the new <code>Ti.UI.Window.extendSafeArea</code> on older Android OS versions to support this as well.
+   
+   Note that we currently support extending a toolbar's background under the top status bar in a similar fashion. The idea is we would leverage the same feature, but apply it to the root content view of the activity.
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/9524" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9524</a>
+   </li>
+<li>Joshua Quick 2018-10-18
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10383" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10383</a></li>
+<li>Josh Longton 2018-10-25
+
+   *FR Passed*
+   
+   Waiting on Jenkins to merge</li>
+<li>Keerthi Mahalingam 2018-10-25
+
+   Verified the fix on SDK 7.5.0.v20181025085349. Closing
+   <code><pre>
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.13.6
+     Architecture                = 64bit
+   Node.js
+     Node.js Version             = 8.12.0
+     npm Version                 = 6.4.1
+   Titanium CLI
+     CLI Version                 = 5.1.1
+   Studio			      =5.1.2.201810080801
+   Titanium SDK
+     SDK Version                 = 7.5.0.v20181025085349
+   Device                        = Samsung s5 Android 6,pixel android 9 
+   Emulator		      = Samsung galaxy s6 
+   </pre></code></li>
+<li>Muhammad Ahmed Fahad 2018-11-21
+
+   This change is causing a lot of crashes in Production: 
+   
+   
+   <code><pre>
+   Name	
+   java.lang.NullPointerException
+   
+   Reason	
+   Unable to destroy activity {xxxx.xxxx/xxxx.xxxxActivity}: java.lang.NullPointerException: Attempt to invoke virtual meth...
+   
+   
+   Crashed Thread
+   
+   0	java.lang.RuntimeException: Unable to destroy activity {xxxx.xxxx/xxxx.xxxx.XxxxxActivity}: java.lang.NullPointerException: Attempt to invoke virtual method 'void org.appcelerator.titanium.view.TiActivitySafeAreaMonitor.stop()' on a null object reference
+   1	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:3835)
+   2	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:3853)
+   3	at android.app.ActivityThread.-wrap5(ActivityThread.java)
+   4	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1398)
+   5	at android.os.Handler.dispatchMessage(Handler.java:102)
+   6	at android.os.Looper.loop(Looper.java:148)
+   7	at android.app.ActivityThread.main(ActivityThread.java:5421)
+   8	at java.lang.reflect.Method.invoke(Native Method)
+   9	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:726)
+   10	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:616)
+   11	Caused by: java.lang.NullPointerException: Attempt to invoke virtual method 'void org.appcelerator.titanium.view.TiActivitySafeAreaMonitor.stop()' on a null object reference
+   12	at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1682)
+   13	at org.appcelerator.titanium.TiLaunchActivity.onDestroy(TiLaunchActivity.java:472)
+   14	at org.appcelerator.titanium.TiRootActivity.onDestroy(TiRootActivity.java:217)
+   15	at android.app.Activity.performDestroy(Activity.java:6422)
+   16	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1142)
+   17	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:3822)
+   18	... 9 more
+   19	java.lang.NullPointerException: Attempt to invoke virtual method 'void org.appcelerator.titanium.view.TiActivitySafeAreaMonitor.stop()' on a null object reference
+   20	at org.appcelerator.titanium.TiBaseActivity.onDestroy(TiBaseActivity.java:1682)
+   21	at org.appcelerator.titanium.TiLaunchActivity.onDestroy(TiLaunchActivity.java:472)
+   22	at org.appcelerator.titanium.TiRootActivity.onDestroy(TiRootActivity.java:217)
+   23	at android.app.Activity.performDestroy(Activity.java:6422)
+   24	at android.app.Instrumentation.callActivityOnDestroy(Instrumentation.java:1142)
+   25	at android.app.ActivityThread.performDestroyActivity(ActivityThread.java:3822)
+   26	at android.app.ActivityThread.handleDestroyActivity(ActivityThread.java:3853)
+   27	at android.app.ActivityThread.-wrap5(ActivityThread.java)
+   28	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1398)
+   29	at android.os.Handler.dispatchMessage(Handler.java:102)
+   30	at android.os.Looper.loop(Looper.java:148)
+   31	at android.app.ActivityThread.main(ActivityThread.java:5421)
+   32	at java.lang.reflect.Method.invoke(Native Method)
+   33	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:726)
+   34	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:616)
+   </pre></code>
+   </li>
+<li>Muhammad Ahmed Fahad 2018-12-10
+
+   @Joshua Quick, can you please let me know if the issue mentioned in the above comment has been fixed?
+   
+   This made me downgrade my SDK from 7.5.0 to 7.4.2 which made my our much more stable. The above issue is causing excessive crashes in 7.5.0.GA</li>
+<li>Joshua Quick 2018-12-10
+
+   [~fahad86], this issue is being fixed in Titanium 7.5.1. Please see: [TIMOB-26632]
+   
+   We've confirmed that this crash will happen if the app UI is backgrounded and you attempted to launch it via an intent such as URL scheme or notification.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26246.json">JSON Source</a></p>

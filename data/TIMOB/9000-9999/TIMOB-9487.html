@@ -1,0 +1,246 @@
+---
+title: "[TIMOB-9487] Android: KS: tab focus event keeps being fired"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-06-18T13:24:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-12 API</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, regression</td></tr>
+<tr><th>Reporter</th><td>Ping Wang</td></tr>
+<tr><th>Assignee</th><td>Josh Roesslein</td></tr>
+<tr><th>Created</th><td>2012-06-11T14:58:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-06-18T20:24:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Steps to reproduce:
+1. Run KS
+2. Check the label at the bottom of the screen. It keeps showing "tab changed to 1 old index 0".
+
+It's a regression. It does not happen with 2.0.2.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Josh Roesslein 2012-06-13
+
+   The cause of this bug is how Android now "bubbles" all window events to the tab and tab group.
+   Requires parity discussion to determine if this is correct behavior.</li>
+<li>Josh Roesslein 2012-06-16
+
+   <h4>TabGroup/Window events test case</h4>
+   
+   <code><pre>
+   Titanium.UI.backgroundColor = "#ff0";
+   
+   var tabGroup = Ti.UI.createTabGroup({
+     backgroundColor: "#0f0",
+     left: 10,
+     right: 10,
+     top: 10,
+     bottom: 10
+   });
+   tabGroup.addEventListener('open', function(e) {Ti.API.info('open tabGroup, source ' + e.source);});
+   tabGroup.addEventListener('close',  function(e) {Ti.API.info('close tabGroup, source ' + e.source);});
+   tabGroup.addEventListener('focus', function(e) {Ti.API.info('focus tabGroup, source ' + e.source);});
+   tabGroup.addEventListener('blur',  function(e) {Ti.API.info('blur tabGroup, source ' + e.source);});
+   
+   var win1 = Ti.UI.createWindow({
+     //title : 'Window 1',
+     backgroundColor : '#f0f',
+     left: 10,
+     right: 10,
+     top: 10,
+     bottom: 10,
+     layout: "vertical"
+   });
+   win1.addEventListener('open', function(e) {Ti.API.info('open win1, source ' + e.source);});
+   win1.addEventListener('close',  function(e) {Ti.API.info('close win1, source ' + e.source);});
+   win1.addEventListener('focus', function(e) {Ti.API.info('focus win1, source ' + e.source);});
+   win1.addEventListener('blur',  function(e) {Ti.API.info('blur win1, source ' + e.source);});
+   
+   var dummytf = Ti.UI.createTextField({
+     top: 5,
+     left: 5,
+     right: 5,
+   //	height: 20,
+     borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+   });
+   win1.add(dummytf);
+   
+   var tf = Ti.UI.createTextField({
+     top: 5,
+     left: 5,
+     right: 5,
+   //	height: 20,
+     borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+   });
+   win1.add(tf);
+   tf.addEventListener('focus', function(e) {Ti.API.info('focus tf, source ' + e.source);});
+   tf.addEventListener('blur',  function(e) {Ti.API.info('blur tf, source ' + e.source);});
+   
+   var button1 = Ti.UI.createButton({
+     title: "open",
+     top: 10
+   });
+   button1.addEventListener("click", function() {
+     var win5 = Ti.UI.createWindow({  
+         backgroundColor:'#ff0'
+     });
+     var button2 = Ti.UI.createButton({
+       title: "close"
+     });
+     button2.addEventListener("click", function() {
+       win5.close();
+     });
+     win5.add(button2);
+     win5.addEventListener("open", function() {
+       Ti.API.log("win5 open");
+     });
+     win5.addEventListener("close", function() {
+       Ti.API.log("win5 close");
+     });
+     win5.addEventListener("focus", function() {
+       Ti.API.log("win5 focus");
+     });
+     win5.addEventListener("blur", function() {
+       Ti.API.log("win5 blur");
+     });
+     win5.open({
+       navBarHidden: true
+     });
+   });
+   win1.add(button1);
+   
+   var tab1 = Ti.UI.createTab({
+     icon: 'KS_nav_views.png',
+     title: 'Tab 1',
+     window: win1
+   });
+   tab1.addEventListener('open', function(e) {Ti.API.info('open tab1, source ' + e.source);});
+   tab1.addEventListener('close',  function(e) {Ti.API.info('close tab1, source ' + e.source);});
+   tab1.addEventListener('focus', function(e) {Ti.API.info('focus tab1, source ' + e.source);});
+   tab1.addEventListener('blur',  function(e) {Ti.API.info('blur tab1, source ' + e.source);});
+   
+   var win2 = Ti.UI.createWindow({
+     title: 'Window 2',
+     backgroundColor: '#fff',
+     layout: 'vertical'
+   });
+   win2.addEventListener('open', function(e) {Ti.API.info('open win2, source ' + e.source);});
+   win2.addEventListener('close',  function(e) {Ti.API.info('close win2, source ' + e.source);});
+   win2.addEventListener('focus', function(e) {Ti.API.info('focus win2, source ' + e.source);});
+   win2.addEventListener('blur',  function(e) {Ti.API.info('blur win2, source ' + e.source);});
+   
+   var tab2 = Ti.UI.createTab({
+     icon: 'KS_nav_ui.png',
+     title: 'Tab 2',
+     window: win2
+   });
+   tab2.addEventListener('open', function(e) {Ti.API.info('open tab2, source ' + e.source);});
+   tab2.addEventListener('close',  function(e) {Ti.API.info('close tab2, source ' + e.source);});
+   tab2.addEventListener('focus', function(e) {Ti.API.info('focus tab2, source ' + e.source);});
+   tab2.addEventListener('blur',  function(e) {Ti.API.info('blur tab2, source ' + e.source);});
+   
+   var win3 = Ti.UI.createWindow({
+     title: 'Window 3',
+     backgroundColor: '#68a'
+   });
+   win3.addEventListener('open', function(e) {Ti.API.info('open win3, source ' + e.source);});
+   win3.addEventListener('close',  function(e) {Ti.API.info('close win3, source ' + e.source);});
+   win3.addEventListener('focus', function(e) {Ti.API.info('focus win3, source ' + e.source);});
+   win3.addEventListener('blur',  function(e) {Ti.API.info('blur win3, source ' + e.source);});
+   
+   var button = Ti.UI.createButton({
+     title: 'tab.open(win3)',
+     top: 40,
+     width: 200,
+     height: 40,
+     left: 50
+   })
+   button.addEventListener('click', function(e) {
+     tab2.open(win3);
+   });
+   win2.add(button);
+   
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2); 
+   tabGroup.open();
+   </pre></code>
+   
+   Here is the event results you should see as you run through the test case:
+   
+   <code><pre>
+   android
+   =======
+   - launch app
+     - win1->open
+     - win1->focus
+     - tab1->focus
+     - tabGroup->focus
+     - tabGroup->open
+   - click "open" button
+     - win1->blur
+     - win5->open
+     - win5->focus
+   - click "close" button
+     - win5->close
+     - win5->blur
+     - win1->focus
+   - switch from tab1 to tab2
+     - win1->blur
+     - win2->open
+     - win2->focus
+     - tab1->blur
+     - tabGroup->blur
+     - tab2->focus
+     - tabGroup->focus
+   - switch from tab2 to tab1
+     - win2->blur
+     - win1->focus
+     - tab2->blur
+     - tabGroup->blur
+     - tab1->focus
+     - tabGroup->focus
+   - switch from tab1 to tab 2 again
+     - win1->blur
+     - win2->focus
+     - tab1->blur
+     - tabGroup->blur
+     - tab2->focus
+     - tabGroup->focus
+   - click "tab.open()" button
+     - win2->blur
+     - win3->open
+     - win3->focus
+   - hit back button to close activity window
+     - win3->close
+     - win3->blur
+     - win2->focus
+   </pre></code></li>
+<li>Josh Roesslein 2012-06-16
+
+   [PR #2415](<a href="https://github.com/appcelerator/titanium_mobile/pull/2415)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2415)</a> sent.</li>
+<li>Bill Dawson 2012-06-18
+
+   Note that the above test case is no longer valid.  We decided only to fix the regression that was causing the KS behavior described in the ticket.  So the test should be that KS behavior.</li>
+<li>Michael Pettiford 2012-06-18
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206172244
+   Ti Mobile SDK2.1.0.v20120618134156 hash r00905cd0
+   OSX Lion 10.7.3
+   Nexus S OS 4.0.4
+   
+   The expected behavior is shown from the KS test</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9487.json">JSON Source</a></p>

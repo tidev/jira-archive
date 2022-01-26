@@ -1,0 +1,949 @@
+---
+title: "[TIMOB-20547] iOS: Add Keychain-access to Ti.TouchID, add passcode-fallback mode, expose new iOS 10 TouchID API's"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-11T04:25:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-03-10T19:22:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-02T15:23:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Customers are unable to secure a key-value pair in the Keychain and then unlock it using Touch Id or passcode. 
+
+Here is a talk by Apple at WWDC 2014 that describes what users are looking to do. 
+<a href="https://developer.apple.com/videos/play/wwdc2014/711/" rel="nofollow" target="_blank">https://developer.apple.com/videos/play/wwdc2014/711/</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-03-11
+
+   We have [ti.touchid](<a href="https://github.com/appcelerator-modules/ti.touchid)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid)</a> for fingerprint-secured access and there is a [native module](<a href="https://github.com/pegli/ti_keychain)" rel="nofollow" target="_blank">https://github.com/pegli/ti_keychain)</a> that supports keychain access. </li>
+<li> Ricardo Ramirez 2016-05-18
+
+   [~cng] [~hansknoechel] Any update here ? 
+   
+   The Appcelerator ti.touchid module only uses LocalAuthentication and does not involve the KeyChain so its basically useless if you want to use it to replace a password. 
+   
+   The <a href="https://github.com/pegli/ti_keychain" rel="nofollow" target="_blank">https://github.com/pegli/ti_keychain</a> native module wraps the KeyChain but does not utilize TouchId.</li>
+<li>Hans Knöchel 2016-05-18
+
+   [~rramirez] iOS does not expose the keychain together with the touchID-dialog (same natively). So Apple does not see that use-case, yet. Similar discussion here: <a href="https://github.com/appcelerator-modules/ti.touchid/issues/15" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/issues/15</a></li>
+<li>Collin Price 2016-05-18
+
+   Hans, this functionality was added in iOS 9. Apple created a sample project to demonstrate it.
+   
+   <a href="https://developer.apple.com/library/ios/samplecode/KeychainTouchID/Introduction/Intro.html" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/samplecode/KeychainTouchID/Introduction/Intro.html</a></li>
+<li>Collin Price 2016-05-18
+
+   Also, issue 15 on ti.touchid is completely unrelated. Replacing a password was just an example I brought up. What we are looking for is to secure a key-value pair in the keychain that is only accessible through TouchId.</li>
+<li>Hans Knöchel 2016-05-18
+
+   Hey Collin, thanks for the feedback! So the Github reference dealt with the ability to enter the native PIN, so thats why I called it "similar". I checked the example. So it is possible to save a password and in the keychain and fetch it using TouchID. Is that what you want? And how would you like to access it from the JS? As more infos the better. Thanks!</li>
+<li>Collin Price 2016-05-18
+
+   Ultimately our ask is for iOS/Android KeyChain access. Both platforms allow data to be encrypted within a keychain at a variety of levels.
+   
+   *Basic*: Securely store key-value pairs in the Keychain. These values are only released once a device has been unlocked.
+   *Enchanced*: These values are only released once a device has been unlocked with a passcode/pattern/fingerprint and the key-values are removed automatically if the passcode/pattern/fingerprint are ever removed.
+   *Biometric*: same as Enhanced but only applies to fingerprints.
+   
+   If you're looking at TouchId only an API might look like this:
+   
+   isTouchIdSupported() : boolean
+   isTouchIdEnabled() : boolean
+   saveWithTouchId(key, value) : boolean
+   readWithTouchId(key, callback) : void // where callback returns a success or error
+   
+   Android M (SDK 23) has introduced similar support for fingerprint access and keychain integration so a cross-platform module could be created.</li>
+<li>Ingo Muschenetz 2016-07-20
+
+   [~hansknoechel] Can we use Hyperloop here?</li>
+<li> Ricardo Ramirez 2016-08-29
+
+   Any update ? </li>
+<li>Hans Knöchel 2016-09-02
+
+    Ok, so the primary request is to enable the key-value storage and protect it with a fingerprint. Since all keychain-operations need to be done on a C-level, Apple provides an (official) [Objective-C wrapper](<a href="https://developer.apple.com/library/ios/samplecode/GenericKeychain/Listings/Classes_KeychainItemWrapper_h.html)" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/samplecode/GenericKeychain/Listings/Classes_KeychainItemWrapper_h.html)</a> we could use to wrap it. (*EDIT*: See the full demo below)
+    
+    [~CollinPrice] Is that something you could work with? Of course the PR is not ready for production, yet and is awaiting feedback on the public interface-proposal. :-)</li>
+<li>Hans Knöchel 2016-09-03
+
+    After thinking it a bit more, I would not add the <code>authorizationRequired</code> to that API, since it would no the same as we already expose with the <code>authenticate</code> method. So chaining that one before calling the above method to save / access data would make more sense to me. Also, looking into the sample app that Apple provides for keychain access, there is a special dialog to save passwords to the keychain by typing and confirming it in a system-dialog. 
+    
+    We could also expose that one to <code>addPasswordToKeychain</code> if needed. Please let me know what exactly is required in the first step as well as future steps for additional implementations. Thanks!</li>
+<li>Hans Knöchel 2016-09-05
+
+    PR: <a href="https://github.com/appcelerator-modules/ti.touchid/pull/23" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/pull/23</a>
+    New version (1.3.0): [Download](<a href="https://www.dropbox.com/s/ro3lknh5v7j2rqy/ti.touchid-iphone-1.3.0.zip?dl=0)" rel="nofollow" target="_blank">https://www.dropbox.com/s/ro3lknh5v7j2rqy/ti.touchid-iphone-1.3.0.zip?dl=0)</a>
+    
+    The above PR adds support for writing, reading and deleting values from the native iOS-keychain. As discussed about, I removed the <code>authorizationRequired</code> from the params list to keep the keychain clean. Please let me know if you need additional fields to be covered.
+    
+    *EDIT*: I will add docs and put this in review as soon as the public interface is approved. 
+    
+    Demo:
+    <code><pre>
+    var win = Ti.UI.createWindow({
+        backgroundColor : "#fff",
+        layout: "vertical"
+    }); 
+    
+    var btnSave = Ti.UI.createButton({
+        title : "Save password to keychain",
+        top: 40
+    });
+    
+    btnSave.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.saveValueToKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator",
+            value: "s3cr3t_p4$$w0rd",
+            success: function(e) {
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+            error: function(e) {
+                Ti.API.error("Error!");
+                Ti.API.error(e);
+            }
+        });
+    });
+    
+    var btnRead = Ti.UI.createButton({
+        title : "Read password from keychain",
+        top: 40
+    });
+    
+    btnRead.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.readValueFromKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator",
+            success: function(e) {
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+            error: function(e) {
+                Ti.API.error("Error!");
+                Ti.API.error(e);
+            }
+        });
+    });
+    
+    
+    var btnDelete = Ti.UI.createButton({
+        title : "Delete password from keychain",
+        top: 40
+    });
+    
+    btnDelete.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.deleteValueFromKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator"
+        });
+    });
+    
+    win.add(btnSave);
+    win.add(btnRead);
+    win.add(btnDelete);
+    win.open();
+    </pre></code></li>
+<li>Hans Knöchel 2016-11-03
+
+    The PR is ready to review now! I'll update the exmaple above and add another example that covers the new TouchID features that I also added.</li>
+<li>Hans Knöchel 2016-11-03
+
+    Ok, so I kind of escalated here (in a good way :-). We now support the following new features:
+    - Save, read and delete values with the native iOS keychain
+    - Expose the properties <code>maxBiometryFailures</code>, <code>allowableReuseDuration</code>, <code>fallbackTitle</code> and <code>cancelTitle</code> to customize the Touch ID experience
+    - Expose the <code>invalidate()</code> method to hide the Touch ID dialog programatically 
+    - Major refactoring in both code-base and documentation
+    - Align module versions to match 2.1.0
+    
+    Packaged module: <a href="https://github.com/appcelerator-modules/ti.touchid/releases/tag/2.1.0-beta.1" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/releases/tag/2.1.0-beta.1</a>
+    
+    Test-Case 1: Write, read and delete from the keychain
+    <code><pre>
+    var win = Ti.UI.createWindow({
+        backgroundColor : "#fff",
+        layout: "vertical"
+    }); 
+     
+    var btnSave = Ti.UI.createButton({
+        title : "Save password to keychain",
+        top: 40
+    });
+     
+    btnSave.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.saveValueToKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator",
+            value: "s3cr3t_p4$$w0rd",
+            callback: function(e) {
+                if (!e.success) {
+                    Ti.API.error("Error! Please check the logs for the exact error");
+                    return;
+                }
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+        });
+    });
+     
+    var btnRead = Ti.UI.createButton({
+        title : "Read password from keychain",
+        top: 40
+    });
+     
+    btnRead.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.readValueFromKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator",
+            callback: function(e) {
+                if (!e.success) {
+                    Ti.API.error("Error! " + e.error);
+                    return;
+                }
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+        });
+    });
+     
+     
+    var btnDelete = Ti.UI.createButton({
+        title : "Delete password from keychain",
+        top: 40
+    });
+     
+    btnDelete.addEventListener("click", function() {
+        var TouchID = require("ti.touchid");
+        
+        TouchID.deleteValueFromKeychain({
+            identifier: "password",
+            accessGroup: "com.appcelerator"
+        });
+    });
+     
+    win.add(btnSave);
+    win.add(btnRead);
+    win.add(btnDelete);
+    win.open();
+    </pre></code>
+    
+    Test-Case 2: Expose new Touch ID properties, allow the user to invalidate the dialog manually (cc [~emerriman]):
+    <code><pre>
+    var TiTouchId = require('ti.touchid');
+    
+    var win = Ti.UI.createWindow();
+    var btn = Ti.UI.createButton({
+    	title: 'authenticate'
+    });
+    
+    win.add(btn);
+    win.open();
+    
+    btn.addEventListener('click', function(){
+    
+    	if(!TiTouchId.isSupported()) {
+    		alert("Touch ID is not supported on this device!");
+    		return;
+    	}
+    	
+    	TiTouchId.authenticate({
+    		reason: 'We need your fingerprint to continue.',
+    		maxBiometryFailures: 3, // iOS 9+, optional, maximal attempts: 5
+    		allowableReuseDuration: 5, // iOS 9+, optional, in seconds
+            fallbackTitle: "Use different auth method?", // iOS 10+, optional
+            cancelTitle: "Get me outta here!", // iOS 10+, optional
+    		callback: function(e) {
+    			if (!e.success) {
+    				alert('Error! Message: ' + e.error + '\nCode: ' + e.code);
+    				switch(e.code) {
+    					case TiTouchId.ERROR_AUTHENTICATION_FAILED: Ti.API.info('Error code is TiTouchId.ERROR_AUTHENTICATION_FAILED'); break;
+    					case TiTouchId.ERROR_USER_CANCEL: Ti.API.info('Error code is TiTouchId.ERROR_USER_CANCEL'); break;
+    					case TiTouchId.ERROR_USER_FALLBACK: Ti.API.info('Error code is TiTouchId.ERROR_USER_FALLBACK'); break;
+    					case TiTouchId.ERROR_SYSTEM_CANCEL: Ti.API.info('Error code is TiTouchId.ERROR_SYSTEM_CANCEL'); break;
+    					case TiTouchId.ERROR_PASSCODE_NOT_SET: Ti.API.info('Error code is TiTouchId.ERROR_PASSCODE_NOT_SET'); break;
+    					case TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE'); break;
+                        case TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED'); break;
+                        case TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED'); break;
+                        case TiTouchId.ERROR_APP_CANCELLED: Ti.API.info('Error code is TiTouchId.ERROR_APP_CANCELLED'); break;
+                        case TiTouchId.ERROR_INVALID_CONTEXT: Ti.API.info('Error code is TiTouchId.ERROR_INVALID_CONTEXT'); break;
+                        case TiTouchId.ERROR_TOUCH_ID_LOCKOUT: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_LOCKOUT'); break;
+                        default: Ti.API.info('Error code is unknown'); break;
+    				}
+    			} else {
+    			  	// do something useful
+    				alert('YAY! success');
+    			}
+    		}
+    	});
+    	
+    	// When uncommented, it should invalidate (hide) after 2 seconds
+    	setTimeout(function() {
+    		// TiTouchId.invalidate();
+    	}, 5000);
+    });
+    </pre></code>
+    </li>
+<li>Collin Price 2016-11-03
+
+    Is there documentation for the accessControlMode and accessibilityMode iOS arguments?</li>
+<li>Nikita Radaev 2016-11-03
+
+    Could you please provide reference for accessControlMode possible values?</li>
+<li>Hans Knöchel 2016-11-04
+
+    Chillll :-) It's [here](<a href="https://github.com/hansemannn/ti.touchid/blob/fa99e6cdf935acabd51f06baa61a939b3966485a/apidoc/TouchId.yml#L541-L556)" rel="nofollow" target="_blank">https://github.com/hansemannn/ti.touchid/blob/fa99e6cdf935acabd51f06baa61a939b3966485a/apidoc/TouchId.yml#L541-L556)</a> with some constants to use there like advised natively.</li>
+<li>Nikita Radaev 2016-11-04
+
+    Hi Hans,
+    
+    I've done a bit of testing using your examples above and here are my results: 
+    
+    Case 1.
+    
+    1) There is an error in the docs stating that for iOS 10 and up I need to add entitlements file in order to access keychain. I had to do that on my test device that is running iOS 8.2, otherwise callback was successfull, but I could see native iOS error being thrown. I was also not able to retrieve saved keychain item in that case.
+    2) Saving to keychain without using <code>accessibilityMode</code> and <code>accessControlMode</code> works as expected
+    3) Retrieving from keychain works as expected
+    4) Deleting from keychain works as expected
+    5) Saving to keychain without using with <code>accessControlMode</code> flag being set crashes the app without any errors being throw. Tested with all possible values.
+    6) Saving to keychain using <code>accessibilityMode</code> does not seem to be working as expected for values ending with <code>*THIS_DEVICE_ONLY</code>. I've saved to keychain with this flag, backed up device, restored backup on another device and I was still able to retrieve item from keychain.
+    
+    Case 2. 
+    
+    1) <code>TiTouchId.isSupported</code> does not work as intended. In case neither password/fingerprint are set up, <code>TiTouchId.isSupported</code>
+    returns false on devices that actually support the feature (Tested on devices with/without the fingerprint reader). 
+    
+    2) Using <code>TouchID.authenticate</code> without checking <code>TiTouchId.isSupported</code>: 
+    *  Passcode turned off, no fingerprints added  -> recieved  <code>TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE</code> instead of <code>TiTouchId.ERROR_PASSCODE_NOT_SET</code> or <code>TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED</code>
+    *  Passcode turned on, no fingerprints added -> recieved <code>TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE</code> instead  <code>TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED</code>
+    
+    3) When touchId is being locked out due to user failing to provide correct fingerprint
+    * <code>maxBiometryFailures</code> value does not work, I've set it to values from 1 to 5, I've always been asked 5 times before lockout.
+    * after being locked out, on iPhone 6 OS v8.2 further attempt to authenticate launch passcode unlock screen. On iPhone7 OS 10.0.2 further attempts to authenticate only yield <code>TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE</code> code being thrown and no unlock modal is presented.
+    * On iPhone7, after 5th incorrect authentication attempt <code>TiTouchId.ERROR_TOUCH_ID_LOCKOUT</code> is being thrown, which is correct, but any consecutive tries only cause <code>TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE</code>. I believe either unlock modal should be presented or <code>TiTouchId.ERROR_TOUCH_ID_LOCKOUT</code> code should be shown.
+    
+    4) <code>allowableReuseDuration</code>, <code>fallbackTitle</code> and <code>cancelTitle</code> do not seem to work at all.
+    
+    5) All other cases i.e. user cancel, user fallback, authentication failed, authentication passed, system cancel etc work as expected. 
+    
+    ----
+    
+    Tested with: iPhone6 OS v8.2, iPhone7 OS7 v10.0.2, iPad Mini (without fingerprint scanner), SDK v5.5.1GA, TiTouchId Module v 2.1.0
+    
+    Sorry for the long post. Please let me know if you have any questions.
+    </li>
+<li>Hans Knöchel 2016-11-04
+
+    Hey Nikita, addressing your comments line by line:
+    {quote}
+    1) There is an error in the docs stating that for iOS 10 and up I need to add entitlements file in order to access keychain. I had to do that on my test device that is running iOS 8.2, otherwise callback was successfull, but I could see native iOS error being thrown. I was also not able to retrieve saved keychain item in that case.
+    {quote}
+    So the keychain access entitlement is also required for iOS 8? Then I'll update the docs. And you meant "otherwise callback was unsuccessful", right? Otherwise, I don't get the sentence structure 
+    {quote}
+    2) Saving to keychain without using accessibilityMode and accessControlMode works as expected
+    {quote}
+    OK
+     {quote}
+    3) Retrieving from keychain works as expected
+    {quote}
+    OK
+    {quote}
+    4) Deleting from keychain works as expected
+    {quote}
+    OK
+    {quote}
+    5) Saving to keychain without using with accessControlMode flag being set crashes the app without any errors being throw. Tested with all possible values.
+    {quote}
+    Example please
+    {quote}
+    6) Saving to keychain using accessibilityMode does not seem to be working as expected for values ending with *THIS_DEVICE_ONLY. I've saved to keychain with this flag, backed up device, restored backup on another device and I was still able to retrieve item from keychain.
+    Case 2.
+    {quote}
+    Example please
+    {quote}
+    1) TiTouchId.isSupported does not work as intended. In case neither password/fingerprint are set up, TiTouchId.isSupported
+    returns false on devices that actually support the feature (Tested on devices with/without the fingerprint reader).
+    2) Using TouchID.authenticate without checking TiTouchId.isSupported:
+    Passcode turned off, no fingerprints added -> recieved TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE instead of TiTouchId.ERROR_PASSCODE_NOT_SET or TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED
+    Passcode turned on, no fingerprints added -> recieved TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE instead TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED
+    3) When touchId is being locked out due to user failing to provide correct fingerprint
+    maxBiometryFailures value does not work, I've set it to values from 1 to 5, I've always been asked 5 times before lockout.
+    after being locked out, on iPhone 6 OS v8.2 further attempt to authenticate launch passcode unlock screen. On iPhone7 OS 10.0.2 further attempts to authenticate only yield TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE code being thrown and no unlock modal is presented.
+    On iPhone7, after 5th incorrect authentication attempt TiTouchId.ERROR_TOUCH_ID_LOCKOUT is being thrown, which is correct, but any consecutive tries only cause TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE. I believe either unlock modal should be presented or TiTouchId.ERROR_TOUCH_ID_LOCKOUT code should be shown.
+    {quote}
+    1) We don't use custom business logic to check this, we just use the system API <code>canEvaluatePolicy</code>. If your device can use Touch ID but has not been set up to use it, it will return false. And the method didn't change.
+    2) Same here. We use the <code>isSupported</code> method internally and will throw <code>ERROR_TOUCH_ID_NOT_AVAILABLE</code> whenever <code>isSupported</code> returns <code>false</code>. But I can see that we can improve this by using <code>deviceCanAuthenticate</code> instead that also returns the exact error code which we can bubble up. I will add that to the PR. *EDIT*: Changed in the latest commit-sets.
+    3) I will check <code>maxBiometryFailures</code> but it did work in my tests-cases before. And what do you mean with "modal unlock"? *EDIT*: I removed the property again. It's deprecated since 9.0 (introduced in 8.3) so Apple probably disabled the usage of the property in iOS 10+ already. 
+    {quote}
+    4) allowableReuseDuration, fallbackTitle and cancelTitle do not seem to work at all.
+    {quote}
+    They all did work for me (see the attached image in the Github release page). Ensure to call it as the params of the <code>authenticate</code> method. *EDIT*: After some checks, I found out that this property is only used for authentications from the lock-screen, not in-app: "This property is meant only for reusing Touch ID matches from the device lock screen. "It does not allow reusing previous Touch ID matches in application or between applications."
+    {quote}
+    5) All other cases i.e. user cancel, user fallback, authentication failed, authentication passed, system cancel etc work as expected.
+    {quote}
+    OK
+    
+    And thank you very much for the detailed review, appreciate that!
+    
+    *EDIT*: 2.1.0 Beta 2 is out, having all fixed listed in <a href="https://github.com/appcelerator-modules/ti.touchid/releases/tag/2.1.0-beta.2" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.touchid/releases/tag/2.1.0-beta.2</a></li>
+<li>Hans Knöchel 2016-11-06
+
+    Oh, and the more I think about this, the more I would like to remove <code>writeToKeychain</code>, <code>readFromKeychain</code> and <code>deleteFromKeychain</code> and use an own namespace for managing them. Like this:
+    <code><pre>
+    va keychainItem = TouchID.createKeychainItem({
+        identifier: "password",
+        accessGroup: "<TeamID>.com.appc.touchidtest",
+        // More configuration like accessibilityMode and accessControlMode
+    });
+    
+    keychainItem.addEventListener("read", function(e) {
+        // A keychain item was read or failed
+    });
+    
+    keychainItem.addEventListener("write", function(e) {
+        // A keychain item was written or failed
+    });
+    
+    keychainItem.addEventListener("delete", function(e) {
+        // A keychain item was deleted or failed
+    });
+    
+    keychainItem.write("my_value"); // Will trigger "write" event
+    keychainItem.read(); // Will trigger "read" event
+    keychainItem.delete(); // Will trigger "delete" event
+    </pre></code>
+    
+    And maybe some additional utilities:
+    <code><pre>
+    var exists = keychainItem.exists();
+    var isValid = keychainItem.isValid();
+    </pre></code>
+    
+    So we either put this interface changes in this PR or merge it and do an additional ticket where we deprecate the old one again. </li>
+<li>Nikita Radaev 2016-11-07
+
+    HI Hans,
+    
+    Thank you for timely and descriptive response. Here are my test notes for updated module: 
+    
+    Case 1.
+    
+    - <code>accessControlMode</code> no longer crashes the app when set. However, I've tried different values and they do not seem to have any effect. I'll post my exact test code below.
+    - <code>accessibilityMode</code> also appears to do nothing. I've tried all possible values and they do not seem to alter app behaviour.
+    
+    Based off that, I suspect  I might not be using those flags correctly. Please refer to test code below.
+    
+    Case 2.
+    
+    - I was able to confirm that <code>ERROR_TOUCH_ID_NOT_ENROLLED</code> and <code>ERROR_PASSCODE_NOT_SET</code> messages are now working correctly.
+    - When user chooses to enter passcode after unsuccessful fingerprint authentication, correct message (<code>ERROR_USER_FALLBACK</code>) is being thrown. However, no dialogue to enter passcode is presented. This worked correctly in the previous iteration of the module.
+    
+    When user is being locked out due to maximum unsuccessful authentication attempts
+    * On iPhone 6 OS v8.2 incorrect message is being thrown <code>ERROR_AUTHENTICATION_FAILED.</code> Subsequent authentication attempt launches passcode modal. When user enters correct passcode he is able to try to authenticate with fingerprint again
+    * On iPhone 7 OS v10.0.2 correct message is being thrown <code>ERROR_TOUCH_ID_LOCKOUT</code>. Subsequent authentication attempt throws same message again. Enter passcode modal dialogue is not being presented.
+    
+    I believe both cases should yield same result: <code>ERROR_TOUCH_ID_LOCKOUT</code> message when lockout happens, passcode modal dialogue on subsequent attempts to authenticate.
+    
+    Lastly, I appreciate your comment regarding <code>isSupported</code> functionality. Its weird that it works that way, especially given the fact that <code>TouchID.authenticate</code> is actually able to make a distinction between not having fingerprint scanner, password not being set and not having any fingerprints in the system. Is there any way you could leverage <code>TouchID.authenticate</code> functionality to enhance <code>isSupported</code>.  
+    
+    ----
+    
+    My code:
+    
+    index.xml:
+    
+    <code><pre>
+    <Alloy>
+      <Window class="container">
+        <Button id="case1" title="Case 1" onClick="launchCase1" top="200"/>
+        <Button id="case2" title="Case 2" onClick="launchCase2"/>
+      </Window>
+    </Alloy>
+    </pre></code>
+    
+    index.tss: 
+    
+    <code><pre>
+    ".container": {
+    	backgroundColor:"white",
+    	layout: 'vertical'
+    }
+    
+    "Button":{
+    	top: 10,
+    	width: 100,
+    	height: 50,
+    	backgroundColor: "#000",
+    	color: "#fff"
+    }
+    </pre></code>
+    
+    
+    index.js: 
+    
+    <code><pre>
+    
+    $.index.open();
+    
+    function launchCase1(){
+    	
+    	var win = Ti.UI.createWindow({
+    	    backgroundColor : "#fff",
+    	    layout: "vertical"
+    	}); 
+    	 
+    	var btnSave = Ti.UI.createButton({
+    	    title : "Save password to keychain",
+    	    top: 40,
+    		width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff"
+    	});
+    	 
+    	btnSave.addEventListener("click", function() {
+    	    var TouchID = require("ti.touchid");
+    	    
+    	  	TouchID.saveValueToKeychain({
+                identifier: "password",
+                value: "my_password",
+                accessibilityMode: TouchID.ACCESSIBLE_WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+                accessControlMode: TouchID.ACCESS_CONTROL_TOUCH_ID_CURRENT_SET,
+                callback: function(e) {
+                    alert(e);
+                }
+            });
+    	});
+    	 
+    	var btnRead = Ti.UI.createButton({
+    	    title : "Read password from keychain",
+    		width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff",
+    		top: 10
+    	});
+    	 
+    	btnRead.addEventListener("click", function() {
+    	    var TouchID = require("ti.touchid");
+    	    
+    	    TouchID.readValueFromKeychain({
+                identifier: "password",
+                callback: function(e) {
+                    alert(e);
+                }
+            });
+    	});
+    	 
+    	 
+    	var btnDelete = Ti.UI.createButton({
+    	    title : "Delete password from keychain",
+    	    width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff",
+    		top: 10
+    	});
+    	
+    	btnDelete.addEventListener("click", function() {
+    	    var TouchID = require("ti.touchid");
+    	    
+    	    TouchID.deleteValueFromKeychain({
+                identifier: "password"
+            });
+    	});
+    	
+    	var btnClose = Ti.UI.createButton({
+    	    title : "Go Back",
+    	    width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff",
+    		top: 10
+    	});
+    	
+    	btnClose.addEventListener("click", function() {
+    		win.close();
+    	});
+    	
+    	win.add(btnSave);
+    	win.add(btnRead);
+    	win.add(btnDelete);
+    	win.add(btnClose);
+    	win.open();
+    	 
+    }
+    
+    
+    function launchCase2(){
+    	var TiTouchId = require('ti.touchid');
+     
+    	var win = Ti.UI.createWindow({
+    		height: Ti.UI.FILL,
+    		width: Ti.UI.FILL,
+    		backgroundColor: "#fff",
+    		layout: "vertical"
+    	});
+    	var btn = Ti.UI.createButton({
+    		title: 'authenticate',
+    		width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff",
+    		top: 50
+    	});
+    	
+    	var btnClose = Ti.UI.createButton({
+    	    title : "Go Back",
+    	    width: 300,
+    		height: 50,
+    		backgroundColor: "#000",
+    		color: "#fff",
+    		top: 10
+    	});
+    	
+    	btnClose.addEventListener("click", function() {
+    		win.close();
+    	});
+    	
+    	win.add(btn);
+    	win.add(btnClose);
+    	win.open();
+    	 
+    	btn.addEventListener('click', function(){
+    	 
+    		if(!TiTouchId.isSupported()) {
+    			//Ti.API.info("Touch ID is not supported on this device!");
+    			//return;
+    		}
+    		
+    		TiTouchId.authenticate({
+    			reason: 'Show me your jazz hands.', //works 
+    			callback: function(e) {
+    				if (!e.success) {
+    					//Ti.API.info('Error! Message: ' + e.error + '\nCode: ' + e.code);
+    					switch(e.code) {
+    						case TiTouchId.ERROR_AUTHENTICATION_FAILED: Ti.API.info('Error code is TiTouchId.ERROR_AUTHENTICATION_FAILED'); break;	//works
+    						case TiTouchId.ERROR_USER_CANCEL: Ti.API.info('Error code is TiTouchId.ERROR_USER_CANCEL'); break;						//works
+    						case TiTouchId.ERROR_USER_FALLBACK: Ti.API.info('Error code is TiTouchId.ERROR_USER_FALLBACK'); break;					//works - 8.2 no passcode window
+    						case TiTouchId.ERROR_SYSTEM_CANCEL: Ti.API.info('Error code is TiTouchId.ERROR_SYSTEM_CANCEL'); break;					//works 
+    						case TiTouchId.ERROR_PASSCODE_NOT_SET: Ti.API.info('Error code is TiTouchId.ERROR_PASSCODE_NOT_SET'); break;			//works
+    						case TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_NOT_AVAILABLE'); break;//when not setTest 1 
+    	                    case TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_NOT_ENROLLED'); break;	//works
+    	                    case TiTouchId.ERROR_APP_CANCELLED: Ti.API.info('Error code is TiTouchId.ERROR_APP_CANCELLED'); break;					//not able to recreate
+    	                    case TiTouchId.ERROR_INVALID_CONTEXT: Ti.API.info('Error code is TiTouchId.ERROR_INVALID_CONTEXT'); break;				//not able to recreate
+    	                    case TiTouchId.ERROR_TOUCH_ID_LOCKOUT: Ti.API.info('Error code is TiTouchId.ERROR_TOUCH_ID_LOCKOUT'); break;			//doesnt work - 8.2 not thrown
+    	                    default: Ti.API.info('Error code is unknown'); break;
+    					}
+    				} else {
+    				  	// do something useful
+    					Ti.API.info('YAY! success');
+    				}
+    			}
+    		});
+    		
+    		// When uncommented, it should invalidate (hide) after 2 seconds
+    		setTimeout(function() {
+    			// TiTouchId.invalidate();
+    		}, 5000);
+    	});
+    }
+    
+    </pre></code>
+    
+    ----
+    I feel like we are moving in the right direction. Lets keep momentum going!
+    
+    Nikita.
+    
+    </li>
+<li>Hans Knöchel 2016-11-07
+
+    {quote}
+    However, no dialogue to enter passcode is presented. This worked correctly in the previous iteration of the module.
+    {quote}
+    Not sure what you mean with pass code. A video demonstrating that old behavior would be more than useful
+    
+    Regarding the accessControl, use an array, since you (could) combine multiple access control modes. *EDIT*: It's because some constants are iOS9+ (ERROR_TOUCH_ID_LOCKOUT, ERROR_APP_CANCELLED and ERROR_INVALID_CONTEXT)
+    
+    And for the error-codes, it now uses the internal error codes that are bubbled up, so it might be an OS behavior change causing the differences. I can not think of other ways this could happen.</li>
+<li>Nikita Radaev 2016-11-07
+
+    Tried accessControl with array of control modes. It did not do anything. Could you please post a sample test case? It is possible that my test cases are incorrect. 
+    
+    
+    {noformat}
+    However, no dialogue to enter passcode is presented. This worked correctly in the previous iteration of the module.{noformat}
+    
+    When user calls TouchID.authenticate, tries to authenticate with fingerprint and fails, he is authentication window has the button that says "Enter Password", which allows user to enter passcode the he set in "Touch ID & Passcode" section of Settings. In previous version of the module, when user pressed that button he was able to enter passcode and authenticate that way (which corresponds to ERROR_USER_FALLBACK message). In the new version of the module correct message is thrown, but the screen where user would enter his password is missing. </li>
+<li>Hans Knöchel 2016-11-07
+
+    This is not how it worked in the past. The fallback button only triggers the fallback event key so the developer can present an alternative UI to authorize (e.g. a login-form). This has also been discussed natively several times. But if I missed something here, a video demonstrating the feature with previous ti.touchid versions would be interesting.
+    
+    For the <code>accessibilityMode</code>, it seems to receive the correct values down to the keychain creation (<code>SecAdd()</code>. For <code>accessControlMode</code>, it seems like the underlaying type (SecAccessControlCreateFlags = CFOptionFlags = long) seems to make problems. I need to check what's the best way to cast that value correctly.</li>
+<li>Hans Knöchel 2016-11-07
+
+    Hey [~nradaev], just solved the casting, and the constants for <code>accessControlMode</code> can be either be supplied as a single arg or in logical-or order.
+    
+    New version: <a href="https://www.dropbox.com/s/291lj6t0bebhep4/ti.touchid-iphone-2.1.0.zip?dl=0" rel="nofollow" target="_blank">https://www.dropbox.com/s/291lj6t0bebhep4/ti.touchid-iphone-2.1.0.zip?dl=0</a>
+    
+    Demo:
+    <code><pre>
+     TouchID.saveValueToKeychain({
+         identifier: "password",
+         accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK,
+         // or: accessControlMode: TouchID.ACCESS_CONTROL_DEVICE_PASSCODE,
+         accessControlMode: TouchID.ACCESS_CONTROL_DEVICE_PASSCODE | TouchID.ACCESS_CONTROL_PRIVATE_KEY_USAGE,
+         accessGroup: appIdentifierPrefix + ".com.appc.touchidtest",
+         value: "s3cr3t_p4$$w0rd",
+         callback: function(e) {
+             if (!e.success) {
+                 Ti.API.error("Error: " + e.error + " (Code: " + e.code + ")");
+                 return;
+             }
+             Ti.API.info("Success!");
+             Ti.API.info(e);
+         },
+     });
+    </pre></code></li>
+<li>Nikita Radaev 2016-11-08
+
+    Hi Hans,
+    
+    Retested with the provided code - access group seems  to be causing issue now:
+    
+    <code><pre>
+    [ERROR] :   SecOSStatusWith error:[-25243] The operation couldn’t be completed. (OSStatus error -25243 - Remote error : The operation couldn‚Äôt be completed. (OSStatus error -25243 - NoAccessForItem))
+    [ERROR] :  Error: Error creating keychain item (Code: -25243) //this is the error code i got on iPhone 6, on iPhone7 error code is -34018
+    </pre></code>
+    
+    After that I commented out accessGroup value. Afterwards I tried using single value for accessControlMode as well as multiple values - no effect.
+    
+    <code><pre>
+    accessControlMode: TouchID.ACCESS_CONTROL_TOUCH_ID_CURRENT_SET | TouchID.ACCESS_CONTROL_USER_PRESENCE | TouchID.ACCESS_CONTROL_DEVICE_PASSCODE,
+    </pre></code>
+    
+    I was able to save/read values after adding/removing fingerprints to current set, 2nd value never caused app to ask for passcode/fingerprint, 3rd value did not affect app functionality whether there was passcode or not.
+    
+    Furthermore,  I tested accessibilityMode and had similar result - it did not work for me, i was able to save/read keychain values with/without password set: 
+    
+    <code><pre>
+     accessibilityMode: TouchID.ACCESSIBLE_WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+    </pre></code>
+    
+    I've also tried different values for this property and none of them seem to work.
+    
+    
+    </li>
+<li>Hans Knöchel 2016-11-09
+
+    Updated the constants-casting, give it a try: <a href="https://www.dropbox.com/s/291lj6t0bebhep4/ti.touchid-iphone-2.1.0.zip?dl=1" rel="nofollow" target="_blank">https://www.dropbox.com/s/291lj6t0bebhep4/ti.touchid-iphone-2.1.0.zip?dl=1</a>
+    
+    Tried with the following code:
+    <code><pre>
+    /**
+    var TouchID = require("ti.touchid");
+    
+    var win = Ti.UI.createWindow({
+        backgroundColor: "#fff",
+        layout: "vertical"
+    });
+    
+    var btnSave = Ti.UI.createButton({
+        title: "Save password to keychain",
+        top: 40
+    });
+    
+    var appIdentifierPrefix = "<YOUR-TEAM-ID>";
+    
+    btnSave.addEventListener("click", function() {
+        TouchID.saveValueToKeychain({
+            identifier: "password",
+            accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK,
+            accessControlMode: TouchID.ACCESS_CONTROL_DEVICE_PASSCODE | TouchID.ACCESS_CONTROL_PRIVATE_KEY_USAGE,
+            accessGroup: appIdentifierPrefix + ".com.appc.touchidtest",
+            value: "s3cr3t_p4$$w0rd",
+            callback: function(e) {
+                if (!e.success) {
+                    Ti.API.error("Error: " + e.error + " (Code: " + e.code + ")");
+                    return;
+                }
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+        });
+    });
+    
+    var btnRead = Ti.UI.createButton({
+        title: "Read password from keychain",
+        top: 40
+    });
+    
+    btnRead.addEventListener("click", function() {
+        TouchID.readValueFromKeychain({
+            identifier: "password",
+            accessGroup: appIdentifierPrefix + ".com.appc.touchidtest",
+            callback: function(e) {
+                if (!e.success) {
+                    Ti.API.error("Error! Probably the keychain item does not exist");
+                    return;
+                }
+                Ti.API.info("Success!");
+                Ti.API.info(e);
+            },
+        });
+    });
+    
+    
+    var btnDelete = Ti.UI.createButton({
+        title: "Delete password from keychain",
+        top: 40
+    });
+    
+    btnDelete.addEventListener("click", function() {
+        TouchID.deleteValueFromKeychain({
+            identifier: "password",
+            accessGroup: appIdentifierPrefix + ".com.appc.touchidtest",
+        });
+        Ti.API.info("Deleted keychain item!");
+    });
+    
+    win.add(btnSave);
+    win.add(btnRead);
+    win.add(btnDelete);
+    win.open();
+    </pre></code></li>
+<li>Nikita Radaev 2016-11-09
+
+    Hi Hans, 
+    
+    setting <code>accessGroup</code> property still throws this: 
+    
+    <code><pre>
+    [ERROR] :  Error: Error creating keychain item (Code: -25243)
+    [ERROR] :   SecOSStatusWith error:[-25243] The operation couldn’t be completed. (OSStatus error -25243 - Remote error : The operation couldn‚Äôt be completed. (OSStatus error -25243 - NoAccessForItem))
+    [ERROR] :  Error: Error creating keychain item (Code: -25243)
+    </pre></code>
+    
+    After commenting it out and testing further, the only change I noticed is in reading deleted or not set keychain item. Once item is deleted from keychain and user tries to access it, app throws this: 
+    
+    <code><pre>
+    [ERROR] :  Error: undefined (Code: undefined)
+    </pre></code>
+    
+    Previous version of the module handled this differently. 
+    
+    <code>accessibilityMode</code> and <code>accessControlMode</code>  +still dont work as expected+
+    
+    
+    
+    </li>
+<li>Hans Knöchel 2016-11-12
+
+    [~nradaev] I contacted you via email to not spam this thread with our discussion. I guess that's the quickest way to resolve the remaining issues  asap. Thx!</li>
+<li>Nikita Radaev 2016-12-12
+
+    It looks like this module is in stable and functioning condition.
+    
+    Thank you Hans.</li>
+<li>Hans Knöchel 2016-12-28
+
+    Added one additional feature to complete the Touch ID API: Being able to change the authentication policy from biometrics to passcode, so people can fallback to entering their passcode instead of a custom password mask (MOD-2211). Example:
+    
+    <code><pre>
+    // Or: AUTHENTICATION_POLICY_BIOMETRICS for the default behavior
+    TiTouchId.setAuthenticationPolicy(TiTouchId.AUTHENTICATION_POLICY_PASSCODE); 
+    
+    // Check device support and  authenticate like before ...
+    </pre></code></li>
+<li>Lee Morris 2017-01-27
+
+    Any input [~vijaysingh] ?</li>
+<li>Vijay Singh 2017-01-28
+
+    [~lmorris]
+    
+    Please follow steps mentioned below -
+    1. Include App Groups in App ID at apple developer account and create a provisioning profile using the same app id. Download it and use for running on device.
+    2. Get team id as required in test cases. You can get it from apple developer account or open provisioning profile using textedit and search for “ApplicationIdentifierPrefix”. Get corresponding value. It will be something like - “WP4952RUHJ”
+    3. This feature should be test on device.
+    4. Use test samples given in the TouchId code base - app.js, keychain-basic.js, keychain-touchid.js
+    
+    Please let me know, if you need anything else.</li>
+<li>Lee Morris 2017-02-01
+
+    Can finally confirm that this fix works and has been verified. Tested with;
+    iPhone 7 (10) & (10.2)
+    MacOS 10.11.6 (15G31)
+    Studio 4.8.1.201612050850
+    Ti SDK 6.1.0.v20170131132207
+    Appc NPM 4.2.8
+    Appc CLI 6.2.0-12
+    Ti CLI 5.0.11
+    Alloy 1.9.6
+    Arrow 1.10.2
+    Xcode 8.2 (8C38)
+    Node v4.6.0
+    Java 1.7.0_80</li>
+<li>Nikita Radaev 2017-02-02
+
+    Guys, 
+    
+    I believe I just found some irregularities with this module.  I've tried using it this way: 
+    
+    <code><pre>
+         var keychainItem = TouchID.createKeychainItem({
+    	    identifier: "mypassword",
+    	    accessibilityMode: TouchID.ACCESSIBLE_AFTER_FIRST_UNLOCK,
+    	});
+    	
+    	keychainItem.addEventListener("save", function(e) {
+    	    if (!e.success) {
+    	        alert("Error saving to the keychain: " + e.error);
+    	        return;
+    	    }
+    	
+    	    alert("Successfully saved!" + e);
+    	});
+    	
+    	btnSave.addEventListener("click", function() {
+    	    keychainItem.save("s3cr3t_p4$$w0rd");
+    	});
+    </pre></code>
+    
+    When I try to read the value back I am consistently being asked for password. Same goes for ACCESSIBLE_ALWAYS, ACCESSIBLE_WHEN_UNLOCKED, ACCESSIBLE_WHEN_UNLOCKED_THIS_DEVICE_ONLY, ACCESSIBLE_ALWAYS_THIS_DEVICE_ONLY.
+    
+    According to <a href="https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants" rel="nofollow" target="_blank">https://developer.apple.com/reference/security/keychain_services/keychain_item_accessibility_constants</a> I should not be asked the password... Tested with TouchID module v 2.1.0 Ti.SDK 6.0.1 GA on iPhone 7 os 10.2. 
+    
+    Please reopen the ticket.
+    </li>
+<li>Hans Knöchel 2017-02-02
+
+    [~nradaev] We'd rather create a new ticket for this specific use-case. Can you file one, then I'll move it accordingly. Thx!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20547.json">JSON Source</a></p>

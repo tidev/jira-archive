@@ -1,0 +1,217 @@
+{
+	"id": "62400",
+	"key": "TIMOB-1768",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "11228",
+				"name": "Release 1.5.0 M03",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2010-11-29"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2011-04-17T01:57:07.000+0000",
+		"created": "2011-04-15T03:01:41.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"android",
+			"defect",
+			"regression"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "dthorp",
+			"key": "dthorp",
+			"displayName": "Don Thorp",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2011-04-17T01:57:07.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "{html}<div><p>1.launch KS on device or simulator<br>\n2.note the pop ups that show the sdk version and tab info (change\ntabs to generate more)</p>\n<p>results: the windows are not opaque, as per the script they\nshould reflect:</p>\n<p>opacity:0.7,</p></div>{html}",
+		"attachment": [
+			{
+				"id": "18057",
+				"filename": "1768_master.diff",
+				"author": {
+					"name": "billdawson",
+					"key": "billdawson",
+					"displayName": "Bill Dawson",
+					"active": true,
+					"timeZone": "Europe/Berlin"
+				},
+				"created": "2011-04-15T03:01:41.000+0000",
+				"size": 2363,
+				"mimeType": "application/octet-stream"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: KS alerts are not respecting opacity.",
+		"creator": {
+			"name": "thomashuelbert",
+			"key": "thomashuelbert",
+			"displayName": "Thomas Huelbert",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "thomashuelbert",
+			"key": "thomashuelbert",
+			"displayName": "Thomas Huelbert",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "126592",
+					"author": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "{html}<div><p>Here's a sample app.js that shows the problem (so you don't have\nto build KS):</p>\n<pre>\n<code class=\"javascript\">/*global Ti, Titanium, alert, JSON */\nTitanium.UI.setBackgroundColor('#000');\nvar win = Titanium.UI.createWindow({  \n    title:'Test',\n    backgroundColor:'#fff',\n    fullscreen: true,\n    exitOnClose: true\n});\n\n\nvar messageView = Titanium.UI.createView({\n    top: 0,\n    height:30,\n    width:250,\n    borderRadius:10,\n    backgroundColor:'blue',\n    opacity:0.7,\n    touchEnabled:false\n});\nwin.add(messageView);\n\nvar v = Titanium.UI.createView({\n    top: 50,\n    height:30,\n    width:250,\n    borderRadius:10,\n    backgroundColor:'blue',\n    touchEnabled:false\n});\nwin.add(v);\nwin.open();</code>\n</pre>\n<p>The top view -- which sets opacity -- should look different than\nthe bottom view, which is otherwise the same. Because of this bug,\nthey look identical.</p>\n<p>What's happening is that because a border property is being set\nin addition to background, a TiBackgroundDrawable is being used.\nTiBackgroundDrawable maintains its own copy of a drawable which it\ndraws to the canvas. It doesn't respect any of the alpha stuff\nbeing done in TiUIHelper.setDrawableOpacity.</p>\n<p>I can get it to work properly by...</p>\n<ul>\n<li>\n<p>Overriding setAlpha() in TiBackgroundDrawable and keeping track\nof the alpha value internally there, then setting it in the\ninternal \"background\" variable (a drawable) before it draws to\ncanvas.</p>\n</li>\n<li>\n<p>In <a href=\n\"http://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/org/appcelerator/titanium/util/TiUIHelper.java#L599\">\nTiUIHelper.setDrawableOpacity</a>, change ...</p>\n</li>\n</ul>\n<pre>\n<code class=\"javascript\">if (drawable instanceof ColorDrawable) {\n     ColorDrawable colorDrawable = (ColorDrawable) drawable;\n     colorDrawable.setAlpha(Math.round(opacity * 255));\n....</code>\n</pre>\n<p>... to ...</p>\n<pre>\n<code class=\n\"javascript\">if (drawable instanceof ColorDrawable || drawable instanceof TiBackgroundDrawable) {\n     drawable.setAlpha(Math.round(opacity * 255));\n....</code>\n</pre>\n<p>This means, however, that TiBackgroundDrawable doesn't get the\ncolor matrix / color filter stuff -- .setColorFilter() is not\ncalled on it. I tried overriding .setColorFilter in\nTiBackgroundDrawable and passing the value to its private\n'background' Drawable, but that didn't work at all. Are we sure the\ncolor filter / color matrix thing works?</p>\n<p>I haven't committed these changes, as I'm not strong in this\narea of drawables, color filters, etc. If Don/Marshall wants me to,\nI can.</p></div>{html}",
+					"updateAuthor": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2011-04-15T03:01:41.000+0000",
+					"updated": "2011-04-15T03:01:41.000+0000"
+				},
+				{
+					"id": "126593",
+					"author": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "{html}<div><p>here's a diff patch (based on master) in case you wanna use\nit.</p></div>{html}",
+					"updateAuthor": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2011-04-15T03:01:42.000+0000",
+					"updated": "2011-04-15T03:01:42.000+0000"
+				},
+				{
+					"id": "126594",
+					"author": {
+						"name": "mculpepper",
+						"key": "mculpepper",
+						"displayName": "Marshall Culpepper",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>(from <a href=\n\"/projects/32238/changesets/df00caa5c7758796ef957e3b58eb3b742e271e4a\"\ntitle=\n\"Changeset [df00caa5c7758796ef957e3b58eb3b742e271e4a]\">[df00caa5c7758796ef957e3b58eb3b742e271e4a]</a>)\nmerging Bill's original patch for fixing opacity on views with\ncustom background drawables. tested with [<a href=\n\"/projects/32238/tickets/2031\" title=\"Ticket #2031\">#2031</a>] as\nwell to verify [<a href=\"/projects/32238/tickets/1768\" title=\n\"Ticket #1768\">#1768</a> state:fixed-in-qa] <a href=\n\"https://github.com/appcelerator/titanium_mobile/commit/df00caa5c7758796ef957e3b58eb3b742e271e4a\">\nhttps://github.com/appcelerator/titanium_mobile/commit/df00caa5c775...</a></p></div>{html}",
+					"updateAuthor": {
+						"name": "mculpepper",
+						"key": "mculpepper",
+						"displayName": "Marshall Culpepper",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:01:43.000+0000",
+					"updated": "2011-04-15T03:01:43.000+0000"
+				},
+				{
+					"id": "126595",
+					"author": {
+						"name": "mschmulen",
+						"key": "mschmulen",
+						"displayName": "Matt Schmulen",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Failed in 1.6 and 2.1, seems to work fore createImageView, but\nnot createView.<br>\nTitanium SDK version: 1.5.0 (11/22/10 20:42 19a59fd)</p>\n<p>used the test code above</p></div>{html}",
+					"updateAuthor": {
+						"name": "mschmulen",
+						"key": "mschmulen",
+						"displayName": "Matt Schmulen",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:01:43.000+0000",
+					"updated": "2011-04-15T03:01:43.000+0000"
+				},
+				{
+					"id": "126596",
+					"author": {
+						"name": "mschmulen",
+						"key": "mschmulen",
+						"displayName": "Matt Schmulen",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>passed Android 2.1 Titanium SDK version: 1.5.0 (11/24/10 12:05\nc0aff27)<br>\npassed Android 1.6 Titanium SDK version: 1.5.0 (11/24/10 12:05\nc0aff27)</p></div>{html}",
+					"updateAuthor": {
+						"name": "mschmulen",
+						"key": "mschmulen",
+						"displayName": "Matt Schmulen",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:01:44.000+0000",
+					"updated": "2011-04-15T03:01:44.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

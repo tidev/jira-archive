@@ -1,0 +1,147 @@
+---
+title: "[TIMOB-27354] iOS13 - Ti.App.getArguments().url undefined when resuming"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-09T13:54:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.2.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule, ios</td></tr>
+<tr><th>Reporter</th><td>Joren Vos</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-08-23T13:25:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-30T02:35:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+It seems that Ti.App.getArguments().url is undefined when you open an already-opened app using an URL-scheme in iOS 13.
+
+In attachment, there is a sample project that runs as expected on iOS 12 but is broken on iOS 13 beta.
+
+There are two apps, app A and app B. When you open app A and press on the button to open app B, you’ll see the alert containing the URL-scheme that was used to open app B. When you try to go back to app A using URL-scheme, after resuming in app A the Ti.App.getArguments().url returns the URL-scheme that was used to open app A in iOS 12. In iOS 13, navigating from app B to app A will return undefined for Ti.App.getArguments().url 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27354_66878/FirstApp.zip">FirstApp.zip</td></td><td>2019-08-23T13:27:20.000+0000</td><td>8661363</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27354_66877/ios12-working.MP4">ios12-working.MP4</td></td><td>2019-08-23T13:26:02.000+0000</td><td>2563712</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27354_66876/ios13-broken.MP4">ios13-broken.MP4</td></td><td>2019-08-23T13:26:07.000+0000</td><td>3581543</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27354_66879/SecondApp.zip">SecondApp.zip</td></td><td>2019-08-23T13:27:25.000+0000</td><td>8661416</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brenton House 2019-08-23
+
+   [~cwilliams]  FYI </li>
+<li>Hans Knöchel 2019-08-25
+
+   tl;dr: The SDK needs to properly guard the "source" parameter before returning improper values, but most cases are not affected by that.
+   
+   We see a related issue where our Swift extension crashes because the <code>openURL:</code> delegate method returns improper values to the underlaying API's, causing these issues. It can also be seen in a crash when logging in with Ti.Facebook where the app crashes because the <code>sourceApplication</code> param of the bubbled delegate method is <code>nil</code>.
+   
+   *EDIT*: The <code>source</code> is also undefined with iOS 13, which is native behavior: <a href="https://forums.developer.apple.com/thread/119118" rel="nofollow" target="_blank">https://forums.developer.apple.com/thread/119118</a>
+   
+   *EDIT 2*: For your issue, you can easily resolve it by using the <code>handleurl</code> event in <code>Ti.App.iOS</code> which is generally more stable than <code>resumed</code>.
+   
+   [~jvos] This fixes your issue (which is not Titanium related in that case):
+   <code><pre>
+   Ti.App.iOS.addEventListener('handleurl', event => {
+       setTimeout(() => {
+           alert(JSON.stringify(event));
+       }, 1000);
+   });
+   
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   win.open();
+   </pre></code>
+   
+   Our issue is related to Ti.GoogleSignIn, but the actual issue is an SDK issue where the (nil) source is returned as a <code>NSNull</code> type, causing some SDK's to handle it improperly, since it's either nil or a string, nut not <code>NSNull</code>, so the SDK should be updated to handle it properly.</li>
+<li>Vijay Singh 2019-09-23
+
+   1. While debugging I found that - 
+   Sequence of calling  following delegate methods has changed -
+    Function1  - [-(void)applicationWillEnterForeground:(UIApplication *)application](<a href="https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L1086)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L1086)</a>
+    Function2  -  [- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<NSString *, id> *)options](<a href="https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L426)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L426)</a>
+   
+    
+   In iOS 12, Function1 is called before Function2.  In iOS 13 Function2 is called before Function1.
+   
+   Inside Function1 [url](<a href="https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L1096)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L1096)</a> key is removed.
+   
+   So to avoid issue related Ti.App.getArguments().url being undefined use "handleurl" event as mentioned by Hans.
+   
+   2. Regarding "source" property  NSNull is set [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L435)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/c6978221163cb9a628859b39042fa697b6065471/iphone/TitaniumKit/TitaniumKit/Sources/API/TiApp.m#L435)</a> if it is nil. I don't think we should set NSNull for this. I'll put a guard and will not set "source" if it nil.</li>
+<li>Vijay Singh 2019-09-25
+
+   PR (master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/11242" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11242</a>
+   PR (8_2_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/11243" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11243</a></li>
+<li>Ebenezer Boateng 2019-10-02
+
+   FR Failed - Information in PR (8_2_X)</li>
+<li>Sohail Saddique 2019-10-02
+
+   FR Failed (PR Master)
+   
+   Information in PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/11242#issuecomment-537533063" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11242#issuecomment-537533063</a></li>
+<li>Sohail Saddique 2019-10-03
+
+   Changes that have been made alleviate the bug. FR Passed. </li>
+<li>Christopher Williams 2019-10-03
+
+   merged to master and 8_2_X</li>
+<li>Sohail Saddique 2019-10-09
+
+   Verified using builds:
+   
+   8.2.1.v20191008121020
+   8.3.0.v20191008081818
+   
+   Ticket closed.
+   
+   </li>
+<li>Pietro Granati 2019-10-16
+
+    For me is undefined with 8.2.1.v20191010112656</li>
+<li>Xavier Alfeiran 2019-10-28
+
+    Undefined also with 8.2.1, with iOS 13.1.3</li>
+<li>Pietro Granati 2019-10-29
+
+    @Xavier Alfeiran
+    I solved using handle url event:
+    
+    <code><pre>
+    Ti.App.iOS.addEventListener("handleurl", function() {
+    		if (!_.isUndefined(Ti.App.getArguments().url)) {
+    			Ti.API.info("RESUME URLSCHEME: " + Ti.App.getArguments().url);
+    			var url = Ti.App.getArguments().url;
+    			var ods = url.substring(("scheme://").length, url.length);
+    			if (!Alloy.Globals.itinerarioAperto) {
+    				getODS(ods);
+    			}
+    		}
+    	});
+    </pre></code>
+    
+    </li>
+<li>Xavier Alfeiran 2019-10-30
+
+    it worked nice, thank you</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27354.json">JSON Source</a></p>

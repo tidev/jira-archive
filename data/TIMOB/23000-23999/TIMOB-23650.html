@@ -1,0 +1,92 @@
+---
+title: "[TIMOB-23650] iOS10: Differential build fails on Xcode 8 using --launch-watch-app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-15T05:01:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2016-07-18T07:44:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-28T19:47:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Steps to reproduce</h4>
+*sudo xcode-select --switch /Applications/Xcode-beta.app*
+1. *appc new --classic*
+2. enter project
+3. *appc new -t applewatch*
+4. *appc run -p ios -I 10.0 --launch-watch-app -l trace*
+5. change content in app.js
+6. Repeat 4.
+
+<h4>Expected result</h4>
+app builds and runs normally
+
+<h4>Actual result</h4>
+<code><pre>
+[ERROR] xcodebuild: error: Unable to find a destination matching the provided destination specifier:
+[ERROR]         	{ platform:iOS Simulator, id:507666A6-38FF-4972-9D8B-C11D9D20AD19, OS:10.0 }
+[ERROR]         Ineligible destinations for the "SGTestW" scheme:
+[ERROR]         	{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Generic iOS Device }
+[ERROR]         	{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Generic iOS Simulator Device }
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-07-18
+
+   Not sure if it matters but I did notice that it's removing build files for watchapp here:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5683" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L5683</a>
+   It unmarks the following product files:
+   <code><pre>
+   /Users/kiat/titaniumTestWatch/SGTestW/build/iphone/build/Products/Debug-iphonesimulator/SGTestW.app
+   /Users/kiat/titaniumTestWatch/SGTestW/build/iphone/build/Products/Debug-iphonesimulator/SGTestW WatchKit App.app
+   /Users/kiat/titaniumTestWatch/SGTestW/build/iphone/build/Products/Debug-iphonesimulator/SGTestW WatchKit Extension.appex
+   </pre></code>
+   However, the thing is, the watchKit apps are not in <code>Debug-iphonesimulator</code> but actually in <code>Debug-watchsimulator</code>.
+   This has always been the same in iOS 9.3 and Titanium 5.4.X. So we having been rebuilding the watchkit project for every build. Not sure if it's by design. 
+   [~cbarber] fyi. 
+   </li>
+<li>Hans Knöchel 2016-07-19
+
+   It's the same for non-watch applications. Just noticed it in hyperloop-examples with iOS 10 today. After running the build again, the error seem to be gone. Strange behavior.</li>
+<li>Chris Barber 2016-08-08
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8198" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8198</a>
+   6_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8200" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8200</a>
+   
+   This PR fixes a number of Xcode 8 and WatchOS related issues:
+   
+   * Team id is now required in the tiapp.xml when building an app with a watch extension and Xcode 8.
+   * Added build configuration settings for swift files in watch apps
+   ** Namely set the "SWIFT_VERSION" to "2.2", if it's not already set... all new Watch extension projects will have this set to "3.0"
+   * Removed old watchos2 template in favor of existing watchos2-objc template.
+   * Set default min iOS SDK version to 8.0 if not explicitly set in the tiapp.xml and compiling using Xcode 8.
+   * Removed old maintainers from package.jsons.
+   
+   The bad news is I was not able to reproduce the original issue in this ticket. Differential builds work just fine. The problem with the destination is due to a problem with selecting an iOS Simulator. I believe this to be machine/install specific issue where one of the simulators is mucked up.</li>
+<li>Chee Kiat Ng 2016-08-15
+
+   I'll move Chris's PR to another ticket and resolving this one as not reproducible.</li>
+<li>Chris Barber 2016-08-15
+
+   PRs moved to TIMOB-23774.
+   
+   5_5_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8228" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8228</a></li>
+<li>Lee Morris 2017-03-28
+
+   Closing ticket with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23650.json">JSON Source</a></p>

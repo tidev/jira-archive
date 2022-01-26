@@ -1,0 +1,512 @@
+{
+	"id": "121688",
+	"key": "TIMOB-15612",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "15707",
+				"description": "2013 Sprint 23",
+				"name": "2013 Sprint 23",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-11-15"
+			},
+			{
+				"id": "15708",
+				"description": "2013 Sprint 23 API",
+				"name": "2013 Sprint 23 API",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-11-15"
+			},
+			{
+				"id": "16593",
+				"description": "Release 4.0.0",
+				"name": "Release 4.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2015-05-21"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2014-11-17T21:35:58.000+0000",
+		"created": "2013-10-28T10:17:48.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"Community"
+		],
+		"versions": [
+			{
+				"id": "15593",
+				"description": "Release 3.1.3",
+				"name": "Release 3.1.3",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-09-18"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "sunila",
+			"key": "sunila",
+			"displayName": "Sunila",
+			"active": true,
+			"timeZone": "Asia/Kolkata"
+		},
+		"updated": "2015-02-12T01:56:40.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "Currently, it's not possible to stop an upload with HttpClient on Android. \r\n\r\nCalling abort() does abort the transfer, but the transfer starts over from 0%, and runs to completion, somewhat hidden - even calling the onload() callback when it's done. \r\n\r\nOn the server-side, it's apparant that the socket connection is closed when abort() is called, but a new socket connection is instantly opened, where the upload is restarted.\r\n\r\nHere's some source (app.js) to reproduce the issue - it starts an upload, then abort() is called after 1 second:\r\n{code:js}\r\nvar win = Ti.UI.createWindow({    exitOnClose:            true,});\r\nwin.open();\r\n \r\n \r\nvar percent_done = 0;\r\n \r\nvar xhr = Ti.Network.createHTTPClient({\r\n     onload : function(e) {\r\n        alert(\"onload: \"+this.responseText);\r\n     },\r\n     onerror : function(e) {\r\n         alert(\"e.error: \"+e.error);\r\n     },\r\n     onreadystatechange: function(e){\r\n        console.log(\"onreadystatechange: \"+this.readyState);  \r\n     },\r\n     onsendstream : function(e){\r\n        var curr_percent_done = parseInt(e.progress*100);\r\n        if (percent_done == curr_percent_done) return;\r\n        percent_done = curr_percent_done;\r\n        console.log(percent_done+\"% done. readyState: \"+this.readyState);\r\n     },\r\n     timeout: 10000\r\n});\r\n \r\n \r\nfunction upload(){\r\n    console.log(\"STARTING UPLOAD\");\r\n    var url = \"http://bitfabrikken.dk/upload\";    //using this server for simplicity's sake\r\n    var file = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory()+\"500k_test.mp4\"); //just use any large-ish file, 500kb+ or so\r\n    xhr.open(\"POST\", url);\r\n    xhr.send({ file: file });       \r\n}    \r\n \r\n \r\nupload();\r\nsetTimeout(function(){\r\n    console.log(\"ABORTING UPLOAD - calling xhr.abort\");\r\n    xhr.abort();\r\n},1000);\r\n{code}\r\n\r\n\r\nThe console output looks this, where it's clear to see that somehow the transfer is re-initiated at 0%, when abort() is called:\r\n{code}\r\n[INFO][TiAPI   ( 3108)]  STARTING UPLOAD\r\n[INFO][ActivityManager( 1015)] Displayed dk.bitfabrikken.nettest/.NettestActivity: +636ms\r\n[INFO][TiAPI   ( 3108)]  onreadystatechange: 1\r\n[INFO][TiAPI   ( 3108)]  1% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  2% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  3% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  4% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  5% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  6% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  7% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  8% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  9% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  ABORTING UPLOAD - calling xhr.abort\r\n[INFO][TiAPI   ( 3108)]  0% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  1% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  2% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  3% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  4% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  5% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  6% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  7% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  8% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  9% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  10% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  11% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  12% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  13% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  14% done. readyState: 1\r\n-----SNIP - LOTS OF REPETITION-----\r\n[INFO][TiAPI   ( 3108)]  93% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  94% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  95% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  96% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  97% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  98% done. readyState: 1\r\n[INFO][TiAPI   ( 3108)]  99% done. readyState: 1\r\n[INFO][TiAPI   ( 3213)]  100% done. readyState: 1\r\n[INFO][TiAPI   ( 3213)]  onreadystatechange: 2\r\n[INFO][TiAPI   ( 3213)]  onreadystatechange: 3\r\n[INFO][TiAPI   ( 3213)]  onreadystatechange: 4\r\n[INFO][ALERT   ( 3213)] (KrollRuntimeThread) [7533,8510] onload: null\r\n{code}\r\n\r\n\r\nPreviously I've side-stepped this issue by using TCPSocket to handle uploading. However now my client wants SSL, and since that's not supported with TCPSocket, I'm back to being stuck on this error.\r\n\r\n\r\nLinks to a few Q&A threads where this bug is the problem:\r\nhttp://developer.appcelerator.com/question/144392/android-httpclientabort-does-not-stop-file-upload\r\nhttp://developer.appcelerator.com/question/146555/how-to-abort-an-upload\r\nhttp://developer.appcelerator.com/question/158669/how-to-abort-a-file-upload-via-httpclient-android\r\nhttps://developer.appcelerator.com/question/154693/httpclient---how-to-stop-an-upload-in-progress---abort\r\nhttps://developer.appcelerator.com/question/152916/abort-of-sending-by-http-client-show-progress-of-send--receive-characters-stream\r\n",
+		"attachment": [
+			{
+				"id": "43504",
+				"filename": "500k_test.mp4",
+				"author": {
+					"name": "kronholm",
+					"key": "kronholm",
+					"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2013-10-28T10:36:04.000+0000",
+				"size": 514506,
+				"mimeType": "video/mp4"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: HttpClient.abort() does not stop file upload",
+		"creator": {
+			"name": "kronholm",
+			"key": "kronholm",
+			"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "kronholm",
+			"key": "kronholm",
+			"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Android 4.3, Android 4.2.2, Android 4.1.2, Titanium Modile SDK 3.1.3",
+		"closedSprints": [
+			{
+				"id": 251,
+				"state": "closed",
+				"name": "2014 Sprint 23 SDK",
+				"startDate": "2014-11-10T22:56:44.608Z",
+				"endDate": "2014-11-22T01:00:00.000Z",
+				"completeDate": "2014-11-22T05:03:36.553Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "276949",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Use this file for upload, or any other 500k+ file..",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-10-28T10:36:04.000+0000",
+					"updated": "2013-10-28T10:36:04.000+0000"
+				},
+				{
+					"id": "278856",
+					"author": {
+						"name": "sunila",
+						"key": "sunila",
+						"displayName": "Sunila",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"body": "Make sure that we don't write to the stream after abort\r\nhttps://github.com/appcelerator/titanium_mobile/pull/4938",
+					"updateAuthor": {
+						"name": "sunila",
+						"key": "sunila",
+						"displayName": "Sunila",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"created": "2013-11-09T17:33:02.000+0000",
+					"updated": "2013-11-09T17:33:02.000+0000"
+				},
+				{
+					"id": "284722",
+					"author": {
+						"name": "pmishra",
+						"key": "pmishra",
+						"displayName": "Paras Mishra",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"body": "Url \"http://bitfabrikken.dk/upload\" mentioned above does not work anymore.",
+					"updateAuthor": {
+						"name": "pmishra",
+						"key": "pmishra",
+						"displayName": "Paras Mishra",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"created": "2013-12-17T10:15:04.000+0000",
+					"updated": "2013-12-17T10:15:04.000+0000"
+				},
+				{
+					"id": "284725",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "That URL never existed.\r\nThe URL isn't really important for the example, you could even type in \"http://appcelerator.com/upload\" if you wanted to. \r\nThe essence of the bug is that you can't abort a transfer, no matter what URL you upload towards.",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T10:25:20.000+0000",
+					"updated": "2013-12-17T10:46:15.000+0000"
+				},
+				{
+					"id": "284728",
+					"author": {
+						"name": "pmishra",
+						"key": "pmishra",
+						"displayName": "Paras Mishra",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"body": "So a valid URL is not required to test this scenario, I am getting alert as \"\r\nOnload: null \" when ever I run the above test code.",
+					"updateAuthor": {
+						"name": "pmishra",
+						"key": "pmishra",
+						"displayName": "Paras Mishra",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"created": "2013-12-17T10:57:47.000+0000",
+					"updated": "2013-12-17T11:00:47.000+0000"
+				},
+				{
+					"id": "284729",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I think it's because it can't find the file in the resources folder, needed for the upload - 500k_test.mp4 (it's attached above).\r\nI confirmed this by adding the following check after the line containing \"var file = ...\":\r\n\r\n{code}\r\nif (!file || !file.exists()) {alert(\"local mp4 file not found - be sure to include 500k_test.mp4 in resources directory\"); return; }\r\n{code}\r\n\r\nSo try adding the file to Resources dir in your project, and it should work as advertised :)",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T11:15:45.000+0000",
+					"updated": "2013-12-17T11:15:52.000+0000"
+				},
+				{
+					"id": "284809",
+					"author": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "While testing found out that the URL : \"http://bitfabrikken.dk/upload\" in the above code does not exist . Is there any other url to upload directly ?",
+					"updateAuthor": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T18:55:06.000+0000",
+					"updated": "2013-12-17T18:55:06.000+0000"
+				},
+				{
+					"id": "284811",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "As stated in an earlier comment today, above, the URL doesn't matter for this bug.",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T18:59:23.000+0000",
+					"updated": "2013-12-17T18:59:23.000+0000"
+				},
+				{
+					"id": "284819",
+					"author": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "@Dan - Thanks for the clarification.",
+					"updateAuthor": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T19:17:52.000+0000",
+					"updated": "2013-12-17T19:17:52.000+0000"
+				},
+				{
+					"id": "284820",
+					"author": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix. After abort is called no new connection is opened & the upload stops.\r\n\r\nGet the following logs in console:\r\n{code}\r\n[INFO] :   1% done. readyState: 1\r\n[INFO] :   2% done. readyState: 1\r\n[INFO] :   3% done. readyState: 1\r\n[INFO] :   4% done. readyState: 1\r\n[INFO] :   5% done. readyState: 1\r\n[INFO] :   6% done. readyState: 1\r\n[INFO] :   ABORTING UPLOAD - calling xhr.abort\r\n[DEBUG] :  HTTPClient: The persistent handle is disposed.\r\n{code}\r\n\r\nClosing.\r\n\r\nEnvironment:\r\nAppcel Studio : 3.2.0.201312162210\r\nTi SDK : 3.2.0.v20131216191854\r\nMac OSX : 10.8.5\r\nAlloy : 1.3.0-cr2\t\r\nCLI - 3.2.0-cr3\r\nSamsung Galaxy S4 running android 4.2.2",
+					"updateAuthor": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T19:20:56.000+0000",
+					"updated": "2013-12-17T19:20:56.000+0000"
+				},
+				{
+					"id": "284822",
+					"author": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "@Lokesh Choudhary - Can you tell me if there's somewhere I can see an ETA of when this fix will be live? (3.2.0)",
+					"updateAuthor": {
+						"name": "kronholm",
+						"key": "kronholm",
+						"displayName": "Bitfabrikken - Dan Wulff Kronholm",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T19:24:34.000+0000",
+					"updated": "2013-12-17T19:24:34.000+0000"
+				},
+				{
+					"id": "284850",
+					"author": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "@dan kronholm - the fix is available in the CI builds 3_2_X branch till we go GA with 3.2.0 SDK.\n",
+					"updateAuthor": {
+						"name": "lokeshchdhry",
+						"key": "lokeshchdhry",
+						"displayName": "Lokesh Choudhary",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-17T20:55:36.000+0000",
+					"updated": "2013-12-17T20:55:36.000+0000"
+				},
+				{
+					"id": "314797",
+					"author": {
+						"name": "c3k",
+						"key": "c3k",
+						"displayName": "carlo",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "problem is still present in 3.3.0\r\n\r\ntry code below, if you press the button while the request is in progress it still onload\r\n\r\n{code}\r\nvar click = 0;\r\nvar errori = 0;\r\nvar datastream = 0;\r\nvar load = 0;\r\nvar readystatechange = 0;\r\nvar states = \"\";\r\nvar sendstream = 0;\r\n\r\n\r\nvar NET = Ti.Network.createHTTPClient();\r\nNET.onerror = function(){errori++;setText();};\r\nNET.ondatastream = function(){datastream++;setText();};\r\nNET.onreadystatechange = function(){readystatechange++;setText();};\r\nNET.onsendstream = function(){sendstream++;setText();};\r\nNET.onload = function(){load++;states+=this.statusText+\" \";setText();};\r\n\r\n\t\r\n\r\nvar win = Titanium.UI.createWindow({layout:'vertical', height:Titanium.UI.FILL, backgroundColor:\"#FFF\"});\r\n\r\nvar label1 = Titanium.UI.createLabel({font:{fontSize:30}});\r\nlabel1.setText('Test');\r\n\r\nvar button1 = Titanium.UI.createButton({top:50,title:\"cancel pending + new request\"});\r\nbutton1.addEventListener('click', function(){\r\n\tclick++;\r\n\tNET.abort();\r\n\tNET.open(\"GET\", \"http://carlo.tnx.it/sleep.php?secondi=2&kb=500\");\r\n\tNET.send();\r\n\tsetText();\r\n});\r\n\r\n\r\nfunction setText(){\r\n\tlabel1.setText(\r\n\t\t'click: '+click+\"\\n\"+\r\n\t\t'errors: '+errori+\"\\n\"+\r\n\t\t'datastream: '+datastream+\"\\n\"+\r\n\t\t'load: '+load+\"\\n\"+\r\n\t\t'readystatechange: '+readystatechange+\"\\n\"+\r\n\t\t'sendstream: '+sendstream+\"\\n\"+\r\n\t\t'states: '+states+\"\\n\"\r\n\t);\r\n\t\r\n}\r\n\r\n\r\nwin.add(button1);\r\nwin.add(label1);\r\nwin.open();\r\n{code}",
+					"updateAuthor": {
+						"name": "c3k",
+						"key": "c3k",
+						"displayName": "carlo",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2014-07-18T15:17:50.000+0000",
+					"updated": "2014-07-18T15:17:50.000+0000"
+				},
+				{
+					"id": "324632",
+					"author": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I'm also experiencing this issue on iOS 8 with SDK 3.4.0. When uploading a file abort() does not work. ",
+					"updateAuthor": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-19T03:20:07.000+0000",
+					"updated": "2014-09-19T03:20:07.000+0000"
+				},
+				{
+					"id": "328547",
+					"author": {
+						"name": "sunila",
+						"key": "sunila",
+						"displayName": "Sunila",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"body": "Additional handling for abort when submitting the request and handling the response.\r\n\r\nhttps://github.com/appcelerator/titanium_mobile/pull/6235",
+					"updateAuthor": {
+						"name": "sunila",
+						"key": "sunila",
+						"displayName": "Sunila",
+						"active": true,
+						"timeZone": "Asia/Kolkata"
+					},
+					"created": "2014-10-19T16:20:04.000+0000",
+					"updated": "2014-10-19T16:20:04.000+0000"
+				},
+				{
+					"id": "335565",
+					"author": {
+						"name": "johnjardin",
+						"key": "johnjardin",
+						"displayName": "John Jardin",
+						"active": true,
+						"timeZone": "Africa/Johannesburg"
+					},
+					"body": "I can confirm that HTTPClient.abort() is still not working using SDK 3.3.0.GA on Android 4.1.1\r\n\r\nIs this ticket regarded as resolved in the sense that Appcelerator do not plan on fixing this?",
+					"updateAuthor": {
+						"name": "johnjardin",
+						"key": "johnjardin",
+						"displayName": "John Jardin",
+						"active": true,
+						"timeZone": "Africa/Johannesburg"
+					},
+					"created": "2014-12-09T12:45:15.000+0000",
+					"updated": "2014-12-09T12:45:15.000+0000"
+				},
+				{
+					"id": "335604",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~johnjardin] The fix version is later than the version you tested. You can use the current master branch which contains 3.6.0, or cherry pick the fix into a branch of the SDK of your choosing.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-12-09T17:42:55.000+0000",
+					"updated": "2014-12-09T17:42:55.000+0000"
+				},
+				{
+					"id": "343018",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "Verified fix on:\r\n\r\nMac OSX 10.10.2\r\nAppcelerator Studio, build:  4.0.0.201502051633\r\nTitanium SDK build: 4.0.0.v20150211151855\r\nTitanium CLI, build: 3.6.0-dev\r\nAlloy: 1.5.1\r\nNexus 5 (5.0), Galaxy S3 (4.4.2)\r\n\r\nBuilt to both devices, when the download is aborted the onload callback no longer occurs.\r\n\r\nClosing ticket.",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2015-02-12T01:55:51.000+0000",
+					"updated": "2015-02-12T01:55:51.000+0000"
+				}
+			],
+			"maxResults": 21,
+			"total": 21,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,304 @@
+---
+title: "[TIMOB-5239] Android: if you add a sound to a notification the sound is not found"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-12-12T22:50:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2, Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.2, Release 3.1.0, 2012 Sprint 25, 2012 Sprint 25 API</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, api, insight, module_filesystem, notificationManager, qe-testadded, sound, triage</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2011-09-09T10:54:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-09-19T00:43:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+If you add a sound to a notification the sound is not found.
+
+<a href="http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.Android.NotificationManager-module" rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.Android.NotificationManager-module</a>
+
+<h4>Repro sequence</h4>
+<code><pre>
+var win= Titanium.UI.createWindow();
+
+var btn = Ti.UI.createButton({
+  title: 'Add Notification'
+});
+
+btn.addEventListener('click', function(e) {
+
+  var activity = Ti.Android.currentActivity();
+  var intent = Ti.Android.createIntent({
+  });
+
+  var pending = Ti.Android.createPendingIntent({ 
+    'activity' : activity,
+    'intent' : intent,
+    'type' : Ti.Android.PENDING_INTENT_FOR_ACTIVITY,
+    'flags' : 1073741824
+  });
+
+  var ts = new Date().getTime();
+
+  var notification = Ti.Android.createNotification({
+    contentIntent : pending,
+    contentTitle : 'Test',
+    contentText : 'test',
+    when : ts,
+    //icon: 'KS_nav_ui.png',TIMOB-4651
+    sound: '1.mp3',
+    defaults: Titanium.Android.NotificationManager.DEFAULT_VIBRATE
+  });
+
+  Ti.Android.NotificationManager.notify(1, notification);  
+});
+win.add(btn);
+
+// testing if the image exist
+var lbl = Titanium.UI.createLabel({
+  text : '     ',
+  backgroundImage: 'KS_nav_ui.png',
+  top : 10,
+  left: 10
+});
+
+win.add(lbl);
+
+win.open();
+</pre></code>
+
+<h4>Console Output - With customized Sound</h4>
+Sound file is located at resources folder, so property is being set as:
+sound:  '1.mp3'
+{noformat}
+ I/StagefrightPlayer(   34): setDataSource('/android_asset/Resources/1.mp3')
+E/MediaPlayer(   60): error (1, -2147483648)
+W/NotificationService(   60): error loading sound for file:///android_asset/Resources/1.mp3
+W/NotificationService(   60): java.io.IOException: Prepare failed.: status=0x1
+W/NotificationService(   60): 	at android.media.MediaPlayer.prepare(Native Method)
+W/NotificationService(   60): 	at com.android.server.NotificationPlayer$CreationAndCompletionThread.run(NotificationPlayer.java:90)
+{noformat}
+
+<h4>Tested on</h4>
+Device: HTC Dream Android 2.2 OS version & Emulator: Android HGVA
+
+<h4>Associated HD ticket</h4>
+PRO - <a href="http://appc.me/c/APP-923324" rel="nofollow" target="_blank">http://appc.me/c/APP-923324</a>
+
+<h4>Additional info</h4>
+Get default vibrate by setting permissions in Tiapp.xml
+{noformat}
+    <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">  
+    	<manifest>  	
+    		<uses-permission android:name="android.permission.VIBRATE"></uses-permission>
+    	</manifest>	
+    </android>
+{noformat}
+
+<h4>Work Around</h4>
+To allow the app at this time to play the default sound and vibration as well: 
+defaults: Titanium.Android.NotificationManager.DEFAULT_ALL
+
+To play default sound:
+defaults: Titanium.Android.NotificationManager.DEFAULT_SOUND
+
+To get phone vibration:
+defaults: Titanium.Android.NotificationManager.DEFAULT_VIBRATE
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5239_22884/1.mp3">1.mp3</td></td><td>2011-09-09T10:54:20.000+0000</td><td>8613</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5239_33999/cricket.wav">cricket.wav</td></td><td>2012-12-06T23:44:42.000+0000</td><td>80923</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jason Priebe 2012-10-25
+
+   I do not believe this is trivial.  This is one of many holes in the Ti API and documentation.  Every one of these is a huge time-waster for developers.  If the API worked as documented, or the documentation reflected the status of the API, I wouldn't have wasted time trying to get it to work.
+   </li>
+<li>Arthur Evans 2012-10-25
+
+   I'm with Jason. This is not trivial. I think the handling of sound is incorrect and should be fixed.
+   
+   I was unable to get it to play a sound from the resources folder directly, and I wasn't able to play a sound from the raw Android assets either (either by placing them in Resources/android/assets or platform/android/res/raw). I tried referring to them using Ti.App.Android.R.raw.filename, and it turns out we don't support R.raw. I'll file a separate bug for that.
+   
+   What I was able to do after a little experimentation was play a sound from the SD card. Files in resources are all compressed by the Android build process into a single archive, so I'm guessing that extracting the file in this way makes it playable. But since we can play a sound directly from Resources using Ti.Media.Sound, I'm betting we could handle this case correctly for Notification.
+   
+   Anyway, here's my workaround:
+   
+   <code><pre>
+   function getAudioFile() {
+       var outFile = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory, 'sound', 'cricket.wav');
+       var outPath = outFile.nativePath;
+       if (! outFile.exists()) {
+           var inFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, 'cricket.wav');
+           inFile.copy(outPath);
+           inFile = null;
+       }
+       outFile = null;
+       return outPath;
+   }
+   </pre></code>
+   
+   Then, when you create the notification, use:
+   
+   <code><pre>
+       sound: getAudioFile(),
+   </pre></code>
+   
+   I will open a doc bug to document this workaround, but the workaround shouldn't be required in the first place.
+   
+   
+   
+   </li>
+<li>Arthur Evans 2012-10-25
+
+   Possibly related to TIMOB-11036? Or it could be entirely specific to Notification.</li>
+<li>Arthur Evans 2012-10-26
+
+   Adding workaround to docs in:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/3343" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3343</a>
+   
+   When we fix this bug, we need to include an update to the docs to describe how the sound can be specified.</li>
+<li>jordi domenech 2012-11-29
+
+   Hi,
+   I was able to make it work with no workaround, but with some 'rules'. It was quite easy, take a look at this commit on my 2_1_X fork branch:
+   <a href="https://github.com/iamyellow/titanium_mobile/commit/dbd4ce7aa70e947c11c757bcaf8076b20c79b199#android" rel="nofollow" target="_blank">https://github.com/iamyellow/titanium_mobile/commit/dbd4ce7aa70e947c11c757bcaf8076b20c79b199#android</a>
+   
+   The 'rule' now is you must provide the sound in:
+   TI_PROJECT_ROOT/platform/android/res/raw/yay.mp3
+   
+   Then, in Javascript just:
+   var notification = Ti.Android.createNotification({
+     ...
+     sound: 'yay'
+   });
+   (notice there's no extension!)
+   
+   Hope it helps.
+   
+   ps: I don't know why, but there's no sound in emulator, BUT there IS in a real device, which is the point, isn't it?</li>
+<li>Arthur Evans 2012-11-30
+
+   Hi Jordi,
+   
+   Yes, the emulator doesn't support sound, so that's expected.
+   
+   Glad you found a way to make it work. I know we have existing apps that use audio from the SD card, so we can't fix it this way in the platform--it should accept both Android-style resource IDs _and_ Titanium resource URLs.
+   </li>
+<li>Hieu Pham 2012-12-06
+
+   </li>
+<li>Hieu Pham 2012-12-06
+
+   Testing Preparations: Download cricket.wav and put it in /platform/android/res/raw (you can also get this file in KitchenSink)
+   
+   Test 1:
+   <code><pre>
+   var win= Titanium.UI.createWindow();
+    
+   var btn = Ti.UI.createButton({
+     title: 'Add Notification'
+   });
+    
+   btn.addEventListener('click', function(e) {
+    
+     var activity = Ti.Android.currentActivity;
+     var intent = Ti.Android.createIntent({
+     });
+    
+     var pending = Ti.Android.createPendingIntent({ 
+       'activity' : activity,
+       'intent' : intent,
+       'type' : Ti.Android.PENDING_INTENT_FOR_ACTIVITY,
+       'flags' : 1073741824
+     });
+    
+     var ts = new Date().getTime();
+    
+     var notification = Ti.Android.createNotification({
+       contentIntent : pending,
+       contentTitle : 'Test',
+       contentText : 'test',
+       sound: Ti.Filesystem.getResRawDirectory() + 'cricket.wav'
+     });
+    
+     Ti.Android.NotificationManager.notify(1, notification);  
+   });
+   win.add(btn);
+    
+   // testing if the image exist
+   var lbl = Titanium.UI.createLabel({
+     text : '     ',
+     backgroundImage: 'KS_nav_ui.png',
+     top : 10,
+     left: 10
+   });
+    
+   win.add(lbl);
+    
+   win.open();
+   </pre></code>
+   - Click on button, you should hear sound
+   
+   Test 2:
+   <code><pre>
+   var win = Titanium.UI.createWindow({});
+   	
+   	var sound = Titanium.Media.createSound();
+   	sound.url= Ti.Filesystem.getResRawDirectory() + 'cricket.wav';
+   	
+   	//
+   	// PLAY
+   	//
+   	var play = Titanium.UI.createButton({
+   		title:'Play',
+   		height:40,
+   		width:145,
+   		left:10,
+   		top:10
+   	});
+   	play.addEventListener('click', function()
+   	{
+   		sound.play();
+   	});
+   	win.add(play);
+           win.open();
+   	
+   </pre></code>
+   1. Click on play, sound should play</li>
+<li>Ping Wang 2012-12-12
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/3546" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3546</a></li>
+<li>Paras Mishra 2013-01-24
+
+    Added sound, cricket.wav is being played when it's clicked.
+    
+    Verified on:
+    Android version : 2.3.6, 4.0.4
+    
+    SDK version: 3.1.0.v20130123144204,3.0.2.v20130122172624
+    CLI version : 3.0.23
+    OS : MAC OSX 10.7.5
+    XCode : 4.5.1
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5239.json">JSON Source</a></p>

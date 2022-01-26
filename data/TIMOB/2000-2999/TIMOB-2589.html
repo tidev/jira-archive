@@ -1,0 +1,143 @@
+---
+title: "[TIMOB-2589] Major Regression in Android SDK 1.5 HttpClient"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:59:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.1 M01</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, defect, httpclient, regression, reported-1.5.0</td></tr>
+<tr><th>Reporter</th><td>Ryan Asleson</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:23:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:59:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Hello,</p>
+<p>I have built an Android application that uses extensive use of
+HttpClient to contact a remote server. The application is stable
+and I haven't changed any of the networking code in quite a
+while.</p>
+<p>I'm eager to use the new Android features in the 1.5 SDK. After
+upgrading to the 1.5 SDK my application can no longer talk to the
+client using HttpClient.</p>
+<p>The remote server is Tomcat. Because of ticket <a href=
+"/projects/32238/tickets/968" title="Ticket #968">#968</a>, I can't
+rely on the jsessionid cookie to be properly utilized by
+HttpClient, so to get around it, I append the jsessionid to the end
+of the URL as necessary. Something this:</p>
+<p>/someurl.action;jsessionid=123456</p>
+<p>This all worked correctly and without fail until I upgraded to
+the 1.5 SDK. Now, when the jsessionid is appended to the URL,
+Tomcat throws a 404 error with this in the error message:</p>
+<p>The requested resource
+(/mwf/mobile/home/Home.action%3Bjsessionid%3D9498648CA1E54C6743AA5723276EBF51)
+is not available.</p>
+<p>You can see in the error message that the semicolon before
+jsessionid was URL encoded, as was the equals sign after
+jsessionid. I don't know for sure, but I assume that pre 1.5 these
+characters were NOT encoded.</p>
+<p>This is a show stopper bug for me. Due to ticket <a href=
+"/projects/32238/tickets/968" title="Ticket #968">#968</a> I can't
+rely on the jsessionid cookie, and the work around of appending
+jsessionid to the URL is now failing too. My app effectively cannot
+contact the server since the session ID cannot be passed along.
+Maybe Tomcat is pickier than other servers, but I can't just up and
+change servers especially when it worked before.</p>
+<p>Could you please investigate?</p>
+<p>Thank you and keep up the great work on Appcelerator
+Titanium!!!</p>
+<p>-Ryan</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>For QA, a simple app.js:</p>
+   <pre>
+   <code class="javascript">var xhr = Ti.Network.createHTTPClient();
+   xhr.autoEncodeUrl = false;
+   xhr.open('GET','<a href="http://www.appcelerator.com/x/y/z" rel="nofollow" target="_blank">http://www.appcelerator.com/x/y/z</a>;jsessionid=ABCD');
+   if (xhr.location.indexOf(';jsession')&lt;0) {
+       alert('FAIL.  Cannot find ";jsessionid" in location url: ' + xhr.location);
+   } else {
+       alert('SUCCESS.  Found ";jsessionid" in location url: ' + xhr.location);
+   }</code>
+   </pre></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/bcdf46569b53be86fc029577ec5147abda6a6c17"
+   title=
+   "Changeset [bcdf46569b53be86fc029577ec5147abda6a6c17]">[bcdf46569b53be86fc029577ec5147abda6a6c17]</a>)
+   [<a href="/projects/32238/tickets/2589" title=
+   "Ticket #2589">#2589</a> state:fixed-in-qa][<a href=
+   "/projects/32238/tickets/1491" title="Ticket #1491">#1491</a>] Add
+   autoEncodeUrl property to HTTPClient (default=true, thus preserving
+   current behavior). Setting to false means your url will remain
+   untouched. Add drillbit unit tests. <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/bcdf46569b53be86fc029577ec5147abda6a6c17" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/bcdf46569b53be86fc029577ec5147abda6a6c17</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/bcdf46569b53..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/bcdf46569b53...</a></a></p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>Currently the change (.autoEncodeUrl property,which can be set
+   to false to avoid auto-encoding) is only on master branch. If QA
+   sets to resolve and Ralf agrees, we can cherry-pick to 1_5_X.</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>For Ryan, an example of using it:</p>
+   <pre>
+   <code class=
+   "javascript">var xhr = Titanium.Network.createHTTPClient;
+   xhr.autoEncodeUrl = false; // do this before calling .open()
+   xhr.open('GET', '<a href="http://myhost.com/someurl.action" rel="nofollow" target="_blank">http://myhost.com/someurl.action</a>;jsessionid=123456');
+   xhr.send();</code>
+   </pre></div></li>
+<li>Ryan Asleson 2011-04-15
+
+   <div><p>Awesome, thank you so much!! I'm eager for the next release.</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/fbc043377a7e44753497c3ec0c9979c0cb53b359"
+   title=
+   "Changeset [fbc043377a7e44753497c3ec0c9979c0cb53b359]">[fbc043377a7e44753497c3ec0c9979c0cb53b359]</a>)
+   [<a href="/projects/32238/tickets/2589" title=
+   "Ticket #2589">#2589</a> state:fixed-in-qa][<a href=
+   "/projects/32238/tickets/1491" title="Ticket #1491">#1491</a>] Add
+   autoEncodeUrl property to HTTPClient (default=true, thus preserving
+   current behavior). Setting to false means your url will remain
+   untouched. Add drillbit unit tests. <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/fbc043377a7e44753497c3ec0c9979c0cb53b359" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/fbc043377a7e44753497c3ec0c9979c0cb53b359</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/fbc043377a7e..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/fbc043377a7e...</a></a></p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>This is now in the 1_5_X branch, ready for interim release.</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+   <div><p>Bill, using your code snippet I get the fail condition on a g1
+   (1.6) and using the sim (2.2)<br>
+   <a href="/projects/32238/changesets/INFO" title=
+   "Changeset [INFO]">[INFO]</a> Titanium SDK version: 1.5.1 (12/15/10
+   08:16 1a59cc3)</p>
+   <p>user error on my part?</p></div></li>
+<li>Bill Dawson 2011-04-15
+
+   <div><p>1a59cc3 is before my commit. I'm the commit after that.</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+    <div><p>damnit. sorry Bill, checked in G1 (1.6) and sim (2.2) looks
+    good. <a href="/projects/32238/changesets/INFO" title=
+    "Changeset [INFO]">[INFO]</a> Titanium SDK version: 1.5.1 (12/15/10
+    16:41 fbc0433)</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-2589.json">JSON Source</a></p>

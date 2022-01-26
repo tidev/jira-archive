@@ -1,0 +1,82 @@
+---
+title: "[TIMOB-24391] Hyperloop: iOS - Projects containing bitcode-enabled Cocoapods dependencies cause build-failure in Xcode 8.3 Beta"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-29T14:53:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.0, Release 6.0.1, Release 6.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>bitcode, ios, xcode8.3</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-02-09T13:32:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:54:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When running an app in Xcode 8.3 Beta, it works fine. But when I include a module that has Bitcode enabled (like Hyperloop and all new modules by default), I get a the following build error:
+<code><pre>
+[TRACE] error: Invalid bitcode signature
+
+[TRACE] clang: error: linker command failed with exit code 1 (use -v to see invocation)
+
+[ERROR] ** BUILD FAILED **
+
+[ERROR] The following build commands failed:
+
+[ERROR]         Ld build/Intermediates/fbtest.build/Debug-iphoneos/fbtest.build/Objects-normal/arm64/fbtest normal arm64
+
+[ERROR] (1 failure)
+</pre></code>
+You can force a Xcode 8.3 build using <code>appc run -p ios -I 10.3 --log-level trace</code> which will select Xcode 8.3 to build the iOS 10.3 target app. I was able to reproduce this error using the [hyperloop-examples](<a href="https://github.com/appcelerator/hyperloop-examples)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop-examples)</a> app, but not with Ti.Facebook so far - which still needs to investigated.
+
+In general, this is no valid <code>Bug</code> so far, so it's marked as a <code>Story</code>. In case it get's validated to be one, here are some possible solutions:
+- Enabled Bitcode in the Titanium SDK
+  - Question: Was there a reason that this wasn't enabled when we enabled it in modules?
+- Disable Bitcode in all our code-modules
+  - Hopefully not, it would be a breaking change
+
+Note: This is *not happening* on Simulator builds. Unfortunately, I didn't see many reports online so far, so it *may* be caused by the Beta version. But we're still in a very early Beta process of Xcode 8.3, so we can investigate this without problems.
+
+*UPDATE 1*: This is also *not happening* with other native modules like ti.facebook. So it may be related to the Hyperloop metabase compiler.
+*UDPATE 2*: The build also *works* when including Hyperloop in a new project, so hyperloop-examples seems to be the only effected one so far. Maybe one of the Cocoapods dependencies is causing the issue.
+*UPDATE 3*: Tracked it down to the Cocoapods dependencies. Manually disabling bitcode in the Podfile fixes it (as a workaround):
+<code><pre>
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+    end
+  end
+end
+</pre></code>
+or manually injecting the the bitcode build-setting (preferred):
+<code><pre>
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      cflags = config.build_settings['OTHER_CFLAGS'] || ['$(inherited)']
+      cflags << '-fembed-bitcode'
+      config.build_settings['OTHER_CFLAGS'] = cflags
+    end
+  end
+end
+</pre></code>
+*UPDATE 4*: I was now able to reproduce it with a different project as well, also using Hyperloop. It is attached in the first comment.
+*UPDATE 5*: It does *not* fail the build when using a native project using Cocoapods and Bitcode disabled.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-11-29
+
+   Does not seem to be an issue anymore, resolving unless occurring again.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24391.json">JSON Source</a></p>

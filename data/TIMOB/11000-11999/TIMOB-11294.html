@@ -1,0 +1,144 @@
+---
+title: "[TIMOB-11294] Android: console: log functions fail in commonjs require"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-08-14T20:57:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Release 3.1.0, 2012 Sprint 22 Core, 2012 Sprint 22</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core, module_require, qe-and100112, qe-manualtest, qe-port</td></tr>
+<tr><th>Reporter</th><td>Aaron K. Saunders</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2012-09-17T06:33:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-14T20:57:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+[ERROR][TiJSError(  744)] (main) [0,1111] - Message: Uncaught ReferenceError: console is not defined
+[ERROR][TiJSError(  744)] (main) [0,1111] - Source:console.debug("drawAnnotation");
+
+Another Log:
+
+<code><pre>
+[ERROR][TiExceptionHandler(  656)] (main) [618,1470] ----- Titanium Javascript Runtime Error -----
+[ERROR][TiExceptionHandler(  656)] (main) [1,1471] - In require.js:1,1
+[ERROR][TiExceptionHandler(  656)] (main) [0,1471] - Message: Uncaught ReferenceError: console is not defined
+[ERROR][TiExceptionHandler(  656)] (main) [0,1471] - Source: console.log('require');
+[ERROR][V8Exception(  656)] Exception occurred at require.js:1: Uncaught ReferenceError: console is not defined
+</pre></code>
+
+seems like console works fine on IOS but throws errors on Android.
+
+Any console object calls in a commonjs module will fail on android, they work from app.js though.
+
+This is not a regression.
+
+Docs: <a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Global.console
+
+Steps to Reproduce:
+
+1. Run code:
+
+require.js
+<code><pre>
+console.log('console.log');
+console.debug('console.debug');
+console.warn('console.warn');
+console.error('console.error');
+console.info('console.info');
+</pre></code>
+
+app.js
+<code><pre>
+require('require');
+</pre></code>
+Actual Result:
+
+Runtime error.
+
+Expected Result:
+
+Console message logged.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2012-10-08
+
+   This was originally logged as a TC ticket, then moved to ALOY. As "drawAnnotation" is used nowhere in the Alloy code, I'm assuming this is either related to the test code used to generate this error, or an underlying Android issue. I"ll add myself as a watcher in case this does in fact turn out to be Alloy-specific.
+   
+   Aaron, can you provide the test code necessary to reproduce this error?</li>
+<li>Dustin Hyde 2012-10-19
+
+   Updating ticket.</li>
+<li>Dustin Hyde 2012-10-19
+
+   It's a scope problem.</li>
+<li>Allen Yeung 2012-10-30
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/3360" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3360</a></li>
+<li>Dustin Hyde 2012-11-01
+
+   Also fails in win.url files.
+   
+   app.js
+   
+   <code><pre>
+   Ti.API.info('win.url.open()');
+   
+   var win = Ti.UI.createWindow({
+   	url : 'module.js'
+   });
+   
+   win.open();
+   </pre></code>
+   
+   module.js
+   
+   <code><pre>
+   console.log('console LOG');
+   console.log(['console LOG', 'ARG1', 'ARG2']);
+    
+   console.debug('console DEBUG');
+   console.debug(['console DEBUG', 'ARG1', 'ARG2']);
+    
+   console.info('console INFO');
+   console.info(['console INFO', 'ARG1', 'ARG2']);
+    
+   console.warn('console WARN');
+   console.warn(['console WARN', 'ARG1', 'ARG2']);
+   
+   console.error('console ERROR');
+   console.error(['console ERROR', 'ARG1', 'ARG2']);
+   </pre></code>
+   
+   Console Output:
+   
+   <code><pre>
+   [ERROR][TiJSError(  649)] (main) [558,1734] ----- Titanium Javascript Runtime Error -----
+   [ERROR][TiJSError(  649)] (main) [0,1734] - In module.js:5,2
+   [ERROR][TiJSError(  649)] (main) [0,1734] - Message: Uncaught ReferenceError: console is not defined
+   [ERROR][TiJSError(  649)] (main) [1,1735] - Source: 	console.log('console LOG');
+   [ERROR][V8Exception(  649)] Exception occurred at module.js:5: Uncaught ReferenceError: console is not defined
+   </pre></code></li>
+<li>Ping Wang 2012-11-01
+
+   PR for fixing window URL file: <a href="https://github.com/appcelerator/titanium_mobile/pull/3371" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3371</a></li>
+<li>Max Stepanov 2012-11-21
+
+   3_0_X PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3465" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3465</a></li>
+<li>Tamila Smolich 2012-12-04
+
+   Closing as fixed. Tested on: 
+   Titanium Studio, build: 3.0.0.201211301903
+   Titanium SDK, builds: 3.0.0.v20121130200208; 3.1.0.v20121203181001
+   Devices: Samsung Galaxy S III (4.0.4)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11294.json">JSON Source</a></p>

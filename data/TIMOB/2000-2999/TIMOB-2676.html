@@ -1,0 +1,173 @@
+---
+title: "[TIMOB-2676] Titanium Mobile Android HttpClient Unable to Handle 204 Error Code"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-07-26T03:12:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, httpclient, response, xhr</td></tr>
+<tr><th>Reporter</th><td>philip.jarrell (at gmail)</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:26:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-07-26T03:12:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The Android HttpClient module in 1.5.1 is unable to handle a missing entity. This is possible when encountering a 204 HTTP status code (no content).
+
+The following is stated in the Apache HttpClient "<a href="http://hc.apache.org/httpcomponents-core-ga/httpcore/apidocs/org/apache/http/HttpEntity.html" rel="nofollow" target="_blank">http://hc.apache.org/httpcomponents-core-ga/httpcore/apidocs/org/apache/http/HttpEntity.html</a>" Java API doc:
+
+"An entity that can be sent or received with an HTTP message. Entities can be found in some requests and in responses, where they are optional."
+
+Currently lines 203 - 208 in TiHTTPClient.java assume that any status code less then 300 will have an entity. However this is not true. Other codes may not. This includes 204 (no content) and 201 (created).
+
+Requests made that result in these response codes will currently result in null pointer exceptions when executing line 209:
+
+<code><pre>
+entity = response.getEntity();
+if (entity.getContentType() != null) {
+    contentType = entity.getContentType().getValue();
+}
+</pre></code>
+
+The iPhone version does not appear to suffer from the same issue.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Assigning to Don for triage.</p></div></li>
+<li>Jacob Lorenzen 2015-10-27
+
+   Come on.. Why hasn't this been fixed yet?
+   Reported over 4 years ago...</li>
+<li>Ingo Muschenetz 2015-10-27
+
+   [~msamah] FYI</li>
+<li>Ashraf Abu 2015-10-27
+
+   [~jalo@emtnordic.com] Could I help assist if you are facing this issue?
+   
+   If so, are there logs or code that you can provide to help speed up the progress of this ticket. Any information would be much appreciated in fixing the issue that you are facing.</li>
+<li>Ashraf Abu 2015-10-27
+
+   For this particular ticket and that code, it has been fixed in this PR
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/cafb4fe6e7445043fea61bd846bdfdba8a533311" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/cafb4fe6e7445043fea61bd846bdfdba8a533311</a></li>
+<li>Ashraf Abu 2015-10-27
+
+   Tested with 5.0.2.GA with the following code and there is no problem
+   To check there is indeed no entity, run this in terminal 'curl -D - <a href="https://httpbin.org/status/204" rel="nofollow" target="_blank">https://httpbin.org/status/204</a>'.
+   
+   <code><pre>
+   Titanium.UI.setBackgroundColor('#000');
+   
+   var win = Titanium.UI.createWindow({
+   	title : 'Title Here',
+   	backgroundColor : '#fff'
+   });
+   
+   var button = Ti.UI.createButton({
+   	title : "Press Button 204",
+   	top : 100
+   });
+   
+   button.addEventListener("click", function(e) {
+   	var xhr = Ti.Network.createHTTPClient({
+   		onload : function(e) {
+   			alert("Received: Status = " + this.status + ", Value = " + this.responseText);
+   			Ti.API.info("Received: Status = " + this.status + ", Value = " + this.responseText);
+   		},
+   		onerror : function(e) {
+   			alert("Error: Status = " + this.status + ", Value = " + this.responseText, " error:" + e.error);
+   		}
+   	});
+   	xhr.open("GET", "<a href="https://httpbin.org/status/204" rel="nofollow" target="_blank">https://httpbin.org/status/204</a>");
+   	xhr.send();
+   });
+   
+   win.add(button);
+   
+   var button1 = Ti.UI.createButton({
+   	title : "Press Button 201",
+   	top : 200
+   });
+   
+   button1.addEventListener("click", function(e) {
+   	var xhr = Ti.Network.createHTTPClient({
+   		onload : function(e) {
+   			alert("Received: Status = " + this.status + ", Value = " + this.responseText);
+   			Ti.API.info("Received: Status = " + this.status + ", Value = " + this.responseText);
+   		},
+   		onerror : function(e) {
+   			alert("Error: Status = " + this.status + ", Value = " + this.responseText, " error:" + e.error);
+   		}
+   	});
+   	xhr.open("GET", "<a href="https://httpbin.org/status/201" rel="nofollow" target="_blank">https://httpbin.org/status/201</a>");
+   	xhr.send();
+   });
+   
+   win.add(button1);
+   
+   win.open();
+   </pre></code>
+   
+   If there is no more updates related to the ticket, I'll close this as invalid as it is not reproducible.</li>
+<li>Jacob Lorenzen 2015-10-27
+
+   * I use Ti.Network.createHTTPClient.
+   * Then I call a service, which returns 204 and an empty body, which is a valid response.
+   * This results in the following error and the "onerror" function on HTTPClient is called.
+   
+   [ERROR] TiHTTPClient: (TiHttpClient-21) [120368,593182] HTTP Error (java.lang.NullPointerException): Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+   [ERROR] TiHTTPClient: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.handleResponse(TiHTTPClient.java:195)
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.access$1200(TiHTTPClient.java:84)
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1194)
+   [ERROR] TiHTTPClient: 	at java.lang.Thread.run(Thread.java:818)
+   [ERROR] TiHTTPClient: (TiHttpClient-20) [1,593183] HTTP Error (java.lang.NullPointerException): Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+   [ERROR] TiHTTPClient: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String[] java.lang.String.split(java.lang.String)' on a null object reference
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.handleResponse(TiHTTPClient.java:195)
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient.access$1200(TiHTTPClient.java:84)
+   [ERROR] TiHTTPClient: 	at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1194)
+   [ERROR] TiHTTPClient: 	at java.lang.Thread.run(Thread.java:818)
+   </li>
+<li>Jacob Lorenzen 2015-10-27
+
+   My SDK info:
+   Appcelerator Command-Line Interface, version 5.0.3
+   Copyright (c) 2014-2015, Appcelerator, Inc.  All Rights Reserved.
+   
+   10/27/2015, 8:01:17 AM
+   
+   Operating System
+     Name                        = Mac OS X
+     Version                     = 10.10.5
+     Architecture                = 64bit
+     # CPUs                      = 4
+     Memory                      = 12884901888
+   
+   Node.js
+     Node.js Version             = 0.12.7
+     npm Version                 = 2.11.3
+   
+   Titanium CLI
+     CLI Version                 = 5.0.5
+   
+   Titanium SDK
+     SDK Version                 = 5.0.2.GA
+     SDK Path                    = /Users/jalo/Library/Application Support/Titanium/mobilesdk/osx/5.0.2.GA
+     Target Platform             = android</li>
+<li>Ashraf Abu 2015-10-27
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-2676.json">JSON Source</a></p>

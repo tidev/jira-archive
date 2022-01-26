@@ -1,0 +1,87 @@
+---
+title: "[TIMOB-24395] iOS: subsequent dist builds fail"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-02-13T22:12:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.2</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2017-02-09T19:16:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-13T22:12:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Build an app for <code>dist-appstore</code>, then without changing anything, build again. The build fails with:
+
+<code><pre>
+[INFO]  Skipping xcodebuild
+[ERROR] An error occurred during build after 5s 103ms
+[ERROR] Staging archive directory does not exist
+</pre></code>
+
+The reason is that after the first build, the staging archive directory is MOVED to <code>~/Library/Developer/Xcode/Archives</code> and then during the second build, Xcodebuild is NOT invoked and thus the staging directory does not exist.
+
+The solution is to copy the staging archive directory to the Xcode archive directory.
+
+Also, subsequent <code>dist-adhoc</code> builds fail because the intermediate files are deleted by the Titanium iOS build's differential build system.
+
+Note that the generated adhoc IPA file was placed in a directory with the same name as the IPA file.
+
+Since both adhoc and appstore builds switched to <code>xcodebuild archive</code> to accommodate Xcode 8.3 having removed <code>PackageApplication</code>, the differential build system is slightly broken and doesn't properly add/remove/update resources in the output archive. To fix this, we must invoke <code>xcodebuild</code> to force the staged assets to be copied into the output archive.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2017-02-09
+
+   Titanium SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8827" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8827</a>
+   Titanium SDK 6_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8828" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8828</a>
+   
+   To test:
+   
+   App Store Builds
+   1. Create an Titanium iOS app
+   2. Add a new image to the <code>Resources</code> directory
+   3. Perform <code>dist-appstore</code> build
+   4. Without changing anything, do the exact same <code>dist-appstore</code> build command
+   5. Note that the build works!
+   6. Delete the image you added <code>Resources</code> directory
+   7. Build again using the exact same <code>dist-appstore</code> build command
+   8. Note that the build works and the file has been removed!
+   
+   Adhoc Builds
+   1. Create an Titanium iOS app
+   2. Add a new image to the <code>Resources</code> directory
+   3. Perform <code>dist-adhoc</code> build
+   4. Without changing anything, do the exact same <code>dist-adhoc</code> build command
+   5. Note that the build works and that the IPA is in the <code><output-dir>/<appname>.ipa</code> file
+   6. Delete the image you added <code>Resources</code> directory
+   7. Build again using the exact same <code>dist-adhoc</code> build command
+   8. Note that the build works and the IPA file no longer contains the image you removed!
+   </li>
+<li>Eric Wieber 2017-02-13
+
+   Verified fixed, using:
+   MacOS 10.12 (16A323)
+   Studio 4.8.1.201701192045
+   Ti SDK 6.0.2
+   Appc NPM 4.2.8
+   Appc CLI 6.1.0
+   Alloy 1.9.5
+   Xcode 8.3 (8W120l)
+   
+   Performed subsequent builds on Alloy and Classic projects and did not encounter any errors. Then tested differential builds by packaging projects multiple times for Ad Hoc and App Store, with minor, trackable changes. Package contents were as expected on each build.
+   
+   Verified in SDK builds 6.0.2.v20170213102549 and 6.1.0.v20170213134957.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24395.json">JSON Source</a></p>

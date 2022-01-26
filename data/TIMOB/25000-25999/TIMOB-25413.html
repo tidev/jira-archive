@@ -1,0 +1,79 @@
+---
+title: "[TIMOB-25413] Hyperloop: iOS - Pods with hyphens not supported"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Hyperloop 2.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jan Vennemann</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2017-10-19T12:36:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Steps to reproduce the behavior*
+<h4>Create a new empty app</h4>
+<h4>Add the following Podfile and replace <code><project_name></code> with the name of your test project.</h4>
+<code><pre>
+install! 'cocoapods',
+         :integrate_targets => false
+
+platform :ios, '8.0'
+target '<project_name>' do
+  pod 'Flurry-iOS-SDK/FlurrySDK'
+end
+</pre></code>
+<h4>Add the following to <code>app/controllers/index.js</code></h4>
+<code><pre>
+var Flurry = require('Flurry-iOS-SDK/Flurry');
+var FlurrySessionBuilder = require('Flurry-iOS-SDK/FlurrySessionBuilder');
+var builder = new FlurrySessionBuilder();
+builder.withCrashReporting(true)
+	.withSessionContinueSeconds(10)
+	.withAppVersion('0.1.2');
+Flurry.startSessionWithSessionBuilder('key', builder);
+</pre></code>
+
+*Actual behavior*
+The build crashes with the following log output
+<code><pre>
+[TRACE] #import <Flurry-iOS-SDK/Flurry-iOS-SDK.h>
+[TRACE]         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[TRACE] 1 error generated.
+[TRACE]   
+...
+[ERROR] ** BUILD FAILED **
+[ERROR] The following build commands failed:
+[ERROR]         CompileC build/Intermediates/Hyperloop_Sample.build/Debug-iphonesimulator/Hyperloop_Sample.build/Objects-normal/x86_64/flurry-ios-sdk.o /Users/jvennemann/Development/appc/hyperloop-examples/build/hyperloop/ios/js/flurry-ios-sdk/flurry-ios-sdk.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR] (1 failure)
+</pre></code>
+
+*Expected behavior*
+The build runs successful and the user is able to use the provided demo code.
+
+*Additional notes*
+In addition to the build failure the generated js and native module wrapper files will be generated with a hyphen in their name, which is invalid and needs to be normalized to generate a valid name.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-11-29
+
+   This may be solved by [Hyperloop 3.0.1](<a href="https://github.com/appcelerator-modules/hyperloop-builds/releases/tag/v3.0.1)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/hyperloop-builds/releases/tag/v3.0.1)</a> and TIMOB-25554 + TIMOB-25564.</li>
+<li>Jan Vennemann 2017-11-30
+
+   Those tickets resolve only a part of the issue. With Hyperloop 3.0.1 this now works (with <code>use_frameworks!</code> set in the Podfile), however only on the first build after cleaning the build directory. Incremental builds throw an error again due to some naming issues caused by the hyphens. Should be easy to fix though so we can schedule this for one of the next patch releases.
+   
+   For now the remaining issue can be worked around with a hard reset of the build directory by running <code>rm -rf build/ && appc run -p ios</code>.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25413.json">JSON Source</a></p>

@@ -1,0 +1,134 @@
+---
+title: "[TIMOB-15284] iOS7: Support Programmatically Changing the Status Bar Style"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-08T21:49:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 21, 2013 Sprint 21 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios7, module_window, qe-testadded, triage</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-19T18:17:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-17T20:14:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>The Problem</h4>
+Right now, Ti.UI.Window's statusBarStyle can only be specified during creation. Once the window is open, you can't change it. This prevents simple use cases like night and day reading modes for an app (black background, white background).
+
+<h4>The Solution</h4>
+Expose setStatusBarStyle on Ti.UI.Window, which calls TiRootViewController's updateStatusBar, and change updateStatusBar to use the main thread.
+<a href="https://github.com/appcelerator/titanium_mobile/pull/4709/files" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4709/files</a>
+
+<h4>Example</h4>
+<code><pre>var isDayMode = true,
+	ios = Ti.Platform.name === 'iPhone OS',
+	iosFlat = ios && +Ti.Platform.version >= 7,
+	win = Ti.UI.createWindow({
+		backgroundColor: '#fff'
+	}),
+	label = Ti.UI.createLabel({
+		text: 'Day Mode', textAlign: 'center',
+		color: '#000', font: { fontSize: 30 },
+		top: iosFlat ? 60 : 30, bottom: 0
+	}),
+	button = Ti.UI.createButton({
+		title: 'Switch',
+		color: '#000',
+		top: iosFlat ? 30 : 0, height: 30
+	});
+button.addEventListener('click', function() {
+	isDayMode = !isDayMode;
+	if (isDayMode) {
+		ios && (win.statusBarStyle = Ti.UI.iPhone.StatusBar.GRAY);
+		win.backgroundColor = '#ccc';
+		label.color = button.color = '#000';
+		label.text = 'Day Mode';
+	}
+	else {
+		ios && (win.statusBarStyle = Ti.UI.iPhone.StatusBar.TRANSLUCENT_BLACK);
+		win.backgroundColor = '#444';
+		label.color = button.color = '#fff';
+		label.text = 'Night Mode';
+	}
+});
+win.add(label);
+win.add(button);
+win.open();</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2013-10-08
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/4709" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4709</a> merged</li>
+<li>Paras Mishra 2013-10-10
+
+   Verified fixed on:
+   Device : iPhone 4S , iOS version : 7 
+   SDK: 3.2.0.v20131008154043
+   CLI version : 3.2.0
+   OS : MAC OSX 10.8.4
+   Alloy : 1.2.2
+   Appcelerator Studio, build: 3.2.0.201310092427
+   XCode : 5</li>
+<li>Allen Hartwig 2014-01-17
+
+   This does not work for a Window within a NavigationWindow on 3.2.0GA. The Navigation window will change, but the Window within will not change unless a modal window is displayed then closed. (there may be other events that force a UI update as well, but this is the only I've found.)
+   
+   index.xml
+   <code><pre>
+   <Alloy>
+   	<NavigationWindow id="nav">
+   		<Window title="test" backgroundColor="white" id="window">
+   			<Label>This window should change it's status bar color automatically in 3 seconds, however, it doesn't. \n\nTo force it to update, show a modal.</Label>
+   			
+   			<Button bottom="10" onClick="show">Show Modal</Button>
+   		</Window>
+   	</NavigationWindow>
+   </Alloy>
+   </pre></code>
+   
+   index.js
+   <code><pre>
+   $.nav.open();
+   
+   function show(){
+   	Alloy.createController('modal').getView().open({modal: true});
+   }
+   
+   //change the status bar style 3 seconds after launching
+   setTimeout(function(){
+   	$.nav.setStatusBarStyle(Ti.UI.iPhone.StatusBar.LIGHT_CONTENT);
+   	$.window.setStatusBarStyle(Ti.UI.iPhone.StatusBar.LIGHT_CONTENT);
+   	$.window.setBackgroundColor("#555");
+   }, 3000); 
+   </pre></code>
+   
+   modal.xml
+   <code><pre>
+   <Alloy>
+   	<Window backgroundColor="white" id="window">
+   		<Label>Close this modal to return to the previous.\n\nThe status bar will have changed.</Label>
+   		<Button onClick="close" bottom="10">Close</Button>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   modal.js
+   <code><pre>
+   function close(){
+   	$.window.close();
+   }
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15284.json">JSON Source</a></p>

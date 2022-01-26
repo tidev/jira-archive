@@ -1,0 +1,175 @@
+---
+title: "[TIMOB-9301] iOS: Ti.UI.TableView - rows are not highlighted anymore when you change orientation"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-12T00:56:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-12 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, module_tableview, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Junaid Younus</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-05-29T15:30:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-12T10:47:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Code*
+app.js
+<code><pre>
+var SplitViewApp = {};
+
+SplitViewApp.masterWindow = Ti.UI.createWindow({
+    title:'Master',
+    backgroundColor: '#fff',
+    url:'master.js'
+});
+
+SplitViewApp.detailWindow = Ti.UI.createWindow({
+    title:'Detail',
+    backgroundColor: '#fff',
+    url:'detail.js'
+});
+
+
+SplitViewApp.masterNav = Ti.UI.iPhone.createNavigationGroup({
+    window: SplitViewApp.masterWindow
+});
+
+SplitViewApp.detailNav = Ti.UI.iPhone.createNavigationGroup({
+    window: SplitViewApp.detailWindow
+});
+
+SplitViewApp.splitView = Ti.UI.iPad.createSplitWindow({
+    masterView: SplitViewApp.masterNav,
+    detailView: SplitViewApp.detailNav
+});
+
+SplitViewApp.splitView.addEventListener('visible', function(e) {
+    if (e.view == 'detail') {
+        e.button.title = "Master View List";
+        SplitViewApp.detailWindow.leftNavButton = e.button;
+    }
+    else if (e.view == 'master') {
+        SplitViewApp.detailWindow.leftNavButton = null;
+    }
+});
+
+SplitViewApp.splitView.open();
+
+</pre></code>
+
+master.js
+<code><pre>
+var MASTER_WINDOW = {};
+
+(function(){
+    var win = Ti.UI.currentWindow;
+    
+    var tableData = [];
+    
+    for(var i = 0; i < 100; i++) {
+        tableData.push(Ti.UI.createTableViewRow({title: 'Row ' + i}));
+    }
+    
+    function tableClick(e) {
+        var data = {
+            'row': e.index,
+            'title': e.row.title 
+        }
+        
+        Ti.App.fireEvent('app:rowClicked', data);
+    }
+    
+    MASTER_WINDOW.init = function(){
+        var tableView = Ti.UI.createTableView({
+            allowsSelection: true,
+            data: tableData
+        });
+        
+        var tableSearch = Ti.UI.createSearchBar({
+            barColor: '#ccc',
+            hintText: 'Search',
+            showCancel: false
+        });
+        
+        tableView.search = tableSearch;
+        
+        win.add(tableView);     
+        
+        tableView.addEventListener('click', tableClick);                        
+    }
+})();
+
+MASTER_WINDOW.init();
+
+</pre></code>
+
+detail.js
+<code><pre>
+var DETAIL_WINDOW = {};
+
+(function(){
+    var win = Ti.UI.currentWindow;
+    var label = Ti.UI.createLabel({
+        borderColor: '#000',
+        borderWidth: 1,
+        height: Ti.UI.SIZE,
+        width: Ti.UI.SIZE
+    });
+    
+    win.add(label);
+    
+    function rowClicked(data) {
+        label.text = data.title;
+    }
+    
+    DETAIL_WINDOW.init = function() {
+        Ti.App.addEventListener('app:rowClicked', rowClicked);
+    }
+})();
+
+DETAIL_WINDOW.init();
+</pre></code>
+
+
+
+*Expected behavior*
+When you tap on the 'Master View List' button in the top left, and then select any random row, it should highlight it. Now when you change orientations, the highlight should stay.
+
+*Actual behavior*
+When you change the orientation of the device, it deselects the highlight.
+
+*Notes*
+-Only tested on the iPad simulator.
+-Workaround is to remove the search bar, i.e. comment out lines 27-33 in the master.js file, however this is not acceptable.
+-The original issue was TIMOB-2724, now that it has been fixed, the CI build has this problem. It works fine if the search bar is removed. On the stable 2.0.1GA2, it doesn't work either way, it always deselects the row highlight, no matter if you display or don't display the search bar.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2012-06-14
+
+   Pull merged.</li>
+<li>Michael Pettiford 2012-06-18
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206172244
+   Ti Mobile SDK2.1.0.v20120618134156 hash r00905cd0
+   OSX Lion 10.7.3
+   iPad 3 OS 5.1.1
+   
+   The expected behavior is shown</li>
+<li>Shyam Bhadauria 2012-07-12
+
+   Re-opening to edit label</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9301.json">JSON Source</a></p>

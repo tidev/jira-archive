@@ -1,0 +1,167 @@
+{
+	"id": "109966",
+	"key": "TIMOB-12802",
+	"fields": {
+		"issuetype": {
+			"id": "7",
+			"description": "gh.issue.story.desc",
+			"name": "Story",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2013-02-21T08:08:37.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "13505",
+				"description": "Release 3.0.0",
+				"name": "Release 3.0.0",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-12-14"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "26029",
+				"type": {
+					"id": "10020",
+					"name": "Depends",
+					"inward": "is dependent of",
+					"outward": "depends on"
+				},
+				"outwardIssue": {
+					"id": "110052",
+					"key": "TIMOB-12829",
+					"fields": {
+						"summary": "Profile JNI bridge crossings",
+						"status": {
+							"description": "The issue is open and ready for the assignee to start work on it.",
+							"name": "Open",
+							"id": "1",
+							"statusCategory": {
+								"id": 2,
+								"key": "new",
+								"colorName": "blue-gray",
+								"name": "To Do"
+							}
+						},
+						"priority": {
+							"name": "Low",
+							"id": "4"
+						},
+						"issuetype": {
+							"id": "7",
+							"description": "gh.issue.story.desc",
+							"name": "Story",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": null,
+		"updated": "2018-02-28T20:03:39.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "In investigating android performance hits, I noticed a LOT of calls to the JNI bridge in order to determine and convert between Java and v8 data types.\r\n\r\nIn adding JNI-dedicated functionality to KrollDict, we can significantly reduce the bridge hits with 5 methods, an enum, and an array:\r\n\r\nAn enum of data types, one of which is a meta-type to indicate 'done'\r\nAn array of strings of common values and keys. Index 0 is NULL.\r\n\r\nOn C++, there may also be a sparse lookup table to allow for quick conversion from a string into an array index.\r\n\r\nlong getNextJNIEntry()\r\nOn first call, it stashes on the Java side an array of keys and returns the first 'entry' for that key. Each subsequent call goes to the next key and returns the 'entry' for that key. After the last key is used, the 'done' meta-type is returned. This removes the need to get a key count or track indexes.\r\n\r\nThe returned long maps to three values that are maskable:\r\n{{0xFFFF FFFF 0000 0000}} is value if int type, value string index if in string table\r\n{{0x0000 0000 FFFF 0000}} is key string index if in table (0 otherwise)\r\n{{0x0000 0000 0000 FFFF}} is data type\r\n\r\nAs such, this can shortcut many values as well as remove the need for many keys or string conversions, as well as remove all introspection bridge hits.\r\n\r\nString getJNIKey()\r\nObject getJNIObject()\r\ndouble getJNIDouble()\r\nThese fetch values from the current 'entry', the nature of which is dependent on the data type. For example, date actually uses the getDouble as milliseconds.\r\n\r\nvoid putJNIValue(int keyInt, String keyString, int dataType, double valueDouble, Object valueObject);\r\nDefaults are 0/null. If keyInt is nonzero, keyString is ignored (should be null) and the lookup is used. The reason for having a single setter is that it reduces the number of method signatures needed, and the combinatorics of value/keys would require 4 methods instead.\r\n\r\nIn doing it this way, we should be able to reduce the number of JNI bridge calls used in converting values to and from Java by at least an order of magnitude.\r\n\r\nAddendum: The same optimizations can be tooled to method call arrays and to event type strings.\r\n\r\nAddendum addendum: Before I go to sleep and forget it, this does not allow for reentrancy, but that's probably alright. After all, were a hash to contain itself directly or indirectly, our current conversion would be caught in an infinite loop.\r\n\r\nAlso, look further into V8 and what string format is the fastest. Considering the conversion is between Java and v8, it may not ever live as char*.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Reduce JNI bridge calls used for string,object hashes",
+		"creator": {
+			"name": "blainhamon",
+			"key": "blainhamon",
+			"displayName": "Blain Hamon",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "blainhamon",
+			"key": "blainhamon",
+			"displayName": "Blain Hamon",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "240876",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Those playing the home game, https://github.com/BlainHamon/titanium_mobile/compare/timob-12802",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-03-06T03:02:24.000+0000",
+					"updated": "2013-03-06T03:02:24.000+0000"
+				},
+				{
+					"id": "274269",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Based on comments, it appears this may not actually be a bottleneck. Deferring.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-10-08T22:17:42.000+0000",
+					"updated": "2013-10-08T22:17:42.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

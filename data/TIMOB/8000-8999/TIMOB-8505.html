@@ -1,0 +1,109 @@
+---
+title: "[TIMOB-8505] Android: Module build.xml no longer compiles C++ source code in the "jni" directory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-04-26T10:22:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-08</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core, module_module, pe-planning-2012-08, qe-port, regression</td></tr>
+<tr><th>Reporter</th><td>Paul Mietz Egli</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-03-16T10:22:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-06-20T12:29:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Marshall's post on using native libraries in an Android module (<a href="http://developer.appcelerator.com/blog/2011/01/titanium-and-the-android-ndk.html)" rel="nofollow" target="_blank">http://developer.appcelerator.com/blog/2011/01/titanium-and-the-android-ndk.html)</a> states that you need to place C++ source files in the jni directory of the module project and they will be compiled into .so files and included in the module.  This is not the case in version 1.8.2 of the SDK -- the build.xml file under TITANIUM_HOME/mobilesdk/osx/1.8.2/modules/android never looks in that directory.  To get the described behavior, the following targets can be added to the module's build.xml file:
+
+<code><pre>
+<property name="genlocaljni" location="${build}/generated/local-jni"/>
+<target name="build.jni">
+    <mkdir dir="${genlocaljni}"/>
+    <copy todir="${genlocaljni}">
+        <fileset dir="${ti.module.root}">
+            <include name="jni/**"/>
+        </fileset>
+    </copy>
+    <check.ndk/>
+    <condition property="ndk.build" value="${ndk.path}/ndk-build.cmd" else="${ndk.path}/ndk-build">
+        <os family="windows"/>
+    </condition>
+    <exec executable="${ndk.build}" dir="${genlocaljni}" failonerror="true">
+        <arg value="TI_MOBILE_SDK=${mobilesdk.dir}"/>
+        <arg value="NDK_PROJECT_PATH=${genlocaljni}"/>
+        <arg value="PYTHON=${python.exec}"/>
+        <arg value="V=${ndk.verbose}"/>
+    </exec>
+    <copy todir="${libs}">
+        <fileset dir="${genlocaljni}/libs">
+            <include name="**/*.so"/>
+        </fileset>
+    </copy>
+</target>
+ 
+<target name="post.compile">
+    <antcall target="build.jni"/>
+</target>
+</pre></code>
+
+Ideally, these targets would be part of the SDK's build.xml.  In the meantime, it would be good to update the blog post to indicate that it is out of date.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-8505_27277/jni_module.tar.gz">jni_module.tar.gz</td></td><td>2012-04-18T20:22:31.000+0000</td><td>4858</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Marshall Culpepper 2012-04-03
+
+   Note: We should move (and update if necessary) the old blog post content over to Wiki so it is easier to find for people who want to use C++ modules</li>
+<li>Stephen Tramer 2012-04-18
+
+   The following should be reviewed as part of resolving this ticket:
+   
+   [Step 2: Understanding the Different Parts of a Module : "jni"](<a href="https://wiki.appcelerator.org/display/guides2/Android+Module+Development+Guide#AndroidModuleDevelopmentGuide-Step2%3AUnderstandingtheDifferentPartsofaModule)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/Android+Module+Development+Guide#AndroidModuleDevelopmentGuide-Step2%3AUnderstandingtheDifferentPartsofaModule)</a></li>
+<li>Stephen Tramer 2012-04-18
+
+   <h4>Testing</h4>
+   ----
+   
+   <h4>Download the attached jni_module.tar.gz</h4>
+   <h4>Build the module from source (org.appcelerator.jnitest)</h4>
+   <h4>Create a new Titanium application for Android (either command line or studio) with the following <code>app.js</code>:</h4>
+   <code><pre>
+   var native = require('org.appcelerator.jnitest');
+   alert(native.hello());
+   </pre></code>
+   <h4>Add v0.1 of 'org.appcelerator.jnitest' as a module dependency for the application, and copy the dist built from step 2. above either into the project or the Titanium install directory.</h4>
+   <h4>Run the application on an Android device or emulator</h4>
+   
+   *SUCCESS*: You see an alert with the contents "Hello from JNI!"
+   *FAIL*: Any other result
+   </li>
+<li>Michael Pettiford 2012-06-20
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206200844
+   Ti Mobile SDK 2.1.0.v20120619172256 hash rd3a84b13
+   OSX Lion 10.7.3
+   Nexus S OS 4.0.4
+   
+   The expected behavior is shown</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8505.json">JSON Source</a></p>

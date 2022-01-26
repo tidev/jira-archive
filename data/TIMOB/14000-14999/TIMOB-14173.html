@@ -1,0 +1,256 @@
+---
+title: "[TIMOB-14173] Android: Profiler: output is inconsistent and incomplete"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-14T11:22:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 12 Core, 2013 Sprint 12, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android, Tooling</td></tr>
+<tr><th>Labels</th><td>qe-3.1.1</td></tr>
+<tr><th>Reporter</th><td>Federico Casali</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2013-06-10T23:40:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-14T11:22:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+
+Code Profiler on Android (both classic and Alloy projects) is returning different inconsistent outputs for every run.
+
+<h4>Sample code:</h4>
+<code><pre>
+function doClick(e) {
+	Ti.API.info('#### doCLick function ');
+	
+	setTimeout(function(){
+		alert('doClick function');
+	}, 2000);
+}
+
+function showAlert() {
+	Ti.API.info('#### showAlert function ');
+	setTimeout(function(){
+		alert('showAlert function');
+	}, 2000);
+}
+
+
+var win = Titanium.UI.createWindow({
+	title : 'Tab 1',
+	backgroundColor : '#fff'
+});
+
+var label1 = Titanium.UI.createLabel({
+	color : '#999',
+	text : 'I am Window 1',
+	font : {
+		fontSize : '24dp',
+		fontFamily : 'Helvetica Neue'
+	},
+	textAlign : 'center',
+	width : 'auto'
+});
+label1.addEventListener('click', showAlert);
+
+win.add(label1);
+
+var button = Ti.UI.createButton({
+	bottom : '10',
+	title : 'click'
+});
+button.addEventListener('click', doClick);
+
+
+win.add(button);
+win.add(label1);
+
+win.open();
+</pre></code>
+
+
+<h4>Steps to reproduce</h4>
+1. Grab the sample code, Build and run the Code Profiler on Android device (tested with Google Galaxy Nexus 4.2.2)
+2. Once the app is started, start recording a snapshot with the Profiler.
+3. Click on the Label and wait for the alert to appear('showAlert' function is triggered). The click on the Button and wait for the alert to appear ('doCick' function is triggered). Stop the profiler.
+4. See the result - repeat points 1 to 4
+
+Expected result: 'Performance Profile' section is reporting details about the two name function called ('doClick' and 'showAlert') and the two unnamed functions() being called after the 'setTimer'. Output result is also consistent every time the test is performed.
+
+Result: outputs are inconsistent and different every time. The two functions (one called 'doClick' and the other one called 'showAlert') are not always present in the output.
+Attached some of the outputs I got from my testing. 
+
+<h4>Additional notes</h4>
+Not reproducible on iOS.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39699/01_Android_profilerOutput.png">01_Android_profilerOutput.png</td></td><td>2013-06-11T00:49:48.000+0000</td><td>46904</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39698/02_Android_profilerOutput.png">02_Android_profilerOutput.png</td></td><td>2013-06-11T00:49:48.000+0000</td><td>104382</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39697/03_Android_profilerOutput.png">03_Android_profilerOutput.png</td></td><td>2013-06-11T00:49:48.000+0000</td><td>51002</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39696/04_Android_profilerOutput.png">04_Android_profilerOutput.png</td></td><td>2013-06-11T00:49:48.000+0000</td><td>42887</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39695/05_Android_profilerOutput.png">05_Android_profilerOutput.png</td></td><td>2013-06-11T00:49:48.000+0000</td><td>47814</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39891/codeProfiler_alloyProject.png">codeProfiler_alloyProject.png</td></td><td>2013-06-15T21:33:56.000+0000</td><td>71863</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14173_39892/codeProfiler_classicProject.png">codeProfiler_classicProject.png</td></td><td>2013-06-15T21:33:56.000+0000</td><td>88762</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2013-06-10
+
+   Downgrading to Major as the issue is with V8's snapshotting implementation, which we will likely have to revisit.</li>
+<li>Federico Casali 2013-06-11
+
+   @Ingo: renamed.
+   
+   However, those are output screenshots taken separately, using the same code and following the same steps - i.e. the app has been rebuilt and reinstalled every time (repeating points 1 to 4 as in the description). 
+   </li>
+<li>Allen Yeung 2013-06-14
+
+   I think we need to set expectations on what the android profiler should do. V8 will take samples at certain intervals of the program execution to determine where the CPU spent most of this time.  The interval for the sampling is around 5ms on Android devices.  By taking this approach, it's not accurate to expect every single function call to show up in the profile data.  The profiler is meant to track down hotspots of where the CPU spent most of its time, so a better test would be to have a function that takes a long time to run (or have it called many times).  Some functions may not take up enough CPU time to show up in the profiler data.  Functions with shorter execution times may show up intermittently depending on how long it took during that run and the timing of when v8 takes the samples. 
+   
+   Here is a blog that describes this behavior: <a href="http://blog.nodetime.com/2012/05/cpu-profiling-with-nodetime.html" rel="nofollow" target="_blank">http://blog.nodetime.com/2012/05/cpu-profiling-with-nodetime.html</a>
+   
+   I have created an effective test case that should return the a method name every time.
+   	
+   	<code><pre>
+   	var win = Titanium.UI.createWindow({
+   		title : 'Tab 1',
+   		backgroundColor : '#fff'
+   	});
+   
+   	var label1 = Titanium.UI.createLabel({
+   		color : '#999',
+   		text : 'I am Window 1',
+   		font : {
+   			fontSize : '24dp',
+   			fontFamily : 'Helvetica Neue'
+   		},
+   		textAlign : 'center',
+   		width : 'auto'
+   	});
+   
+   	win.add(label1);
+   
+   	var button = Ti.UI.createButton({
+   		bottom : '10',
+   		title : 'click'
+   	});
+   
+   	button.addEventListener('click', loopManyTimes);
+   	function loopManyTimes() {
+   		for (var i = 0; i < 10000; i++) {
+   			Ti.API.info('-------------' + i);
+   		}
+   	}
+   
+   	win.add(button);
+   	win.add(label1);
+   
+   	win.open();
+   	
+   	</pre></code>
+   	
+   	Run this sample code and press the button 5 or more times and when you stop the profiler, the loopManyTimes() function should show up.</li>
+<li>Allen Yeung 2013-06-14
+
+   Another test case:
+   
+   1. Launch the KS app 
+   2. Go to Platform > XHR > File Download
+   3. Start the profiler
+   4. Click on Large File Download
+   5. Wait for it to download 10%
+   6. Hit stop profile
+   
+   Expected result:
+   You should see ondatastream callback as one of the nodes in the profile data
+   </li>
+<li>Federico Casali 2013-06-14
+
+   Alloy code:
+   
+   <h4>index.xml</h4>
+   <code><pre>
+   <Alloy>
+       <Window>
+           <Label id='label1'></Label>
+           <Button onClick='loopManyTimes'>Click</Button>
+       </Window>
+   </Alloy>
+   </pre></code>
+   
+   <h4>app.tss</h4>
+   <code><pre>
+   "Window": {
+   	backgroundColor:"blue"
+   }
+   
+   "Button":{
+   	bottom:10
+   }
+   
+   "#label1": {
+   	color : 'white',
+       text : 'I am Window 1',
+       font : {
+           fontSize : '24dp',
+           fontFamily : 'Helvetica Neue'
+       },
+       textAlign : 'center',
+       width : 'auto'
+   } 
+   </pre></code>
+   
+   <h4>index.js</h4>
+   <code><pre>
+   function loopManyTimes() {
+       for (var i = 0; i < 10000; i++) {
+           Ti.API.info('-------------' + i);
+       }
+   }
+   
+   $.index.open();
+   </pre></code></li>
+<li>Federico Casali 2013-06-15
+
+   Attached the screenshot of the current results on Android using Allen provided sample code (classic project) and with it's relative Alloy version.
+   
+   Double clicking on the 'loopManyTimes' function name in the results, opens correctly the correspective file where the function is declared (app.js for the classic project and index.js for the alloy project) </li>
+<li>Allen Yeung 2013-06-17
+
+   Marking as resolved for now since Federico verified the expected behavior.</li>
+<li>Paras Mishra 2013-11-14
+
+   Tested with classic app provided by Allen,
+   loopManyTimes() function shows up everytime after profiler is stopped.
+   
+   Verified fix on:
+   Device : Google Nexus 3,  Android Version: 4.0.4,
+   SDK: 3.2.0.v20131113183932
+   CLI version : 3.2.0
+   OS : MAC OSX 10.8.4
+   Alloy : 1.3.0
+   Appcelerator Studio, build: 3.2.0.201311122338
+   XCode : 5.0.2</li>
+<li>Paras Mishra 2013-11-14
+
+   reopened to edit the comment</li>
+<li>Paras Mishra 2013-11-14
+
+    closing after editing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14173.json">JSON Source</a></p>

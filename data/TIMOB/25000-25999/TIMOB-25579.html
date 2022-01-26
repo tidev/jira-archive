@@ -1,0 +1,201 @@
+---
+title: "[TIMOB-25579] iOS: Cannot open photo gallery after displaying alert on iOS 10"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 7.0.0, Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule, qe-7.0.0</td></tr>
+<tr><th>Reporter</th><td>Abir Mukherjee</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2017-12-01T23:30:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-23T15:32:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Description*
+On an iOS 10 device (and simulator), the photo gallery cannot be opened after an alert is displayed. This issue is not seen for iOS 11. The issue is also not seen on Android.
+
+*Steps to reproduce*
+1. Create a new app in Studio and use the test case provided in the description below. Update tiapp.xml to allow Photo Library usage.
+2. Run the app on either the simulator or device. The iOS version should be iOS 10.
+3. Press the "Photo" button in the app when the alert dialog pops up.
+
+*Actual results*
+The Alert Dialog will disappear , however the photo library does not get accessed. A blank screen is shown.
+
+*Expected results*
+After the alert dialog disappears, the photo library should be opened. For reference, run the same app on iOS 11, or on Android.  The photo library is correctly opened in those cases.
+
+<code><pre>
+var window = Ti.UI.createWindow();
+window.addEventListener("open", function(e) {
+	var dialog = Ti.UI.createAlertDialog(
+	{
+		message: "Which media type do you want to open?",
+		buttonNames: ["Photo", "Video", "Both"],
+	});
+	dialog.addEventListener("click", function(e) {
+		var mediaTypes;
+		if (e.index === 0) {
+			mediaTypes = [Ti.Media.MEDIA_TYPE_PHOTO];
+		} else if (e.index === 1) {
+			mediaTypes = [Ti.Media.MEDIA_TYPE_VIDEO];
+		} else if (e.index === 2) {
+			mediaTypes = [Ti.Media.MEDIA_TYPE_PHOTO, Ti.Media.MEDIA_TYPE_VIDEO];
+		} else {
+			Ti.API.info("@@@ Alert was canceled.");
+			return;
+		}
+		Ti.Media.openPhotoGallery(
+		{
+			allowMultiple: false,
+			allowEditing: false,
+			autohide: true,
+			mediaTypes: mediaTypes,
+			success: function(e) {
+				switch (e.mediaType) {
+					case Ti.Media.MEDIA_TYPE_PHOTO:
+					case Ti.Media.MEDIA_TYPE_LIVEPHOTO:
+						window.add(Ti.UI.createImageView(
+						{
+							image: e.media,
+							width: Ti.UI.FILL,
+							height: Ti.UI.FILL,
+						}));
+						break;
+					case Ti.Media.MEDIA_TYPE_VIDEO:
+						window.add(Ti.Media.createVideoPlayer(
+						{
+							url: e.media.nativePath,
+							autoplay: true,
+							mediaControlStyle: Ti.Media.VIDEO_CONTROL_DEFAULT,
+							scalingMode: Ti.Media.VIDEO_SCALING_ASPECT_FIT,
+							width: Ti.UI.FILL,
+							height: Ti.UI.FILL,
+						}));
+						break;
+				}
+			},
+			cancel: function() {
+				Ti.API.info("@@@ Photo gallery selection canceled.");
+			},
+			error: function() {
+				Ti.API.info("@@@ Photo gallery selection error.");
+			},
+		});
+	});
+	dialog.show();
+});
+window.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vijay Singh 2018-01-25
+
+   I verified it using Xcode, it is working fine.
+   In studio with Kroll_thread it is working fine, but on main_thread with iOS 10.x this issue is happening.
+   Even if we execute the code inside eventListener for 'click' event, it is working fine for studio as well.
+   The problem is happening if this code is executing for 'open' event. Following test case will work fine for Studio as well -
+   
+   <code><pre>
+   var window = Ti.UI.createWindow();
+   window.addEventListener("click", function(e) {
+   	var dialog = Ti.UI.createAlertDialog(
+   	{
+   		message: "Which media type do you want to open?",
+   		buttonNames: ["Photo", "Video", "Both"],
+   	});
+   	dialog.addEventListener("click", function(e) {
+   		var mediaTypes;
+   		if (e.index === 0) {
+   			mediaTypes = [Ti.Media.MEDIA_TYPE_PHOTO];
+   		} else if (e.index === 1) {
+   			mediaTypes = [Ti.Media.MEDIA_TYPE_VIDEO];
+   		} else if (e.index === 2) {
+   			mediaTypes = [Ti.Media.MEDIA_TYPE_PHOTO, Ti.Media.MEDIA_TYPE_VIDEO];
+   		} else {
+   			Ti.API.info("@@@ Alert was canceled.");
+   			return;
+   		}
+   		Ti.Media.openPhotoGallery(
+   		{
+   			allowMultiple: false,
+   			allowEditing: false,
+   			autohide: true,
+   			mediaTypes: mediaTypes,
+   			success: function(e) {
+   				switch (e.mediaType) {
+   					case Ti.Media.MEDIA_TYPE_PHOTO:
+   					case Ti.Media.MEDIA_TYPE_LIVEPHOTO:
+   						window.add(Ti.UI.createImageView(
+   						{
+   							image: e.media,
+   							width: Ti.UI.FILL,
+   							height: Ti.UI.FILL,
+   						}));
+   						break;
+   					case Ti.Media.MEDIA_TYPE_VIDEO:
+   						window.add(Ti.Media.createVideoPlayer(
+   						{
+   							url: e.media.nativePath,
+   							autoplay: true,
+   							mediaControlStyle: Ti.Media.VIDEO_CONTROL_DEFAULT,
+   							scalingMode: Ti.Media.VIDEO_SCALING_ASPECT_FIT,
+   							width: Ti.UI.FILL,
+   							height: Ti.UI.FILL,
+   						}));
+   						break;
+   				}
+   			},
+   			cancel: function() {
+   				Ti.API.info("@@@ Photo gallery selection canceled.");
+   			},
+   			error: function() {
+   				Ti.API.info("@@@ Photo gallery selection error.");
+   			},
+   		});
+   	});
+   	dialog.show();
+   });
+   window.open();
+   </pre></code>
+   
+   </li>
+<li>Vijay Singh 2018-01-29
+
+   Simple test case to reproduce the issue -
+   
+   <code><pre>
+   var window = Ti.UI.createWindow();
+   
+   window.addEventListener("open", function(e) {
+   	var dialog = Ti.UI.createAlertDialog(
+   	{
+   		message: "Which media type do you want to open?",
+   		buttonNames: ["Photo", "Video", "Both"],
+   	});
+   	dialog.addEventListener("click", function(e) {
+   	   Ti.API.info("@@@ Index is" +e.index);
+   	});
+   	dialog.show();
+   });
+   window.open();
+   </pre></code>
+   
+   Click event of dialog is not fired in iOS 10.x with main_thread in CLI/Studio. But if I run the same test case using Xcode, it is fired. [~fmiao] Can you please look in this, if anything can be done from your side. Thanks!</li>
+<li>Feon Sua Xin Miao 2018-01-30
+
+   This doesn't look like a CLI/Studio issue. [~hknoechel], need your expert opinion on this. :)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25579.json">JSON Source</a></p>

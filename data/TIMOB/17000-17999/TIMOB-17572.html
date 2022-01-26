@@ -1,0 +1,271 @@
+---
+title: "[TIMOB-17572] iOS: ActivityIndicator does not reset when used in ListView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-23T19:24:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0, Release 5.1.0, Release 5.0.0, Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>merge-7.0.2, regression, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Thomas Wilkinson</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2014-08-28T21:28:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-12-05T21:47:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+A template in a ListView includes an ActivityIndicator. The first time the activity indicator appears, its spinner works fine but the second and subsequent time it appears, the spinner does not work. 
+
+Steps to reproduce:
+
+(1) Create a new Alloy project and drop the three attached files into their usual folders and run the project on an iPhone or iOS Simulator. 
+
+(2) Scroll to the bottom. The ActivityIndicator appears as normal for a second, until it's replaced with more ListItems.
+
+(3) Scroll to the bottom again. Now the ActivityIndicator is sans-spinner. Every subsequent scroll will have the same results.
+
+It appears that this is because the ActivityIndicator view is not properly resetting when removed from the ListView. When I set visible=false to the ActivityIndicator before removing it from the view, the spinner works ok. Unfortunately this requires editing a ListView which is an expensive operation. You can see the workaround in action by uncommenting line 95 of the example code.
+
+Note that the word "Loading" (also part of the ActivityIndicator) does appear even though the spinner does not.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17572_50842/index.js">index.js</td></td><td>2014-08-28T21:28:38.000+0000</td><td>2406</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17572_50843/index.tss">index.tss</td></td><td>2014-08-28T21:28:38.000+0000</td><td>870</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17572_50841/index.xml">index.xml</td></td><td>2014-08-28T21:28:38.000+0000</td><td>733</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Choung Chamnab 2015-01-04
+
+   a small bug ..but no one fix..</li>
+<li>Vishal Duggal 2015-03-05
+
+   Pull pending
+   master - <a href="https://github.com/appcelerator/titanium_mobile/pull/6691" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6691</a></li>
+<li>Seth Benjamin 2015-04-03
+
+   Is there any reason why this is slated for a 4.1.0 release? Couldn't it be included with the 3.5.2 updates coming up? For now I will cherrypick the change myself, but i'd rather not in the near future.</li>
+<li>Lokesh Choudhary 2015-06-09
+
+   Verified the fix.
+   The activity indicator now resets as expected. Tested using the attached app files.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio :  4.1.0.201505071004
+   Ti SDK :  4.1.0.v20150605164428
+   Ti CLI : 4.0.1
+   Alloy : 1.6.0
+   MAC Yosemite : 10.10.3
+   Appc npm : 4.0.0
+   Appc CLI : 4.0.2-rc2
+   Node: v0.10.37
+   IOS simulator: Iphone 5 IOS 8.3</li>
+<li>Seth Benjamin 2015-06-30
+
+   This doesn't work correctly. While the indicator is properly visible the animation is stopped. I tested this in 4.0.0.GA (cherry picked the change) and the latest 4.0.1.</li>
+<li>Seth Benjamin 2015-06-30
+
+   I also confirmed that this is not working in the latest 4.1.0 beta.</li>
+<li>James K 2015-08-23
+
+   I have spent more time than I care to admit trying to resolve this problem.
+   
+   It is not limited to scrolling.  If you use <code>setSections</code> to setup a list view containing one list section with one list item that uses an activity indicator, calling <code>setSections</code> again with exactly the same list section causes the activity indicator to stop animating.
+   
+   There may be a missing <code>[indicatorView startAnimating];</code> call somewhere in <code>TiUIActivityIndicator.m</code>, or perhaps there is a problem with the way cells are displayed or refreshed in <code>TiUIListView.m</code>, but I haven't been able to work it out.
+   
+   In the meantime, here is a workaround to ensure that visible activity indicators continue animating:  only make changes to the list view and list sections using methods that call <code>dispatchUpdateAction</code> instead of <code>dispatchBlock</code>.  So, you can update the list view using <code>appendSection</code>, <code>insertSectionAt</code>, <code>deleteSectionAt</code> and <code>replaceSectionAt</code>, but do not use <code>setSections</code>.  You can only update list sections using <code>setItems</code>, <code>updateItemAt</code> and the other list section methods if you specify an animation.  Activity indicators will stop animating if you use those methods without specifying an animation.</li>
+<li>Quang Pham 2015-09-25
+
+   This is not working in SDK 5.0.0.GA, iOS 8.4
+   My ListView use ActivityIndicator with data binding
+   After data updated, the ActivityIndicator stop animated</li>
+<li>David Fox 2015-12-07
+
+   Is there any update on this bug? It still seems to be broken.</li>
+<li>Hans Knöchel 2016-02-11
+
+    [~sdarda], can you please provide a test case that runs in an single app.js so we can test and debug it through Xcode directly? </li>
+<li>Eric Merriman  2017-05-22
+
+    [~ewieber] Can you try to reproduce this and report back please?</li>
+<li>Eric Wieber 2017-05-23
+
+    I am able to see what [~jamesk.au] and [~sdarda] have reported.
+    When adding items to the listview, the activity indicator stops spinning, when in a list item.
+    I can see the same behavior when using this below, Classic test case:
+    <code><pre>
+    var win = Ti.UI.createWindow({backgroundColor: 'white'});
+    
+    var listTemplate = {
+        childTemplates: [
+            {                             
+                type: 'Ti.UI.Label',      
+                bindId: 'info',          
+                properties: {            
+                    color: 'black',
+                    font: { fontFamily:'Arial', fontSize: '20dp', fontWeight:'bold' },
+                    left: '60dp', top: 0,
+                }
+            }
+        ]
+    };
+    var loadTemplate = {
+    	childTemplates: [
+    		{
+    	    	type: 'Ti.UI.ActivityIndicator', 
+    	        bindId: 'ai',
+    	        properties: {
+    				left:12,
+    				font:{
+    					fontSize:16,
+    					fontFamily:'Helvetica',
+    					fontWeight:'bold',
+    				},
+    				color: "black",
+    				style: Ti.UI.ActivityIndicatorStyle.DARK,
+    				height: 55,
+    				visible: true
+    			}
+    		}
+    	]
+    };
+    
+    var list = Ti.UI.createListView({
+        templates: { 'item': listTemplate, 'load': loadTemplate },
+    });
+    var sections = [];
+    
+    var fruitSection = Ti.UI.createListSection({ headerTitle: 'Fruits / Frutas'});
+    var fruitDataSet = [
+        { template: 'item', info: {text: 'Apple'}},
+        { template: 'item', info: {text: 'Banana'}}
+    ];
+    fruitSection.setItems(fruitDataSet);
+    sections.push(fruitSection);
+    
+    list.setSections(sections);
+    
+    var iterations = 1;
+    
+    var createListDataItems = function() {
+    	var items = fruitDataSet;
+    	fruitDataSet.pop();
+    	for (var i = 1; i <= 2; i++) {
+    		items.push({
+    			template: 'item',
+    			info: {text: 'added '+ iterations + i }
+    		});
+    	}
+    	iterations++;
+    	
+    	return items;
+    };
+    
+    var createLoadingTransactionsListItem = function() {
+    	var items = fruitDataSet;
+    	items.push({
+    		template: 'load',
+    		ai: {message: ' Loading...'}
+    	});
+    
+    	return items;
+    };
+     
+    var loadMore = function() {
+    	// show loading message
+    	fruitSection.setItems(createLoadingTransactionsListItem());
+    	
+    	setTimeout(function() {
+    		// append more items 
+    		fruitSection.setItems(createListDataItems());
+    
+    		list.setMarker({sectionIndex: 0, itemIndex: fruitSection.items.length-2});
+    		
+    	}, 2000);
+    };
+    list.addEventListener('marker', loadMore);
+     
+    setTimeout(loadMore, 0);
+     
+    win.add(list);
+    win.open();
+    </pre></code></li>
+<li>Hans Knöchel 2018-01-10
+
+    Actually this is a native -issue- behavior, whereby the native <code>UITableView</code> stops all animations once it moves out of the view-port. [This discussion](<a href="https://stackoverflow.com/a/36793776/5537752)" rel="nofollow" target="_blank">https://stackoverflow.com/a/36793776/5537752)</a> described the issue pretty detailed. 
+    
+    We *may* be able to hook into our <code>UITableViewCell</code> subclass that is used for the (abstract) <code>Ti.UI.ListItem</code>, but we need to try that out.</li>
+<li>Hans Knöchel 2018-01-10
+
+    PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9716" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9716</a>
+    PR (7_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9717" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9717</a></li>
+<li>Abir Mukherjee 2018-01-12
+
+    FR passed.</li>
+<li>Samir Mohammed 2018-01-16
+
+    FR for Master passed and merged waiting for 7.0.2
+    Test and other information can be found at <a href="https://github.com/appcelerator/titanium_mobile/pull/9716" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9716</a> (master)</li>
+<li>Abir Mukherjee 2018-01-24
+
+    Verified fix is found in:
+    SDK 7.0.2.v20180124113923
+    SDK 7.1.0.v20180124115505</li>
+<li>Hans Knöchel 2020-12-05
+
+    Unfortunately this is not fully fixed so far. See this test case:
+    <code><pre>
+    var win = Ti.UI.createWindow({
+    	backgroundColor: '#fff'
+    });
+    
+    var myTemplate = {
+    	childTemplates: [
+    		{
+    			type: 'Ti.UI.ActivityIndicator',
+    			bindId: 'loader',
+    			properties: {
+    				indicatorColor: 'red',
+    				visible: true
+    			}
+    		}
+    	]
+    };
+    
+    var list = Ti.UI.createListView({
+    	templates: { template: myTemplate },
+    	defaultItemTemplate: 'template',
+    	sections: [
+    		Ti.UI.createListSection({
+    			items: [ { properties: { height: 50 }, loader: { visible: true } } ]
+    		})
+    	]
+    });
+    
+    win.add(list);
+    win.open();
+    
+    setTimeout(() => {
+    	list.sections[0].items = [ { properties: { height: 50 }, loader: { indicatorColor: 'blue', visible: true } } ];
+    }, 1000);
+    </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17572.json">JSON Source</a></p>

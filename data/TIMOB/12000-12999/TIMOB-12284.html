@@ -1,0 +1,217 @@
+---
+title: "[TIMOB-12284] iOS: Sound player volume is really low, especially on device"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-02-21T20:25:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 04 API, 2013 Sprint 04</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-01-15T02:39:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-07-26T03:31:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+The volume of the sound player, especially on device, is really low; also setting the volume to 1.0 - loudest - does not make it very high. Volume does not depend on the device volume as well.
+
+<h4>Steps to reproduce</h4>
+Just create a Sound player and run the code on a device:
+
+<code><pre>
+var player = Ti.Media.createSound({
+    url:"sound.wav",
+    volume: 1.0
+});
+player.play();
+</pre></code>
+
+On the simulator the situation is a bit better, but overall the volume is quite low.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2013-02-21
+
+   The SoundProxy uses the applications shared audio session which can be configured through the Ti.Media module.
+   There are 4 audio session modes that can be used for playback.
+   Ti.Media.AUDIO_SESSION_MODE_AMBIENT - Sound directed through speakers. Ringer silent mutes volume.
+   Ti.Media.AUDIO_SESSION_MODE_SOLO_AMBIENT - Sound directed through speakers. Ringer silent mutes volume.
+   Ti.Media.AUDIO_SESSION_MODE_PLAYBACK - Sound directed through speakers. Ringer silent ignored.
+   Ti.Media.AUDIO_SESSION_MODE_PLAY_AND_RECORD - Sound directed through receiver. Ringer silent ignored. Not recommended for playback.
+   
+   However the volume of the SoundProxy is not tied to the hardware volume. It is actually a fraction of the current device volume. To change the volume of the device use the Ti.Media.appMusicPlayer and set the volume on that object.
+   
+   All these volume settings are of course limited by the volume of the sound file you are trying to play.
+   
+   I would suggest that you use set the Ti.Media.audioSessionMode property to one of Ti.Media.AUDIO_SESSION_MODE_AMBIENT, Ti.Media.AUDIO_SESSION_MODE_SOLO_AMBIENT, Ti.Media.AUDIO_SESSION_MODE_PLAYBACK,
+   set the player.volume=1.0 and set the Ti.Media.appMusicPlayer.volume=1.0.
+   
+   Sample Code below. Replace with your own sound file to see how things work together.
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor : 'white',
+   });
+   
+   var modes = [Ti.Media.AUDIO_SESSION_MODE_AMBIENT, Ti.Media.AUDIO_SESSION_MODE_SOLO_AMBIENT, Ti.Media.AUDIO_SESSION_MODE_PLAYBACK,Ti.Media.AUDIO_SESSION_MODE_PLAY_AND_RECORD]
+   
+   var mode = 0;
+   var view = Ti.UI.createView({
+   	layout:'vertical',
+   	height:Ti.UI.SIZE
+   })  
+   
+   var appMusicVolume = Ti.UI.createView({
+   	layout:'vertical',
+   	height:Ti.UI.SIZE
+   })
+   
+   var l1 = Ti.UI.createLabel({
+   	text:'APP MUSIC PLAYER VOLUME'
+   })
+   
+   var sl1 = Ti.UI.createSlider({
+   	min:0,
+   	max:1
+   })
+   
+   var playerVolume = Ti.UI.createView({
+   	layout:'vertical',
+   	height:Ti.UI.SIZE
+   })
+   
+   var l2 = Ti.UI.createLabel({
+   	text:'PLAYER VOLUME'
+   })
+   
+   var sl2 = Ti.UI.createSlider({
+   	min:0,
+   	max:1
+   })
+   
+   appMusicVolume.add(l1);
+   appMusicVolume.add(sl1);
+   playerVolume.add(l2);
+   playerVolume.add(sl2);
+   
+   
+   var b1 = Ti.UI.createButton({
+   	title:'PLAY FILE',
+   	top:10
+   })
+   
+   var b2 = Ti.UI.createButton({
+   	title:'SET AUDIO SESSION MODE',
+   	top:10
+   })
+   
+   var label = Ti.UI.createLabel({
+   	top:10,
+   	text:'SESSION MODE'
+   })
+   
+   var label2 = Ti.UI.createLabel({
+   	top:10,
+   	text:'VOLUME'
+   })
+   
+   
+   var getAudioSessionMode = function(){
+   	var sessionMode = Ti.Media.audioSessionMode;
+   	if (sessionMode == Ti.Media.AUDIO_SESSION_MODE_AMBIENT) {
+   		label.text = 'SESSION MODE AMBIENT'
+   	}
+   	else if (sessionMode == Ti.Media.AUDIO_SESSION_MODE_SOLO_AMBIENT) {
+   		label.text = 'SESSION MODE SOLO AMBIENT'
+   	}
+   	else if (sessionMode == Ti.Media.AUDIO_SESSION_MODE_PLAYBACK) {
+   		label.text = 'SESSION MODE PLAYBACK'
+   	}
+   	else if (sessionMode == Ti.Media.AUDIO_SESSION_MODE_PLAY_AND_RECORD) {
+   		label.text = 'SESSION MODE PLAY AND RECORD'
+   	}
+   	else if (sessionMode == Ti.Media.AUDIO_SESSION_MODE_RECORD) {
+   		label.text = 'SESSION MODE RECORD'
+   	}
+   	else {
+   		label.text = 'SESSION MODE UNKNOWN '+sessionMode
+   	}
+   }
+   
+   win.addEventListener('open',function(){
+   	getAudioSessionMode();
+   	sl1.value = Ti.Media.appMusicPlayer.volume;
+   	sl2.value = player.volume;
+   });
+   
+   view.add(appMusicVolume);
+   view.add(playerVolume);
+   view.add(b1);
+   view.add(b2);
+   view.add(label);
+   view.add(label2);
+   win.add(view);
+   win.open();
+   
+   var player = Ti.Media.createSound({
+       url:"cricket.wav",
+       volume: 1.0
+   });
+   
+   b1.addEventListener('click',function(){
+   	player.play();
+   })
+   
+   b2.addEventListener('click',function(){
+   	mode = mode % modes.length;
+   	player.stop();
+   	Ti.Media.setAudioSessionMode(modes[mode]);
+   	getAudioSessionMode();
+   	mode++;
+   })
+   
+   Ti.Media.addEventListener('volume',function(e){
+   	label2.text = 'VOLUME: '+e.volume;
+   	sl1.value = Ti.Media.appMusicPlayer.volume;
+   	sl2.value = player.volume;
+   })
+   
+   var sl1Valid = false;
+   sl1.addEventListener('touchstart',function(){
+   	sl1Valid = true;
+   })
+   sl1.addEventListener('touchend',function(){
+   	sl1Valid = false;
+   })
+   sl1.addEventListener('change',function(e){
+   	if(sl1Valid == true) {
+   		Ti.Media.appMusicPlayer.volume = e.value;
+   	}
+   })
+   var sl2Valid = false;
+   sl2.addEventListener('touchstart',function(){
+   	sl2Valid = true;
+   })
+   sl2.addEventListener('touchend',function(){
+   	sl2Valid = false;
+   })
+   sl2.addEventListener('change',function(e){
+   	if(sl2Valid == true) {
+   		player.volume = e.value;
+   	}
+   })
+   </pre></code></li>
+<li>Lee Morris 2017-07-26
+
+   Closing ticket as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12284.json">JSON Source</a></p>

@@ -1,0 +1,128 @@
+---
+title: "[TIMOB-11699] Ti.Facebook.authorize() fails to work after force close app while logged in"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-11T23:49:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 08</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>exalture</td></tr>
+<tr><th>Reporter</th><td>Jerod Fritz</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2012-11-07T15:09:58.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T21:37:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+1. Login with Facebook using Ti.Facebook.authorize();
+2. Call win.close() to exit the app while still logged in exitOnClose:true 
+3. Open app, user is already logged in to facebook.  Call Ti.Facebook.logout()
+4. Call Ti.Facebook.authorize() to relogin.  You may get the dialog to open and you're presented with a "Log In button from facebook, clicking that button takes you to username/password fields.  After authenticating in dialog window closes the facebook login event is never fired. It opens an error dialog window. Any subsequent calls to .authorize() you'll continue to get a flicker open /close behavior .  Close and Reopen of app remains in the flicker open/close state when trying to call authenticate(). 
+
+<code><pre>
+var win = Titanium.UI.createWindow({
+	title : 'Test',
+	backgroundColor : 'white',
+	exitOnClose : true
+});
+
+var btn = Ti.UI.createButton({
+	title : 'Close window'
+});
+btn.addEventListener('click', function() {
+	win.close();
+});
+
+Ti.Facebook.appid = "134793934930";
+Ti.Facebook.permissions = ['publish_stream'];
+// Permissions your app needs
+
+if (Ti.Facebook.loggedIn) {
+	alert('Logged into facebook');
+	Ti.Facebook.addEventListener('logout', function(e) {
+		alert('Logged out');
+	});
+	Ti.Facebook.logout();
+	Ti.Facebook.authorize();
+
+} else {
+	Ti.Facebook.addEventListener('login', function(e) {
+		if (e.success) {
+			alert('Logged In');
+		} else if (e.error) {
+			alert(e.error);
+		} else if (e.cancelled) {
+			alert("Canceled");
+		}
+	});
+	Ti.Facebook.authorize();
+}
+win.add(btn);
+win.open();
+
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ping Wang 2013-04-11
+
+   In the original test case, the event listener for 'login' is only added when not logged in. That's why it did not fire the 'login' event when you re-opened the app and re-logged in. 
+   From the SDK 3.1.0, facebook is a module. A modified test case is attached below:
+   <code><pre>
+   var facebook = require("facebook");
+   
+   var win = Titanium.UI.createWindow({
+       title : 'Test',
+       backgroundColor : 'white',
+       exitOnClose : true
+   });
+    
+   var btn = Ti.UI.createButton({
+       title : 'Close window'
+   });
+   btn.addEventListener('click', function() {
+       win.close();
+   });
+    
+   facebook.appid = "134793934930";
+   facebook.permissions = ['publish_stream'];
+   
+   facebook.addEventListener('login', function(e) {
+   	if (e.success) {
+   		alert('Logged In');
+   	} else if (e.error) {
+   		alert(e.error);
+   	} else if (e.cancelled) {
+   		alert("Canceled");
+   	}
+   }); 
+   
+   facebook.addEventListener('logout', function(e) {
+   	alert('Logged out');
+   }); 
+   
+   if (facebook.loggedIn) {
+       alert('Logged into facebook');
+       facebook.logout();
+       facebook.authorize();
+    
+   } else {
+       facebook.authorize();
+   }
+   win.add(btn);
+   win.open();
+   </pre></code>
+   Tested with latest master. facebook.authorize() works fine. Mark the ticket as Cannot reproduce.</li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as the issue cannot be reproduced and due to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11699.json">JSON Source</a></p>

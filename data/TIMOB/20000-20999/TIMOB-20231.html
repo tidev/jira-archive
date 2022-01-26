@@ -1,0 +1,112 @@
+---
+title: "[TIMOB-20231] Windows: Support handling differing capabilities between Windows 8.1/10"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-21T17:25:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>qe-5.3.0</td></tr>
+<tr><th>Reporter</th><td>Christopher Williams</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-01-13T20:45:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-05-20T18:13:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The list of capabilities specified in the appxmanifest has changed from 8.1 to 10. Some of them apply only to one version or the other, and some of the new ones require the tags be namespaced.
+
+Right now our support is basically to allow a passthrough of XML from trap.xml to the manifest to add more capability tags. But I'm not sure if we say use the new <code><uap:Capability Name="contacts"/></code> tag for Windows 10, if that will break a build for Windows 8.1. We may need to be smarter to filter out bad values for certain versions.
+Windows 10: <a href="https://msdn.microsoft.com/en-us/library/windows/apps/dn934783.aspx" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/dn934783.aspx</a>
+Windows 8.1: <a href="https://msdn.microsoft.com/en-us/library/windows/apps/dn423259.aspx" rel="nofollow" target="_blank">https://msdn.microsoft.com/en-us/library/windows/apps/dn423259.aspx</a>
+Windows Phone 8.1?: <a href="https://msdn.microsoft.com/library/windows/apps/hh464936.aspx#domain_credentials" rel="nofollow" target="_blank">https://msdn.microsoft.com/library/windows/apps/hh464936.aspx#domain_credentials</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-01-13
+
+   Windows 10 requires use of the <code><uap:Capability Name="contacts"/></code> tags to get access to contacts APIs.</li>
+<li>Kota Iguchi 2016-01-16
+
+   I would do like this, define new properties that specifies target platform and its version:
+   
+   <code><pre>
+   <windows>
+      <!-- For Windows Phone 8.1 -->
+       <manifest target="phone" target_version="8.1">
+           <Capabilities>
+               <Capability Name="location" />
+           </Capabilities>
+       </manifest>
+      <!-- For Windows 10 -->
+       <manifest target="store" target_version="10.0">
+           <Capabilities>
+               <uap:Capability Name="contacts"/>
+           </Capabilities>
+       </manifest>
+      <!-- Common properties across target -->
+       <manifest>
+           <Capabilities>
+               <Capability Name="internetClient" />
+           </Capabilities>
+       </manifest>
+   </windows>
+   </pre></code></li>
+<li>Christopher Williams 2016-01-20
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/534" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/534</a></li>
+<li>Christopher Williams 2016-01-21
+
+   For QE/testing/end users, I took the approach that Kota suggested, with a small tweak to the attribute name, I used "version". So you can specify a version of "8.1" or "10.0", and can specify a target of "phone" or "store". If no target or no version is specified, it's assumed to apply to both possible values for the missing attribute. I also implemented some filtering/handling - if the capability isn't in our whitelist for the platform/version we don't use it. If the capability needs some special namespace for the tag we handle that for you. Just use the non-namespaces <code><Capability /></code> tag.
+   <code><pre>
+   <windows>
+      <!-- For Windows Phone 8.1 -->
+       <manifest target="phone" version="8.1">
+           <Capabilities>
+               <Capability Name="appointments" />
+           </Capabilities>
+       </manifest>
+     <!-- For Windows Store 8.1 -->
+       <manifest target="store" version="8.1">
+           <Capabilities>
+               <Capability Name="musicLibrary" />
+           </Capabilities>
+       </manifest>
+      <!-- For Windows 10, Win 10 is universal so target doesn't matter here -->
+       <manifest version="10.0">
+           <Capabilities>
+               <Capability Name="contacts"/>
+           </Capabilities>
+       </manifest>
+      <!-- Common capabilities across targets and SDK versions, so Win 10, Win 8.1 Store and Win 8.1 Phone -->
+       <manifest>
+           <Capabilities>
+               <Capability Name="internetClient" />
+           </Capabilities>
+       </manifest>
+   </windows>
+   </pre></code></li>
+<li>Harry Bryant 2016-05-20
+
+   Verified as fixed, specifying targets for capabilities will affect only the specified platform. Tested on both 8.1 / 10 with <code>contacts</code> , <code>appointments</code>, <code>location</code> and verified under App Permissions / Privacy settings on device.
+   
+   Tested on: 
+   Windows 10 Pro 
+   Windows Phone 10.0 & 8.1 (Microsoft Lumia 640 LTE) 
+   Appc Studio: 4.6.0.201605030516
+   Ti SDK: 5.3.0.v20160517124218
+   Appc NPM: 4.2.5-5
+   Appc Core: 5.3.0-45
+   Node: v4.4.4
+   
+   *Closing Ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20231.json">JSON Source</a></p>

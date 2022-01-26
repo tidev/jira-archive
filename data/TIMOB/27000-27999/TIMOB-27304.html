@@ -1,0 +1,98 @@
+---
+title: "[TIMOB-27304] Android: Setting <uses-feature/> required "true" in "tiapp.xml" should override "false" setting in libraries"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-21T11:36:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.1.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, engSchedule, manifest, modules, xml</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-08-02T21:18:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-30T07:19:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The "AndroidManifest.xml" file's <code><uses-feature/></code> "android:required" attribute value can be set to <code>true</code> or <code>false</code>. When multiple manifests declare the same <code><uses-feature/></code>, the merge process must do a logical OR of these values. This means that if one of the manifest files sets it to <code>true</code>, it can be made <code>false</code> at the end of the XML merge. (The <code>true</code> setting wins.)
+<a href="https://developer.android.com/studio/build/manifest-merge" rel="nofollow" target="_blank">https://developer.android.com/studio/build/manifest-merge</a>
+
+When the Titanium build merges "timodule.xml" and "tiapp.xml" settings, it does not "OR" the "android:required" values. Instead the original "timodule.xml" value always wins. This means if the "timodule.xml" sets it <code>false</code>, the "tiapp.xml" is never able to set it <code>true</code>. (The reverse is not an issue though.)
+
+*Note:*
+The behavior of the XML merge has changed as of Titanium 8.0.2. Before 8.0.2, the "tiapp.xml" manifest settings used to blindly overwrite the "timodule.xml" manifest settings, which was not technically correct but did allow the "tiapp.xml" to override <code><uses-feature/></code> to <code>true</code> or <code>false</code> (it still wasn't <code>OR</code>ing the values though). Titanium 8.0.2 improved the merge to better follow Google's merging rules, but it is not <code>OR</code>ing the values which is what's needed.
+
+*Steps to reproduce:*
+<h4>Create a Classic Titanium app project.</h4>
+<h4>Add modules "ti.barcode" to "tiapp.xml". (Can download from [here](<a href="https://github.com/appcelerator-modules/ti.barcode).)" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.barcode).)</a></h4>
+<h4>Add the <code><uses-feature/></code> settings in "tiapp.xml" as shown below.</h4>
+<h4>Build for Android.</h4>
+<h4>Open Mac's "Finder" window. (Or "Windows Explorer" on Windows.)</h4>
+<h4>Go to project subdirectory: <code>./build/android</code></h4>
+<h4>Open file "AndroidManifest.xml".</h4>
+<h4>Observe its <code><uses-feature/></code> XML elements.</h4>
+
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+		<manifest>
+			<uses-feature android:name="android.hardware.camera" android:required="false"/>
+			<uses-feature android:name="android.hardware.touchscreen" android:required="true"/>
+		</manifest>
+	</android>
+	<modules>
+		<module platform="android">ti.barcode</module>
+	</modules>
+</ti:app>
+</pre></code>
+
+*Result:*
+The merged "AndroidManifest.xml" file's <code><uses-feature/></code> for "android.hardware.touchscreen" is <code>false</code> when it should be <code>true</code>.
+
+*Expected Result:*
+The <code><uses-feature/></code> for "android.hardware.touchscreen" should be <code>true</code>, not <code>false</code>. The values need to be <code>OR</code>'ed together.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-08-03
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11110" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11110</a>
+   PR (8.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11111" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11111</a>
+   </li>
+<li>Satyam Sekhri 2019-08-05
+
+   FR passed. Correct value of elements in manifest file based on OR(ing) of values from all the involved xml files.
+   Waiting for the merge of PR's</li>
+<li>Joshua Quick 2019-08-14
+
+   PR (8.3.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11146" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11146</a></li>
+<li>Satyam Sekhri 2019-08-14
+
+   FR Passed. Waiting on Jenkins build to pass.</li>
+<li>Christopher Williams 2019-08-20
+
+   Merged to master, 8_3_X and 8_1_X</li>
+<li>Samir Mohammed 2019-08-21
+
+   *Closing ticket* fix verified in SDK version <code>8.2.0.v20190820104021</code>, <code>8.1.1.v20190820143437</code> and <code>8.3.0.v20190820103430</code>.
+   
+   Test and other information can be found at:
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11110" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11110</a>
+   PR (8.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11111" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11111</a>
+   PR (8.3.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11146" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11146</a></li>
+<li>Pietro Granati 2019-08-30
+
+   Thank you for resolving this!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27304.json">JSON Source</a></p>

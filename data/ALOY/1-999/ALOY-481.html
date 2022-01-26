@@ -1,0 +1,129 @@
+---
+title: "[ALOY-481] Update all supported sync adapters to send correct parameters to success and error callbacks"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-01-22T22:22:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The success and error callbacks for sync adapters in alloy now do not conform to the expected returned parameters as specified by the Backbone docs, seen here: <a href="http://backbonejs.org/#Model-fetch" rel="nofollow" target="_blank">http://backbonejs.org/#Model-fetch</a>
+
+We need to update all supported adapters to send these parameters to the success and error callbacks.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-01-23
+
+   Changing the internal success/error handler signature appears to cause problems with backbone 0.9.2. We can revisit this issue when backbone is updated.</li>
+<li>Peter Eddy Pritchard 2014-10-05
+
+   I have updated my own projects to use 0.9.10 and latest underscore & underscore.deferred.
+   
+   I return a promise in my sync() functions.
+   
+   <a href="https://github.com/wookiehangover/underscore.Deferred" rel="nofollow" target="_blank">https://github.com/wookiehangover/underscore.Deferred</a> supports done(), fail(), always() and then(), which has proven completely awesome to work with.
+   
+   BTW >>> I test for options.success.length to see if the callback is looking for 1 or 3 params ... this is the major difference between 0.9.2 & 0.9.10.
+   
+   I have tested my latest code with the latest Backbone 1.1.2 & underscore 1.7.0, but I have nothing currently deployed running these versions.
+   
+   the sync() function I handle the success handler issue with:
+   
+   	var success = options.success;
+   	options.success = function(resp) {
+   		if( success.length>1 ) {
+       		success(model, resp, options);
+       	} else {
+       		success(resp);
+       	}
+      		model.trigger('sync', model, resp, options);
+   	};
+   
+   and then in alloy.js, I override Alloy.M & Alloy.C (and mixin underscore deferred and underscore string libraries:
+   
+   // The sync() function for Models and Collections should return a result ... otherwise fetch() and save(), etc
+   //  won't return a result ... unlike jQuery usage, which returns a jqXHR (a Deferred object)
+   Alloy.M = function(name, modelDesc, migrations) {
+       var config = modelDesc.config, type = (config.adapter ? config.adapter.type : null) || 'localDefault';
+       type === 'localDefault' && (type = 'sql');
+       var adapter = require('alloy/sync/' + type), extendObj = {
+           defaults: config.defaults,
+           sync: function(method, model, opts) {
+               var config = model.config || {}, adapterObj = config.adapter || {}, type = (config.adapter ? config.adapter.type : null) || 'localDefault';
+               type === 'localDefault' && (type = 'sql');
+               // Make sure to return the value from this ...
+               return require('alloy/sync/' + type).sync(method, model, opts);
+           }
+       }, extendClass = {};
+       migrations && (extendClass.migrations = migrations);
+       _.isFunction(adapter.beforeModelCreate) && (config = adapter.beforeModelCreate(config, name) || config);
+       
+       // Add support for custom super-class
+       var superClass = config.superClass || Backbone.Model;
+       var Model = superClass.extend(extendObj, extendClass);
+       Model.prototype.config = config;
+       _.isFunction(modelDesc.extendModel) && (Model = modelDesc.extendModel(Model) || Model);
+       _.isFunction(adapter.afterModelCreate) && adapter.afterModelCreate(Model, name);
+       return Model;
+   };
+   
+   Alloy.C = function(name, modelDesc, model) {	
+       // Add support for custom super-class
+       modelDesc.config = modelDesc.config || {};
+       var superClass = Backbone.Collection;
+       var extendObj = {
+           model: model,
+           sync: function(method, model, opts) {
+               // var config = model.config || {}, type = (config.adapter ? config.adapter.type : null) || "localDefault";
+               // type === "localDefault" && (type = "sql");
+               // Make sure to return the value from this ...
+               return this.adapter.sync(method, model, opts);
+           }
+       }, Collection = superClass.extend(extendObj), config = Collection.prototype.config = model.prototype.config;
+       
+       var _adapter = config.collection_adapter || config.adapter || {type:"localDefault"};
+       var type = _adapter.type;  
+       Collection.prototype.adapter = require("alloy/sync/" + type);
+       var adapter = require("alloy/sync/" + type);
+       
+       _.isFunction(adapter.afterCollectionCreate) && adapter.afterCollectionCreate(Collection);
+       _.isFunction(modelDesc.extendCollection) && (Collection = modelDesc.extendCollection(Collection) || Collection);
+       
+       return Collection;
+   };
+   
+   // Replace Backbone.Model with Associated.Model for nested object support
+   var AssociatedModel = require('backbone-associations').AssociatedModel;
+   var BackboneModel = Backbone.Model;
+   Backbone.Model = AssociatedModel;
+   
+   // Add support for deferreds
+   Alloy._.mixin( require('underscore.deferred') );
+   
+   // Import Underscore.string to separate object, because there are conflict functions (include, reverse, contains)
+   Alloy._.mixin( require('underscore.string') );
+   </li>
+<li>Peter Eddy Pritchard 2014-10-05
+
+   sorry for the "code in comment".  the point of the code dump was to show that I had to override Alloy.M & Alloy.C to return the value obtained from sync().  The other bits are things I drop into every Alloy project I work on.  (Backbone without promises is not Backbone) </li>
+<li>Peter Eddy Pritchard 2014-10-05
+
+   And that I allow for a configurable Model super class as well</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-481.json">JSON Source</a></p>

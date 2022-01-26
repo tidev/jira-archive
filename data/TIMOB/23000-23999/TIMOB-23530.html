@@ -1,0 +1,204 @@
+---
+title: "[TIMOB-23530] Hyperloop - IPHONEOS_DEPLOYMENT_TARGET of 7.0 despite value of min-ios-ver in tiapp.xml"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-06-29T01:52:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>hyperloop, swift</td></tr>
+<tr><th>Reporter</th><td>Ron Piwetz</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-06-10T15:05:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-02T22:20:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I've set  <code>min-ios-ver</code> to 9.0 within tiapp.xml, and when running <code>appc ti build</code> I can see an INFO message of <code>Minimum iOS version: 9.0</code>
+
+When it gets to the Hyperloop section, I see a TRACE message of 
+{noformat}
+[Hyperloop] CocoaPods     IPHONEOS_DEPLOYMENT_TARGET = 7.0
+{noformat}
+
+I believe this is leading to parameter of <code>-target x86_64-apple-ios7.0</code> being set during swift compilation, causing an error for the particular pod I am trying to use (ImagePicker)
+
+One of the errors:
+
+{noformat}
+error: 'dispatch_queue_attr_make_with_qos_class' is only available on iOS 8.0 or newer 
+{noformat}
+
+There are lots more like this in the logs
+
+Recreating this error can be done by using a Podfile with the below contents:
+
+<code><pre>
+use_frameworks!
+platform :ios, '9.0'
+target 'Hyperloop_Sample' do
+	pod 'ImagePicker'
+end
+</pre></code>
+
+
+I have copy/pasted the failing swift build command, replaced the <code>-target x86_64-apple-ios7.0</code> with <code>-target x86_64-apple-ios9.0</code> and it completes successfully.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23530_59581/build_iphone.log">build_iphone.log</td></td><td>2016-06-15T19:42:06.000+0000</td><td>75504</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-06-15
+
+   Hello, Could you explain a little more about how you are seeing the issue. I tried to test the hyperloop 1.2.0 which I see it build fine. Please where you are making the modification in tiapp.xml and please provide the error log. 
+   
+   Regards,
+   Sharif.</li>
+<li>Ron Piwetz 2016-06-15
+
+   in tiapp.xml, add <min-ios-ver>9.0</min-ios-ver> inside of the <ios> block
+   
+   You used the Podfile I provided and it built?</li>
+<li>Ron Piwetz 2016-06-15
+
+   I attached my build log file.  In it, you can see on line 483 where xcodebuild is being called with <code>-alltargets IPHONEOS_DEPLOYMENT_TARGET=7.0</code>
+   
+   which leads to line 486 of <code>[Hyperloop] CocoaPods     IPHONEOS_DEPLOYMENT_TARGET = 7.0</code>
+   
+   so then on line 498, you see <code>-target x86_64-apple-ios7.0</code> but if i change that target to be <code>x86_64-apple-ios9.0</code> instead it works
+   
+   You can also see 10 instances of <code>error: 'XXXXXX' is only available on iOS 8.0 or newer</code></li>
+<li>Brenton House 2016-06-15
+
+   [~cng] Do you know if this will be in the GA build of Hyperloop coming out?</li>
+<li>Hans Knöchel 2016-06-15
+
+   Did you make sure you set it inside the Podile (which has the 7.0 by default). See hyperloop-examples:
+   <code><pre>
+   platform :ios, '7.0'
+   target 'Hyperloop_Sample' do
+   	pod 'JBChartView'
+   	pod 'GLCalendarView', '~> 1.2'
+   	pod 'Shimmer'
+   end
+   </pre></code>
+   
+   Changing that to 9.0 should do it.</li>
+<li>Ron Piwetz 2016-06-15
+
+   As shown in the original report, I have it set to 9.0 in the Podfile, but hyperloop is being told to use 7.0</li>
+<li>Hans Knöchel 2016-06-15
+
+   Right. So the <code>IOS_MIN</code> inside <code>plugins/hyperloop/<version>/hooks/ios/hyperloop.js</code> is currently used hardcoded, although it should use the <code><min-ios-ver/></code> if existing.</li>
+<li>Hans Knöchel 2016-06-15
+
+   PR to use <code>this.builder.minIosVer</code> instead of <code>MIN_IOS</code> in the CLI: <a href="https://github.com/appcelerator/hyperloop.next/pull/36" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/36</a></li>
+<li>Chee Kiat Ng 2016-06-17
+
+   [~hansknoechel] Steps to test please.</li>
+<li>Hans Knöchel 2016-06-17
+
+    *Steps to test*:
+    1. Use the [hyperloop-examples](<a href="https://github.com/appcelerator/hyperloop-examples)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop-examples)</a> project and replace the Hyperloop module & plugin from [here](<a href="https://github.com/appcelerator/hyperloop.next/releases)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/releases)</a>
+    2. Paste <code><min-ios-ver>9.0</min-ios-ver></code> inside the <code><ios/></code> section of the tiapp.xml
+    3. Paste the following inside the <code>Podfile</code>:
+    <code><pre>
+    use_frameworks!
+    platform :ios, '9.0'
+    target 'Hyperloop_Sample' do
+    	pod 'ImagePicker'
+    end
+    </pre></code>
+    4. Run the project
+    
+    *Expected result*: The project does not fail
+    
+    *Note* Don't use cocoapods 1.0.0 as this doesn't work with hyperloop at the moment. use cocoa pods 0.39.0 instead. If you want to downgrade the version, refer to this link:
+    <a href="http://stackoverflow.com/questions/20487849/downgrading-or-installing-older-version-of-cocoapods" rel="nofollow" target="_blank">http://stackoverflow.com/questions/20487849/downgrading-or-installing-older-version-of-cocoapods</a></li>
+<li>Ron Piwetz 2016-06-24
+
+    </li>
+<li>Chee Kiat Ng 2016-06-26
+
+    <h4>Smaller test case for PR</h4>
+    1. *appc new -n testPod --classic*
+    2. Install hyperloop module from [here](<a href="https://github.com/appcelerator/hyperloop.next/releases)" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/releases)</a>
+    3. Paste <code><min-ios-ver>9.0</min-ios-ver></code> inside the <code><ios/></code> section of the tiapp.xml
+    4. Paste the following inside the <code>Podfile</code> in root of project:
+    <code><pre>
+    use_frameworks!
+    platform :ios, '9.0'
+    target 'testPod' do
+    	pod 'ImagePicker'
+    end
+    </pre></code>
+    5. Include this in tiapp.xml
+    <code><pre>
+      <modules>
+        <module>hyperloop</module>
+      </modules>
+      <plugins>
+        <plugin>hyperloop</plugin>
+      </plugins>
+    </pre></code>
+    6. *appc run -p ios*
+    
+    <h4>Expected result</h4>
+    The project will build successfully
+    
+    *Note* Don't use cocoapods 1.0.0 as this doesn't work with hyperloop at the moment. use cocoa pods 0.39.0 instead. If you want to downgrade the version, refer to this link:
+    <a href="http://stackoverflow.com/questions/20487849/downgrading-or-installing-older-version-of-cocoapods" rel="nofollow" target="_blank">http://stackoverflow.com/questions/20487849/downgrading-or-installing-older-version-of-cocoapods</a>
+    
+    [~hansknoechel] Your fix removed the swift error in this ticket, but with my reproduce steps, I encountered a different error:
+    <code><pre>
+    [TRACE] ld: framework not found ImagePicker
+    [TRACE] clang: error: linker command failed with exit code 1 (use -v to see invocation)
+    [ERROR] ** BUILD FAILED **
+    [ERROR] The following build commands failed:
+    [ERROR]         Ld build/Products/Debug-iphonesimulator/SGTestCocoa.app/SGTestCocoa normal x86_64
+    [ERROR] (1 failure)
+    </pre></code>
+    
+    Can you please check to see what's wrong? could it be my configuration?</li>
+<li>Hans Knöchel 2016-06-29
+
+    As discussed in TIMOB-23570, the above-described issue is another issue that should be handled independently from this one, so we can put it into 5.4.0. </li>
+<li>Wilson Luu 2016-07-20
+
+    [~hansknoechel], [~cng], TIMOB-23570 is blocking us from verifying this ticket. If we want this fix to be in 5.4.0, should TIMOB-23570 be fixed first and put into 5.4.0?</li>
+<li>Chee Kiat Ng 2016-07-21
+
+    </li>
+<li>Wilson Luu 2016-08-02
+
+    Close ticket as fixed. Verified that <code><min-ios-ver></code> is being respected during build.
+    
+    *Note:* Needed to apply the workaround from TIMOB-23671 since I started encountering the segfault issue.
+    
+    Tested on:
+    
+    Appc CLI NPM: 4.2.7
+    Appc CLI Core: 5.4.0-37
+    Arrow: 1.8.2
+    SDK: 5.4.0.v20160801022303
+    Node: v4.4.7
+    OS: Mac OS X (10.11.6)
+    Xcode: 7.3.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23530.json">JSON Source</a></p>

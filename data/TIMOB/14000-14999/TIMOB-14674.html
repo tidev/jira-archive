@@ -1,0 +1,189 @@
+---
+title: "[TIMOB-14674] Android: avoid code re-execution when opening app from a local notification"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-13T22:06:03.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 17, 2013 Sprint 17 API, 2013 Sprint 19 API</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2013-07-26T14:17:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T21:54:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+When an application goes into background, and a local notification is shown, there is need to be able to click the notification and reopen the app without re-executing its app.js code. The use case is this:
+
+1) the application has 2 features: download files and play music files
+2) when playing a file, if the app goes in background, a local notification will show the current play status
+3) while a file is downloading, a local notification will show the status
+4) when the user clicks on the notification, a specific page is open (e.g. the details of the download if you click the download notification, or the music details if you click the playing notification)
+5) as the app reopens from background, the user needs to be able to control the variables, e.g. the audio player, stop the download etc.
+
+<h4>Code tested</h4>
+The following code has been tested:
+
+<code><pre>
+var tabgroup = Ti.UI.createTabGroup();
+
+var win = Ti.UI.createWindow({
+	backgroundColor : 'black',
+	layout : 'vertical'
+});
+
+var btn = Ti.UI.createButton({
+	title : 'Notify'
+});
+btn.addEventListener('click', function(e) {
+	// Intent object to launch the application
+	var intent = Ti.Android.createIntent({
+		flags : Ti.Android.FLAG_UPDATE_CURRENT,
+		className : 'com.appcelerator.davide.testapp.TestappActivity'
+	});
+	intent.addCategory(Ti.Android.CATEGORY_LAUNCHER);
+	intent.putExtra(Ti.Android.EXTRA_TEXT, "notification");
+
+	// Create a PendingIntent to tie together the Activity and Intent
+	var pending = Titanium.Android.createPendingIntent({
+		intent : intent,
+		flags : Titanium.Android.FLAG_UPDATE_CURRENT
+	});
+
+	// Create the notification
+	var notification = Titanium.Android.createNotification({
+		contentTitle : 'Something Happened',
+		contentText : 'Click to return to the application.',
+		contentIntent : pending
+	});
+	// Send the notification.
+	Titanium.Android.NotificationManager.notify(1, notification);
+});
+
+var btn2 = Ti.UI.createButton({
+	title : 'Play sound'
+});
+btn2.addEventListener('click', function(e) {
+	var music = Ti.Media.createAudioPlayer({
+		url : "/somesong.mp3",
+		autoplay : true,
+		allowBackground : true
+	});
+	music.play();
+});
+
+win.add(btn);
+win.add(btn2);
+
+var tab = Ti.UI.createTab({
+	window : win,
+	title : 'Tab 1'
+});
+
+tabgroup.addTab(tab);
+tabgroup.open();
+
+tabgroup.addEventListener('open', function() {
+	tabgroup.getActivity().addEventListener('resume', function(e) {
+		//var intent = e.source.intent;
+		var activity = Ti.Android.currentActivity;
+		var intent = activity ? activity.intent : null;
+
+		if (intent) {
+			Ti.API.info("intent: " + JSON.stringify(intent));
+			var notification = false;
+			if (intent.hasExtra(Ti.Android.EXTRA_TEXT) && (intent.getStringExtra(Ti.Android.EXTRA_TEXT) == "notification")) {
+				notification = true;
+				intent.putExtra(Ti.Android.EXTRA_TEXT, "");
+				// remove the EXTRA_TEXT once captured
+			}
+
+			if (notification == true) {
+				// operations to be performed when the app is open from the notification
+				alert('Coming from a notification');
+			} else {
+				alert('Just resumed the app');
+			}
+		}
+	});
+});
+</pre></code>
+
+The problem here, is that the user comes back to the app and the code is re-executed; this means there is no more way to control the music player. If the player is outside the button callback, the audio is re-created and plays again when reopening the app.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ping Wang 2013-08-15
+
+   [~dcassenti], the code you attached is not runnable. When I click the 'Notify' button, it crashes with the runtime error:
+   <code><pre>
+   E/TiExceptionHandler(12812): (main) [40,145835] ----- Titanium Javascript Runtime Error -----
+   E/TiExceptionHandler(12812): (main) [0,145835] - In app.js:13,29
+   E/TiExceptionHandler(12812): (main) [0,145835] - Message: Uncaught Error: Missing class for name: com.appcelerator.davide.apptest.ApptestActivity
+   E/TiExceptionHandler(12812): (main) [0,145835] - Source:     var intent = Ti.Android.createIntent({
+   </pre></code>
+   Is ApptestActivity your main activity? What do you mean by 'cannot get the handle to the "music" element'?
+   I tested the code. After clicking the 'Play music' and 'Notify' button, I backgrounded the app. And then I clicked the notification, the app was launched, the music continued playing and the alert "Coming from a notification" showed. Not sure what is the issue you described.</li>
+<li>Ping Wang 2013-08-16
+
+   [~dcassenti], in you test case, you actually want to bring the tabgroup activity to front. But tabgroup activity which is 'org.appcelerator.titanium.TiActivity' is not the same as the launch activity which is 'com.appcelerator.davidecassenti.apptest.ApptestActivity'. So if you modify line 14 and 15 to 
+   <code><pre>
+   flags : Ti.Android.FLAG_ACTIVITY_SINGLE_TOP
+   className : 'org.appcelerator.titanium.TiActivity'
+   </pre></code> and remove line 17, the test case will work as expected.
+   
+   By setting the flag as [FLAG_ACTIVITY_SINGLE_TOP](<a href="http://developer.android.com/reference/android/content/Intent.html#FLAG_ACTIVITY_SINGLE_TOP)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/content/Intent.html#FLAG_ACTIVITY_SINGLE_TOP)</a>, it will not start a new instance of the tabgroup activity every time clicking the local notification but just bring the running activity to front. Therefore, even we go back to the app by clicking the notification we still see the alert "Just resumed the app". 
+   
+   Please take a look at those [activity flags](<a href="http://developer.android.com/reference/android/content/Intent.html#FLAG_ACTIVITY_BROUGHT_TO_FRONT)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/content/Intent.html#FLAG_ACTIVITY_BROUGHT_TO_FRONT)</a> and play it a little bit and you will find different flags give you different results.
+   
+   In addition, since the activities for all the heavyweight windows and tabgroups have the same java class name "org.appcelerator.titanium.TiActivity", if there are several HW windows / tabgroup, I don't think you can bring one specific window/tabgroup which is not running at the top of the stack to front. And even you can, I don't think that's a good idea because it may re-order the activities in the stack and may cause some unexpected behavior/errors (refer to [this doc](<a href="http://developer.android.com/guide/components/tasks-and-back-stack.html)" rel="nofollow" target="_blank">http://developer.android.com/guide/components/tasks-and-back-stack.html)</a> for more details). Therefore, if you want to start a specific activity after clicking the notification, I suggest to use the [url](<a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.Android.Intent-property-url) property when you create an intent.
+   
+   Resolve the ticket as Invalid.</li>
+<li>Ping Wang 2013-08-19
+
+   [~dcassenti], I already explained the alert message in my last comment.</li>
+<li>Ingo Muschenetz 2013-09-03
+
+   Sounds like there are still some unanswered issues here.</li>
+<li>Ping Wang 2013-09-13
+
+   Here are several posts discussing "What Exactly Happens When You Swipe An Android App From the Recent Apps List":
+   <a href="http://www.howtogeek.com/169549/what-exactly-happens-when-you-swipe-an-android-app-from-the-recent-apps-list/" rel="nofollow" target="_blank">http://www.howtogeek.com/169549/what-exactly-happens-when-you-swipe-an-android-app-from-the-recent-apps-list/</a>
+   <a href="http://lifehacker.com/what-happens-when-you-remove-an-app-from-androids-mult-1179868228" rel="nofollow" target="_blank">http://lifehacker.com/what-happens-when-you-remove-an-app-from-androids-mult-1179868228</a>
+   Basically, swiping app away from the recent app list will kill any background or empty processes of the application but it won't stop the running services or remove the notifications from the status bar.
+   In Davide's example, swiping the app away from the recent app list actually kills the root activity of the application, so the notification cannot launch the jsActivity successfully.
+   The solution is to remove the notifications when the app is swiped away from the recent apps list. Filed a new ticket for that feature TIMOB-15180. Resolved this ticket.</li>
+<li>Ping Wang 2013-09-13
+
+   [~dcassenti], I already submitted a PR <a href="https://github.com/appcelerator/titanium_mobile/pull/4687" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4687</a> for TIMOB-15180. Once that is merged, you can add a service in the app.js, eg.
+   <code><pre>
+   var intent = Titanium.Android.createServiceIntent( { url: 'service.js' } );
+   Ti.Android.startService(intent);
+   </pre></code>
+   and in the service.js, cancel all the notifications inside the event listener for the "taskremoved" event, eg.
+   <code><pre>
+   var service = Titanium.Android.currentService;
+   var intent = service.intent;
+   
+   service.addEventListener("taskremoved", function(){
+   	Ti.Android.NotificationManager.cancelAll();
+   	Ti.Android.stopService(intent);
+   });
+   
+   Titanium.API.info("Hello World!  I am a Service.");
+   </pre></code></li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as invalid with reference to previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14674.json">JSON Source</a></p>

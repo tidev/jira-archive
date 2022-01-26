@@ -1,0 +1,178 @@
+---
+title: "[TIMOB-9991] Android: links inside a WebView don't work with some particular text length"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-08-13T22:58:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.2, Release 2.1.0, Release 3.0.0, Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 17, 2013 Sprint 17 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, exalture, module_webview, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2012-07-17T05:37:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-13T14:40:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+Some links inside a WebView with Android 4.0.4 are not working. The problem seems to be related to the length of the text inside the link.
+
+<h4>Steps to reproduce</h4>
+- Create an app with the files below
+- Run the app on Android 4.0.4
+- Click the links
+
+app.js
+<code><pre>
+
+var win1 = Ti.UI.createWindow({
+    title: 'string',
+    backgroundColor: '#fff',
+    layout: 'vertical'
+});
+
+
+var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, 'test2.html');
+var markup = file.read ().toString ();
+
+var wv1 = Ti.UI.createWebView ({
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    scalesPagesToFit: true, 
+    //lightTouchEnabled: false, 
+    enableZoomControls: false,
+    html: markup
+});
+
+win1.add (wv1);
+
+win1.open ();
+</pre></code>
+
+test2.html
+<code><pre>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Test</title>
+<meta name="viewport" content="width=320, user-scalable=no, target-densitydpi=device-dpi"/>
+</head>
+<body>
+<div>
+
+<script type="text/javascript">
+function clickhandler (msg) {
+   alert (msg);
+}
+</script>
+
+<p>Test 1:</p>
+<a href="#" onclick="clickhandler ('1'); return false;">XXXX XXXXX XXXXX XX<br />
+XXX XXX<br />
+XXXXXXX, XX XXXXX</a>
+
+<p>Test 2:</p>
+<a href="#" onclick="clickhandler ('2'); return false;">2109 Avent Ferry Rd<br />
+Ste 110<br />
+Raleigh, NC 27606</a>
+
+<p>Test 3:</p>
+<a href="#" onclick="clickhandler ('3'); return false;">2109 Avent Ferry Rd, Ste 110<br />
+Raleigh, NC 27606</a>
+
+<p>Test 4:</p>
+<a href="#" onclick="clickhandler ('4'); return false;">line 1 line 1 line 1 line 1<br />
+line 2 line 2 line 2 line 2<br />
+line 3 line 3 line 3 line 3</a>
+
+</div></body></html>
+</pre></code>
+
+<h4>Expected behavior</h4>
+All the links work well
+
+<h4>Current behavior</h4>
+The first two links are not working; the user just gets a visual feedback, but the javascript function is not called.
+
+<h4>Additional links</h4>
+I've found a problem that looks similar: <a href="http://code.google.com/p/android/issues/detail?id=33651" rel="nofollow" target="_blank">http://code.google.com/p/android/issues/detail?id=33651</a>
+
+<h4>Customer ticket</h4>
+<a href="http://support.appcelerator.com/tickets/APP-618179" rel="nofollow" target="_blank">http://support.appcelerator.com/tickets/APP-618179</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Thomas Huelbert 2012-07-17
+
+   no mention if this is a regression, Eric please add the required information to the bug</li>
+<li>Eric Merriman  2012-07-17
+
+   This appears to NOT be a regression based on affected versions.</li>
+<li>Davide Cassenti 2012-07-18
+
+   The bug doesn't seem a regression; I tested using SDK 2.0.1, 2.0.2 and 2.1.0, and the problem is the same.</li>
+<li>Josh Roesslein 2012-07-25
+
+   Yes we do appear to enable the "setLightTouchEnabled" setting when we create the web view.
+   I would agree this is an Android bug and probably is the same as 33651.
+   
+   WebSettings.setLightTouchEnabled() documentation:
+     "Enables using light touches to make a selection and activate mouseovers."
+   
+   From that description we probably added this to enable text selection.
+   The solution might be to expose this setting to our developers.</li>
+<li>Shameer Jan 2013-03-15
+
+   The problem reproduces with release 3.0.2 and master release 3.1.0
+   If we continuously clicking on the link then it works fine but its not consistant. 
+   tested on
+   
+   Titanium Studio, build: 3.0.2.201302191606
+   Titanium SDK version: 3.1.0 
+   Titanium SDK version: 3.0.2 
+   Device: Samsung galaxy s duos Android version: 4.0.4
+   Android Emulator: Android SDK version: 2.2
+   iOS iPhone Simulator: iOS SDK version: 6.0
+   
+   It works fine on IOS iphone simulator</li>
+<li>Sunila 2013-08-01
+
+   Added a new Android only property to reset 'lightTouchEnabled'
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4520" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4520</a>
+   </li>
+<li>Hieu Pham 2013-08-13
+
+   Testing steps:
+   1. Run code in description to reproduce the fail case. 
+   2. Uncomment 'lightTouchEnabled: false' line
+   3. Run code again. Should work as expected.
+   </li>
+<li>Sunila 2013-08-13
+
+   Pull request updated with changes to take care of the review comments regarding docs</li>
+<li>Dhirendra Jha 2013-10-22
+
+   Test Environment - 
+   Appc Studio - 3.2.0.201310181700
+   SDK - 3.2.0.v20131021142445
+   acs - 1.0.7
+   alloy - 1.2.2
+   titanium - 3.2.0
+   titanium-code-processor - 1.0.3
+   Xcode - 5.0
+   OS - Mountain Lion (10.8.5)
+   Devices - Nexus 4(v4.0.4), Nexus7(v4.2.1)
+   Result - Now all the links are working fine. Hence closing this issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9991.json">JSON Source</a></p>

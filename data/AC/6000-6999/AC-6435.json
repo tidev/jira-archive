@@ -1,0 +1,94 @@
+{
+	"id": "174429",
+	"key": "AC-6435",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2019-11-15T14:11:18.000+0000",
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2020-01-21T12:24:23.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "15000",
+				"name": "Hyperloop"
+			}
+		],
+		"description": "I'm trying to use Firebase Firestore (a real-time database) through Hyperloop on Android by using the Firebase SDK.\r\n\r\nWhen a Firestore Collection (query) is fetched ^1^, a generic Object is returned. In order to access data stored in this Object we must be able to execute its methods ^2^, such as `getDocuments()` or be able to iterate over it. As suggested by Hyperloop docs ^3^, the correct procedure is to \"Cast\" the generic Object in order to access its custom methods and attributes. But the following error shows up when attempting to cast a QuerySnaphot:\r\n```\r\nHyperloopProxy: (main) [985,7274] Unable to find matching constructor for class: com.google.firebase.firestore.QuerySnapshot, args: [com.google.firebase.firestore.QuerySnapshot@7341330]\r\n```\r\n\r\nSteps to reproduce:\r\nDeploy a Firestore instance on Firebase, manually create a collection called \"test\" and 1 or 2 documents inside it. Install the following package available in the Maven repo using Gradle 'com.google.firebase:firebase-firestore:19.0.2' \r\n\r\nThen run the following code on a Appcelerator Android app (there are several printouts in order to check the kind of objects we are dealing with):\r\n\r\n{code:javascript}\r\nvar FirebaseApp = require('com.google.firebase.FirebaseApp');\r\nvar FirebaseOptions = require('com.google.firebase.FirebaseOptions');\r\nvar Activity = require('android.app.Activity');\r\nvar OnCompleteListener = require('com.google.android.gms.tasks.OnCompleteListener');\r\nvar FirebaseFirestore = require('com.google.firebase.firestore.FirebaseFirestore');\r\nvar activity = new Activity(Ti.Android.rootActivity);\r\nvar builder = new FirebaseOptions.Builder()\r\n              .setApplicationId('Your_ApplicationId')\r\n\t\t\t        .setApiKey('Your_setApiKey')\r\n\t\t\t\t      .setProjectId('Your_ProjectId')\r\n\t\t\t\t      .setGcmSenderId('Your_GcmSenderId');\r\n\r\nFirebaseApp.initializeApp(\r\n  activity.getApplicationContext(),\r\n  builder.build(),\r\n  'test'\r\n);\r\n\r\nvar firebaseAppInstance = FirebaseApp.getInstance('test');\r\nvar db = FirebaseFirestore.getInstance(firebaseAppInstance);\r\n\r\nvar docRef = db.collection('test')\r\n\r\ndocRef.get().addOnCompleteListener(new OnCompleteListener({\r\n\tonComplete: function(task) {\r\n    if(task.isSuccessful()) {\r\n      var collection = task.getResult();\r\n      Ti.API.info('collection object');\r\n      Ti.API.info(collection)\r\n\r\n      Ti.API.info('collection getOwnPropertyNames');\r\n      Ti.API.info('----------\\n');\r\n      Ti.API.info(Object.getOwnPropertyNames(collection));\r\n\r\n      Ti.API.info('----------\\n');\r\n\r\n      Ti.API.info('collection values');\r\n      Ti.API.info(Object.values(collection));\r\n\r\n      Ti.API.info('for item in collection');\r\n      for (item in collection) {\r\n        Ti.API.info(item)\r\n      }\r\n\r\n      Ti.API.info('----------\\n');\r\n      Ti.API.info('collection Array.from');\r\n\r\n      var arr = Array.from(collection);\r\n\r\n      Ti.API.info('collection for');\r\n        for (var i = 0, j = arr.length; i < j; i++) {\r\n          Ti.API.info(arr[i])\r\n        }\r\n\r\n      Ti.API.info('----------\\n');\r\n\r\n      Ti.API.info('Try casting')\r\n      var QuerySnapshot = require('com.google.firebase.firestore.QuerySnapshot');\r\n      querySnapshot = new QuerySnapshot(collection);\r\n{code}\r\n\r\nOutput:\r\n```\r\n[INFO] :   ----------\r\n[INFO] :   collection object\r\n[INFO] :   com.google.firebase.firestore.QuerySnapshot@7341330\r\n[INFO] :   collection getOwnPropertyNames\r\n[INFO] :   ----------\r\n[INFO] :   $native,_hasPointer,_private\r\n[INFO] :   ----------\r\n[INFO] :   collection values\r\n[INFO] :   [object Instance],true,[object Object]\r\n[INFO] :   for item in collection\r\n[INFO] :   $native\r\n[INFO] :   _hasPointer\r\n[INFO] :   _private\r\n[INFO] :   className\r\n[INFO] :   getClass\r\n[INFO] :   wait\r\n[INFO] :   hashCode\r\n[INFO] :   equals\r\n[INFO] :   notifyAll\r\n[INFO] :   clone\r\n[INFO] :   toString\r\n[INFO] :   finalize\r\n[INFO] :   notify\r\n[INFO] :   ----------\r\n[INFO] :   collection Array.from\r\n[INFO] :   collection for\r\n[INFO] :   ----------\r\n[INFO] :   Try casting\r\n[ERROR] :  HyperloopProxy: (main) [985,7274] Unable to find matching constructor for class: com.google.firebase.firestore.QuerySnapshot, args: [com.google.firebase.firestore.QuerySnapshot@7341330]\r\n```\r\n\r\nAs a workaround, I tried to access the documents inside this collection using 'com.google.common.collect.Lists' (which converts an iterable to a Java array). But the documents are generic Objects as well and the same error shows up when trying to cast them.\r\n\r\nReferences:\r\n1 - https://firebase.google.com/docs/firestore/query-data/get-data#get_multiple_documents_from_a_collection\r\n2 - https://firebase.google.com/docs/reference/android/com/google/firebase/firestore/QuerySnapshot\r\n3 - https://wiki.appcelerator.org/display/guides2/Android+Hyperloop+Programming+Guide#AndroidHyperloopProgrammingGuide-Casting",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Hyperloop object Casting not working on Android",
+		"creator": {
+			"name": "gmst",
+			"key": "gmst",
+			"displayName": "Gabriel S.",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "gmst",
+			"key": "gmst",
+			"displayName": "Gabriel S.",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Operating System\r\n  Name                        = Mac OS X\r\n  Version                     = 10.14.6\r\n  Architecture                = 64bit\r\n  # CPUs                      = 4\r\n  Memory                      = 8.0GB\r\n\r\nNode.js\r\n  Node.js Version             = 8.9.1\r\n  npm Version                 = 5.5.1\r\n\r\nAppcelerator CLI\r\n  Installer                   = 4.2.15\r\n  Core Package                = 7.1.1\r\n\r\nTitanium CLI\r\n  CLI Version                 = 5.2.1\r\n  node-appc Version           = 0.2.49\r\n\r\nTitanium SDKs\r\n  8.2.1.GA\r\n    Version                   = 8.2.1\r\n    Install Location          = /Users/user/Library/Application Support/Titanium/mobilesdk/osx/8.2.1.GA\r\n    Platforms                 = iphone, android\r\n    git Hash                  = d03b87890d\r\n    git Timestamp             = 10/25/2019 14:06\r\n    node-appc Version         = 0.3.4\r\n  \r\n\r\nMac OS X\r\n  Command Line Tools          = installed\r\n\r\nIntel® Hardware Accelerated Execution Manager (HAXM)\r\n  Not installed\r\n\r\nJava Development Kit\r\n  Version                     = 1.8.0_161\r\n\r\nHyperloop = 4.0.4",
+		"comment": {
+			"comments": [
+				{
+					"id": "453752",
+					"author": {
+						"name": "gmst",
+						"key": "gmst",
+						"displayName": "Gabriel S.",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Shouldn't this issue be assigned to somebody?",
+					"updateAuthor": {
+						"name": "gmst",
+						"key": "gmst",
+						"displayName": "Gabriel S.",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2020-01-21T12:24:23.000+0000",
+					"updated": "2020-01-21T12:24:23.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,344 @@
+---
+title: "[TIMOB-15889] iOS: Memory leak on iOS when items in section are changed on ListView after ListView has been created"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-21T22:42:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 04, 2014 Sprint 04 API, Release 3.2.2, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_listview, qe-3.2.2, qe-manualtest, triage</td></tr>
+<tr><th>Reporter</th><td>Philippe Wueger</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-11-23T21:12:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-08-08T17:30:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+iOS: Memory leak on iOS when items in section are changed on ListView after ListView has been created.
+(Not tested on Android.)
+
+<h4>Test case</h4>
+
+* Run the app below in Instruments and profile memory usage
+* With every opening of the window containing the list view, 12 TiUILabelProxy and TiUIListItemProxy objects are allocated and never freed again.
+* Only setting all the sections again on the list view via "listView.setSections()" (Variant 4 in code below) prevents a memory leak
+
+
+<code><pre>
+var baseWin = Ti.UI.createWindow({backgroundColor: 'red'});
+
+var b = Ti.UI.createButton({
+	title: 'Click',
+	color: 'red',
+	selectedColor: 'blue',
+	height: '100dp',
+	width: '150dp',
+	backgroundImage: 'appicon.png',
+	backgroundColor: 'green',
+	style: Titanium.UI.iPhone ? Titanium.UI.iPhone.SystemButtonStyle.PLAIN : 0 
+});
+
+
+b.addEventListener('click', function(evt) {
+
+	var win = Ti.UI.createWindow({backgroundColor: 'white'});
+
+	
+	// Create a custom template that displays an image on the left, 
+	// then a title next to it with a subtitle below it.
+	var myTemplate = {
+	    childTemplates: [
+	        {                            // Title 
+	            type: 'Ti.UI.Label',     // Use a label for the title 
+	            bindId: 'info',          // Maps to a custom info property of the item data
+	            properties: {            // Sets the label properties
+	                color: 'black',
+	                font: { fontFamily:'Arial', fontSize: '20dp', fontWeight:'bold' },
+	                left: '60dp', top: 0,
+	            }
+	        },
+	        {                            // Subtitle
+	            type: 'Ti.UI.Label',     // Use a label for the subtitle
+	            bindId: 'es_info',       // Maps to a custom es_info property of the item data
+	            properties: {            // Sets the label properties
+	                color: 'gray',
+	                font: { fontFamily:'Arial', fontSize: '14dp' },
+	                left: '60dp', top: '25dp',
+	            }
+	        }
+	    ]
+	};
+	
+	var listView = Ti.UI.createListView({
+	    // Maps myTemplate dictionary to 'template' string
+	    templates: { 'template': myTemplate },
+	    // Use 'template', that is, the myTemplate dict created earlier
+	    // for all items as long as the template property is not defined for an item.
+	    defaultItemTemplate: 'template'
+	});
+	var sections = [];
+	
+	var fruitSection = Ti.UI.createListSection({ headerTitle: 'Fruits / Frutas'});
+	var fruitDataSet = [
+	    // the text property of info maps to the text property of the title label
+	    // the text property of es_info maps to text property of the subtitle label
+	    // the image property of pic maps to the image property of the image view
+	    { info: {text: 'Apple'}, es_info: {text: 'Manzana'}, pic: {image: 'apple.png'}},
+	    { info: {text: 'Banana'}, es_info: {text: 'Banana'}, pic: {image: 'banana.png'}}
+	];
+	fruitSection.setItems(fruitDataSet);
+	sections.push(fruitSection);
+	
+	var vegSection = Ti.UI.createListSection({ headerTitle: 'Vegetables / Verduras'});
+	var vegDataSet = [
+	    { info: {text: 'Carrot'}, es_info: {text: 'Zanahoria'}, pic: {image: 'carrot.png'}},
+	    { info: {text: 'Potato'}, es_info: {text: 'Patata'}, pic: {image: 'potato.png'}}
+	];
+	vegSection.setItems(vegDataSet);
+	sections.push(vegSection);
+	
+	var grainSection = Ti.UI.createListSection({ headerTitle: 'Grains / Granos'});
+	sections.push(grainSection);
+	listView.setSections(sections);
+	
+	var grainDataSet = [
+	    { info: {text: 'Corn'}, es_info: {text: 'Maiz'}, pic: {image: 'corn.png'}},
+	    { info: {text: 'Rice'}, es_info: {text: 'Arroz'}, pic: {image: 'rice.png'}}
+	];
+	
+	// VARIANT 1: CAUSES MEMORY LEAK
+	grainSection.setItems(grainDataSet);
+	
+	// VARIANT 2: CAUSES MEMORY LEAK
+	//grainSection.replaceItemsAt(0, 99, grainDataSet);
+	
+	// VARIANT 3: CAUSES MEMORY LEAK
+	/*
+	var grainSection2 = Ti.UI.createListSection({ headerTitle: 'Grains / Granos'});
+	grainSection2.setItems(grainDataSet);
+	listView.replaceSectionAt(2, grainSection2);
+	*/
+	
+	// VARIANT 4: NO MEMORY LEAK
+	/*
+	var grainSection2 = Ti.UI.createListSection({ headerTitle: 'Grains / Granos'});
+	grainSection2.setItems(grainDataSet);	
+	sections = [fruitSection, vegSection, grainSection2];
+	listView.setSections(sections);
+	*/
+	
+	
+	var button = Ti.UI.createButton({
+		title: 'Close Window',
+		color: 'black',
+		height: '100dp',
+		width: '150dp',
+		backgroundColor: 'green',
+	});
+	
+	button.addEventListener('click', function(evt) {
+		win.close();
+	});	
+	
+	win.add(listView);
+	win.add(button);
+	win.open();
+	
+});
+
+baseWin.add(b);
+baseWin.open();
+</pre></code>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15889_45703/app.js.zip">app.js.zip</td></td><td>2014-02-07T18:49:32.000+0000</td><td>764</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15889_45702/app.zip">app.zip</td></td><td>2014-02-07T18:49:32.000+0000</td><td>3262631</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-11-26
+
+   Hello!
+   
+   Can you please remove the elements of the window, then null them after closing it? Check this sample:
+   
+   <a href="https://gist.github.com/mauropm/5923980" rel="nofollow" target="_blank">https://gist.github.com/mauropm/5923980</a>
+   
+   Right now, your code says "I will close this window, but I didn't null it, so I can reopen it if I want".
+   
+   Best,
+   
+   Mauro</li>
+<li>Philippe Wueger 2013-11-26
+
+   Hi Mauro
+   
+   Thanks for your input. I have adjusted my test app in the following way:
+   
+   <code><pre>
+   	button.addEventListener('click', function(evt) {
+   		win.close();
+   		win.remove(listView);
+   		listView = null;
+   		win.remove(button);
+   		button = null;
+   		win = null;
+   	});
+   </pre></code>
+   
+   The memory leak however still exists.
+   
+   Any other suggestions?
+   
+   Many thanks & regards,
+   Philippe
+   </li>
+<li>Mauro Parra-Miranda 2013-11-26
+
+   Hello,
+   
+   this looks like a DUP of TC-3326 :) 
+   
+   In the second example of click, please remove the event from the label before nulling it. Remember: in order to remove an event, you have not to use anonymous functions, but named ones, so it will be easier. Right now your object is holding in memory because it does have an event listener attached.
+   
+   BTW, the GC won't usually kick in all time. You need to repeat your testing a lot of times, so the memory reach a memory warning or similar, so that will force the GC to clean the memory.
+   
+   Best,
+   
+   Mauro</li>
+<li>Philippe Wueger 2013-11-26
+
+   Hello Mauro
+   
+   No, this is not a duplicate. This is a slightly different case. Here, I update items in the ListView after the ListView itself has been created (see sections VARIANT 1-4 in the code). I do not have a 'click' event listener on the template here.
+   
+   Cleaning up the view did unfortunately not fix the memory leak.
+   
+   {quote}
+   BTW, the GC won't usually kick in all time. You need to repeat your testing a lot of times, so the memory reach a memory warning or similar, so that will force the GC to clean the memory.
+   {quote}
+   I am aware of this. I have tested it quite extensively in my opinion.
+   
+   Do you have any further inputs?
+   
+   Many thanks & best regards,
+   Philippe
+   </li>
+<li>Tim Poulsen 2014-02-07
+
+   I can confirm a memory leak exists with the ListView when you update sections. I've attached two files. 
+   
+   1) Create a default Alloy project. Replace its app folder with the contents of app.zip
+   
+   2) Create a "classic" project. Replace its app.js file with the contents of the app.js.zip file.
+   
+   Run either and monitor with instruments. You will see the allocation of TiUILabelProxy, TiUIListItemProxy, and TiUILabel grow continuously as you repeatedly click Load List and Clear List.
+   
+   Issue was raised today in the Q&A at 
+   <a href="http://developer.appcelerator.com/question/162348/alloy-listview-memory-leak" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/162348/alloy-listview-memory-leak</a></li>
+<li>farid fadaie 2014-02-10
+
+   I can also confirm this. The bad thing is, even though this belongs to a separate Window and a separate Alloy Controller, the memory is not released after the Window is closed and the controller is nulled. The memory that was allocated by ListView seems not to be released at all regardless of what I do (nulling the listview, the window, etc).
+   
+   Consequently, Alloy binding is also problematic. If you bind any Alloy collection to a ListView, it will have memory leak.</li>
+<li>farid fadaie 2014-02-13
+
+   I think this is a critical bug. You cannot really use Listviews because of the leak unless it's static. The app crashes pretty fast if your ListItems are bulky (TiUIListItem, TiUIListItemProxy, TiUIListSectionProxy, etc are never released even when you remove all the references). It is also buggy in 3.2.0</li>
+<li>Vishal Duggal 2014-02-18
+
+   Pull pending 
+   master - <a href="https://github.com/appcelerator/titanium_mobile/pull/5358" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5358</a>
+   3_2_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/5359" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5359</a></li>
+<li>Mads Moller 2014-02-24
+
+   @Vishal,
+   
+   I dont think this is fixed. I have major memory leaks in my app, using listview bindings. I tried to use 3.2.2.v20140221161255, which should include this fix right?
+   
+   Here is my leaking use case: <a href="https://gist.github.com/viezel/07d4ac387609bba3630d" rel="nofollow" target="_blank">https://gist.github.com/viezel/07d4ac387609bba3630d</a>
+   
+   Thats still a bug...</li>
+<li>Sabil Rahim 2014-02-24
+
+    [`viezel]the memory leak we fixed was against test case reported in this bug. 
+    
+    We are not sure if you are encountering the same issue as reported in this bug. We cannot determine what your exact memory leak case is from The excerpt of test case you have pasted above. If you could give us a more complete test case, we would be able to track down the bug more precisely.
+    
+    Cheers 
+    Sabil </li>
+<li>Wilson Luu 2014-02-25
+
+    Closing ticket as fixed. Using the app.js.zip attachment, I was able to verify TiUILabelProxy, TiUIListItemProxy, and TiUILabel will not grow continuously via Instruments.
+    
+    Tested on:
+    
+    Appcelerator Studio, build: 3.2.1.201402061120
+    SDK build: 3.2.2.v20140221161255, 3.3.0.v20140224114904
+    CLI: 3.2.1
+    Alloy: 1.3.1
+    Xcode: 5.0.2, 5.1 beta 5
+    Devices: iphone 4s (6.0.1), iphone 4 (7.0.6), iphone 5 (7.1) </li>
+<li>Steve Rogers 2014-03-03
+
+    I have just tried the Q&A test case that Tim referenced (<a href="http://developer.appcelerator.com/question/162348/alloy-listview-memory-leak)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/162348/alloy-listview-memory-leak)</a> - this was an entry that I raised.
+    
+    And in my Alloy project I still get the same results with Instruments.
+    
+    I am testing with
+    
+    App Studio: 3.2.1.201402041146 (vanilla install on a clean machine)
+    SDK:3.2.2.v20140214120903.802eaf8
+    XCODE:5.0.2 (5A3005)
+    Device: Iphone 3.5 inch Retina (emulator - 7.0.3)
+    </li>
+<li>Steve Rogers 2014-03-03
+
+    My project can be found in Git - <a href="https://github.com/magnatronus/listviewleak" rel="nofollow" target="_blank">https://github.com/magnatronus/listviewleak</a></li>
+<li>Mads Moller 2014-03-03
+
+    @Sabil - Stene Rogers repo also covers my leak. </li>
+<li>Wilson Luu 2014-03-03
+
+    [~viezel], [~magnatronus]: Were you guys able to try with the latest 3.2.2 SDK build (3.2.2.v20140221161255)?</li>
+<li>Steve Rogers 2014-03-04
+
+    Hi, just tried my test project with SDK 3.2.2.v20140221161255 and Instruments now shows that no increase in the 'Live' proxy objects :-)</li>
+<li>Mads Moller 2014-03-04
+
+    Wilson Luu - Nope its not working with 3.2.2.v20140221161255.
+    Ive created a test app with a simple test case: <a href="https://dl.dropboxusercontent.com/u/2132088/LeakApp.zip" rel="nofollow" target="_blank">https://dl.dropboxusercontent.com/u/2132088/LeakApp.zip</a>
+    
+    This is the result: <a href="http://postimg.org/image/qcw3ktm3t/" rel="nofollow" target="_blank">http://postimg.org/image/qcw3ktm3t/</a> 
+    Its just keeps leaking..
+    </li>
+<li>Wilson Luu 2014-03-04
+
+    [~viezel] I am able to reproduce your issue now! It looks like the issue at hand applies only to iOS simulators and not on iOS devices. 
+    
+    I will file another ticket for your issue later today and link it to this ticket.</li>
+<li>Wilson Luu 2014-03-05
+
+    [~viezel] While I was in the process of writing your ticket, I was not able to reproduce your issue any more with your app on iOS simulator. The only difference from this morning and this evening is the text are not appearing in the ListView (see <a href="https://db.tt/GifZiOlp)." rel="nofollow" target="_blank">https://db.tt/GifZiOlp).</a>
+    
+    On the side of precaution, I tried reproducing the issue using Steve's app (<a href="https://github.com/magnatronus/listviewleak)" rel="nofollow" target="_blank">https://github.com/magnatronus/listviewleak)</a> on an iOS simulator, and still was not able to reproduce the memory leak issue that I saw this morning or the original bug behavior.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15889.json">JSON Source</a></p>

@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-26537] Android: Module "AndroidManifest.xml" <uses> elements overwrites "tiapp.xml" elements"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-27T19:49:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, build, cli, manifest, module</td></tr>
+<tr><th>Reporter</th><td>Motiur Rahman</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2016-06-01T21:42:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-15T17:58:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26537_59460/with_Map_Module_AndroidManifest.txt">with_Map_Module_AndroidManifest.txt</td></td><td>2016-06-01T21:42:03.000+0000</td><td>2432</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26537_59461/Without_Map_Mdule_AndroidManifest.txt">Without_Map_Mdule_AndroidManifest.txt</td></td><td>2016-06-01T21:39:54.000+0000</td><td>2073</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li> Ricardo Ramirez 2016-10-18
+
+   updates ?</li>
+<li>Michael Gangolf 2018-09-06
+
+   I found the problem:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/cli/lib/AndroidManifest.js#L493" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/cli/lib/AndroidManifest.js#L493</a>
+   
+   This loop will run multiple times (for each module) and adds the uses-features. 
+   If you have two uses-features in your tiapp.xml the output in the first run will be
+   
+   {noformat}
+   tag: uses-feature, name: 0 { name: 'android.hardware.camera', required: false }
+   tag: uses-feature, name: 1 { name: 'android.hardware.camera.focus', required: false }
+   {noformat}
+   
+   Then when it adds the ti.map uses-features the first output is:
+   {noformat}
+   tag: uses-feature, name: 0 { glEsVersion: '0x00020000', required: true }
+   {noformat}
+   
+   so this will overwrite the first item!
+   
+   Changing it to 
+   {noformat}
+   this[tag][src[tag][name]] = src[tag][name];
+   {noformat}
+   would fix the missing items but it will fail for elements that don't have a name like
+   {noformat}<uses-feature android:glEsVersion="0x00020000" android:required="false"/>{noformat}
+   They will appear multiple times in the output.
+   
+   </li>
+<li>Hans Knöchel 2018-11-11
+
+   This is currently an Android P blocker and should definitely be fixed before 7.5.0 is released. Without this fix, no devices running Android P will be able to run apps that use Ti.Map because of MOD-2467. The (really bad) workaround we used for now is to inject it to the SDK manually, by copying the required <code><uses-feature></code> flag into:
+   <code><pre>
+   ~/Library/Application Support/Titanium/mobilesdk/osx/7.4.1.GA/android/templates/build/AndroidManifest.xml
+   </pre></code>
+   Replace with the version you are using of course.</li>
+<li>Yordan Banev 2018-11-14
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10467" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10467</a></li>
+<li>Lokesh Choudhary 2018-12-27
+
+   FR Passed.
+   PR Merged.</li>
+<li>Samir Mohammed 2019-01-03
+
+   Closing ticket. Fix verified in SDK version 8.0.0.v20190102142454
+   
+   Test and other information can be found at:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10467" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10467</a></li>
+<li>Hans Knöchel 2019-01-15
+
+   This is NOT fixed. We just pulled down a fresh 8_0_X and still seeing the error described in MOD-2467.
+   <code><pre>
+   [ERROR] TiExceptionHandler: (main) [829,35362] Failed resolution of: Lorg/apache/http/ProtocolVersion;
+   [ERROR] TiExceptionHandler:
+   [ERROR] TiExceptionHandler:     dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:134)
+   [ERROR] TiExceptionHandler:     java.lang.ClassLoader.loadClass(ClassLoader.java:379)
+   [ERROR] TiExceptionHandler:     dhd.loadClass(:com.google.android.gms@12862026@12.8.62 (040700-199405334):3)
+   [ERROR] TiExceptionHandler:     java.lang.ClassLoader.loadClass(ClassLoader.java:312)
+   [ERROR] TiExceptionHandler:     el.b(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):3)
+   [ERROR] TiExceptionHandler:     ek.a(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):4)
+   [ERROR] TiExceptionHandler:     em.a(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):51)
+   [ERROR] TiExceptionHandler:     com.google.maps.api.android.lib6.drd.ap.a(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):11)
+   [ERROR] TiExceptionHandler:     dw.a(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):16)
+   [ERROR] TiExceptionHandler:     dw.run(:com.google.android.gms.dynamite_mapsdynamite@12862026@12.8.62 (040700-199405334):61)
+   </pre></code></li>
+<li>Hans Knöchel 2019-01-15
+
+   Excuse me, the tag was misplaced! It seems to work fine now.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26537.json">JSON Source</a></p>

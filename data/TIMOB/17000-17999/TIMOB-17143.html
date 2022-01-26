@@ -1,0 +1,170 @@
+---
+title: "[TIMOB-17143] iOS : Ti.Media.takeScreenshot() returns black toolbars"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2015-04-20T01:42:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.3, Release 3.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-3.4.0</td></tr>
+<tr><th>Reporter</th><td>Marcus Olovsson</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2014-04-10T14:35:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-05-26T18:17:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+It seems like the "old" way of taking screenshots results in black toolbars when running the app on a device.
+
+Simply adding [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:YES]; for iOS 7 seems to fix the problem, as mentioned in this StackOverflow answer: <a href="http://stackoverflow.com/a/8017292/646859" rel="nofollow" target="_blank">http://stackoverflow.com/a/8017292/646859</a>
+
+I've tried it and it seems to work. I'm not used to contributing to open source-projects to I hope someone can take a look at it for me :)
+
+» Marcus
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17143_51455/ios7.png">ios7.png</td></td><td>2014-09-19T18:17:01.000+0000</td><td>59495</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17143_51456/ios8.png">ios8.png</td></td><td>2014-09-19T18:17:01.000+0000</td><td>61871</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ritu Agrawal 2014-04-10
+
+   Thank you Marcus for pointing to the solution for this issue. In order to investigate further we need a simple runnable test case that demonstrates this issue.</li>
+<li>Romain 2014-05-30
+
+   Code to reproduce
+   
+   <code><pre>
+   var tabGroup = Ti.UI.createTabGroup();
+   var tab1      = Ti.UI.createTab({
+       window: Ti.UI.createWindow({title: "Hello", backgroundColor: "red"}),
+       title:  'Should be grey on iOS7',
+       icon:   'myicon.png'
+   });
+   var tab2      = Ti.UI.createTab({
+       window: Ti.UI.createWindow({title: "Hello", backgroundColor: 'blue'}),
+       title:  'Should be grey on iOS7',
+       icon:   'myicon.png'
+   });
+   tabGroup.addTab(tab1);
+   tabGroup.addTab(tab2);
+   tabGroup.open();
+   
+   
+   var emailDialog = Ti.UI.createEmailDialog();
+       emailDialog.subject      = 'Black tabs on iOS 7 :(';
+       emailDialog.toRecipients = ['john.doe@whatever.xyz'];
+       
+   Ti.Media.takeScreenshot(function(event) {
+   	emailDialog.addAttachment(event.media);
+   	emailDialog.open();
+   });
+   </pre></code>
+   
+   This code creates an app with 2 tabs with a grey background (on iOS 7).
+   Then, the app takes a screenshot and open the preview in an email.
+   
+   - When you'll check the screenshot in the email, you'll notice that the grey tabs are now black.
+   - If you use the same code, with only 1 tab, it will be grey in the screenshot
+   
+   Thanks in advance for the fix :)</li>
+<li>Ritu Agrawal 2014-06-11
+
+   Romain - Thanks for the test case.</li>
+<li>Ritu Agrawal 2014-06-11
+
+   Moving this to engineering as I can reproduce the issue with the provided test case.</li>
+<li>Shameer Jan 2014-09-19
+
+   Issue exist with 3.2.3 but can't reproduce on  3.4.0 
+   Appcelerator Studio, build: 3.3.0.201407111535 
+   TiSDK 3.4.0 
+   iOS : 7.0
+   Titanium Command-Line Interface, CLI version 3.3.0</li>
+<li>Wilson Luu 2014-09-19
+
+   Reopening ticket. Can still reproduce on an iOS 7 device (see ios7.png), but not on an iOS 8 device (see ios8.png).
+   
+   Tested on:
+   
+   Appcelerator Studio, build: 3.4.0.201409161950
+   SDK build: 3.4.0.v20140918202513
+   CLI: 3.4.0-rc4
+   Alloy: 1.5.0-rc3
+   Xcode: 6.0.1
+   Devices: iphone 5 (7.1.1)</li>
+<li>Chee Kiat Ng 2015-03-11
+
+   Can still reproduce on SDK 3.5.1.GA.
+   Updated sample code to test on simulator:
+   <code><pre>
+   var tabGroup = Ti.UI.createTabGroup();
+   var tab1      = Ti.UI.createTab({
+       window: Ti.UI.createWindow({title: "Hello", backgroundColor: "red"}),
+       title:  'Should be grey on iOS7',
+       icon:   'myicon.png'
+   });
+   var tab2      = Ti.UI.createTab({
+       window: Ti.UI.createWindow({title: "Hello", backgroundColor: 'blue'}),
+       title:  'Should be grey on iOS7',
+       icon:   'myicon.png'
+   });
+   tabGroup.addTab(tab1);
+   tabGroup.addTab(tab2);
+   tabGroup.open();
+   
+   var fileName = 'testme.png';
+   
+   tab1.window.addEventListener('click', function(e) {
+       Ti.Media.takeScreenshot(function(e) {
+           var file = Ti.Filesystem.getFile(Ti.Filesystem.getTempDirectory(), fileName);
+           Ti.API.info(fileName + ': ' + file.resolve());
+           file.write(e.media);
+           file = null;
+       });
+   });
+   </pre></code></li>
+<li>Chee Kiat Ng 2015-04-20
+
+   Unable to reproduce on device and simulator in the following environment:
+   iOS Device: iOS 7.1.2 iPad 2
+   iOS Simulator: iOS 7.1, iOS 8.3
+   Xcode: 6.3
+   Titanium SDK : 3.5.1.GA
+   Appc CLI: 0.2.247
+   Studio build: 4.0.0.201504170803
+   
+   It seems like the latest Xcode Base SDK iOS 8.3 may have fixed this issue.
+   
+   </li>
+<li>Eric Wieber 2015-05-26
+
+   Closing. Cannot reproduce using:
+   
+   Studio 4.0.0.201505202026
+   Ti SDK 4.0.1.v20150521135010
+   Appc NPM 4.0.0
+   Appc CLI 4.0.1-0
+   Ti CLI 4.0.0
+   Alloy 1.6.0
+   Xcode 6.4
+   
+   Screenshots are taken without the black bar, as expected.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17143.json">JSON Source</a></p>

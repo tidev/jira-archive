@@ -1,0 +1,119 @@
+---
+title: "[TIMOB-27240] Android: Add Intl.NumberFormat support"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-07-19T14:16:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Intl, NumberFormat, android, format, locale, localization, parity</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-07-12T18:31:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-07-30T13:04:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We use the <code>Intl.NumberFormat</code> class to format currencies, e.g.:
+<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat" rel="nofollow" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat</a>
+<code><pre>
+const value = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2
+}).format(10.12);
+
+console.log(value); // output: $10.12
+</pre></code>
+It works fine on iOS but throws an error "<code>Intl is not defined</code>", although the web docs indicate it [should work on V8](<a href="https://v8.dev/blog/intl)." rel="nofollow" target="_blank">https://v8.dev/blog/intl).</a>
+
+Workaround until then is writing another native module:
+<code><pre>
+
+@Kroll.module(name="TiCurrency", id="ti.currency")
+public class TiCurrencyModule extends KrollModule
+{
+	private static final String LCAT = "TiCurrencyModule";
+	private static final boolean DBG = TiConfig.LOGD;
+
+	@Kroll.method
+	public String format(KrollDict params)
+	{
+		double value = params.getDouble("value");
+		String currency = params.getString("currency");
+
+		NumberFormat format = NumberFormat.getCurrencyInstance(Locale.getDefault());
+		format.setCurrency(Currency.getInstance(currency));
+
+		return format.format(value);
+	}
+}
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-07-12
+
+   Hmm... it looks like this is an optional feature that we have to #define-in via "V8_INTL_SUPPORT".
+   <a href="https://github.com/v8/v8/search?q=V8_INTL_SUPPORT&unscoped_q=V8_INTL_SUPPORT" rel="nofollow" target="_blank">https://github.com/v8/v8/search?q=V8_INTL_SUPPORT&unscoped_q=V8_INTL_SUPPORT</a>
+   
+   Although I doubt it's that simple since the Android NDK itself does not support international locales. It only supports the default US-EN locale (ie: C++ std::locale::classic). That's why Titanium has to override the JS formatting functions and handle them on the Java side.
+   </li>
+<li>Hans Knöchel 2019-07-12
+
+   Same goes for <code>toLocaleDateString</code> btw. Having those cross platform would really be a benefit.</li>
+<li>Joshua Quick 2019-07-12
+
+   Yes, I agree. Thanks for bringing this up.</li>
+<li>Joshua Quick 2020-05-08
+
+   I've looked into this. If we were to <code>#if-in</code> JS <code>Intl</code> support into V8, we would have to include the ICU (International Components for Unicode) C++ library which is about 20 MB per architecture. This library is way too big and not mobile friendly. Especially since Google Play has an APK size limit of 100 MB.
+   
+   I think the best solution is for us to implement <code>NumberFormat</code> support on the Java side.</li>
+<li>Joshua Quick 2020-05-09
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11698" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11698</a></li>
+<li>Christopher Williams 2020-07-19
+
+   manually rebase/merged to master, 9_1_X, 9_3_X</li>
+<li>Joshua Quick 2020-07-21
+
+   There's a bug with <code>formatToParts()</code> on Android 4.4. Fixed via PRs...
+   
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11830" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11830</a>
+   PR (9.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11831" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11831</a>
+   </li>
+<li>Christopher Williams 2020-07-21
+
+   Fix has been merged to master, 9_1_X and 9_3_X.</li>
+<li>Samir Mohammed 2020-07-30
+
+   *Closing ticket*. Fix verified in SDK version <code>9.1.0.v20200724110711</code>, <code>9.2.0.v20200724112452</code> and <code>9.3.0.v20200724114100</code>.
+   
+   Test and other information can be found at:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/11698" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11698</a>
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11830" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11830</a>
+   PR (9.1.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/11831" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11831</a>
+   
+   *Test Environment*
+   <code><pre>
+   MacOS Big Sur: 11.0 Beta
+   Xcode: 12.0 Beta 
+   Java Version: 1.8.0_242
+   Android NDK: 21.3.6528147
+   Node.js: 12.18.1
+   ""NPM":"5.0.0","CLI":"8.1.0-master.5""
+   API19 Nexus5X
+   API29 Pixel XL emulator
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27240.json">JSON Source</a></p>

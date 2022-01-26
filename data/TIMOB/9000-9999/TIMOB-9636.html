@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-9636] iOS: "this" variable does not occur in variables view in the Studio debugger"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-09-13T04:43:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-15 Core, Release 2.1.2, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, module_views, qe-review, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Varun Joshi</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2012-05-17T12:13:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-09-13T04:43:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+Titanium Studio's debugger in iOS does not show the "this" variable in the Variables view automatically. For Android, it works fine.
+
+Please see the attached screenshots
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9636_27739/Screenshot-Android.png">Screenshot-Android.png</td></td><td>2012-05-17T12:13:18.000+0000</td><td>211925</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9636_28105/Screenshot-Android(2).png">Screenshot-Android(2).png</td></td><td>2012-06-01T01:21:33.000+0000</td><td>223299</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9636_27740/Screenshot-ios.png">Screenshot-ios.png</td></td><td>2012-05-17T12:13:18.000+0000</td><td>166451</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9636_28106/Screenshot-iOS(2).png">Screenshot-iOS(2).png</td></td><td>2012-06-01T01:21:33.000+0000</td><td>178892</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2012-05-21
+
+   Sounds like this is an intrinsic platform difference (and out of Studio's control).  If the different behavior is desired, please reopen against TIMOB.</li>
+<li>Josh Roesslein 2012-05-21
+
+   "this" shouldn't really be shown in this case, but happens on Android/V8 due to how
+   we internally wrap the module's source into a function. This isn't something we will implement
+   in iOS since it isn't intended behavior.</li>
+<li>Alan Leard 2012-05-24
+
+   Josh,
+   Can we get clarification on why this isn't intended behavior.  We have customers that would like to be able to see properties attached to 'this' in the debugger.</li>
+<li>Josh Roesslein 2012-05-31
+
+   Alan,
+   
+   The only time we should really show "this" is when we are inside a function.
+   In the screenshot they have "break" in the top level scope in app.js. All the globals
+   are already listed in the variables view. Is there any variables in particular that are missing
+   that can be seen when expanding "this"? If so that is a bug and they should be listed in the variables view.</li>
+<li>Varun Joshi 2012-06-01
+
+   Hi,
+   
+   I have attached two more screenshots showing the breakpoint inside the function and "this"   being shown on Android but not on iOS.</li>
+<li>Varun Joshi 2012-06-15
+
+   Please review the above comment and confirm if this ticket can be reopened.
+   
+   Thanks,
+   Varun</li>
+<li>Ingo Muschenetz 2012-06-15
+
+   Hi Varun...It sounds like this should be moved to TIMOB...Studio doesn't control the appearance (or not) of "this".</li>
+<li>Stephen Tramer 2012-07-17
+
+   <h4>TESTING</h4>
+   ----
+   
+   Create a project with the following:
+   
+   <code>app.js</code>
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#000',
+       navBarHidden: true
+   });
+     
+   var view = Ti.UI.createView({ width: '100%', height: '100%', backgroundColor: '#f00' });
+     
+   view.addEventListener('click', function(e){
+       Ti.API.info('View click');
+       Ti.API.info(this);
+   });
+   var button = Ti.UI.createButton({width:150, height:150, title: 'Click me!' });
+    
+   view.add(button);
+   win.add(view);
+    
+   win.open();
+   </pre></code>
+   
+   Set breakpoints at:
+   * Line 10 (<code>Ti.API.info(this)</code>)
+   * Line 14 (<code>view.add(button)</code>)
+   
+   In the "debug" view, add the following to the "Expressions" pane:
+   * this
+   * this.width
+   
+   Debug the app in iPhone simulator:
+   
+   <h4>Breakpoint at line 14 should be hit.</h4>
+   #* Should NOT contain "this" in variables list
+   <h4>*Hit CONTINUE*</h4>
+   <h4>Click an element in app (view, button, whatever)</h4>
+   <h4>Breakpoint at line 10 should be hit.</h4>
+   #* Should contain "this" in variables list
+   #* "this" should be identical to the source of the event, "e > source" (*NOTE*: This will change when TIMOB-9085 is resolved)
+   #* The "Expressions" pane should properly evaluate both "this" and "this.width" to the correct values</li>
+<li>Max Stepanov 2012-07-19
+
+   PR merged <a href="https://github.com/appcelerator/titanium_mobile/pull/2592" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2592</a></li>
+<li>Max Stepanov 2012-08-13
+
+    Backport PR <a href="https://github.com/appcelerator/titanium_mobile/pull/2737" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2737</a></li>
+<li>Vishal Duggal 2012-08-14
+
+    Fixed on 2_1_X by <a href="https://github.com/appcelerator/titanium_mobile/pull/2737" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2737</a></li>
+<li>Olga Romero 2012-08-15
+
+    Verified fix with:
+    Titanium Studio, build: 2.1.1.201207271312
+    Titanium SDK: 2.1.2.v20120815081613
+    Devices:
+    Simulator 5.1</li>
+<li>Anshu Mittal 2012-09-13
+
+    Reopening to update labels </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9636.json">JSON Source</a></p>

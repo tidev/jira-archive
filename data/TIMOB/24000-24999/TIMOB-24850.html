@@ -1,0 +1,200 @@
+---
+title: "[TIMOB-24850] Hyperloop: iOS - Error building project containing Aisle411 library"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-20T18:45:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Backlog</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Victor Vazquez Montero</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-06-19T19:41:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>description</h4>
+When adding an iOS library to Titanium project using Hyperloop, I am getting the following compile-time error:
+<code><pre>
+ 2017-06-12T13:31:57.190Z | ERROR  | An uncaught exception was thrown!
+ENOENT: no such file or directory, open '/test/hyperloop-test2/build/hyperloop/ios/js/MapController/MapController.js'
+2017-06-12T13:31:57.190Z | ERROR  | ENOENT: no such file or directory, open '/test/hyperloop-test2/build/hyperloop/ios/js/MapController/MapController.js'
+</pre></code>
+
+Hyperloop is generating the following files:
+
+/hyperloop/ios/js/mapbundle/mapbundle.js
+/hyperloop/ios/js/mapbundle/mapbundleparser.js
+/hyperloop/ios/js/mapbundle/mapconroller.js
+
+There is only one library that is imported (along with headers):  libMapSDK.a
+Code is using: 
+<code><pre>var MapController = require('MapBundle/MapController'); </pre></code>
+
+Something is triggering it to look for 'MapController/MapController.js'
+
+When the build fails, there is a file:  /hyperloop/ios/js/mapcontroller/mapconroller.m
+
+<h4>copy of project</h4>
+[code sample](<a href="https://axwaysoftware-my.sharepoint.com/personal/vvazquezmontero_axway_com/_layouts/15/guestaccess.aspx?guestaccesstoken=te41EupDaFiBN30%2b242yoNELLLvYniZn2yDwrTzInZo%3d&docid=2_125060abcaf404087bcef581c58453093&rev=1)" rel="nofollow" target="_blank">https://axwaysoftware-my.sharepoint.com/personal/vvazquezmontero_axway_com/_layouts/15/guestaccess.aspx?guestaccesstoken=te41EupDaFiBN30%2b242yoNELLLvYniZn2yDwrTzInZo%3d&docid=2_125060abcaf404087bcef581c58453093&rev=1)</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brenton House 2017-06-19
+
+   [~hansknoechel] -- Is there anything obvious that you can see that I am doing wrong with this hyperloop module?</li>
+<li>Hans Knöchel 2017-06-19
+
+   [~brentonhouse] What's the framework? Can you send me over some files?</li>
+<li>Brenton House 2017-06-19
+
+   It is the aisle411 iOS SDK.  I attached it to the support ticket that I created last week -but I can attach it here as well.-  Wasn't sure if the code sample link contained it.   There is a separate ticket for the aisle411 Android SDK.
+   
+   Doesn't look like I can add attachments to the ticket.  I can put it in dropbox and share the link.  Thanks!!</li>
+<li>Victor Vazquez Montero 2017-06-20
+
+   Hey [~hansknoechel], 
+   I have a zip stored on one drive at the link provided in the ticket
+   </li>
+<li>Abir Mukherjee 2017-07-12
+
+   [~jperez], [~emerriman] I am to reproduce this error. I used the sample project, and get the exact same compile-time error when I build to Simulator.</li>
+<li>Hans Knöchel 2017-07-13
+
+   Hey there, here are the issues with the project: There is a static library that links to header files received from other sub-directories. Hyperloop will assume those as the framework-name right now, resulting in the above require-statements that fail. Also the ".bundle" is placed in one of the sub-directories, but is not marked as a resource. It should just be copied to <code>app/assets/iphone</code> and will be picked up properly after that. The general issue here is that the discussed library (Aisle411) does not support a proper framework-structure (neither a .framework, nor a CocoaPods dependency), making the general usage - same for native and Titanium - pretty complicated. We discussed this internally in the Hyperloop team and actually considered to wrap everything to a proper framework that can be used, but for right now, the following should resolve the issues:
+   1. Copy <code>native/aisle411/res/MapSDKResources.bundle</code> to <code>app/assets/iphone/MapSDKResources.bundle</code>
+   2. Put all header files in one global "MapBundle" directory (see example [here](<a href="https://abload.de/img/bildschirmfoto2017-0742kik.png))" rel="nofollow" target="_blank">https://abload.de/img/bildschirmfoto2017-0742kik.png))</a>, so it get's picked up correctly
+   
+   Side-note #1: You might think now "Hyperloop could be smart enough to pick up those sub-directories for header files automatically" and I am agreeing :-) It is already in review for 2.2.0 as part of the dynamic-framework support (see TIMOB-23570), so this won't cause any confusions in the future anymore. 
+   
+   Side-note #2: If possible, the vendor of the library should be contacted to expose a properly packaged framework that can be used in modern architectures. I think it will not only help our customers but also any other developers using their solution as well. 
+   
+   Let me know if there are any follow-up questions to be discussed, thanks everyone!</li>
+<li>Brenton House 2017-07-13
+
+   [~hknoechel] -- I moved everything around but now I am getting this compile-time error:
+   
+   
+   {noformat}
+   [ERROR] ** BUILD FAILED **
+   [ERROR] The following build commands failed:
+   [ERROR]         CompileC build/Intermediates/hyperloop-test2.build/Debug-iphonesimulator/hyperloop-test2.build/Objects-normal/x86_64/mapbundle.o /Users/brenton/Documents/test/hyperloop-test2/build/hyperloop/ios/js/mapbundle/mapbundle.m normal x86_64 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   {noformat}
+   </li>
+<li>Hans Knöchel 2017-07-15
+
+   Hey there, I just resolved this issue. Here is how:
+   * The library-name used in the appc.js was invalid, it should be <code>MapSDK</code>
+   * Flattening the header-files (as discussed earlier) resolved the problem with the headers
+   * The static library is no framework, so it should not be placed inside the <code>header</code> / <code>source</code> related directories
+   * Instead, the static library is placed into <code>platform/iphone</code> and get's picked up the classic module builds do
+   
+   Doing that, I just received a successful build and was able to require the following snippet:
+   <code><pre>
+   var MapController = require('MapSDK/MapController');
+   </pre></code>
+   
+   I also just attached my demo-project [here](<a href="https://www.dropbox.com/s/2c5wbd43v5csia1/test_mapsdk.zip?dl=1)" rel="nofollow" target="_blank">https://www.dropbox.com/s/2c5wbd43v5csia1/test_mapsdk.zip?dl=1)</a> and am actively discussing this with [~brentonhouse] on Slack, so this should be unblocked now. Please note: This was no Hyperloop issue and there is no Hyperloop-related fix necessary. A big issue was the way the library was received, so it's really not an issue from the customer as well. If possible, the customer should push the library-vendors to properly distribute their framework, so other developers can adopt it more easily. Nevertheless, we should improve our docs on the static-library usage and this ticket confirms this. We will schedule a rewrite of all Hyperloop docs for August, including advanced docs for framework-usage (static and dynamic), static-libraries, Cocoapods, more general syntax-comparison between native <-> Hyperloop and all related fields for Hyperloop Android as well.
+   
+   Please let me know if there are additional steps to be helped with!</li>
+<li>Hans Knöchel 2017-08-17
+
+   Quick (public) update for the people following here: I am in direct contact with Brenton to deal with the issue. It seems that it's not directly a Hyperloop issue but an issue with the architectures the "Aisle411" library is providing. After it was wrapped into a framework, it is missing the 64-bit simulator-architecture (<code>x86_64</code>), it only has <code>armv7, arm64</code>. For comparison: The Facebook SDK has <code>i386 armv7 x86_64 arm64</code> which basically includes 32/64 Bit Simulator as well - which is fundamental when you want to test your applications on the Simulator.
+   
+   The other issue is that the other library (<code>AisleNetworking</code>) was built as a Swift framework, which needs dynamic library support. Happily, we support that since a while and it seems to work. Unfortunately, it will still crash when trying to use it in non-swift projects, so they are having issues there as well. It even does not work on a native Swift project I've made (Objc as well), because it was compiled with Swift 3.0.2, but all modern Xcode versions (8.1+) use Swift 3.1 and later.  
+   
+   Long story short: We provided some guidance on what is required to make it work in (any kind of) app and are currently awaiting feedback. Please feel free to contact me for further questions if this relates to you! </li>
+<li>Hans Knöchel 2017-08-18
+
+    Update: We received a response about the library issues and it looks like the latest library will work. The native module now builds as well and my sample app runs without the initial startup crash. The repository is currently closed-source on my Github account, Brenton has access to it so he can test the module. We may open source the module (without the SDK's in it), so others can benefit from it as well. 
+    
+    And one side-note: By supporting their library, I was also able to support Swift frameworks in native modules, which was a huge gap for a long time. The required build-hook can be put in any module project that uses Swift frameworks, I will try to put some more information about it together soon.
+    
+    The next step is that Shockoe tests the module and provide feedback about the usage. I think we are at a good point!
+    
+    *EDIT*: There will also be no SDK update required to use all this. So once this issue is resolved, the fix-version will remain empty. Just in case anyone wonders.</li>
+<li>Brenton House 2017-08-18
+
+    Thank you so much [~hknoechel]!!  You are awesome (as usual)!!</li>
+<li>Brenton House 2017-08-21
+
+    - Aisle411 says that they have built the SDK to work with simulators but when we build for iOS simulator, it crashes as soon as it tries to start the app.  
+    - As [~hknoechel] already discovered with his objective-c test, we are not getting any successful callback returned for requestCachedRasterMap.  Aisle411 told us to try changing the venueId to 1100951, but we are still not seeing anything in callback for that venueId.
+     
+    Notes from aisle411 below:
+    
+    The SDK links also contain the sample applications and header/java docs.  For iOS the networking SDK was compiled using swift 3.1 and requires XCode 8.3.x.  This means for the iOS app there are 2 frameworks and one bundle you'll need to import.  The networking SDK isn't required but was created so you didn't have to write the networking code that interacts with our APIs.
+    
+    The sample apps were created so you could follow how we would create the Aisle411 portion of the Publix application.  You'll also want to make sure to import the libstdc++.6.0.9.tbd and libz.tbd frameworks into your project, as the Map SDK requires those libraries.
+    
+    
+    ----
+    
+    
+    Here is link to video they sent showing build on simulator:  <a href="https://drive.google.com/file/d/0B3uHTmZ4t7tZRzltX0t1dHByR00/view" rel="nofollow" target="_blank">https://drive.google.com/file/d/0B3uHTmZ4t7tZRzltX0t1dHByR00/view</a>
+    
+    Here's the updated iOS SDK with bitcode support
+    <a href="https://drive.google.com/open?id=0B3uHTmZ4t7tZMmZNa3RaQUtkb0k" rel="nofollow" target="_blank">https://drive.google.com/open?id=0B3uHTmZ4t7tZMmZNa3RaQUtkb0k</a>
+    
+    Here's the updated iOS SDK with bitcode support and x86_64 support.
+    <a href="https://drive.google.com/open?id=0B3uHTmZ4t7tZbEw2SUZranhycTA" rel="nofollow" target="_blank">https://drive.google.com/open?id=0B3uHTmZ4t7tZbEw2SUZranhycTA</a>
+    
+    Here's the latest iOS documentation
+    <a href="https://drive.google.com/open?id=0B3uHTmZ4t7tZSjFkZV9wZFVhQXc" rel="nofollow" target="_blank">https://drive.google.com/open?id=0B3uHTmZ4t7tZSjFkZV9wZFVhQXc</a>
+    
+    Here's the Android SDK
+    <a href="https://drive.google.com/open?id=0B3uHTmZ4t7tZSGFjaTJGaVZSaEk" rel="nofollow" target="_blank">https://drive.google.com/open?id=0B3uHTmZ4t7tZSGFjaTJGaVZSaEk</a>
+    
+    Here's the latest Android documentation
+    <a href="https://drive.google.com/open?id=0B3uHTmZ4t7tZOGRvNlRNM0ZBSkU" rel="nofollow" target="_blank">https://drive.google.com/open?id=0B3uHTmZ4t7tZOGRvNlRNM0ZBSkU</a>
+    
+    </li>
+<li>Hans Knöchel 2017-08-21
+
+    Thanks Brenton!
+    
+    The reason why the callbacks were not received is because of the <code>com.aisle411.venuekit.plist</code> file that needs to be in your project and holds your keys (btw: it's a security hole, because it is copied 1:1 to your app, they should move away from that). Unfortunately that was not documented as well, so it took me a while to realize the context to the file. The simulator architecture looks fine now and we are working on fixing the sim-crash now. It's still because of the Swift-based <code>AisleNetworking</code> library. They said that it's a utility library to wrap the HTTP-calls - I think we would have a much easier life if we could just use Ti.Network.HTTPClient to do the request. If they can provide the docs for the API, that might also be helpful until the sim-crash is addressed as well (targeting tomorrow morning PST). </li>
+<li>Brenton House 2017-08-22
+
+    I was able to use the module, plist, and instructions from Hans to get info back in callback from venue and bring up the map controller.   I am going to update to latest module this morning and try with a reference venueId that we have.  I will also try out some of the other features that Hans has implemented in the module.
+    
+    Per Hans suggestion, we are putting the com.aisle411.venuekit.plist in the directory: app/assets/ios</li>
+<li>Brenton House 2017-08-22
+
+    Simulator working with workaround from Hans:
+    
+    <code><pre>
+    cd modules/iphone/ti.aisle411/1.0.0/platform/AisleNetworking.framework/
+    chmod +x AisleNetworking
+    </pre></code>
+    </li>
+<li>Hans Knöchel 2017-08-22
+
+    Update from me: All issues regarding the current implementation resolved, including building the app for the Simulator, displaying the map and toggle the required properties. Brenton is currently implementing more features from the modules, which I aligned on the sample-app we received. 
+    
+    Also, [~jvennemann] will push a Titanium SDK-fix that makes the workaround obsolete. It never occurred before, since we simply didn't support Swift in native modules.  
+    
+    We can still do a meeting, but I wouldn't know about what topics at this point :-).</li>
+<li>Hans Knöchel 2017-08-24
+
+    Update: Everything from the native sample app is implemented now, including shopping-list- and search-modes, overlays and their pins. We will now wait for the exact use-cases and implement an own sample-app based on those and start the Android-development.</li>
+<li>Hans Knöchel 2017-08-25
+
+    Update: The iOS sample-app has been completed today and is now pushed to the Shockoe Bitbucket. The Android version (Hyperloop based) is also pushed, so Shockoe can implement all required Android functionalities with Hyperloop.</li>
+<li>Hans Knöchel 2018-01-20
+
+    This is not an issue anymore, see the previous comments and recent Hyperloop versions for reference.</li>
+<li>Eric Merriman  2018-08-06
+
+    Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24850.json">JSON Source</a></p>

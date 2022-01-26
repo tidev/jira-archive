@@ -1,0 +1,168 @@
+---
+title: "[TIMOB-26882] iOS: Front Camera Preview looks 'zoomed' on iPhone X"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-02T13:58:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule</td></tr>
+<tr><th>Reporter</th><td>Fazlul Haque</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2019-03-06T18:51:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-02T13:58:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+When using a CUSTOM OVERLAY on an app on the X iPhone series and It came to attention that the camera preview looks like 'zoomed'. The actual picture that you take has more area that the one you previewed.
+
+*Test Code:*
+<code><pre>
+var window = Ti.UI.createWindow({
+	backgroundColor : '#FFF'
+});
+
+var recording = false;
+const overlay = Ti.UI.createView();
+const shutterButton = Ti.UI.createButton({
+	width : 100,
+	height : 100,
+	text : 'Record',
+	bottom : 10
+});
+shutterButton.addEventListener('click', function(){
+	recording && Ti.Media.stopVideoCapture();
+	!recording && Ti.Media.startVideoCapture();
+	recording = !recording;
+	shutterButton.text = recording ? 'Stop' : 'Record';
+});
+overlay.add(shutterButton);
+
+// create button, register the modified click callback, add button to window
+function addButton(title, clickCallback) {
+	var button = Ti.UI.createButton({
+		title : title,
+		width : '300',
+		height : '50'
+	});
+
+	button.addEventListener('click', function() {
+		Ti.Media.showCamera({
+		mediaType : Ti.Media.MEDIA_TYPE_VIDEO,
+		overlay: overlay, // <- THIS IS THE IMPORTANT PART
+		showControls:false
+	});
+	clickCallback();
+	Ti.Media.vibrate();
+});
+
+window.add(button);
+}
+
+// camera with front specified after switching to back
+// checks if switch function actually works, opposed to it being the default
+addButton('Front Camera Test', function() {
+	Ti.Media.switchCamera(Ti.Media.CAMERA_BACK);
+	Ti.Media.switchCamera(Ti.Media.CAMERA_FRONT);
+});
+
+window.open();
+</pre></code>
+
+*Test Environment:*
+Appcelerator Command-Line Interface, version 7.0.9
+Operating System
+  Name                        = Mac OS X
+  Version                     = 10.14
+  Architecture                = 64bit
+  # CPUs                      = 4
+  Memory                      = 8589934592
+Node.js
+  Node.js Version             = 8.9.1
+  npm Version                 = 5.5.1
+Titanium CLI
+  CLI Version                 = 5.1.1
+Titanium SDK
+  SDK Version                 = 7.5.1.GA,7.5.0.GA
+
+*Steps to reproduce:*
+Use the above test code and click on "Front Camera Test" button.
+
+NOTE: I have tested it on iPhone 5s and got similar zoomed on front camera.
+
+Thanks
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26882_66248/Image_from_iOS_(1).png">Image_from_iOS_(1).png</td></td><td>2019-03-12T14:35:44.000+0000</td><td>4273139</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26882_66249/Image_from_iOS.png">Image_from_iOS.png</td></td><td>2019-03-12T14:35:51.000+0000</td><td>5016931</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26882_66251/Results after using new code.jpg">Results after using new code.jpg</td></td><td>2019-03-13T13:47:04.000+0000</td><td>69478</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2019-03-07
+
+   This is default behavior. If you use an overlay you need to specify a [transform](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/CameraOptionsType-property-transform) to adjust the camera preview view yourself.
+   
+   For example to just show the camera in its default 4:3 format centered on the screen you can use the following code:
+   <code><pre>
+   const cameraAspectRatio = 4.0 / 3.0;
+   const cameraViewHeight = Ti.Platform.displayCaps.platformWidth * cameraAspectRatio;
+   let transform = Ti.UI.create2DMatrix();
+   transform = transform.translate(0, (Ti.Platform.displayCaps.platformHeight - cameraViewHeight) / 2.0);
+   Ti.Media.showCamera({
+     mediaType : Ti.Media.MEDIA_TYPE_PHOTO,
+     overlay,
+     transform,
+     showControls: false,
+     autohide: false
+   });
+   </pre></code> 
+   
+   If no <code>transform</code> is specified we will calculate a transform to fill the entire screen.</li>
+<li>Jan Vennemann 2019-03-11
+
+   The transform in my example only consists of a translate operation to make the preview view centered vertically.
+   
+   Since the camera ratio and screen ratio is different there are only those two solutions. Either keep the camera view at 4:3 ratio and have empty space at the top/bottom (see the iOS camera app), or zoom in and have the preview view fill the entire screen, which results in the actual photo having more area than the preview shows (see our default overlay view).
+   
+   I cannot give a general recommendation here since it depends on what they want and how their camera interface should look like. They can either go for our default option which scales the preview view to fill the entire screen or provide a custom transformation matrix to position/scale the view to fit their needs.</li>
+<li>Jan Vennemann 2019-03-12
+
+   The scale is calculated based on the screen height so that it perfectly fits on the X-axis. See the transform we use [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/c78a18100d528999cb505d24b93215978a013618/iphone/Classes/MediaModule.m#L1686)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/c78a18100d528999cb505d24b93215978a013618/iphone/Classes/MediaModule.m#L1686).</a>
+   
+   If you want to double check, switch between the default camera app and an app with our overlay view while holding the phone steady. The top and bottom edges of the preview views show exactly the same content. There is now overflowing on the X-axis.
+   
+   The aspect ratio of the camera changes based on phone orientation. In landscape it is 4:3 and in portrait 3:4 respectively. By default you always refer to the aspect ratio in landscape orientation (same as for the screen that is specified as 19.5:9 which is obviously the landscape orientation aspect ratio).</li>
+<li>Jan Vennemann 2019-03-12
+
+   Sorry, i just noticed you are using video media type. The default resolution of videos is different so you need to adjust the transform. Simply change the aspect ratio in my above code example to <code>const cameraAspectRatio = 16.0 / 9.0;</code>.
+   
+   Our standard overlay only accounts for photos which are taken in 4:3 format.</li>
+<li>Jan Vennemann 2019-03-13
+
+   It sure is possible that the front camera has a different aspect ratio. Please refer to the iPhone device specs to see what it actually is. I don't know them all out of my head. The math stays the same you just have to use the correct aspect ratio.
+   
+   The empty space at the bottom is most likely because you only scale the view but not translate it to the center.</li>
+<li>Jan Vennemann 2019-08-02
+
+   Closing due to no recent activity / feedback.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26882.json">JSON Source</a></p>

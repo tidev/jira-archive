@@ -1,0 +1,244 @@
+---
+title: "[TIMOB-23222] Windows: Ti.Codec.decodeNumber crashes when reading from buffer"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-18T22:43:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jonas Bjurhult</td></tr>
+<tr><th>Assignee</th><td>Kota Iguchi</td></tr>
+<tr><th>Created</th><td>2016-03-31T06:46:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T22:05:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The following code makes the app crash in the for-loop.
+When decreasing the number of loops to run the risk of getting the crash decreases. (i<200 often works, but i<2048 crashes most of the time).
+
+<code><pre>
+var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "data/data.bin");
+
+Ti.API.info('File meta:' + file.size);
+var blob = file.read();
+var length = blob.length;
+
+// Convert Ti.Blob to Ti.Buffer
+var stream = Ti.Stream.createStream({source:blob, mode: Ti.Stream.MODE_READ});
+var buffer = Ti.createBuffer({length: length});
+stream.read(buffer);
+Ti.API.info("file loaded. size="+buffer.length);
+
+// Read and parse the data
+var index = Ti.Codec.decodeNumber({source:buffer, position:0, type:Ti.Codec.TYPE_INT});
+Ti.API.info('Checkpoint:');
+var myArray = [];
+for (var i=0; i<2048; i++) {
+    myArray.push([
+        Ti.Codec.decodeNumber({source:buffer, position:4+i*8+0, type:Ti.Codec.TYPE_INT}),
+        Ti.Codec.decodeNumber({source:buffer, position:4+i*8+4, type:Ti.Codec.TYPE_INT})
+    ]);
+};
+Ti.API.info('Done');
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23222_58775/data.bin">data.bin</td></td><td>2016-03-31T06:34:31.000+0000</td><td>4303394</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nazmus Salahin 2016-03-31
+
+   Hello,
+   This might be a memory issue in your windows phone or emulator. I am not able to reproduce this issue exactly as you described but got similar kind of result. In my case executing the given code does not lead to app crash but it takes a lot of time to fulfill the task on windows while on android it takes very little amount of time. 
+   
+   *Steps:*
+   1. Create a default classic project for windows and android.
+   2. Create a function in app.js and insert given code in that function.
+   3. Call the function. I did call the function on button click in my code.
+   4. Build and run the app on windows phone.
+   5. On executing the function the following console log in produced immediately.
+   <code><pre>
+   [INFO] :   File meta:4303394
+   [INFO] :   file loaded. size=4303394
+   [INFO] :   Checkpoint:
+   </pre></code>
+   6. On Windows, the following log comes after over a minute but on android it takes a second or two.
+   <code><pre>
+   [INFO] :   Done
+   </pre></code>
+   *Code:*
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+   	title : 'Test Window',
+   	backgroundColor : '#000'
+   });
+   
+   var button = Titanium.UI.createButton({
+      title: 'Run Function',
+      top: 10,
+      width: 100,
+      height: 50
+   });
+   button.addEventListener('click',function(e)
+   {
+      codeGiven();
+   });
+   
+   win.add(button);
+   
+   win.open();
+   
+   var codeGiven = function() {
+   	var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "data/data.bin");
+   
+   	Ti.API.info('File meta:' + file.size);
+   
+   	var blob = file.read();
+   
+   	var length = blob.length;
+   
+   	// Convert Ti.Blob to Ti.Buffer
+   
+   	var stream = Ti.Stream.createStream({
+   		source : blob,
+   		mode : Ti.Stream.MODE_READ
+   	});
+   
+   	var buffer = Ti.createBuffer({
+   		length : length
+   	});
+   
+   	stream.read(buffer);
+   
+   	Ti.API.info("file loaded. size=" + buffer.length);
+   
+   	// Read and parse the data
+   
+   	var index = Ti.Codec.decodeNumber({
+   		source : buffer,
+   		position : 0,
+   		type : Ti.Codec.TYPE_INT
+   	});
+   
+   	Ti.API.info('Checkpoint:');
+   
+   	var myArray = [];
+   
+   	for (var i = 0; i < 4096; i++) {
+   
+   		myArray.push([Ti.Codec.decodeNumber({
+   			source : buffer,
+   			position : 4 + i * 8 + 0,
+   			type : Ti.Codec.TYPE_INT
+   		}), Ti.Codec.decodeNumber({
+   			source : buffer,
+   			position : 4 + i * 8 + 4,
+   			type : Ti.Codec.TYPE_INT
+   		})]);
+   
+   	};
+   
+   	Ti.API.info('Done');
+   
+   	return;
+   };
+   
+   
+   
+   </pre></code>
+   
+   *Environment*:
+   
+   *Device info:* Nexux7 (android 6.0.1), Windows Phone 8.1
+   *Node.js Version:* 0.12.7
+   *npm Version:* 2.11.3
+   *Titanium SDKs:* 5.2.1.GA, 5.2.0.GA and 5.2.1.GA
+   *Java Development Kit Version:* 1.8.0_73
+   *Titanium CLI Version:*  5.0.5
+   *Appcelerator CLI Version:*  5.2.0
+   *Appcelerator Studio:* 4.4.0.201511241829</li>
+<li>Jörgen Buder 2016-04-05
+
+   Hi
+   
+   As stated above the code does not run in the SDK: sdk-version 5.4.0.v20160301084038, you are testing the code in your GA branches, now since the 5.3.0 is coming out with Windows main fokus it is critical that it does work there before release, can you please test this on the SDK mentioned above to just verify that we indeed have the same problem AND then test to see if this works for you in the 5.3.0 latest that will be released... I will try to do the same but have no time as of right now..</li>
+<li>Jörgen Buder 2016-04-15
+
+   Any new comment in this regarding the above comment from me?
+   
+   I am now looking into this again and I have constant crashes when trying to decodeNumber from the stream, specifically when it has been iterating, I am using the above SDK so please run that. My code on Windows is speedy and have no issues to run fast... but it crashes...
+   
+   I am looking into the SDK native code for the moment but have not been able to debug it, is there a way to make prints in the SDK so I can debug the code when building for the emulator?
+   
+   Also how would I rebuild the SDK if I do some fixes?
+   
+   This is a critical fix for your windows release next week, please get back to us.
+   
+   Thanks</li>
+<li>Sharif AbuDarda 2016-04-15
+
+   Hello, 
+   
+   Thanks for your concern. We also have observed similar behavior in our platform. Moving this ticket to engineering, for them to work on. You can follow the link here for building your own SDK. <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Building_the_Titanium_SDK_From_Source
+   
+   Regards,
+   Sharif</li>
+<li>Jörgen Buder 2016-04-18
+
+   Does not seem to apply for building the Windows Titanium SDK, or at least all I find is how to build the Ti SDK for Android and iOS.. am I wrong?</li>
+<li>Jörgen Buder 2016-04-18
+
+   Observation from here:
+   
+   I had huge problems running the code for 512 iterations but on my system I had it running in maybe 5 sec in total so it was not slow (Windows phone 8.1 emulator, on device I can see nothing due to no loggs). If I split the loop up in smaller chunks, like 64 iteration each and them separating them in time they all run without crash, this implies some sort of memory issue, I had a look at the native code and there seem to be a sync task in there, even though there is a wait state I am thinking maybe that is the core problem, that it cannot do it in the async task... let me know if you need any help, test or feedback as I can run updates really quickly over here and help you test it and see if it works.
+   
+   I have also had problems (after initiating the first iteration of 512, even if they work in chunks) to access only one decodeNumber, as it crashes immiditakey concurrently efter that..
+   
+   Thanks for your attention</li>
+<li>Kota Iguchi 2016-04-18
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/631" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/631</a></li>
+<li>Kota Iguchi 2016-04-18
+
+   Merged to master. I expect this will be available on today's nightly build.</li>
+<li>Jörgen Buder 2016-04-21
+
+   Just tested this in the 5.4.0.v20160420 nitghly build, and I cannot still iterate 512 times calling the decode number, it crashes on my set up using that SDK and Windows Phone SDK 8.1, with Visual 2013.
+   
+   Targeting Phone 8.1
+   
+   Please help, is the fix NOT in that build?</li>
+<li>Kota Iguchi 2016-04-21
+
+    I confirmed test program doesn't crash on <code>5.4.0.v20160420120113</code>. So basic issue for this is all about the memory consumption at runtime. My fix was just to reduce memory consumption at decodeNumber but still crash could happen due to memory consumption overall in other areas at runtime... Is there any areas possible to reduce memory? I guess Ti.Codec could have reduce more too so I'll look into it.
+    
+    </li>
+<li>Jörgen Buder 2016-04-22
+
+    I will try to confirm this my self but I had a total crash using that SDK (second that day right) my app would just not start at all so I could not verify the decodeNumber, but what you are saying is that that SDK version is the first one where the decodeNumber improvments where integrated correct? </li>
+<li>Ewan Harris 2016-05-24
+
+    [~kota] This fix is present in the latest 5.3.0 build 5.3.0.v20160523083840 could the fixVersion be amended to reflect this? Thanks!</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as fixed, if there are any problems, please file a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23222.json">JSON Source</a></p>

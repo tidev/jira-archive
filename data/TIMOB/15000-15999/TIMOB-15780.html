@@ -1,0 +1,247 @@
+---
+title: "[TIMOB-15780] Android: ScrollableView.setCurrentPage() fires "scrollend" event when it shouldn't"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-09T21:30:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, events, module_scrollableview, qe-closed-3.3.0, qe-testadded, scrollableView, triage</td></tr>
+<tr><th>Reporter</th><td>Lee Driscoll</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2013-10-30T14:49:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-26T18:26:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The setCurrentPage method for Ti.UI.ScrollableView fires the 'dragend' & 'scrollend' events upon completion.
+
+According to the docs:
+
+scrollend: Fired when the view has stopped moving completely.
+dragend: Fired when the scrolling drag gesture on the view has been completed.
+
+If setCurrentPage is called programmatically, the 'dragend' event is incorrect as no drag gesture has been occurred.
+
+If setCurrentPage is called programmatically and without animation, the 'scrollend' event is incorrect as no movement has occurred.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15780_65131/ScrollableViewAddRemoveTest.js">ScrollableViewAddRemoveTest.js</td></td><td>2018-05-04T00:21:34.000+0000</td><td>3657</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2013-10-31
+
+   Hi Lee Driscoll,
+   
+   Could you share full test case so that i paste into the app.js file and can check it.
+   
+   Thanks</li>
+<li>Lee Driscoll 2013-11-01
+
+   when you say app.js I'm assuming you're talking about the index.js file? 
+   Sorry, I've only worked on alloy projects.
+   
+   <code><pre>
+   
+   var primaryView = $.getView();
+   
+   //assuming primary view is a window
+   
+   var scrollableView = Ti.UI.createScrollableView({
+      views: [
+          Ti.UI.createView(),
+          Ti.UI.createView()
+      ]
+   });
+   
+   primaryView.add(scrollableView);
+   
+   scrollableView.addEventListener('dragend', callback);
+   scrollableView.addEventListener('scrollend', callback);
+   
+   primaryView.open();
+   
+   scrollableView.setCurrentPage(1);
+   
+   function callback(e){
+       Ti.API.info('Event [' + e.type + '] fired );
+   }
+   
+   </pre></code></li>
+<li>Lee Driscoll 2013-11-06
+
+   </li>
+<li>Pedro Enrique 2013-11-26
+
+   Tested on simple commonjs app and the event does not fire; works as expected:
+   
+   <code><pre>
+   var win = Titanium.UI.createWindow();
+   
+   var scrollableView = Ti.UI.createScrollableView({
+   	bottom: 40,
+      views: [
+          Ti.UI.createView({
+          	backgroundColor: 'green'
+          }),
+          Ti.UI.createView({
+   		backgroundColor: 'blue'
+          })
+      ]
+   });
+   win.add(scrollableView);
+   win.add(btn);
+   
+   var btn = Ti.UI.createButton({
+   	bottom: 0,
+   	height: 40,
+   	title: 'scroll'
+   });
+    
+   scrollableView.addEventListener('dragend', callback);
+   scrollableView.addEventListener('scrollend', callback);
+    
+    
+   btn.addEventListener('click', function(){
+   	scrollableView.setCurrentPage(1);
+   });
+    
+   function callback(e){
+       alert('Event [' + e.type + '] fired');
+   }
+   
+   win.open();
+   </pre></code></li>
+<li>Pedro Enrique 2013-11-26
+
+   Discard last comment, I was testing on iPhone. Tested on Android and was able to reproduce it.</li>
+<li>Pedro Enrique 2013-11-26
+
+   PR pending: <a href="https://github.com/appcelerator/titanium_mobile/pull/5031" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5031</a></li>
+<li>Pedro Enrique 2014-04-17
+
+   </li>
+<li>Priya Agarwal 2014-04-24
+
+   Verified with test environment:
+   
+   Appc-Studio:3.3.0.201404211130
+   sdk:3.3.0.v20140423155715
+   acs:1.0.14
+   alloy:1.4.0-dev
+   npm:1.3.2
+   titanium:3.3.0-dev
+   titanium-code-processor:1.1.1-beta1
+   xCODE:5.1.1
+   Device:Iphone5(7.1),LG-P970(v4.0.4)
+   
+   setCurrentPage() Method for scrollable View working fine.</li>
+<li>Joshua Quick 2018-01-03
+
+   Re-opening since this issue has not been resolved on Android.
+   The "scrollend" event still gets fired when calling setCurrentPage().
+   The "dragend" event does not get fired. (This is good.)
+   
+   I was able to reproduce the above in Titanium 6.0.2 and 7.0.1.
+   
+   *Test Code:*
+   <code><pre>
+   var pageNumber = 0;
+   function createPage() {
+   	pageNumber++;
+   	return Ti.UI.createLabel(
+   	{
+   		text: "Page " + pageNumber,
+   		textAlign: Ti.UI.TEXT_ALIGNMENT_CENTER,
+   		color: "black",
+   		backgroundColor: "white",
+   		left: "1dp",
+   		right: "1dp",
+   		width: Ti.UI.FILL,
+   		height: Ti.UI.FILL,
+   	});
+   }
+   var window = Ti.UI.createWindow();
+   var scrollableView = Ti.UI.createScrollableView(
+   {
+   	views:
+   	[
+   		createPage(),
+   		createPage(),
+   		createPage(),
+   		createPage(),
+   	],
+   	showPagingControl: true,
+   	backgroundColor: "black",
+   });
+   scrollableView.addEventListener("scroll", function(e) {
+   	Ti.API.info("@@@ [scroll] currentPage: " + e.currentPage + ", currentPageAsFloat: " + e.currentPageAsFloat);
+   });
+   scrollableView.addEventListener("scrollend", function(e) {
+   	Ti.API.info("@@@ [scrollend] Current page index: " + e.currentPage);
+   });
+   scrollableView.addEventListener("dragstart", function(e) {
+   	Ti.API.info("@@@ [dragstart]");
+   });
+   scrollableView.addEventListener("dragend", function(e) {
+   	Ti.API.info("@@@ [dragend] currentPage: " + e.currentPage);
+   });
+   window.add(scrollableView);
+   window.open();
+   
+   var isAnimated = false;
+   setInterval(function() {
+   	var pages = scrollableView.views;
+   	if (pages && (pages.length > 0)) {
+   		if (isAnimated) {
+   			if (((scrollableView.currentPage + 1) % pages.length) > 0) {
+   				scrollableView.moveNext();
+   			} else {
+   				scrollableView.scrollToView(0);
+   			}
+   		} else {
+   			var nextPageIndex = (scrollableView.currentPage + 1) % pages.length;
+   			scrollableView.currentPage = nextPageIndex;
+   		}
+   	}
+   }, 1500);
+   </pre></code>
+   
+   *Side Note:*
+   Both Android and iOS fire a single "scroll" event after calling setCurrentPage(). I don't agree with this behavior, but at least the 2 platforms are consistent.
+   </li>
+<li>Joshua Quick 2018-01-06
+
+    PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9696" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9696</a></li>
+<li>Lokesh Choudhary 2018-05-05
+
+    FR Passed. Waiting for merger to be enabled.</li>
+<li>Lokesh Choudhary 2018-05-09
+
+    PR Merged.</li>
+<li>Josh Longton 2018-06-26
+
+    *Closing ticket.*
+    The fix is present in SDK:
+    
+    {noformat}
+    7.3.0.v20180626064422
+    {noformat}</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15780.json">JSON Source</a></p>

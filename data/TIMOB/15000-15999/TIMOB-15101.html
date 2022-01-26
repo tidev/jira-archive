@@ -1,0 +1,219 @@
+---
+title: "[TIMOB-15101] ScrollableView in ListView's items, causes a bug after the scroll of any ScrollableView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-12-08T20:20:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 25, 2013 Sprint 25 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>dev-invalidate, ipass1, listview, scrollableView, scrollablescrollable, triage</td></tr>
+<tr><th>Reporter</th><td>Vittorio Sorbera</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-05T11:08:10.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-28T20:24:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem description*
+If you use a ScrollableView in a ListView, it has a bug.
+By default, in every item I show the first image of ScrollableView (currentPage = 0). After the scroll in any one of ScrollableViews, if then I scroll the ListView, many other ScrollableViews will have changed the image. Even if I try to reload the ListView, it will not show the first image of ScrollableView in all items.
+
+*Test case*
+This is a generic code that reproduces the problem:
+<code><pre> 
+var win = Ti.UI.createWindow();
+var remoteImages = true; // false for localImages
+
+//--> UI ELEMENTS
+//	-> ListView Template
+var itemTemplate = {
+    childTemplates: [
+        {
+            type: 'Ti.UI.View',  
+            bindId: 'bgView',  
+            properties: { 
+				width : "100%",
+				height : "100%",
+				backgroundColor : "#aabbcc",
+				zIndex : 1    
+            }       	
+        },
+        {
+            type: 'Ti.UI.ScrollableView',  
+            bindId: 'imagesSV',  
+            properties: {
+				width : "100%",
+				height : "210dp",
+				showPagingControl : true,
+				currentPage : 0,
+				zIndex : 2
+            }
+		}
+	]
+};
+
+var itemsLV = Ti.UI.createListView({
+		top : "50dp",
+		bottom : "0dp",
+		templates : {'itemTemplate': itemTemplate},
+		defaultItemTemplate : 'itemTemplate',
+		backgroundColor : "transparent",
+		separatorColor : "transparent"
+});	
+
+
+var reloadBtn = Ti.UI.createButton({
+	title : "Reload",
+	top : "5dp"
+});
+reloadBtn.addEventListener("click", function(){
+	reload();
+});
+
+var loadingAI = Ti.UI.createActivityIndicator();
+	
+var reload = function(){
+	
+	itemsLV.visible = false;
+	itemsLV.sections = [];
+	loadingAI.show();
+	
+	var data = [];
+	for(var j=0; j<100; j++){
+
+		var images = [];
+		if(remoteImages){
+			var imagesUrl = [
+				"<a href="https://si0.twimg.com/profile_images/3170725828/ac1d6621fc3c3ecaa541d8073d4421cc.jpeg" rel="nofollow" target="_blank">https://si0.twimg.com/profile_images/3170725828/ac1d6621fc3c3ecaa541d8073d4421cc.jpeg</a>",
+				"<a href="http://blogs.dallasobserver.com/sportatorium/No.%202.png" rel="nofollow" target="_blank">http://blogs.dallasobserver.com/sportatorium/No.%202.png</a>",
+				"<a href="http://dt1lqdui5w8vj.cloudfront.net/9/images/badge3.png" rel="nofollow" target="_blank">http://dt1lqdui5w8vj.cloudfront.net/9/images/badge3.png</a>",
+				"<a href="http://www.tanialuiz.com/tania/images/stories/virtuemart/product/661dd600899aee2c6b69060aabcf54ab.png" rel="nofollow" target="_blank">http://www.tanialuiz.com/tania/images/stories/virtuemart/product/661dd600899aee2c6b69060aabcf54ab.png</a>",
+				"<a href="https://si0.twimg.com/profile_images/2797666136/a7030f51e405cde3684cb7bc46107736.png" rel="nofollow" target="_blank">https://si0.twimg.com/profile_images/2797666136/a7030f51e405cde3684cb7bc46107736.png</a>",
+				"<a href="http://www.i2symbol.com/images/symbols/style-digits/circled_digit_six_u2465_icon_256x256.png" rel="nofollow" target="_blank">http://www.i2symbol.com/images/symbols/style-digits/circled_digit_six_u2465_icon_256x256.png</a>"
+			];
+		}else{
+			var imagesUrl = [
+				"/KS_nav_views.png",
+				"/KS_nav_ui.png",
+				"/KS_nav_views.png",
+				"/KS_nav_ui.png",
+				"/KS_nav_views.png",
+				"/KS_nav_ui.png"
+			];			
+		};
+		
+		for(var i in imagesUrl){
+			images.push(Ti.UI.createImageView({
+				image : imagesUrl[i],
+				defaultImage : "/KS_nav_views.png"
+			}));
+		};
+		
+	    data.push({
+	        properties : {
+	            itemId: 'image n. ' + (i + 1),
+	            accessoryType: Ti.UI.LIST_ACCESSORY_TYPE_NONE,
+				selectionStyle : Ti.UI.iPhone.ListViewCellSelectionStyle.NONE,
+				height : "210dp"
+	        },
+	        bgView : {},
+	        imagesSV :{
+	        	views : images,
+	        	currentPage : 0
+       		}
+	    });
+	 };	
+	
+    var section = Ti.UI.createListSection({items: data});
+    itemsLV.sections = [section];
+    itemsLV.visible = true;
+    loadingAI.hide();	
+};
+reload();
+
+//--> ADD TO WIN
+win.add(reloadBtn);
+win.add(itemsLV);
+win.add(loadingAI);
+
+win.open();
+</pre></code> 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-09-09
+
+   Hello,
+   
+   in general we don't recommend scrollable items on top of other scrollable items.  Does this happen in simulator or device? Which iOS version?
+   
+   Best,
+   
+   Mauro </li>
+<li>Vittorio Sorbera 2013-09-10
+
+   Hello,
+   I first tried using the TableView instead of the ListView. In that case there was no problem, but the scroll was too slow. So I chose to use the ListView, which has greatly improved the performance. The only problem is what I described in the issue.
+   The problem appears both in the simulator (6.1) and in the device (iPhone 4s 6.1.3).
+   
+   Regards,
+   Vittorio</li>
+<li>Vishal Duggal 2013-12-08
+
+   The list view is a data based API. When the scrollable views property changes in response to user action, it is the developers responsibility to change the associated data. Try adding a scrollend event handler to the template as shown below and things should work as expected.
+   
+   <code><pre>
+   function scrollHandler(e)
+   {
+       Ti.API.info(e.sectionIndex+' '+e.itemIndex+' '+e.bindId+' '+e.currentPage);
+       if (e.bindId == 'imagesSV') {
+           var section = itemsLV.sections[e.sectionIndex];
+           var data = section.getItemAt(e.itemIndex);
+           Ti.API.info('OLD CURRENT PAGE '+data.imagesSV.currentPage);
+           data.imagesSV.currentPage = e.currentPage;
+           Ti.API.info('NEW CURRENT PAGE '+data.imagesSV.currentPage);
+           section.updateItemAt(e.itemIndex,data,{animated:false});
+       }
+   
+   }
+   
+   var itemTemplate = {
+       childTemplates: [
+           {
+               type: 'Ti.UI.View',  
+               bindId: 'bgView',  
+               properties: { 
+                   width : "100%",
+                   height : "100%",
+                   backgroundColor : "#aabbcc",
+                   zIndex : 1    
+               }           
+           },
+           {
+               type: 'Ti.UI.ScrollableView',  
+               bindId: 'imagesSV',  
+               properties: {
+                   width : "100%",
+                   height : "210dp",
+                   showPagingControl : true,
+                   currentPage : 0,
+                   zIndex : 2
+               }
+           }
+       ],
+       events:{scrollend:scrollHandler}
+   };
+   </pre></code></li>
+<li>Eric Merriman  2017-03-28
+
+   Closing</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15101.json">JSON Source</a></p>

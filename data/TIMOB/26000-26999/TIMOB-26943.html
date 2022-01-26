@@ -1,0 +1,126 @@
+---
+title: "[TIMOB-26943] iOS: WebView.setHtml() fails to load inner contents with "file://" URLs and relative paths if "baseURL" uses "app://" URL as of 8.0.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-04-16T13:58:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>WebView, engSchedule, file, html, ios, regression</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-03-27T19:25:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-04-02T13:08:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+As of Titanium 8.0.0, a call to <code>WebView.setHtml()</code> with a "baseURL" set to an "app://" URL such as <code>Ti.Filesystem.resourcesDirectory</code> will fail to load HTML content such as <code><img/></code> or <code><script/></code> if they're assigned relative paths or "file://" URLs.
+
+This is *not* an issue if:
+* "baseURL" is set to a "file://" URL.
+* If "baseURL" was never assigned in the <code>setHtml()</code> call.
+* If the contents such as <code><img/></code> use an "app://" URL instead, but this is not support on Android or Windows.
+
+*Steps to reproduce:*
+<h4>Create a Classic "Default Project" Titanium app.</h4>
+<h4>Set <code><use-app-thinning/></code> to <code>false</code> in the "tiapp.xml" as shown below.</h4>
+<h4>Copy the below code to the project's "app.js".</h4>
+<h4>Build and run on iOS.</h4>
+<h4>Notice that 3 of the 4 images fail to load within the <code>WebView</code>.</h4>
+
+tiapp.xml
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<use-app-thinning>false</use-app-thinning>
+</ti:app>
+</pre></code>
+
+app.js
+<code><pre>
+var sourceFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, "assets/images/tab1.png");
+var targetFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, "tab1.png");
+sourceFile.copy(targetFile.nativePath);
+
+var htmlText =
+		'<!DOCTYPE html>\n' +
+		'<html>\n' +
+		'	<head>\n' +
+		'		<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+		'	</head>\n' +
+		'	<body>\n' +
+		'		<p>Resource File (Relative Path)</p>\n' +
+		'		<img src="assets/images/tab1.png"/>\n' +
+		'		<br/>\n' +
+		'		<p>Resource File (app:// URL; iOS-only)</p>\n' +
+		'		<img src="app://Resources/assets/images/tab1.png"/>\n' +  // <- This works.
+		'		<br/>\n' +
+		'		<p>Resource File (file:// URL)</p>\n' +
+		'		<img src="' + sourceFile.nativePath + '"/>\n' +
+		'		<br/>\n' +
+		'		<p>App Data File (file:// URL)</p>\n' +
+		'		<img src="' + targetFile.nativePath + '"/>\n' +
+		'	</body>\n' +
+		'</html>\n';
+Ti.API.info("### htmlText:\n" + htmlText);
+
+var window = Ti.UI.createWindow();
+var webView = Ti.UI.createWebView({
+//	html: htmlText,  // <- This works.
+});
+//webView.setHtml(htmlText);  // <- This works.
+webView.setHtml(htmlText, { baseURL: Ti.Filesystem.resourcesDirectory });  // <- This fails!!!
+//webView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });  // <- This works.
+window.add(webView);
+window.open();
+</pre></code>
+
+*Work-Around:*
+Set "baseURL" to a "file://" URL instead. For example instead of doing this...
+<code><pre>
+webView.setHtml(htmlText, { baseURL: Ti.Filesystem.resourcesDirectory });
+</pre></code>
+...do this instead...
+<code><pre>
+webView.setHtml(htmlText, { baseURL: Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory).nativePath });
+</pre></code>
+
+Alternatively, don't set the "baseURL" in the <code>setHtml()</code> function call. By default, the HTML's contents are relative to the Titanium app's "Resources" directory.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vijay Singh 2019-04-03
+
+   PR(master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10818" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10818</a>
+   PR(8_0_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10819" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10819</a></li>
+<li>Samir Mohammed 2019-04-12
+
+   FR Passed, waiting on Jenkins build. </li>
+<li>Christopher Williams 2019-04-15
+
+   Merged to 8_0_X. Waiting for a clean build on master PR...</li>
+<li>Christopher Williams 2019-04-15
+
+   merged to master as well</li>
+<li>Samir Mohammed 2019-04-16
+
+   Closing ticket. Fix verified in SDK version <code>8.1.0.v20190416001251</code> and SDK version <code>8.0.1.v20190415060903</code>.
+   
+   Test and other information can be found at:
+   PR(master) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10818" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10818</a>
+   PR(8_0_X) - <a href="https://github.com/appcelerator/titanium_mobile/pull/10819" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10819</a></li>
+<li>Teun Klijn 2020-04-02
+
+   This is no longer working in 8.3.0.GA-9.0.0.GA, is there any reason for that?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26943.json">JSON Source</a></p>

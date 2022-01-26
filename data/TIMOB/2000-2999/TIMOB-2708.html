@@ -1,0 +1,144 @@
+---
+title: "[TIMOB-2708] ResultSet.rowCount Affects Row Pointer on iOS"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:59:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.6.0 M07</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>defect, ios, release-1.6.0, reported-1.5.1</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:27:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:59:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><h1>Problem</h1>
+<p>Given a ResultSet "rows" on iOS, calling "rows.rowCount" will
+affect the number of rows returned whle iterating over "rows" using
+"rows.isValidRow()" and "rows.next()".</p>
+<h1>Expected Behavior</h1>
+<p>Calling rows.rowCount should return the same integer as if you
+count how many rows you iterate over using "rows.isValidRow()" and
+"rows.next()".</p>
+<h1>Test Cases</h1>
+<p>The first test below FAILS on iPhone simulator 4.2, PASSES on
+Android 2.2. The second test PASSES on both iPhone simulator 4.2
+and Android 2.2.</p>
+<pre>
+<code class="javascript">/**
+ * Initializes the test environment, creating a simple table "data" that has 1500
+ * rows in it.
+ */
+var testRowCount = 1500;
+var db = Ti.Database.open('data');
+db.execute('CREATE TABLE IF NOT EXISTS data (id INTEGER PRIMARY KEY, val TEXT)');
+db.execute('DELETE FROM data WHERE 1=1');
+for (var i = 1; i &lt;= testRowCount; i++) {
+    db.execute('INSERT INTO data (val) VALUES(?)','our value:' + i);
+}
+
+/**
+ * TEST ROW COUNT DOES NOT ADVANCE RESULT SET.
+ *
+ * EXPECTED RESULT: rows.rowCount will return 1500, and realCount after
+ * iterating over rows, will also return 1500.
+ *
+ * REAL BEHAVIOR IN 1.5.1: rows.rowCount returns 1000, and pushes the result set of
+ * rows to 1001, so realCount after iteration is only 500, and not 1500 as expected.
+ */
+function testRowCountDoesNotAdvanceResultSet() {
+    // now select out our data from the database
+    var rows = db.execute("SELECT * FROM data");
+    var rowCount = rows.rowCount;
+    Ti.API.info('rows.rowCount = ' + rowCount);
+    var realCount = 0;
+    while (rows.isValidRow()) {
+        realCount += 1;
+        rows.next();
+    }
+    // check that the rowCount is equal to the number of rows we actually got out
+    Ti.API.info('realCount = ' + realCount);
+    if (realCount != rowCount) {
+        Ti.API.error('rowCount == realCount assertion FAILED!');
+    } else {
+        Ti.API.info('rowCount == realCount assertion PASSED!');
+    }
+}
+
+testRowCountDoesNotAdvanceResultSet();
+
+/*
+ * TEST RESULT SET COUNT WITHOUT ROW COUNT IS CORRECT
+ *
+ * To prove that the above test is valid, check that iterating over the result set
+ * without first calling "rows.rowCount" will return the correct 1500 rows.
+ *
+ * EXPECTED RESULT: realCount after iterating over the rows will be 1500
+ *
+ * REAL BEHAVIOR IN 1.5.1: realCount after iterating over the rows is 1500
+ */
+function testResultSetCountWithoutRowCount() {
+    // now select out our data from the database
+    var rows = db.execute("SELECT * FROM data");
+    var realCount = 0;
+    while (rows.isValidRow()) {
+        realCount += 1;
+        rows.next();
+    }
+    Ti.API.info('realCount = ' + realCount);
+    if (realCount != testRowCount) {
+        Ti.API.error('realCount == ' + testRowCount + ' assertion FAILED!');
+    } else {
+        Ti.API.info('realCount == ' + testRowCount + ' assertion PASSED!');
+    }
+}
+
+testResultSetCountWithoutRowCount();</code>
+</pre>
+<h2>Associated Help Desk Ticket</h2>
+<p><a href=
+"<a href="http://developer.appcelerator.com/helpdesk/view/61451" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/61451</a>"><a href="http://developer.appcelerator.com/helpdesk/view/61451" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/61451</a></a></p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dawson Toth 2011-04-15
+
+   <div><p>Sorry, assigned to Don instead of Ralf and tagged Android when
+   it's really iOS. Fixed tags and assignment...</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>(from <a href=
+   "/projects/32238/changesets/eb5ab13fa39c7f2060542d48b83c873746cc1971"
+   title=
+   "Changeset [eb5ab13fa39c7f2060542d48b83c873746cc1971]">[eb5ab13fa39c7f2060542d48b83c873746cc1971]</a>)
+   [<a href="/projects/32238/tickets/2708" title=
+   "Ticket #2708">#2708</a> state:fixed-in-qa] Remove arbitrary
+   1000-result row count limit. Added drillbit test for database row
+   count integrity. <a href=
+   "<a href="https://github.com/appcelerator/titanium_mobile/commit/eb5ab13fa39c7f2060542d48b83c873746cc1971" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/eb5ab13fa39c7f2060542d48b83c873746cc1971</a>">
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/eb5ab13fa39c..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/eb5ab13fa39c...</a></a></p></div></li>
+<li>Pedro Enrique 2011-04-15
+
+   <div><p>Tested with the code provided on iPhone Simulator 4.2<br>
+   Console output:</p>
+   <pre>
+   <code>[INFO] rows.rowCount = 1500
+   [INFO] realCount = 1500
+   [INFO] rowCount == realCount assertion PASSED!
+   [INFO] realCount = 1500
+   [INFO] realCount == 1500 assertion PASSED!</code>
+   </pre>
+   <p>Ti SDK 1.6 (Jan 26 2011 18:55 rbd12917d)<br>
+   Ti Dev 1.3</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-2708.json">JSON Source</a></p>

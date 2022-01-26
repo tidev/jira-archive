@@ -1,0 +1,340 @@
+{
+	"id": "117709",
+	"key": "TIMOB-14697",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "15707",
+				"description": "2013 Sprint 23",
+				"name": "2013 Sprint 23",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-11-15"
+			},
+			{
+				"id": "15708",
+				"description": "2013 Sprint 23 API",
+				"name": "2013 Sprint 23 API",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-11-15"
+			}
+		],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2013-10-30T22:23:45.000+0000",
+		"created": "2013-07-29T14:29:43.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"crash",
+			"ios",
+			"triage"
+		],
+		"versions": [
+			{
+				"id": "15478",
+				"description": "Release 3.1.1",
+				"name": "Release 3.1.1",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-06-17"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "ingo",
+			"key": "ingo",
+			"displayName": "Ingo Muschenetz",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2017-03-31T17:32:43.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Randomly during a fast paced view redraw (a lot of parent.add, a lot of parent.remove) the following crash happens:\r\n\r\n{code}\r\nDate/Time:       2013-07-26 10:56:41.571 +0200\r\nOS Version:      iPhone OS 5.1.1 (9B206)\r\nReport Version:  104\r\n\r\nException Type:  EXC_BAD_ACCESS (SIGSEGV)\r\nException Codes: KERN_INVALID_ADDRESS at 0x20000008\r\nCrashed Thread:  0\r\n\r\nThread 0 name:  Dispatch queue: com.apple.main-thread\r\nThread 0 Crashed:\r\n0   libobjc.A.dylib               \t0x333cdf78 objc_msgSend + 16\r\n1   MyBigApp                    \t0x000806d6 -[TiViewProxy layoutChildrenIfNeeded] (TiViewProxy.m:2272)\r\n2   MyBigApp                    \t0x001b2fb8 +[TiLayoutQueue layoutProxy:] (TiLayoutQueue.m:79)\r\n3   MyBigApp                    \t0x001b2dc8 performLayoutRefresh (TiLayoutQueue.m:46)\r\n4   CoreFoundation                \t0x35783a2c __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 8\r\n5   CoreFoundation                \t0x35783692 __CFRunLoopDoTimer + 358\r\n6   CoreFoundation                \t0x35782268 __CFRunLoopRun + 1200\r\n7   CoreFoundation                \t0x3570549e CFRunLoopRunSpecific + 294\r\n8   CoreFoundation                \t0x35705366 CFRunLoopRunInMode + 98\r\n9   GraphicsServices              \t0x334a0432 GSEventRunModal + 130\r\n10  UIKit                         \t0x32eddcce UIApplicationMain + 1074\r\n11  MyBigApp                    \t0x000112ac main (main.m:36)\r\n12  MyBigApp                    \t0x0000d3b8 start + 32\r\n{code}\r\n\r\nThis is in fact on the access to {{hidden}} in {{view.hidden}} (which is really a call to {{[view isHidden]}}) in {{[TiViewProxy layoutChildrenIfNeeded]}}.\r\n\r\nWith NSZombieEnabled we can can in fact see this:\r\n\r\n{code}\r\n2013-07-29 15:06:14.545 MyBigApp[878:907] *** -[TiUITableView isHidden]: message sent to deallocated instance 0x1eb01b30\r\n{code}\r\n\r\nBut in the last few hours I saw that exact line on TiUILabelViewProxy, TiUIViewProxy, TiUIActivityIndicatorProxy, so that's not related to the fact that the view is a TableView.\r\n\r\nAnyway that's pretty strange, to understand what's going on I made the app crash with the history of retains and releases logged (Instruments » iOS Simulator » Zombies) and found the following history:\r\n\r\n{code}\r\n#\tAddress\tCategory\tEvent Type\tRefCt\tTimestamp\tSize\tResponsible Library\tResponsible Caller\r\n0\t0x1adb4970\tTiUILabel\tMalloc\t1\t00:42.335.257\t288\tMyBigApp\t-[TiViewProxy newView]\r\n1\t0x1adb4970\tTiUILabel\tRetain\t2\t00:42.335.273\t0\tMyBigApp\t-[TiProxy setModelDelegate:]\r\n2\t0x1adb4970\tTiUILabel\tRetain\t3\t00:42.335.640\t0\tUIKit\t-[UIView(Internal) _addSubview:positioned:relativeTo:]\r\n3\t0x1adb4970\tTiUILabel\tRetain\t4\t00:42.335.832\t0\tQuartzCore\t-[CALayer layoutSublayers]\r\n4\t0x1adb4970\tTiUILabel\tRelease\t3\t00:42.335.832\t0\tQuartzCore\t-[CALayer layoutSublayers]\r\n5\t0x1adb4970\tTiUILabel\tRelease\t2\t00:42.390.437\t0\tUIKit\t-[UIView(Hierarchy) removeFromSuperview]\r\n6\t0x1adb4970\tTiUILabel\tRelease\t1\t00:42.391.407\t0\tMyBigApp\t__TiThreadReleaseOnMainThread_block_invoke\r\n7\t0x1adb4970\tTiUILabel\tRelease\t0\t00:42.391.445\t0\tMyBigApp\t__TiThreadReleaseOnMainThread_block_invoke\r\n8\t0x1adb4970\tTiUILabel\tZombie\t-1\t00:42.394.547\t0\tMyBigApp\t-[TiViewProxy layoutChildrenIfNeeded]\r\n{code}\r\n\r\nLooks like a race condition to me. The really curious thing is, how can {{[self viewAttached]}} at the start of {{layoutChildrenIfNeeded}} pass if it has been destroyed?\r\n\r\n----\r\n\r\nAnyway I found a way to workaround this issue by modifying the resulting application directly on XCode: modify the line with {{view.hidden}} at Classes/API/TiViewProxy.m line ~2272 into:\r\n\r\n{code}\r\nif (!self.parentVisible || view.hidden)\r\n{\r\n  ...\r\n}\r\n{code}\r\n\r\nBut we don't want to work on non-vanilla versions of Titanium.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: layoutChildrenIfNeeded tries to access a deallocated view, causing crash",
+		"creator": {
+			"name": "yuchi",
+			"key": "yuchi",
+			"displayName": "Pier Paolo Ramon",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "yuchi",
+			"key": "yuchi",
+			"displayName": "Pier Paolo Ramon",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": "Titanium SDK 3.1.1 GA, iOS 5.x, iOS 6.x",
+		"comment": {
+			"comments": [
+				{
+					"id": "263690",
+					"author": {
+						"name": "dsefton",
+						"key": "dsefton",
+						"displayName": "Daniel Sefton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi Pier,\r\n\r\nSo that I can escalate it to engineering, we need a reproducible test case. Please can you provide one?\r\n\r\nAlso, in which file did you make that change?\r\n\r\nThanks!",
+					"updateAuthor": {
+						"name": "dsefton",
+						"key": "dsefton",
+						"displayName": "Daniel Sefton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-07-29T18:28:59.000+0000",
+					"updated": "2013-07-29T18:28:59.000+0000"
+				},
+				{
+					"id": "263887",
+					"author": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "The strange fact is that I can always reproduce the crash on our complex application, but I cannot isolate the pattern which is causing this.\n\nI can technically give you a fully reproducible case (even if it's not a isolated one) by giving you the entire app we're working on. As you can understand, this issue is biting us *a lot* but I cannot give away our code so freely.\n\nLet me know if I can somehow get in touch with someone from engineering and do a remote-human-debug thing.\n\nThe change is in {{Classes/API/TiViewProxy.m}} line ~2272 (at the file for SDK 3.1.1).",
+					"updateAuthor": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-07-30T08:14:28.000+0000",
+					"updated": "2013-07-30T08:14:28.000+0000"
+				},
+				{
+					"id": "264388",
+					"author": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Me (and my company) will be on holiday until the 20th of August. Please, don't think the absence of feedback from us means we're not able to reproduce the issue.\r\n\r\nAs an additional information (which lead us to think it's a race-condition like issue) is that on 1st generation iPad this issue happens *a lot* (I mean, *a LOT*) more often.",
+					"updateAuthor": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-08-01T09:16:28.000+0000",
+					"updated": "2013-08-01T09:16:28.000+0000"
+				},
+				{
+					"id": "264474",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~yuchi] Can we please get a crash log and any sort of test case you can provide? You could also send us a copy of your code privately.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-08-01T18:26:32.000+0000",
+					"updated": "2013-08-01T18:26:32.000+0000"
+				},
+				{
+					"id": "265442",
+					"author": {
+						"name": "srahim",
+						"key": "srahim",
+						"displayName": "Sabil Rahim",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This definitely looks like race condition. But we would want a proper test case to exactly figure out what is leading to this behavior. ",
+					"updateAuthor": {
+						"name": "srahim",
+						"key": "srahim",
+						"displayName": "Sabil Rahim",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-08-07T20:51:33.000+0000",
+					"updated": "2013-08-07T20:51:33.000+0000"
+				},
+				{
+					"id": "267797",
+					"author": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~ingo], [~srahim], ok, here we are again. We definitely choose to send you the full source code of a demo version of our App, including a small change to automate the necessary steps to reproduce the issue.\r\n\r\nJust tell us how can we send you the thing privately.\r\n\r\nThank you for your support!",
+					"updateAuthor": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-08-23T07:46:20.000+0000",
+					"updated": "2013-08-23T07:46:20.000+0000"
+				},
+				{
+					"id": "267826",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[yuchi] I would suggest emailing us a link to a dropbox or other account. My email is ingo [at] appcelerator",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-08-23T14:12:28.000+0000",
+					"updated": "2013-08-23T14:12:28.000+0000"
+				},
+				{
+					"id": "267848",
+					"author": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~ingo], I sent the email. I'll do all I can to help you through this.",
+					"updateAuthor": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-08-23T16:26:54.000+0000",
+					"updated": "2013-08-23T16:26:54.000+0000"
+				},
+				{
+					"id": "277420",
+					"author": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Tested this with CI build 3.1.X and master and cannot reproduce. This seems to have been fixed by another bug sometime the past. Please test it with the master build from CI. http://builds.appcelerator.com.s3.amazonaws.com/index.html#master\r\n\r\nClosing ticket and marking as \"Cannot Reproduce\"",
+					"updateAuthor": {
+						"name": "penrique",
+						"key": "penrique",
+						"displayName": "Pedro Enrique",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-10-30T22:23:45.000+0000",
+					"updated": "2013-10-30T22:23:45.000+0000"
+				},
+				{
+					"id": "278660",
+					"author": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "I tested it last week on 3.1.3 on iOS 7 and the crash still happens.",
+					"updateAuthor": {
+						"name": "yuchi",
+						"key": "yuchi",
+						"displayName": "Pier Paolo Ramon",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-11-07T18:22:54.000+0000",
+					"updated": "2013-11-07T18:22:54.000+0000"
+				},
+				{
+					"id": "416512",
+					"author": {
+						"name": "lmorris",
+						"key": "lmorris",
+						"displayName": "Lee Morris",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket as I am unable to reproduce the issue using the following environment; \r\niPhone 7 (10.2) \r\nMacOS 10.11.6 (15G31) \r\nStudio 4.8.1.201612050850 \r\nTi SDK 6.0.3 GA \r\nAppc NPM 4.2.8 \r\nAppc CLI 6.1.0 \r\nTi CLI 5.0.11 \r\nAlloy 1.9.5 \r\nArrow 1.10.1 \r\nXcode 8.2 (8C38) \r\nNode v4.6.0 \r\nJava 1.7.0_80",
+					"updateAuthor": {
+						"name": "lmorris",
+						"key": "lmorris",
+						"displayName": "Lee Morris",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-03-31T17:32:43.000+0000",
+					"updated": "2017-03-31T17:32:43.000+0000"
+				}
+			],
+			"maxResults": 12,
+			"total": 12,
+			"startAt": 0
+		}
+	}
+}

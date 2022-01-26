@@ -1,0 +1,260 @@
+---
+title: "[TIMOB-20484] Hyperloop: iOS: Local-embedded frameworks not working"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-04T09:46:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>hyperloop, qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2016-02-29T13:07:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-04T09:46:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Local-embedded frameworks in the /src/ folder are not working - like <code>.m</code> and <code>.swift</code> files. We should find a way to recognize local-embedded frameworks correctly.
+
+Project to reproduce: <a href="https://github.com/hansemannn/hyperloop-robot" rel="nofollow" target="_blank">https://github.com/hansemannn/hyperloop-robot</a>
+Framework talking about: <a href="https://github.com/orbotix/Sphero-iOS-SDK/tree/master/frameworks/RobotKit.framework" rel="nofollow" target="_blank">https://github.com/orbotix/Sphero-iOS-SDK/tree/master/frameworks/RobotKit.framework</a>
+
+The metabase seems to be generated, but the required (proof of concept) method does not work:
+<code><pre>
+var RKRobotDiscoveryAgent = require("RobotKit/RKRobotDiscoveryAgent"); // works
+RKRobotDiscoveryAgent.sharedAgent().isDiscovering(); // does not work - class not found
+</pre></code>
+
+The generated metabase for the framework is attached.
+
+*{color:red}EDIT{color}*: The problem happens with every other local-embedded framework as well. Using the attached "Serenity.framework" and the following demo code doesn't work as well. This very critical for the GA release.
+
+<code><pre>
+var Widget = require("Serenity/Widget");
+var test = new Widget();
+Ti.API.warn(test.image());
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20484_59116/robotkit.zip">robotkit.zip</td></td><td>2016-05-01T09:29:22.000+0000</td><td>132947</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20484_59446/Serenity.zip">Serenity.zip</td></td><td>2016-05-31T11:42:55.000+0000</td><td>93918</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-05-30
+
+   The attached Serenity.framework is empty. Is it supposed to be like that? [~hansknoechel]</li>
+<li>Hans Knöchel 2016-05-31
+
+   Updated the Serenity framework + bundle (should not be required, but would be good to see if it works).</li>
+<li>Chee Kiat Ng 2016-06-01
+
+   PR here: <a href="https://github.com/appcelerator/hyperloop.next/pull/34" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/34</a>
+   
+   <h4>Steps to test</h4>
+   1. *appc new --classic*
+   2. install the packaged hyperloop module here: <a href="https://github.com/appcelerator/hyperloop.next/releases/tag/1.2.2" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/releases/tag/1.2.2</a>
+   3. in tiapp.xml include
+   <code><pre>
+     <modules>
+       <module platform="iphone" version="1.2.2">hyperloop</module>
+     </modules>
+     <plugins>
+       <plugin>hyperloop</plugin>
+     </plugins>
+   </pre></code>
+   4. create a <code>src</code> folder and put Serenity.framework in
+   5. create a <code>appc.js</code> file, and use this as content 
+   <code><pre>
+   module.exports = {
+   	type: 'app',
+   	group: 'titanium',
+   	dependencies: {
+   	},
+   	hyperloop: {
+   		ios: {
+   			xcodebuild: {
+   				/**
+   				 * any flags available to be passed into the Xcode can be
+   				 * included here to further customize the xcode build
+   				 */
+   				flags: {
+   					FRAMEWORK_SEARCH_PATHS: '../../src'
+   				},
+   				/**
+   				 * this sample doesn't use StoreKit but this demonstrates
+   				 * how you can bring in frameworks explicitly. Hyperloop
+   				 * will automatically determine the required frameworks
+   				 * but in case you want to force a specific version, you can
+   				 * include it here
+   				 */
+   				frameworks: [
+   					'Serenity'
+   				]
+   			},
+   			/**
+   			 * optionally, you can bring in third-party or first-party libraries,
+   			 * source code, resources etc. by including them here. The 'key' is the
+   			 * name of the package that will be used in the require (if code).
+   			 * the values can either be an Array or String value to the directory
+   			 * where the files are located
+   			 */
+   			thirdparty: {
+   				'Serenity': {
+   					// these can be an array or string
+   					source: ['src'],
+   					header: 'src',
+   					resource: 'src'
+   				}
+   			}
+   		}
+   	}
+   };
+   </pre></code>
+   6. in <code>Resources/app.js</code>, use this
+   <code><pre>
+   var Widget = require("Serenity/Widget");
+   Ti.API.warn(Widget.image);
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2016-06-07
+
+   Some more thoughts here: Why don't we just say that frameworks can be placed in <code>/src/frameworks</code> and are detected automatically? So we don't need to map them manually in the appc.js and improve the workflow when trying out new frameworks. It has always been a mess when using framework in native modules, so now we have the chance to work on that process. Maybe it's another effort for 6.0.0, but we should consider it. The same with swift and obj-c files (stored in <code>/src/swift</code> and <code>/src/objc</code>). [~cng], [~bgrantges@appcelerator.com] thoughts?</li>
+<li>Chee Kiat Ng 2016-06-09
+
+   PR merged. The suggestions to improve the c-spec should be in a separate ticket :)</li>
+<li>Josh Longton 2016-06-30
+
+   <h4>Steps used to test</h4>
+   
+   1. *appc new --classic*
+   2. install the packaged hyperloop module here: <a href="https://github.com/appcelerator/hyperloop.next/releases/tag/1.2.3" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/releases/tag/1.2.3</a>
+   3. in tiapp.xml include
+   <code><pre>
+   <ios>
+   	<use-app-thinning>false</use-app-thinning>
+   	<use-jscore-framework>true</use-jscore-framework>
+   </ios>
+   
+   <modules>
+   	<module platform="iphone" version="1.2.3">hyperloop</module>
+   </modules>
+   
+   <plugins>
+   	<plugin>hyperloop</plugin>
+   </plugins>
+   </pre></code>
+   4. create a <code>src</code> folder and put TesseractOCR.framework in
+   5. add <code>Lenore3.png</code> to Resources/iPhone
+   6. add tessdata folder to Resources/iPhone
+   7. create a <code>appc.js</code> file, and use this as content 
+   <code><pre>
+   /**
+    * Hyperloop configuration
+    */
+   
+   
+   module.exports = {
+   	type: 'app',
+   	group: 'titanium',
+   	dependencies: {
+   	},
+   	hyperloop: {
+   		ios: {
+   			xcodebuild: {
+   				/**
+   				 * any flags available to be passed into the Xcode can be
+   				 * included here to further customize the xcode build
+   				 */
+   				flags: {
+   //					GCC_PREPROCESSOR_DEFINITIONS: 'foo=bar'
+   					FRAMEWORK_SEARCH_PATHS: '../../src'
+   				},
+   				/**
+   				 * this sample doesn't use StoreKit but this demonstrates
+   				 * how you can bring in frameworks explicitly. Hyperloop
+   				 * will automatically determine the required frameworks
+   				 * but in case you want to force a specific version, you can
+   				 * include it here
+   				 */
+   				frameworks: [
+   					'TesseractOCR'
+   				]
+   			},
+   			/**
+   			 * optionally, you can bring in third-party or first-party libraries,
+   			 * source code, resources etc. by including them here. The 'key' is the
+   			 * name of the package that will be used in the require (if code).
+   			 * the values can either be an Array or String value to the directory
+   			 * where the files are located
+   			 */
+   			thirdparty: {
+   				'TesseractOCR': {
+   					// these can be an array or string
+   					source: ['src'],
+   					header: 'src',
+   					resource: 'src'
+   				}
+   			}
+   		}
+   	}
+   };
+   </pre></code>
+   6. in <code>Resources/app.js</code>, use this
+   <code><pre>
+   var G8Tesseract = require('TesseractOCR/G8Tesseract');
+   var UIImage = require('UIKit/UIImage');
+   
+   var win = Ti.UI.createWindow({
+   	backgroundColor: 'white',
+   	layout: 'vertical'
+   });
+   
+   var imageView = Ti.UI.createImageView({
+   	image: 'Lenore3.png'
+   });
+   
+   win.add(imageView);
+   
+   var btn = Ti.UI.createButton({
+   	title: 'OCR THIS'
+   });
+   
+   win.add(btn);
+   
+   var textArea = Ti.UI.createTextArea({
+   	borderWidth: 2,
+   	borderColor: 'blue',
+   	width: Ti.UI.FILL,
+   	height: Ti.UI.FILL
+   });
+   win.add(textArea);
+   
+   btn.addEventListener('click', function(e) {
+   	var tess = G8Tesseract.alloc().initWithLanguage('eng+ita');
+   	var img = UIImage.imageNamed('Lenore3.png');	
+   	tess.setImage(img);
+   	tess.recognize();
+   	textArea.setValue(tess.recognizedText.toString());
+   });
+   
+   win.open();
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20484.json">JSON Source</a></p>

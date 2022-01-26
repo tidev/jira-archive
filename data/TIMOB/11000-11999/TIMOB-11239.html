@@ -1,0 +1,108 @@
+---
+title: "[TIMOB-11239] iOS: multiple Ti.Analytics.featureEvent calls in a short time causes the app to crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-12-19T20:47:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.0, Sprint 2012-20 API, 2012 Sprint 20</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, qe-port</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2012-10-03T09:21:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-12-19T20:47:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+Calling two or more Ti.Analytics.featureEvent in a short period of time causes the app to crash.
+
+<h4>Steps to reproduce</h4>
+Use the following code to test the problem:
+
+<code><pre>
+var win = Ti.UI.createWindow({
+    title: "Crash Events",
+    barColor: "#ff00ff",
+    backgroundColor: "#ffffff"
+}), subcatTable = Ti.UI.createTableView({
+    width: Ti.UI.FILL,
+    height: Ti.UI.FILL
+});
+
+var onItemClick = function (evt, featureName) {
+    Ti.Analytics.featureEvent(featureName, {
+        device: Ti.Platform.username,
+        time: (new Date()).getTime(),
+        env: "env name",
+        sessionID: "qwe123"
+    });
+};
+
+
+subcatTable.addEventListener('click', function(e) {
+    // detail click can all be handled in super.
+    //if (_my && _my.onItemClick) {
+        // we would like to know it was a doc detail list click, otherwise the detail win handles meta detail track.
+        //_my.onItemClick.call(null, event, EventManager.VIEW_ALLDOCS_DETAIL_EVENT);
+        onItemClick(e, "FEATURE_EVENT_CRASH1");
+    //}
+    Ti.Analytics.featureEvent("FEATURE_EVENT_CRASH2", {
+        device: Ti.Platform.username,
+        time: (new Date()).getTime(),
+        env: "env name",
+        sessionID: "qwe123"
+    });
+    //Ti.API.info("Clicked, wait for crash");
+});
+
+subcatTable.data = [
+    Ti.UI.createTableViewRow({
+        title: "a"
+    })
+];
+
+win.add(subcatTable);
+win.open();
+</pre></code>
+
+- Run the app
+- Click on the table row: the app crashes
+
+<h4>Note</h4>
+Sometimes, the app does not crash the first time, but clicking 2-3 times on the row will do that. I've tested with SDK 2.1.2.GA and the app crashes without any error in the console. Opening the app with XCode, however, shows this error: EXC_BAD_ACCESS
+
+I also tried testing with SDK 3.0.0.v20121002161335 and I see the following error in the Titanium console:
+
+{color:red}
+[ERROR] A SQLite database error occurred on database '/Users/dcassenti/Library/Application Support/iPhone Simulator/6.0/Applications/C6577659-96DC-4234-9051-2FE866115B98/Library/Application Support/analytics/analytics.db': Error Domain=com.plausiblelabs.pldatabase Code=3 "An error occured parsing the provided SQL statement." UserInfo=0xb216820 {com.plausiblelabs.pldatabase.error.vendor.code=1, NSLocalizedDescription=An error occured parsing the provided SQL statement., com.plausiblelabs.pldatabase.error.query.string=INSERT INTO pending_events VALUES (?), com.plausiblelabs.pldatabase.error.vendor.string=table pending_events has 1 columns but 2 values were supplied} (SQLite #1: table pending_events has 1 columns but 2 values were supplied) (query: 'INSERT INTO pending_events VALUES (?)')
+{color}
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vishal Duggal 2012-10-03
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/3102" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3102</a></li>
+<li>Blain Hamon 2012-10-08
+
+   Pull merged</li>
+<li>Natalie Huynh 2012-12-04
+
+   Tested with 3.0.0.v20121130200208 on iPad 4 6.0.1</li>
+<li>Anshu Mittal 2012-12-19
+
+   Reopening to update labels</li>
+<li>Ingo Muschenetz 2012-12-19
+
+   Was accidentally reopened.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11239.json">JSON Source</a></p>

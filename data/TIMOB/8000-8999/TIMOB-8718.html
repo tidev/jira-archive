@@ -1,0 +1,150 @@
+---
+title: "[TIMOB-8718] Core: Compare possible CLI technologies"
+---
+<table>
+<tr><th>Type</th><td>Sub-task</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-05-07T13:33:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-09 Core</td></tr>
+<tr><th>Components</th><td>Tooling</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Stephen Tramer</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2012-04-13T11:28:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-06-15T16:28:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In order to select the appropriate tool for the new CLI, we need to perform a side-by-side evaluation for the following proposed technologies:
+
+* node.js (TIMOB-8640)
+* Python 2.7.x (TIMOB-8715)
+* Python 3.2.x (TIMOB-8715)
+* Ruby (no ticket, proposed)
+* Java + RHINO (no ticket, hat tip to cbarber for the suggestion)
+
+Advantages, disadvantages, etc. of each of these technologies is documented in their specific tickets and via meeting notes being compiled by Marshall.
+
+Note that one of the suggestions proposed in the node.js meeting was to create a pluggable <code>git</code>-like infrastructure, so that the command <code>titanium xxx</code> would call out to a <code>titanium-xxx</code> script, which could be in any scripting language (or a compiled tool). This evaluation may recommend this approach if we believe multiple technologies are appropriate for different tasks.
+
+These are the high level tests we should use in judging any solution:
+* Subprocess / Child process APIs ([ipc side-by-side comparison](<a href="https://gist.github.com/2583397))" rel="nofollow" target="_blank">https://gist.github.com/2583397))</a>
+** A test that executes a short-lived process and collects it's results
+** A test that executes a long-lived process and collects it's stdout / stderr output and reprints that output in real time
+* Logging APIs ([log side-by-side comparison](<a href="https://gist.github.com/2581199))" rel="nofollow" target="_blank">https://gist.github.com/2581199))</a>
+** A test that creates a simple unified logger with a base string format and configures certain log levels as visible
+** A test that associates multiple loggers with various system components
+* Compression (zip) APIs ([zip side-by-side comparison](<a href="https://gist.github.com/2572795))" rel="nofollow" target="_blank">https://gist.github.com/2572795))</a>
+** A test that opens a ZIP file, scans the contents, and extracts one of the files for processing
+** A test that creates a new ZIP file using a mix of normal files, deep paths, and symlinks
+* Javascript AST parsing / manipulation: *NOTE:* This is now part of a separate technology evaluation. See TIMOB-8947 for discussion relating to AST. We have been delivered the requirement for a single AST for the product, and it is assumed that CLI tooling will call out to this rather than have an AST.
+** A test that parses a simple Javascript file, and reports back an AST
+** A test that does minor manipulation of the AST, and transforms back to JS
+
+Each test should include performance metrics over many runs, and information about external module(s) used along with versions.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2012-04-30
+
+   Our discussion about CLI technology revealed the following:
+   
+   * Due to our security requirements, the only CLI technology restriction imposed by obfuscation (TIMOB-8663) is that the <code>build</code> builtin must support common obfuscation and encryption mechanisms.
+   * We should have *some kind of installer tool* which is bundled with Studio. This should prevent things like "you must update studio to get the latest version of CLI Runtime X" and additionally allow for installation of runtimes for CLI externals (if possible)
+   
+   The following technologies are considered *UNSUITABLE* for the CLI+builtins (although we can still support them as external runtimes for users):
+   
+   * *node.js* is unsuitable for the reasons mentioned in the investigation (TIMOB-8640) and, additionally, is a naturally asynchronous tool. Getting it to perform synchronous operations (such as acting like a shell or build system) can be difficult or cumbersome, and introduces even further overhead on maintenance or 3rd party dependencies.
+   * *java+RHINO* has been discounted due to the fact that RHINO is not under active development (which increases maintenance costs), and that it is _unbearably slow_. We would like our CLI to be as responsive as possible, especially given that one of the frequent complaints we have is "length of build time."
+   
+   The following technologies are considered *UNLIKELY* for the CLI+builtins:
+   
+   * *Python 3.x* is still not installed or supported on most systems, meaning we would have to distribute or install. On some systems (such as Mac OS X) this can cause management problems with fink, ports, brew, existing python installs, custom python installs, etc. Otherwise Python 3 is an excellent choice.
+   
+   The following technologies are considered *POSSIBILITIES* for the CLI+builtins:
+   
+   * *Python 2.7* is an end-of-line version of Python, but is stable and feature-rich enough to support a robust build infrastructure, and would allow builtins to either be child processes *or* provide a C API stub that can hook external runtimes to python implementations of builtins. It is available on all modern non-Windows operating systems as a default.
+   * *ruby* solves many of the same problems that Python is meant to, but is under active development (and unlike python 3, is unlikely to conflict with existing installs if we choose a good version requirement). This means that we may want to pick and establish a version (1.8.7 ships with OS X). We have the additional advantage of the <code>gem</code> system coming as a builtin with ruby distributions (unlike <code>pip</code> for python) meaning we could even possibly distribute the CLI/builtins as a gem. ruby also has the additional unexpected (and exciting!) advantage that Max _may have already written almost all of the CLI support required by the spec for us._
+   
+   <h4>Summary</h4>
+   ----
+   
+   *python* (2.7.x) or *ruby* (version indeterminate) are the only candidates under consideration for the CLI+builtin tooling at this time. *This decision does not affect externals, or user abilities to write externals in <code>node.js</code>, <code>java+RHINO</code>, <code>bash</code>, <code>perl</code>, <code>el</code>, <code>awk</code>, or other esoteric tools of their choice.*</li>
+<li>Stephen Tramer 2012-05-01
+
+   Summary of <code>zip</code> support: Python (2.x, 3.x) and Ruby PASS, node.js FAIL. [Source examples](<a href="https://gist.github.com/2572795)" rel="nofollow" target="_blank">https://gist.github.com/2572795)</a>
+   
+   Marshall correctly pointed out that lack of <code>zip</code> support is not a dealbreaker. iOS bundles IPAs as part of the build or packaging process, Android can call out to <code>aapt</code> and it is assumed other platforms will have equivalent tooling (or not even distribute apps as zips).</li>
+<li>Stephen Tramer 2012-05-02
+
+   It has been suggested that 7zip is appropriate for node.js. This is another failing of node: *I was not able to find this package anywhere on the npm registry, meaning we may not be able to find suitable packages for our needs at any given time, even if they exist.* Our ability to find suitable tools for the CLI should not be contingent upon "ask the community."
+   
+   We are only interested in technologies which are available via public package repositories, or are shipped as part of the toolset we would use.</li>
+<li>Stephen Tramer 2012-05-02
+
+   Summary of <code>log</code> support: Python (2.x, 3.x) and ruby PASS, node.js ??? [Source examples](<a href="https://gist.github.com/2581199)" rel="nofollow" target="_blank">https://gist.github.com/2581199)</a>
+   
+   In this case I'm not sure about node because it's one of two things: Either we have to homebrew our own Logger (less than ideal, but possible) or we need to use an existing logging package, *none of which are on npm*. There is a log4j-alike which is listed as "compatible with node 0.4" which is no guarantee of compatibility with a modern (or future) node and the project may be abandoned due to the lack of recent revisions:
+   
+   <a href="https://github.com/nomiddlename/log4js-node" rel="nofollow" target="_blank">https://github.com/nomiddlename/log4js-node</a>
+   </li>
+<li>Stephen Tramer 2012-05-02
+
+   Summary of IPC support: Python (2.x, 3.x) and ruby ADEQUATE, node.js FAIL. [Source examples](<a href="https://gist.github.com/2583397)" rel="nofollow" target="_blank">https://gist.github.com/2583397)</a>
+   
+   The biggest issue here is synchronization. Python and ruby don't have good ways to do asynchronous I/O with subprocesses, but by tying file descriptors to logs (and we should never have to pipe anything over stdin for real) we can alleviate that.
+   
+   I thought node.js would be more adequate at this based on its API set, and if it could handle child processes correctly, then the other (API) issues it has would be less pressing (you can always spawn a process). The numerous issues with node.js I/O and subprocesses are documented on the comparison. The biggest drawback is that apparently there is *absolutely no* availability of any kind of external synchronous support for Windows for the package required by many synchronization tools.</li>
+<li>Stephen Tramer 2012-05-03
+
+   As a separate task, I evaluated the ruby code that Max has already produced for a pluggable command line infrastructure. I think that it's very well-suited to working with a system where all commands would be ruby (each command/task is a ruby class) but would take a bit of redesign to become a generically extensible system.
+   
+   It does provide us a good starting point, meaning that it makes ruby a bit more of a viable option _for the CLI frontend only_. I should also mention that all members from the Studio team who have migrated to platform (Alan, Max) are ruby-proficient, as Studio relies heavily on ruby for some of their internal support. This might give the additional advantage that for builtins or other commands written in ruby, Studio _could_ call them directly without spawning a CLI process.
+   
+   This ticket will be resolved when core makes a final determination, which should happen before the end of the sprint.</li>
+<li>Stephen Tramer 2012-05-03
+
+   <h4>CORE ENGINEERING DETERMINATION</h4>
+   ----
+   
+   This is a summary of the core team's decision regarding the CLI frontend and *some, but not all, builtins.* We have determined that node.js is not suitable for the reasons above, and additionally, it is simply "not good" at being a command-line tool (it's intended to be an asynchronous network service provider). node is currently still our *primary candidate* for a drillbit server driver but that falls outside of the scope of the CLI. *Nothing will prevent node from being used for some platform-specific builtins, or externals, as outlined in the CLI spec, which explicitly declares tooling that implements commands to be language-agnostic.*
+   
+   Python 3.x is still not a widely adopted industry standard, and is additionally expensive to package and distribute, and could even interfere with existing installs (on OS X and Linux). Python 2.7 is an "end of line" version which is no longer under maintenance and while it has very good, robust support, and we are all at least adequate python developers, this is a concern. We will possibly write *some* builtins in Python 2.7, depending on Studio's ability to ship/bundle/install this version.
+   
+   We have determined that *ruby 1.8.7* is the most appropriate platform to use *for the CLI and some builtin support* for the following reasons:
+   
+   * Good synchronous support for spawned commands
+   * Plenty of builtin support for the things we need, and robust gem support for the things we may require but aren't distributed with the runtime (zip)
+   * There is asynchronous I/O support which actually is the model that node.js borrowed for data eventing; [eventmachine](<a href="https://github.com/eventmachine/eventmachine)." rel="nofollow" target="_blank">https://github.com/eventmachine/eventmachine).</a> Note that asynch I/O is not an enormous concern.
+   * Max has already written code that could be easily adapted into our CLI frontend system, and additionally, we could even have public API requirements for tooling in ruby that would allow for *direct calls* rather than process spawning.
+   * ruby has very good C-library interoperability, meaning that if we *do* declare a public API for tooling and expect (some) tools to respect it, we can increase language-agnostic support by providing a stub/skeleton system to hook different tooling platforms together.
+   
+   And the most important one...
+   
+   * *Studio uses jRuby internally to run many tasks.* jRuby is 1.8.7 and 1.9.2 compatible, but many systems (i.e. OS X) are still running a 1.8.x line of ruby as 1.9.x introduced breaking changes ([summary here](<a href="http://slideshow.rubyforge.org/ruby19.html#1))." rel="nofollow" target="_blank">http://slideshow.rubyforge.org/ruby19.html#1)).</a> This could give studio some serious advantages:
+   ** If the CLI (or tooling) has a public API, *Studio can call this directly rather than spawning a process*
+   ** It makes the [available builtin](<a href="https://wiki.appcelerator.org/display/spe/Command+Line+Interface#CommandLineInterface-available)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/spe/Command+Line+Interface#CommandLineInterface-available)</a> much easier for Studio to access. This is a feature requested explicitly by the Studio team, making a direct calling mechanism much easier.
+   ** We can easily upgrade to a 1.9.x line when it's suitable to do so since jRuby supports both, something that is not going to be quite as easy with a python 2->python 3 migration, or constantly-updating versions of node.
+   </li>
+<li>Stephen Tramer 2012-05-03
+
+   Resolving ticket. Core has made our final determination.</li>
+<li>Chris Barber 2012-05-07
+
+   I, along with the assistance from Bryan Hughes, have performed analysis of node.js with respect to the functionality needed by Mobile Web that is also applicable to the CLI. Please visit the comments on TIMOB-8640.</li>
+<li>Neeraj Gupta 2012-05-07
+
+    Ruby is a great technology platform for the task but it does not align with the business and customer requirements. Customers have a preference for Python or Java Script based tooling whereas it makes sense to migrate to Java Script based platform for business reasons. We are a Java Script platform company and it would be a good idea to embrace node.js even though it is young and has some limitations in the short term. Affiliation and co-marketing with the node community is beneficial to us.
+    
+    We can overcome node.js limitations with internally developed modules and then open sourcing them to the node.js community. We are open source and as such developers examining and using our source will see a commitment to JS across the product line. ACS team is also adopting node.js via nodejitsu to do custom service extensions. The Declarative UI requires node to process HTML/CSS into Java Script as well.
+    
+    In the light of above technology and business considerations, we have decided to move forward with node.js technology.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8718.json">JSON Source</a></p>

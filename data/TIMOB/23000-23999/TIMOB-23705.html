@@ -1,0 +1,150 @@
+---
+title: "[TIMOB-23705] Hyperloop - creating APPC.JS on new projects causes build to fail"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-24T01:30:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>build, hyperloop, ios</td></tr>
+<tr><th>Reporter</th><td>Rodolfo Perottoni</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2016-07-29T01:09:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:01:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Steps to reproduce*:
+
+1. Create new hyperloop enabled project.
+2. Change SDK to 5.4.0.v20160727143921 (latest on build server).
+3. Create dummy *appc.js* file in the project's root folder:
+
+<code><pre>
+module.exports = {
+	type: 'app',
+	group: 'titanium',
+	dependencies: { },
+	hyperloop: {
+		ios: {
+			xcodebuild: { flags: {}, frameworks: [] },
+			thirdparty: {
+				'MyFramework': { source: ['src'], header: 'src', resource: 'src'	}
+			}
+		}
+	}
+};
+</pre></code>
+
+4. Create "src" folder in the project's root folder.
+5. Try and build project. It will crash with the following:
+
+
+<code><pre>
+[INFO]  Invoking xcodebuild
+[ERROR] ** BUILD FAILED **
+[ERROR] The following build commands failed:
+[ERROR]         CompileC build/Intermediates/loopmodules-charts.build/Debug-iphonesimulator/loopmodules-charts.build/Objects-normal/i386/TiFile.o Classes/TiFile.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR] (1 failure)
+</pre></code>
+
+Sometimes that error changes. If i keep trying to build the project sometimes i will get this:
+
+<code><pre>
+[ERROR] The following build commands failed:
+[ERROR]         CompileC build/Intermediates/Hyperloop_Sample.build/Debug-iphonesimulator/Hyperloop_Sample.build/Objects-normal/i386/TiUITableViewAction.o Classes/TiUITableViewAction.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR]         CompileC build/Intermediates/Hyperloop_Sample.build/Debug-iphonesimulator/Hyperloop_Sample.build/Objects-normal/i386/TiFile.o Classes/TiFile.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR]         CompileC build/Intermediates/Hyperloop_Sample.build/Debug-iphonesimulator/Hyperloop_Sample.build/Objects-normal/i386/TiUIiPhoneScrollIndicatorStyleProxy.o Classes/TiUIiPhoneScrollIndicatorStyleProxy.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR] (3 failures)</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-07-29
+
+   The build only fails sometimes? Anything reproducible? We need at least the full trace-log to track down the exact error causing the build to fail. Thanks!</li>
+<li>Rodolfo Perottoni 2016-07-31
+
+   It fails everytime. Even if the *appc.js* points to no third party frameworks or has no build flags, etc. I can get you the full log tomorrow at my workplace's computer. </li>
+<li>Hans Knöchel 2016-08-01
+
+   It may be fixed with [this commit](<a href="https://github.com/appcelerator/titanium_mobile/pull/8177)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8177)</a> that fixed a common build-issue on 5.4.0 and master. Please try with the latest one.</li>
+<li>Rodolfo Perottoni 2016-08-03
+
+   Hey @Hans Knoechel, i've tried running an app again with the *appc.js* file placed on its root folder with the latest SDK. 
+   
+   I still got the same error...
+   
+   
+   <code><pre>
+   [INFO]  Invoking xcodebuild
+   [ERROR] ** BUILD FAILED **
+   [ERROR] The following build commands failed:
+   [ERROR]         CompileC build/Intermediates/loopmodules-charts.build/Debug-iphonesimulator/loopmodules-charts.build/Objects-normal/i386/TiFile.o Classes/TiFile.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   [ERROR]         CompileC build/Intermediates/loopmodules-charts.build/Debug-iphonesimulator/loopmodules-charts.build/Objects-normal/i386/TiUIiPhoneScrollIndicatorStyleProxy.o Classes/TiUIiPhoneScrollIndicatorStyleProxy.m normal i386 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   [ERROR] (2 failures)
+   </pre></code>
+   </li>
+<li>Chee Kiat Ng 2016-08-03
+
+   [~rdperottoni] Still not too sure about why this error is happening but, can you put your Xcode version info here? Please note that:
+   Our latest master branch will only work with Xcode 8 beta and Xcode 8 GA when it's released.
+   Our 5.4.0 only works with Xcode 7.X
+   </li>
+<li>Rodolfo Perottoni 2016-08-03
+
+   @Chee Kiat Ng i figured out where the problem is coming from!
+   I've created the *appc.js* file with this content:
+   
+   <code><pre>
+   /**
+    * Hyperloop configuration
+    */
+   module.exports = {
+   	type: 'app',
+   	group: 'titanium',
+   	dependencies: {
+   	},
+   	hyperloop: {
+   		ios: {
+   			xcodebuild: { flags: {}, frameworks: ['Charts'] },
+   			thirdparty: { 'MyFramework': { source: ['src'], header: 'src', resource: 'src'	}}
+   		}
+   	}
+   };
+   </pre></code>
+   
+   Note: My "src" folder is empty.
+   If i build my project i'm getting the error as you can see in the attached *build_iphone.log* file.
+   When i delete the *thirdparty* property my project builds just fine.
+   </li>
+<li>Rodolfo Perottoni 2016-08-03
+
+   Mmmm... i can't add attachments anymore. I've uploaded the log in this text sharing website i just found: <a href="http://kl1p.com/build_iphone_log" rel="nofollow" target="_blank">http://kl1p.com/build_iphone_log</a></li>
+<li>Rodolfo Perottoni 2016-08-03
+
+   XCode version: 7.3.1</li>
+<li>Rodolfo Perottoni 2016-08-19
+
+   </li>
+<li>Chee Kiat Ng 2016-08-22
+
+    [~rdperottoni] So is this ticket resolved and fixed by your linked ticket?</li>
+<li>Rodolfo Perottoni 2016-08-24
+
+    Yep. Please close this one as it's not valid anymore. 
+    Thanks.</li>
+<li>Lee Morris 2017-03-24
+
+    Closing ticket as invalid with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23705.json">JSON Source</a></p>

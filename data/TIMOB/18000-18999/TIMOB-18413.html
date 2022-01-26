@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-18413] Android: ScrollableView crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-05T02:57:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.4.1, Release 3.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>TCSupport</td></tr>
+<tr><th>Reporter</th><td>Ivan Skugor</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2014-11-11T10:35:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-05T02:57:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+When trying to remove view in "scrollend" event, I'm getting crash. 
+
+<h4>Steps to reproduce</h4>
+1. Create a new mobile project (Classic Titanium)
+2. Replace the contents of app.js with this code: 
+<code><pre>
+var win = Ti.UI.createWindow();
+
+var colors = [ '#f23', '#246', '#48b', '#842', '#b47' ];
+var currentIndex = 0;
+
+function createView() {
+	var view = Ti.UI.createView({ backgroundColor: colors[currentIndex] });
+	currentIndex = (currentIndex + 1) % colors.length;
+	return view;
+}
+
+var scrollableView = Ti.UI.createScrollableView({
+	views: [ createView() ],
+	scrollingEnabled: false,
+	showPagingControl: false
+});
+
+scrollableView.addEventListener('scrollend', function() {
+	// scrollableView.removeView(0); // doesn't work
+	Ti.API.info('scrollableView.views ');
+	Ti.API.info(scrollableView.views.length);
+	scrollableView.removeView(scrollableView.views[0]); // crash
+	// scrollableView.setViews(scrollableView.views.unshift()); // crash
+});
+
+scrollableView.addEventListener('singletap', function() {
+	scrollableView.addView(createView());
+	scrollableView.moveNext();
+});
+
+win.add(scrollableView);
+win.open();
+</pre></code>
+3. Run in a device
+4. Scroll to the end, while checking the logs. 
+
+
+<h4>Extra information</h4>
+First issue is that passing view index to "removeView" method doesn't do anything, although it's documented it works.
+
+<code><pre>
+TiScrollableView: (main) [32757,41129] removeView() ignored. Expected a Titanium view object, got Integer
+</pre></code>
+
+Second issue is crash. Just tap on screen to see the issue. Here are logs:
+
+<code><pre>
+11-11 11:15:50.749: E/AndroidRuntime(14644): FATAL EXCEPTION: main
+11-11 11:15:50.749: E/AndroidRuntime(14644): Process: com.tipsyandtumbler.testing, PID: 14644
+11-11 11:15:50.749: E/AndroidRuntime(14644): java.lang.IllegalStateException: The application's PagerAdapter changed the adapter's contents without calling PagerAdapter#notifyDataSetChanged! Expected adapter item count: 2, found: 0 Pager id: ffffffff Pager class: class ti.modules.titanium.ui.widget.TiUIScrollableView$1 Problematic adapter: class ti.modules.titanium.ui.widget.TiUIScrollableView$ViewPagerAdapter
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.support.v4.view.ViewPager.populate(ViewPager.java:962)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.support.v4.view.ViewPager.populate(ViewPager.java:914)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.support.v4.view.ViewPager.onMeasure(ViewPager.java:1436)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.constrainChild(TiCompositeLayout.java:398)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.onMeasure(TiCompositeLayout.java:278)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.constrainChild(TiCompositeLayout.java:398)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.onMeasure(TiCompositeLayout.java:278)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.constrainChild(TiCompositeLayout.java:398)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at org.appcelerator.titanium.view.TiCompositeLayout.onMeasure(TiCompositeLayout.java:278)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewGroup.measureChildWithMargins(ViewGroup.java:5125)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.widget.FrameLayout.onMeasure(FrameLayout.java:310)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewGroup.measureChildWithMargins(ViewGroup.java:5125)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at com.android.internal.widget.ActionBarOverlayLayout.onMeasure(ActionBarOverlayLayout.java:327)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewGroup.measureChildWithMargins(ViewGroup.java:5125)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.widget.FrameLayout.onMeasure(FrameLayout.java:310)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at com.android.internal.policy.impl.PhoneWindow$DecorView.onMeasure(PhoneWindow.java:2291)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.View.measure(View.java:16497)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewRootImpl.performMeasure(ViewRootImpl.java:1912)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewRootImpl.measureHierarchy(ViewRootImpl.java:1109)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:1291)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:996)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:5600)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:761)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.Choreographer.doCallbacks(Choreographer.java:574)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.Choreographer.doFrame(Choreographer.java:544)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:747)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.os.Handler.handleCallback(Handler.java:733)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.os.Looper.loop(Looper.java:136)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at android.app.ActivityThread.main(ActivityThread.java:5001)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at java.lang.reflect.Method.invoke(Native Method)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:785)
+11-11 11:15:50.749: E/AndroidRuntime(14644): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:601)
+11-11 11:15:50.749: W/ActivityManager(608):   Force finishing activity com.tipsyandtumbler.testing/org.appcelerator.titanium.TiActivity
+11-11 11:15:51.249: W/ActivityManager(608): Activity pause timeout for ActivityRecord{65b28c98 u0 com.tipsyandtumbler.testing/org.appcelerator.titanium.TiActivity t164 f}
+</pre></code>
+
+
+I tired to use timeout, but no luck. So, atm there is no workaround I can think of.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ivan Skugor 2014-11-11
+
+   Also, check out this example of infinite scrollable view: <a href="http://developer.appcelerator.com/question/156180/infinite-circular-scroll" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/156180/infinite-circular-scroll</a>
+   
+   
+   While it works fine on iOS, on Android (after commenting out "backgroundColor: Ti.UI.iOS.COLOR_SCROLLVIEW_BACKGROUND" line) example works, but you'll see relayout flash (which is not good UX).</li>
+<li>Juan Maceda 2015-01-19
+
+   any idea when this can be addressed?? thanks!!!</li>
+<li>Andrew Royce 2015-04-08
+
+   The only way I could successfully remove a view from a scrollableview in Android was to scroll to a different view, remove view, then scroll back. Not a great solution but works for now.
+   
+   <code><pre>
+   container.scrollToView(0);
+   container.removeView(container.views[i - 1]);
+   </pre></code>
+   Source: NeoPro
+   
+   <a href="https://developer.appcelerator.com/question/157758/android---scrollableview---removeview---not-working" rel="nofollow" target="_blank">https://developer.appcelerator.com/question/157758/android---scrollableview---removeview---not-working</a></li>
+<li>Joshua Quick 2018-01-05
+
+   Unable to reproduce crash, but I have confirmed that the "scrollend" event is being fired when it shouldn't (after the remove). This causes the attached project to remove both child views instead of only the 1st child view within the ScrollableView.
+   
+   The fix for [TIMOB-15780] will resolved this issue. This fix is planned to be in Titanium 7.1.0.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18413.json">JSON Source</a></p>

@@ -1,0 +1,143 @@
+---
+title: "[TIMOB-16287] iOS: image taken in landscape orients itself to portrait"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>camera, qe-3.2.1</td></tr>
+<tr><th>Reporter</th><td>Pragya Rastogi</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2014-01-22T10:35:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T20:03:22.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Image taken in landscape orients itself to portrait. This occurs in SDK:3.2.0.GA & 3.1.3.GA as well, Hence not a regression
+Steps To Reproduce:
+1. Create app using below code.
+2. Run app
+3. In landscape orientation, click picture
+
+Actual: Picture orients itself in portrait mode.
+
+Expected: Picture must remain in landscape mode until orientation is changed
+
+<code><pre>
+
+var _window = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+function fireUpTheCamera() {
+			    		Titanium.Media.showCamera({
+			 
+			       		 success : function(event) {
+			            var cropRect = event.cropRect;
+			            var image = event.media;
+			 
+			            Ti.API.debug('Our type was: ' + event.mediaType);
+			            if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+			 
+			                var imageView = Ti.UI.createImageView({
+			                    width : _window.width,
+			                    height : _window.height,
+			                    image : event.media,
+			                    autorotate: true
+			                });
+			                _window.add(imageView);
+			            } else {
+			                alert("got the wrong type back =" + event.mediaType);
+			            }
+			        },
+			        cancel : function() {
+			        },
+			        error : function(error) {
+			            // create alert
+			            var a = Titanium.UI.createAlertDialog({
+			                title : 'Camera'
+			            });
+			 
+			            // set message
+			            if (error.code == Titanium.Media.NO_CAMERA) {
+			                a.setMessage('Please run this test on device');
+			            } else {
+			                a.setMessage('Unexpected error: ' + error.code);
+			            }
+			 
+			            // show alert
+			            a.show();
+			        },
+			        saveToPhotoGallery : true,
+			        allowEditing : true,
+			        mediaTypes : [Ti.Media.MEDIA_TYPE_VIDEO, Ti.Media.MEDIA_TYPE_PHOTO]
+			    });
+			}
+			 
+			_window = Titanium.UI.createWindow({
+			    backgroundColor: 'blue'
+			});
+			_window.addEventListener('open', function(e) {
+			    fireUpTheCamera();
+			});
+			 
+			
+		 _window.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Wilson Luu 2014-01-24
+
+   Here are my findings: 
+   
+   1. If you use the above sample code with the default Titanium app and follow the above steps, then the captured image will be portrait oriented on the blue window. This *is expected* since by default, only <string>UIInterfaceOrientationPortrait</string> is set under the <key>UISupportedInterfaceOrientations~iphone</key> in the tiapp.xml. 
+   
+   2. If you include the other orientation property under <key>UISupportedInterfaceOrientations~iphone</key> (e.g. UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, or UIInterfaceOrientationLandscapeRight), then the captured image (whether it was captured in portrait or landscape) will rotate along with the blue window; the captured image will still retain its orientation when you rotate the phone to portrait or landscape
+   
+   3. Another interesting finding is the UI controls during the image preview (after you take a picture with the above sample code, you can preview the image). If you use the above sample code to take a picture on an *iPhone device*, the UI controls during the image preview will *always* be portrait regardless of what properties are set in the tiapp.xml. However, on an *iPad device*, the UI controls will orient itself with the orientation of the physical device i.e. if the iPad is in landscape, the the UI controls in image preview will be landscape (also, regardless of what properties are set in the tiapp.xml). This indicates that we do not have full control of the native camera.
+   
+   Tested on:
+   
+   Appcelerator Studio, build: 3.2.1.201401221450
+   SDK build: 3.2.1.v20140122175749 
+   CLI: 3.2.1-beta3
+   Alloy: 1.3.1-beta3
+   Xcode: 5.0.2
+   Devices: iphone 4s (7.0.4), ipad air (7.0.3)</li>
+<li>Eric Merriman  2014-01-28
+
+   Pragya,
+   
+   We can't control the Preview UI (retake or accept photo) and on iPhone this will rotate to portrait. On iPad the Preview UI is allowed to remain Landscape. 
+   
+   Regarding the image view (blue background) we found that on iPhone with a default tiapp.xml, the UI would remain in portrait, but this was due to the available orientations set in the tiapp.xml. Adding the ability (via tiapp) to rotate the image view for iPhone would allow the UI to go landscape. In all cases the photo was shown in the correct orientation.
+   
+   Please let me know if you have concerns about what I say.</li>
+<li>Pragya Rastogi 2014-02-03
+
+   Hi Eric,
+   
+   Adding below code for ipod worked for me. Though, Preview UI was in portrait mode but that was not my concern. Earlier i assumed that adding orientation for iPhone will work for iPod as well.
+   
+   <code><pre>
+   <key>UISupportedInterfaceOrientations~ipod</key>
+                   <array>
+                       <string>UIInterfaceOrientationPortrait</string>
+                        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+                       <string>UIInterfaceOrientationLandscapeLeft</string>
+                       <string>UIInterfaceOrientationLandscapeRight</string>
+   </pre></code>
+   
+   Thanks</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16287.json">JSON Source</a></p>

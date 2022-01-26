@@ -1,0 +1,88 @@
+---
+title: "[TIMOB-763] TiFilesystemFileProxy.modificationTimestamp() does not return the real value"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:54:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>createtimestamp, filesystem, ios, modificationtimestamp</td></tr>
+<tr><th>Reporter</th><td>FooMan</td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:35:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:54:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Hi,</p>
+<p>The TiFilesystemFileProxy.createTimestamp() and
+TiFilesystemFileProxy.modificationTimestamp() methods return a
+boolean value rather than the real value. A fix for this is
+below.</p>
+<p>-(id)createTimestamp:(id)args {</p>
+<pre>
+<code>NSError * error = nil;
+NSDictionary * resultDict = [fm attributesOfItemAtPath:path error:&amp;error];
+if (error!=nil) return NUMBOOL(NO);
+NSDate * date = [resultDict objectForKey:NSFileCreationDate];
+return NUMLONG([date timeIntervalSince1970]);</code>
+</pre>
+<p>}</p>
+<p>-(id)modificationTimestamp:(id)args {</p>
+<pre>
+<code>NSError * error = nil;
+NSDictionary * resultDict = [fm attributesOfItemAtPath:path error:&amp;error];
+if (error!=nil) return NUMBOOL(NO);
+NSDate * date = [resultDict objectForKey:NSFileModificationDate];
+return NUMLONG([date timeIntervalSince1970]);</code>
+</pre>
+<p>}</p>
+<p>The return value of modificationTimestamp() can be used to
+create a Javascript date like this:</p>
+<p>var modificationDate = new Date(Number(timeStamp * 1000));</p>
+<p>I have used this to add an HTTP If-Modified-Since header to my
+image download HTTP requests, like this:</p>
+<p>function leadingZero(theNumber) {<br></p>
+<pre>
+<code>return theNumber &lt; 10 ? '0' + theNumber : theNumber;</code>
+</pre>
+<p>}</p>
+<p>function timeStampToIfModifiedSinceDate(timeStamp) {<br></p>
+<pre>
+<code>var modificationDate = new Date(Number(timeStamp * 1000));
+
+return dayNames[modificationDate.getUTCDay()] + ", " +
+        leadingZero(modificationDate.getUTCDate()) + " " +
+        monthNames[modificationDate.getUTCMonth()] + " " +
+        modificationDate.getUTCFullYear() + " " +
+        leadingZero(modificationDate.getUTCHours()) + ":" +
+        leadingZero(modificationDate.getUTCMinutes()) + ":" +
+        leadingZero(modificationDate.getUTCSeconds()) + " UTC ";</code>
+</pre>
+<p>}</p>
+<p>var file =
+Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory,localFileName);</p>
+<p>if (file.exists()) {<br></p>
+<pre>
+<code>httpClient.setRequestHeader("If-Modified-Since",timeStampToIfModifiedSinceDate(Number(file.modificationTimestamp())));</code>
+</pre>
+<p>}</p>
+<p>NB. On the iPhone simulator, createTimestamp() always returns 0.
+I haven't tried it on a real device.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Fixed at some point, but definitely resolved as of 1.6.0
+   RC1.</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-763.json">JSON Source</a></p>

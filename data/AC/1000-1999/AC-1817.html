@@ -1,0 +1,94 @@
+---
+title: "[AC-1817] iOS: Facebook Login event is triggered on opening the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-12-03T21:38:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Appcelerator Modules, Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>triage</td></tr>
+<tr><th>Reporter</th><td>Wienke</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2013-04-11T09:14:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:40:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Steps to reproduce:
+
+1. App with Facebook login: Login to Facebook.
+2. Shut down app
+3. Launch app again
+
+Actual Result:
+The app triggers the facebook login event again.
+
+Expected result:
+The app does not trigger the facebook login event on launch.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2013-04-12
+
+   Okay, I poked around, and this is an intentional behavior change for iOS, partially as a result of iOS 6's OS-wide authentication. That is, once you've logged in, you're logged in until you actively log out.
+   
+   The reasoning is that 1) there's only one account you can be associated with, and 2) there should be no difference between the app being backgrounded and foregrounded and the app being backgrounded, stopped, and relaunched. Logging in when you were previously logged in helps maintain this consistency. This is also done to ensure your app session is extended.
+   
+   If you log out, this is honored and it doesn't try to log you in on app launch. However, your app may suffer reviews because it will appear as if your application cannot stay logged in.</li>
+<li>Daniel Sefton 2013-04-13
+
+   {quote}
+   "there should be no difference between the app being backgrounded and foregrounded and the app being backgrounded, stopped, and relaunched. Logging in when you were previously logged in helps maintain this consistency. This is also done to ensure your app session is extended."
+   {quote}
+   That sounds contradictory - logging in when you were previously logged in... helps to maintain the... OS-wide authentication? It should remain persistent right?
+   
+   I'm not sure how the very latest Facebook iOS SDK works (I use the 3.1 FB SDK natively), but I store the access token and expiration date in NSUserDefaults so that the login persists between app launches. This is on iOS 6.
+   
+   As for backgrounding, I call extendAccessTokenIfNeeded on app resume.
+   
+   This ensures I don't get the login screen again for a while, even after the app is killed.
+   
+   @Wienke - It might be worth explaining what you mean by "Shut down app" - do you mean kill the app, or send to the background?</li>
+<li>Wienke 2013-04-13
+
+   @Blain: That the user needs to stay logged in after relaunching the app I would expect to indeed be the case. The issue I am encountering is that the login event is triggered every time the app launches. I would say this is not needed. I think this event is mainly because you want the system to know the app was reopened from the Facebook app.
+   
+   @Daniel: What I mean with shut down is actually having the app completely closed and then open it again. I am not referencing foreground/background switches.
+   
+   If this is actually designed this way I please let me know. Then I will not add an eventlistener for the Facebook login once the user is logged in.</li>
+<li>Wienke 2013-04-16
+
+   @Ingo: Any news on this issue? Still think this is not working as expected.</li>
+<li>Ingo Muschenetz 2013-04-16
+
+   [~wgiezeman] We are still discussing if this is expected behavior. If we do make a change, we release it as a new version of the module you can download directly.</li>
+<li>Blain Hamon 2013-04-16
+
+   Okay, I tested this, and the situation is thusly:
+   
+   When an application starts up, as in was completely stopped (first time running or was quit, not just backgrounded), there is no state, as the program hasn't talked with Facebook for a while. Sure, you might have saved credentials since the last time the app was running, but it's possible the user login has changed (in the case of iOS 6.0 and system-wide login) or that the user has revoked permissions through facebook. Either way, we have to refresh credentials with the very real possibility that the app is logged out.
+   
+   The thing is that refreshing the credentials includes a silent login attempt. The app does not prompt the user, so this is behind the scenes from their point of view. On a successful refreshing of credentials, login information updates and changes. Since the app is transitioning from 'not logged in' or 'possibly logged in at best' to 'known logged in', this triggers a login event for the app to ensure that the app updates state accordingly.
+   
+   Note that when the app is merely backgrounded and foregrounded, the app has not quit, so its state was known, so that it did not need to announce being logged in since that was already the case.
+   
+   This is all expected and desired behavior. The reason this happens now as opposed to before is that before FB3.0, we did not have the update credentials functionality.
+   
+   Moving to mark this ticket as invalid.</li>
+<li>Wienke 2013-04-16
+
+   Thanks for the clarification. This makes sense. It might be an idea to explain this also in the documentation.</li>
+<li>Mauro Parra-Miranda 2013-11-24
+
+   Invalid issue. </li>
+</ol>
+
+
+<p><a href="/AC/AC-1817.json">JSON Source</a></p>

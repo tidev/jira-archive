@@ -1,0 +1,425 @@
+---
+title: "[TIMOB-1086] XML Parsing"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-19T10:19:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>dom, feature, ios, iphone, xml</td></tr>
+<tr><th>Reporter</th><td>Ralf Pfeiffer</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:43:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:39:12.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>We have a request to <em>fix</em> our DOM xml functionality. See
+the helpdesk ticket for reference.</p>
+<p><a href=
+"<a href="http://helpdesk.appcelerator.net/tickets/2819" rel="nofollow" target="_blank">http://helpdesk.appcelerator.net/tickets/2819</a>"><a href="http://helpdesk.appcelerator.net/tickets/2819" rel="nofollow" target="_blank">http://helpdesk.appcelerator.net/tickets/2819</a></a></p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Eduardo Gomez 2011-08-12
+
+   <h4>Problem</h4>
+   App stops / crashes at "semi-random" points without giving any error-message, after getting the XML object script crawls over the given XML Object and tries to create a real Object. So to speak parsing is returning an empty object and crashes.
+   
+   <h4>Tested on</h4>
+   Simulator iOS 4.3
+   
+   <h4>Repro sequence</h4>
+   <code><pre>
+   function xmlNodeList2Array(_$nodeList) {
+   	Ti.API.info("xmlNodeList2Array");
+   	var $array = Array();
+   	var $nodeListLenght = _$nodeList.getLength();
+   
+   	for(var i = 0; i < $nodeListLenght; i++) {
+   		var $item = _$nodeList.item(i);
+   		if($item.getNodeType() == 1)
+   			$array.push($item.getText());
+   	}
+   	Ti.API.info("----- " + $array.length);
+   	return $array;
+   }
+   
+   Ti.include('ccdsRestHandler.js')
+   
+   var $currentOffset = 0;
+   var $limit = 40;
+   
+   var caHandler = new ccdsRestHandler();
+   
+   caHandler.onReady = function($campgrounds) {
+   	Ti.API.info("GOT " + $campgrounds.length + " ENTRIES");
+   	if($campgrounds.length > 0) {
+   		CA.MODEL.Campground.saveCampgroundObjs($campgrounds);
+   	}
+   
+   	Titanium.App.fireEvent("refreshCampgrounds");
+   
+   }
+   caHandler.ccdsQuery("CAMPINGPLATZ", 1, false, $limit);
+   </pre></code>
+   
+   <code><pre>
+   /*
+    *  ccdsRestHandler
+    * Build to create a bridge between titanium apps and CCDS-Website which uses ccdsREST
+    */
+   
+   
+   function ccdsRestHandler() 
+   {
+   
+   	this.rest_url 	= '<a href="http://www.vcwmv.de/ccds_extensions/ccdsModules/ccdsREST/index.php" rel="nofollow" target="_blank">http://www.vcwmv.de/ccds_extensions/ccdsModules/ccdsREST/index.php</a>';
+   	this.onReady	= function(classArray){};
+   	this.onError	= function(oEvent){ Ti.API.info(oEvent); };
+   	
+   	this.ccdsQuery 	= function(ccdsClassName,lang_id,where,limit,offset)
+   	{
+   		Ti.API.info("ccdsRestHandler ccdsQuery-func "+ccdsClassName+","+lang_id+","+where+","+limit);
+   		var CRH = this; // C R H = ccds rest handler
+   		
+   		var RESTclient = Ti.Network.createHTTPClient();
+   		
+   		RESTclient.onerror = function(oEvent)
+   		{
+   			Ti.API.info(oEvent); 
+   			Ti.API.info(oEvent.source.location);
+   		};
+   		
+   		//RESTclient.setRequestHeader("HTTP_ACCEPT","application/jsonrequest");
+   		RESTclient.onload = function()
+   		{
+   			Ti.API.info("RESTclient.onload loaded");
+   			//Ti.API.info('ccds xml ' + this.responseXML + ' text ' + this.responseText);
+   			var doc = this.responseXML.documentElement;
+   			var elements = doc.getElementsByTagName(ccdsClassName);
+   			
+   			var objArray = CRH.tiXML2object(elements,true);
+   			Ti.API.info("RESTclient.onload | Loaded "+objArray.length+" Elements");
+   			
+   			CRH.onReady(objArray);
+   			
+   		};
+   	
+   		 var $rest_url = this.rest_url
+   							+"?action=0"
+   							+"&ccdsclass="+ccdsClassName
+   							+"&lang_id="+lang_id;
+   							
+   		$rest_url += (limit)?"&limit="+limit:"";
+   		$rest_url += (offset)?"&offset="+offset:"";
+   		$rest_url += (where)?"&where="+where:"";
+   		Ti.API.info("$rest_url : "+$rest_url);
+   		RESTclient.open(
+   						'GET',
+   						$rest_url
+   						);
+   							
+   		RESTclient.send();
+   		RESTclient = null;
+   	}
+   	
+   	this.tiXML2object = function(nodeList,isRoot)
+   	{
+   		
+   			if(typeof(isRoot) === "undefined")
+   				isRoot = false;
+   		
+   			var nodeListLenght 	= nodeList.length;
+   			
+   			//Ti.API.info("tiXML2object start");
+   			
+   			if(nodeListLenght > 0)
+   			{
+   			
+   				if(isRoot===true)
+   					var returnArray 	= Array();
+   				else
+   					var returnArray 	= new Object();
+   					
+   				for(var i=0;i<nodeListLenght;i++)
+   				{
+   					//Ti.API.info(Ti.Platform.availableMemory);
+   					try
+   					{
+   						var item = nodeList.item(i);
+   						var children  = item.getChildNodes();
+   		
+   						if(typeof(children) === "undefined" )
+   								continue;
+   		
+   						if(children.length > 0)
+   						{
+   							var fChild = children.item(0);
+   							//Ti.API.info(fChild);
+   							//Ti.API.info(fChild.getNodeType());
+   							if(!fChild )
+   								continue;
+   							
+   							if( fChild.getNodeName() == "text")
+   							{
+   								returnArray[item.getNodeName()] = fChild.getNodeValue();	
+   							}
+   							else
+   							{
+   								var tChilds = item.getChildNodes();
+   								
+   								if(isRoot===true)
+   								{
+   									returnArray.push( this.tiXML2object(tChilds) );
+   									//Ti.API.info("ROOT ENTRY "+i) ;								
+   								}
+   								else
+   								{
+   									returnArray[item.getNodeName()] = this.tiXML2object(tChilds);
+   								}
+   							}	
+   						}	
+   						else
+   						{
+   							returnArray[item.getNodeName()] = item.getNodeValue();	
+   						}
+   						
+   					}catch(e)
+   					{
+   						Ti.API.info(e);
+   					}
+   					
+   					item = null;
+   					children = null;
+   				}	
+   				return returnArray;		
+   			
+   			}
+   			return false;
+   	
+   	}
+   	
+   	this.ccdsImage	= function(imgSrc,imgHeight,imgWidth,imgQuality)
+   	{
+   		var CRH = this; // C R H = ccds rest handler
+   		
+   		var RESTclient = Ti.Network.createHTTPClient();
+   	
+   		RESTclient.onload = function()
+   		{
+   			//Ti.API.info('ccds xml ' + this.responseXML + ' text ' + this.responseText);
+   			var doc = this.responseXML.documentElement;
+   			var elements = doc.getElementsByTagName('image');
+   			var objArray = CRH.tiXML2object(elements);
+   
+   			CRH.onReady(objArray);
+   		};
+   		
+   		if(typeof(imgSrc) != "undefined")
+   			imgSrc = "&src="+imgSrc;
+   		else
+   			imgSrc = false;
+   
+   		if(typeof(imgHeight) != "undefined")
+   			imgHeight = "&height="+imgHeight;
+   		else
+   			imgHeight = "";
+   
+   		if(imgWidth != "undefined")
+   			imgWidth = "&width="+imgWidth;
+   		else
+   			imgWidth = "";
+   			
+   		if(typeof(imgQuality) != "undefined")
+   			imgQuality = "&quality="+imgQuality;
+   		else
+   			imgQuality = "";
+   
+   		if(imgSrc !== false )
+   		{
+   			reqURL = this.rest_url
+   								+"?action=1"
+   								+imgSrc
+   								+imgHeight
+   								+imgWidth
+   								+imgQuality;
+   								
+   			Ti.API.debug(reqURL);
+   			RESTclient.open(
+   							'GET',
+   							reqURL
+   							);
+   								
+   			RESTclient.send();			
+   		}else
+   			CRH.onError('Image Src missing');
+   	}
+   	
+   };
+   </pre></code>
+   
+   <code><pre>
+   CA.CONTROLLER.Importer = (function()
+   {			
+   
+   	function convert_gps_to_gmap($string)
+   	{
+   		var	$gps = $string.split(";");
+   
+   		var $grad = $gps[0].replace(',', '.');
+   		var $min  = $gps[1].replace(',', '.');
+   		var $sek  = $gps[2].replace(',', '.');
+   	
+   		var $result = 0;
+   		if( !isNaN($grad) && !isNaN($min) && !isNaN($sek) ) 
+   		{
+   
+   			var $sek_part = $sek / 60;
+   			var $min_part = $sek_part + parseInt($min);
+   			var $min_part = $min_part / 60;
+   			$result = parseInt($grad) + $min_part;
+   			$result = $result.toString().split(".");
+   			
+   			$result = $result[0]+"."+$result[1].slice(0,5);
+   		}
+   		return $result;
+   	}
+   
+   	function saveCampgroundObj($cg)
+   	{		
+   		Ti.API.info("saveCampgroundObj($cg)");
+   		var $cg_id 	= $cg.obj_id;
+   		var $cg 	= $cg.CONTENT;
+   		
+   		var $newEntry = CA.MODEL.Campground.newRecord(
+   			{
+   				id : 			$cg_id,
+      				name:       	$cg.cls_campingplatz_name ,
+       			description:   	$cg.cls_campingplatz_platzbeschreibung,
+       			geo_lat:	    convert_gps_to_gmap($cg.cls_campingplatz_coordinate_x),
+       			geo_lng	:	    convert_gps_to_gmap($cg.cls_campingplatz_coordinate_y)
+   		});
+   		
+   		return $newEntry.save();
+   	}
+   	
+   	function saveCampgroundObjs($cgArray) 
+   	{
+   		var $errorCount = 0;
+   		var index= 0; 
+   		for(index in $cgArray)
+   		{
+   			var $cg = $cgArray[index];
+   			
+   			if( saveCampgroundObj($cg) )
+   			{
+   				Ti.API.info('saveCampgroundObj erfolgreich');
+   			}else
+   			{
+   				$errorCount = $errorCount+1;
+   				Ti.API.info('saveCampgroundObj fehlgeschlagen');
+   			}
+   			
+   			if($errorCount > 0)
+   			{
+   				Ti.API.info('Es konnten '+$errorCount+' Campingplaetze nicht gespeichert werden.');
+   			}	
+   		}
+   	}
+   
+   	return{
+   		
+   		refresh: function()
+   		{
+   			var $currentOffset = 0;
+   			var $limit = 5;
+   			
+   			Ti.API.info("CA.CONTROLLER.Importer refresh-func : start");
+   			var caHandler = new ccdsRestHandler();
+   			
+   			caHandler.onReady = function(array)
+   			{
+   				Ti.API.info("GOT "+array.length+" ENTRIES");
+   				if(array.length > 0)
+   				{
+   					saveCampgroundObjs(array);
+   				}
+   				
+   				Titanium.App.fireEvent("refreshCampgrounds");
+   				$currentOffset = $currentOffset+$limit;
+   				if($currentOffset <= 90)
+   				{
+   					Ti.API.info(Titanium.Platform.availableMemory);
+   					setTimeout(function()
+   					{
+   						Ti.API.info("TIMER TRIGGERS "+Titanium.Platform.availableMemory);
+   						caHandler.ccdsQuery("CAMPINGPLATZ",L("lang_id"),false,$limit,$currentOffset);								
+   					},5000);
+   				}
+   			}
+   			Ti.API.info("INIT "+Titanium.Platform.availableMemory);
+   			caHandler.ccdsQuery("CAMPINGPLATZ",L("lang_id"),false,$limit);
+   			Ti.API.info("CA.CONTROLLER.Importer refresh-func : end");
+   		}
+   	};	
+   })();
+   </pre></code>
+   
+   
+   <h4>Console Output</h4>
+   {noformat}
+   [INFO] Titanium SDK version: 1.7.1
+   [INFO] iPhone Device family: universal
+   [INFO] iPhone SDK version: 4.3
+   [INFO] iPhone simulated device: iphone
+   [DEBUG] executing command: /usr/bin/killall iPhone Simulator
+   [DEBUG] No matching processes belonging to you were found
+   [DEBUG] finding old log files
+   [DEBUG] executing command: mdfind -onlyin /Users/egomez/Library/Application Support/iPhone Simulator/4.3 -name 60568302-d2e0-4b16-8467-ed4a6c54c034.log
+   [INFO] Launching application in Simulator
+   [INFO] Launched application in Simulator (12.05 seconds)
+   [DEBUG] executing command: xcodebuild -version
+   [DEBUG] Xcode 4.0.2
+   [DEBUG] Build version 4A2002a
+   [INFO] Found 4.3.2 patch installed
+   [INFO] Application started
+   [DEBUG] reading stylesheet from: /Users/egomez/Library/Application Support/iPhone Simulator/4.3.2/Applications/50DD44C4-A986-4AE6-9602-4695BDC53B15/Ticket9779.app/stylesheet.plist
+   [INFO] Ticket9779/1.0 (1.7.1.1293a6d)
+   [DEBUG] Analytics is enabled = YES
+   [DEBUG] loading: /Users/egomez/Documents/Titanium Studio Workspace/Ticket9779/Resources/app.js, resource: Users/egomez/Documents/Titanium Studio Workspace/Ticket9779/Resources/app_js
+   [DEBUG] include url: file://localhost/Users/egomez/Documents/Titanium%20Studio%20Workspace/Ticket9779/Resources/ccdsRestHandler.js
+   [DEBUG] loading: /Users/egomez/Documents/Titanium Studio Workspace/Ticket9779/Resources/ccdsRestHandler.js, resource: Users/egomez/Documents/Titanium Studio Workspace/Ticket9779/Resources/ccdsRestHandler_js
+   [INFO] ccdsRestHandler ccdsQuery-func CAMPINGPLATZ,1,false,40
+   [INFO] $rest_url : <a href="http://www.vcwmv.de/ccds_extensions/ccdsModules/ccdsREST/index.php?action=0&ccdsclass=CAMPINGPLATZ&lang_id=1&limit=40" rel="nofollow" target="_blank">http://www.vcwmv.de/ccds_extensions/ccdsModules/ccdsREST/index.php?action=0&ccdsclass=CAMPINGPLATZ&lang_id=1&limit=40</a>
+   [DEBUG] application booted in 22.933006 ms
+   [INFO] RESTclient.onload loaded
+   [DEBUG] App Spec: <DTiPhoneSimulatorApplicationSpecifier 0x1005010c0> specified by path /Users/egomez/Documents/Titanium Studio Workspace/Ticket9779/build/iphone/build/Debug-iphonesimulator/Ticket9779.app
+   [DEBUG] SDK Root: <DTiPhoneSimulatorSystemRoot 0x1005000c0> path=/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator4.3.sdk version=4.3 name=Simulator - iOS 4.3
+   [DEBUG] using device family iphone
+   [DEBUG] Session started
+   [DEBUG] Session did end with error (null)
+   [INFO] Application has exited from Simulator
+   {noformat}
+   
+   <h4>Associated HD ticket</h4>
+   <a href="http://appc.me/c/APP-147769" rel="nofollow" target="_blank">http://appc.me/c/APP-147769</a>
+   
+   <h4>Additional info</h4>
+   Let me know please if further data is required or this issue should be opened at a different Jira report, thanks. </li>
+<li>Stephen Tramer 2011-12-19
+
+   Fixed in the 1.8.0.1 release. Duplicate of many other tickets about XML functionality.</li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket as duplicate with reference to the linked issues.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1086.json">JSON Source</a></p>

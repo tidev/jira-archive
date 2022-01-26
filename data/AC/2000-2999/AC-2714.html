@@ -1,0 +1,77 @@
+---
+title: "[AC-2714] Alloy on/off/trigger for View is not returning the View itself"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2013-02-07T01:24:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Alloy</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ming Liu</td></tr>
+<tr><th>Assignee</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Created</th><td>2013-01-30T18:20:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+As per API of backbonejs, on/off/trigger return 'this' so that calls may be chained.
+
+<a href="http://backbonejs.org/docs/backbone.html#section-19" rel="nofollow" target="_blank">http://backbonejs.org/docs/backbone.html#section-19</a>
+
+This is what's appeared in Alloy.
+
+exports.A = function(t, type, parent) {
+    _.extend(t, Backbone.Events);
+    (function() {
+        var al = t.addEventListener, rl = t.removeEventListener, oo = t.on, of = t.off, tg = t.trigger, cbs = {}, ctx = _.extend({}, Backbone.Events);
+        if (!al || !rl) return;
+        t.trigger = function() {
+            ctx.trigger.apply(ctx, Array.prototype.slice.apply(arguments));
+        };
+        t.on = function(e, cb, context) {
+            var wcb = function(evt) {
+                try {
+                    _.bind(tg, ctx, e, evt)();
+                } catch (E) {
+                    Ti.API.error("Error triggering '" + e + "' event: " + E);
+                }
+            };
+            if (!cbs[e]) {
+                cbs[e] = {};
+                al(e, wcb);
+            }
+            cbs[e][cb] = wcb;
+            _.bind(oo, ctx, e, cb, context)();
+        };
+        t.off = function(e, cb, context) {
+            var f = cbs[e] ? cbs[e][cb] : null;
+            if (f) {
+                _.bind(of, ctx, e, cb, context)();
+                delete cbs[e][cb];
+                if (cbs[e].length === 0) {
+                    delete cbs[e];
+                    rl(e, f);
+                }
+                f = null;
+            }
+        };
+    })();
+    return t;
+};
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-02-07
+
+   As of Alloy 1.0.0, Backbone eventing will be removed from Titanium proxies for performance reasons. Details can be found in ALOY-455.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2714.json">JSON Source</a></p>

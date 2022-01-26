@@ -1,0 +1,594 @@
+{
+	"id": "172332",
+	"key": "TIMOB-26425",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20275",
+				"name": "Release 7.4.1",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2018-10-18"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-10-02T19:44:52.000+0000",
+		"created": "2018-09-21T14:59:07.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"crash",
+			"crashes",
+			"crashing",
+			"ios",
+			"mainthread",
+			"thread",
+			"threading"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2018-10-19T18:08:25.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [],
+		"description": "This is a critical crash that is affecting the deployment of our application.  It happens frequently and it is because something is trying to clean up a timer that no longer exists.\r\n\r\nWhen the app crashes there are around 560-650 threads, with a similar number of timers.  The majority of the timers have a duration of 50.\r\n\r\nThe timer cannot be traced back to anything in our code.  Our code sets up two intervals that stick around for the lifetime of the app:\r\n* id of 19 for duration of 15000 for server keep alive\r\n* id of 20 for duration of 30000 for google analytics\r\nWe have another interval with a duration of 300000 that is cleared and recreated and keeps track of payment device connection.\r\n\r\n{code}\r\nException Type:        EXC_CRASH (SIGABRT)\r\nException Codes:       0x0000000000000000, 0x0000000000000000\r\nException Note:        EXC_CORPSE_NOTIFY\r\n\r\nApplication Specific Information:\r\nabort() called\r\n*** error for object 0x7fcc402ce600: pointer being freed was not allocated\r\n \r\nCoreSimulator 518.22 - Device: iPad Air 2 - Runtime: iOS 11.4 (15F79) - DeviceType: iPad Air 2\r\n\r\nThread 26 Crashed:\r\n0   libsystem_kernel.dylib        \t0x000000011793eb66 __pthread_kill + 10\r\n1   libsystem_pthread.dylib       \t0x0000000117978080 pthread_kill + 333\r\n2   libsystem_c.dylib             \t0x0000000117599c97 abort + 127\r\n3   libsystem_malloc.dylib        \t0x00000001176d54da free + 521\r\n4   com.apple.CoreFoundation      \t0x00000001163e906b mdict_rehashd + 315\r\n5   com.apple.CoreFoundation      \t0x00000001163e7285 mdict_removeObjectForKey + 469\r\n6   com.*************.ea            \t0x000000010c793420 -[KrollContext unregisterTimer:] + 240 (KrollContext.m:879)\r\n7   com.*************.ea            \t0x000000010c7a1e83 -[KrollTimer cancel] + 195 (KrollTimer.m:59)\r\n8   com.*************.ea            \t0x000000010c7a239a -[KrollTimer main] + 890 (KrollTimer.m:138)\r\n9   com.apple.Foundation          \t0x000000010f6803b3 __NSThread__start__ + 1221\r\n10  libsystem_pthread.dylib       \t0x0000000117975661 _pthread_body + 340\r\n11  libsystem_pthread.dylib       \t0x000000011797550d _pthread_start + 377\r\n12  libsystem_pthread.dylib       \t0x0000000117974bf9 thread_start + 13\r\n{code}\r\n\r\n588 threads at the time of crash with the majority of them looking like this:\r\n{code}\r\nThread 17:\r\n0   libsystem_kernel.dylib        \t0x000000011793ea16 __psynch_cvwait + 10\r\n1   libsystem_pthread.dylib       \t0x00000001179765c2 _pthread_cond_wait + 789\r\n2   com.apple.Foundation          \t0x000000010f6c5771 -[NSCondition waitUntilDate:] + 143\r\n3   com.*************.ea            \t0x000000010c7a2138 -[KrollTimer main] + 280\r\n4   com.apple.Foundation          \t0x000000010f6803b3 __NSThread__start__ + 1221\r\n5   libsystem_pthread.dylib       \t0x0000000117975661 _pthread_body + 340\r\n6   libsystem_pthread.dylib       \t0x000000011797550d _pthread_start + 377\r\n7   libsystem_pthread.dylib       \t0x0000000117974bf9 thread_start + 13\r\n{code}\r\n\r\n <property name=\"run-on-main-thread\" type=\"bool\">true</property>\r\n\r\nChanging to false for the above seems to help with the issue.  Is there a problem with run-on-main-thread being set to false?  I see that in a new blank project you are setting this to true and I want to understand the issues that might arise with using false.",
+		"attachment": [
+			{
+				"id": "65673",
+				"filename": "Archive.zip",
+				"author": {
+					"name": "cthomas",
+					"key": "cthomas",
+					"displayName": "Christy Thomas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2018-10-01T12:44:34.000+0000",
+				"size": 402631,
+				"mimeType": "application/zip"
+			},
+			{
+				"id": "65632",
+				"filename": "Screen Shot 2018-09-17 at 11.58.04 AM.png",
+				"author": {
+					"name": "cthomas",
+					"key": "cthomas",
+					"displayName": "Christy Thomas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2018-09-21T13:36:44.000+0000",
+				"size": 886522,
+				"mimeType": "image/png"
+			},
+			{
+				"id": "65631",
+				"filename": "Screen Shot 2018-09-18 at 12.50.03 PM.png",
+				"author": {
+					"name": "cthomas",
+					"key": "cthomas",
+					"displayName": "Christy Thomas",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2018-09-21T13:36:44.000+0000",
+				"size": 777725,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: Crash in unregisterTimer with 'pointer being freed was not allocated'",
+		"creator": {
+			"name": "cthomas",
+			"key": "cthomas",
+			"displayName": "Christy Thomas",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "cthomas",
+			"key": "cthomas",
+			"displayName": "Christy Thomas",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "We originally ran into this problem using Xcode 9.41 and appc 7.0.2 with 11.4 iOS, but have since upgraded to see if the problem would be resolved with upgrade and it wasn't.\r\n\r\nOperating System\r\n  Name                        = Mac OS X\r\n  Version                     = 10.13.6\r\n  Architecture                = 64bit\r\n  # CPUs                      = 8\r\n  Memory                      = 16.0GB\r\n\r\nNode.js\r\n  Node.js Version             = 8.9.1\r\n  npm Version                 = 5.5.1\r\n\r\nAppcelerator CLI\r\n  Installer                   = 4.2.13\r\n  Core Package                = 7.0.6\r\n\r\nTitanium CLI\r\n  CLI Version                 = 5.1.1\r\n  node-appc Version           = 0.2.44\r\n\r\nTitanium SDKs\r\n  7.4.0.GA\r\n    Version                   = 7.4.0\r\n\r\nJava Development Kit\r\n  Version                     = 1.8.0_131\r\n\r\nXcode\r\n  10.0 (build 10A255) - Xcode default\r\n\r\niOS 12.0 simulator\r\n",
+		"closedSprints": [
+			{
+				"id": 1078,
+				"state": "closed",
+				"name": "2018 Sprint 20 SDK",
+				"startDate": "2018-09-23T16:57:58.349Z",
+				"endDate": "2018-10-07T16:57:00.000Z",
+				"completeDate": "2018-10-07T23:31:40.476Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "441902",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The crash does go away with <property name=“run-on-main-thread” type=“bool”>false</property>, but animation is working slowly and we have longer rendering times.\r\n\r\nThis change may affect all animations on App, so looks like not it may not be a solution for us. It will affect all UI, and with this option, JS and UI render works in different treads.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-09-21T19:43:33.000+0000",
+					"updated": "2018-09-21T19:43:33.000+0000"
+				},
+				{
+					"id": "441903",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This is still a critical issue for us.  Swapping to using false for run-on-main-thread is not an option. because of the performance implications in the app.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-09-21T20:04:39.000+0000",
+					"updated": "2018-09-21T20:04:39.000+0000"
+				},
+				{
+					"id": "441913",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hey [~cthomas]! We are currently investigating this issue via TIMOB-26391 and will keep you updated asap!",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-09-22T15:10:59.000+0000",
+					"updated": "2018-09-24T12:40:02.000+0000"
+				},
+				{
+					"id": "441960",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Unfortunately I cannot see TIMOB-26296:\r\n\"This issue can't be viewed\r\nThe issue you're trying to view can't be displayed.\r\nIt may have been deleted or you don't have permission to view it right now.\"\r\n\r\nCan you please provide updates in this ticket or let us see TIMOB-26296?",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-09-24T12:36:38.000+0000",
+					"updated": "2018-09-24T12:36:38.000+0000"
+				},
+				{
+					"id": "441961",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Sorry, I meant TIMOB-26391!",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-09-24T12:39:52.000+0000",
+					"updated": "2018-09-24T12:39:52.000+0000"
+				},
+				{
+					"id": "442159",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This is still a problem after TIMOB-26391.  Using the 7.4.1.v20180927102822 SDK version.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-09-28T13:25:53.000+0000",
+					"updated": "2018-09-28T13:25:53.000+0000"
+				},
+				{
+					"id": "442186",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "The stack trace for this one looks different than the random crashes from TIMOB-26391. Reopening for further investigation.",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-10-01T08:30:31.000+0000",
+					"updated": "2018-10-01T08:30:31.000+0000"
+				},
+				{
+					"id": "442187",
+					"author": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~cthomas]\r\nCan you isolate a smaller test case to reproduce this issue so that we can investigate it. Thanks!",
+					"updateAuthor": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-01T08:33:53.000+0000",
+					"updated": "2018-10-01T08:33:53.000+0000"
+				},
+				{
+					"id": "442196",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": " [^Archive.zip] Is an archive of the crash logs for this issue.  I don't know if I can isolate to a smaller test case, because I don't know what is causing the problem.  It does not have a specific reproduction scenario, but it does happen frequently while using the app.  If I knew what 50 duration timer was causing the problem I might be able to isolate.  It is not any of our timers in our code.  Any ideas what is causing all those timer threads?",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-01T12:47:26.000+0000",
+					"updated": "2018-10-01T12:47:26.000+0000"
+				},
+				{
+					"id": "442223",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~cthomas], for every timer you use in JS a new thread will be created so waiting for the timer to trigger will not block the UI thread. Do you actually have that many timers active in your app?\r\n\r\nAnyway, since you mentioned that disabling run-on-main-thread fixes the problem on your side we investigated and found out that a required lock for the timer threads was indeed missing. The crash seems to only occur with a lot of timers and we couldn't reproduce it with a simple test case. Please download the following SDK and test it with your app to verify the fix: https://www.dropbox.com/s/h1clg4pi3bk2g7m/mobilesdk-7.4.1.v20181002110641-osx.zip?dl=0\r\n\r\nPR (master): https://github.com/appcelerator/titanium_mobile/pull/10360\r\nPR (7_4_X): https://github.com/appcelerator/titanium_mobile/pull/10362",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-10-02T18:53:36.000+0000",
+					"updated": "2018-10-02T19:06:01.000+0000"
+				},
+				{
+					"id": "442227",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I am trying out the changes, but I did want to mention that the description of this bug has the timers that we use in our app (2 intervals and a recreated one).  We don't have any that have a duration of 50.  Why would so many timers/threads be sticking around with that low of a duration?",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-02T21:07:19.000+0000",
+					"updated": "2018-10-02T21:07:19.000+0000"
+				},
+				{
+					"id": "442302",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I was able to get a crash testing with 7.4.1.v20181002110641 when building an ipa file and deploying on an iPad iOS 11.4 version.  I was unable to see crashes when simulating on iOS12.  I am going to try this on an iOS 12 iPad.\r\n\r\nHere is a snippet from the crash log, which I can't seem to attached to this bug.\r\n\r\n{code}\r\nException Type:  EXC_BREAKPOINT (SIGTRAP)\r\nException Codes: 0x0000000000000001, 0x000000018a36e8a0\r\nTermination Signal: Trace/BPT trap: 5\r\nTermination Reason: Namespace SIGNAL, Code 0x5\r\nTerminating Process: exc handler [0]\r\nTriggered by Thread:  15\r\n\r\nFiltered syslog:\r\nNone found\r\n\r\nThread 15 Crashed:\r\n0   JavaScriptCore                \t0x000000018a36e8a0 JSC::JSLockHolder::~JSLockHolder+ 39072 () + 332\r\n1   JavaScriptCore                \t0x000000018a3d1b5c JSValueUnprotect + 104\r\n2   JavaScriptCore                \t0x000000018a3d1b5c JSValueUnprotect + 104\r\n3   Sally 360                     \t0x000000010123c868 -[KrollTimer main] + 116840 (KrollTimer.m:133)\r\n4   Foundation                    \t0x0000000184239efc __NSThread__start__ + 1040\r\n5   libsystem_pthread.dylib       \t0x0000000183415220 _pthread_body + 272\r\n6   libsystem_pthread.dylib       \t0x0000000183415110 _pthread_body + 0\r\n7   libsystem_pthread.dylib       \t0x0000000183413b10 thread_start + 4\r\n{code}\r\n\r\nThere were only 128 threads, which is much less than we have seen in the past with these crashes.\r\n",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-04T17:50:49.000+0000",
+					"updated": "2018-10-04T17:50:49.000+0000"
+				},
+				{
+					"id": "442308",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "On iOS 12 version I see a bit different crash log:\r\n\r\nOnly 37 total threads at the time of crash.\r\n{code}\r\nException Type:  EXC_CRASH (SIGKILL)\r\nException Codes: 0x0000000000000000, 0x0000000000000000\r\nException Note:  EXC_CORPSE_NOTIFY\r\nTermination Reason: Namespace SPRINGBOARD, Code 0x8badf00d\r\nTermination Description: SPRINGBOARD, scene-update watchdog transgression: com.demandware.endlessaisle exhausted real (wall clock) time allowance of 10.00 seconds | ProcessVisibility: Foreground | ProcessState: Running | WatchdogEvent: scene-update | WatchdogVisibility: Foreground | WatchdogCPUStatistics: ( | \"Elapsed total CPU time (seconds): 95.010 (user 95.010, system 0.000), 30% CPU\", | \"Elapsed application CPU time (seconds): 23.473, 7% CPU\" | )\r\nTriggered by Thread:  0\r\n\r\nThread 0 name:  Dispatch queue: com.apple.main-thread\r\nThread 0 Crashed:\r\n0   libsystem_kernel.dylib        \t0x00000001b89cbf0c __psynch_cvwait + 8\r\n1   libsystem_pthread.dylib       \t0x00000001b8a48d48 _pthread_cond_wait$VARIANT$mp + 636\r\n2   JavaScriptCore                \t0x00000001c011cef0 WTF::ThreadCondition::timedWait+ 302832 (WTF::Mutex&, WTF::WallTime) + 80\r\n3   JavaScriptCore                \t0x00000001c01040f4 WTF::ParkingLot::parkConditionallyImpl(void const*, WTF::ScopedLambda<bool ()> const&, WTF::ScopedLambda<void + 200948 ()> const&, WTF::TimeWithDynamicClockType const&) + 2004\r\n4   JavaScriptCore                \t0x00000001c00f9538 WTF::LockAlgorithm<unsigned char, (unsigned char)1, (unsigned char)2, WTF::EmptyLockHooks<unsigned char> >::lockSlow+ 156984 (WTF::Atomic<unsigned char>&) + 320\r\n5   JavaScriptCore                \t0x00000001c0a1bc8c JSC::JSLock::lock+ 9735308 (long) + 172\r\n6   JavaScriptCore                \t0x00000001c0a1b914 JSC::JSLockHolder::JSLockHolder+ 9734420 (JSC::VM&) + 52\r\n7   JavaScriptCore                \t0x00000001c0169050 JSObjectGetProperty + 68\r\n8   Sally 360                     \t0x0000000100ee7490 __65-[KrollObject invokeCallbackForKey:withObject:thisObject:onDone:]_block_invoke + 111760 (KrollObject.m:1081)\r\n9   libdispatch.dylib             \t0x00000001b886e6c8 _dispatch_call_block_and_release + 24\r\n10  libdispatch.dylib             \t0x00000001b886f484 _dispatch_client_callout + 16\r\n11  libdispatch.dylib             \t0x00000001b881b9ec _dispatch_main_queue_callback_4CF$VARIANT$mp + 1068\r\n12  CoreFoundation                \t0x00000001b8dc51bc __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 12\r\n13  CoreFoundation                \t0x00000001b8dc0084 __CFRunLoopRun + 1964\r\n14  CoreFoundation                \t0x00000001b8dbf5b8 CFRunLoopRunSpecific + 436\r\n15  GraphicsServices              \t0x00000001bb033584 GSEventRunModal + 100\r\n16  UIKitCore                     \t0x00000001e53ff558 UIApplicationMain + 212\r\n17  Sally 360                     \t0x0000000100ed3ec8 main + 32456 (main.m:30)\r\n18  libdyld.dylib                 \t0x00000001b887fb94 start + 4\r\n\r\n{code}\r\n\r\nThe reproduction for this issue is a little bit different in our application too so it may not be the same issue, but it is related to threads and what seems to be timers.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-04T20:30:25.000+0000",
+					"updated": "2018-10-04T20:30:25.000+0000"
+				},
+				{
+					"id": "442317",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Can you test again with the latest changes to 7.4.1? You can download it from https://www.dropbox.com/s/tnj6om696g4llf2/mobilesdk-7.4.1.v20181004162821-osx.zip?dl=0\r\n\r\nIf you want you can also send me a copy of your project so we can internally use it for testing and further evaluation to [mailto:jvennemann@axway.com], thanks!",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-10-05T01:28:41.000+0000",
+					"updated": "2018-10-05T01:29:03.000+0000"
+				},
+				{
+					"id": "442348",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I tried the 7.4.1.v20181004162821 SDK and I saw an app freeze this time and then it did crash.  I haven't seen a freeze like that before.  So I think the newer version is worse.\r\n\r\n{code}\r\nException Type:  EXC_CRASH (SIGKILL)\r\nException Codes: 0x0000000000000000, 0x0000000000000000\r\nException Note:  EXC_CORPSE_NOTIFY\r\nTermination Reason: Namespace SPRINGBOARD, Code 0x8badf00d\r\nTermination Description: SPRINGBOARD, scene-update watchdog transgression: com.demandware.endlessaisle exhausted real (wall clock) time allowance of 10.00 seconds | ProcessVisibility: Foreground | ProcessState: Running | WatchdogEvent: scene-update | WatchdogVisibility: Foreground | WatchdogCPUStatistics: ( | \"Elapsed total CPU time (seconds): 404.020 (user 404.020, system 0.000), 25% CPU\", | \"Elapsed application CPU time (seconds): 52.428, 3% CPU\" | )\r\nTriggered by Thread:  0\r\n\r\nThread 0 name:  Dispatch queue: com.apple.main-thread\r\nThread 0 Crashed:\r\n0   libsystem_kernel.dylib        \t0x00000001ac4e3f0c __psynch_cvwait + 8\r\n1   libsystem_pthread.dylib       \t0x00000001ac560d48 _pthread_cond_wait$VARIANT$mp + 636\r\n2   JavaScriptCore                \t0x00000001b3c34ef0 WTF::ThreadCondition::timedWait+ 302832 (WTF::Mutex&, WTF::WallTime) + 80\r\n3   JavaScriptCore                \t0x00000001b3c1c0f4 WTF::ParkingLot::parkConditionallyImpl(void const*, WTF::ScopedLambda<bool ()> const&, WTF::ScopedLambda<void + 200948 ()> const&, WTF::TimeWithDynamicClockType const&) + 2004\r\n4   JavaScriptCore                \t0x00000001b3c114c0 WTF::LockAlgorithm<unsigned char, (unsigned char)1, (unsigned char)2, WTF::EmptyLockHooks<unsigned char> >::lockSlow+ 156864 (WTF::Atomic<unsigned char>&) + 200\r\n5   JavaScriptCore                \t0x00000001b4533c8c JSC::JSLock::lock+ 9735308 (long) + 172\r\n6   JavaScriptCore                \t0x00000001b4533914 JSC::JSLockHolder::JSLockHolder+ 9734420 (JSC::VM&) + 52\r\n7   JavaScriptCore                \t0x00000001b3c82164 JSObjectCallAsFunction + 80\r\n8   Sally 360                     \t0x0000000100bb8440 -[KrollTimer invokeWithCondition:] + 115776 (KrollTimer.m:66)\r\n9   Sally 360                     \t0x0000000100bafd4c -[KrollInvocation invoke:] + 81228 (KrollContext.m:105)\r\n10  Sally 360                     \t0x0000000100bb0c5c -[KrollContext invoke:] + 85084 (KrollContext.m:0)\r\n11  libdispatch.dylib             \t0x00000001ac3866c8 _dispatch_call_block_and_release + 24\r\n12  libdispatch.dylib             \t0x00000001ac387484 _dispatch_client_callout + 16\r\n13  libdispatch.dylib             \t0x00000001ac3339ec _dispatch_main_queue_callback_4CF$VARIANT$mp + 1068\r\n14  CoreFoundation                \t0x00000001ac8dd1bc __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 12\r\n15  CoreFoundation                \t0x00000001ac8d8084 __CFRunLoopRun + 1964\r\n16  CoreFoundation                \t0x00000001ac8d75b8 CFRunLoopRunSpecific + 436\r\n17  GraphicsServices              \t0x00000001aeb4b584 GSEventRunModal + 100\r\n18  UIKitCore                     \t0x00000001d8f17558 UIApplicationMain + 212\r\n19  Sally 360                     \t0x0000000100ba3cc8 main + 31944 (main.m:30)\r\n20  libdyld.dylib                 \t0x00000001ac397b94 start + 4\r\n{code}",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-05T14:40:56.000+0000",
+					"updated": "2018-10-05T14:40:56.000+0000"
+				},
+				{
+					"id": "442349",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I am finding out about providing the project to you.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-05T14:41:30.000+0000",
+					"updated": "2018-10-05T14:41:30.000+0000"
+				},
+				{
+					"id": "442350",
+					"author": {
+						"name": "kosso",
+						"key": "kosso",
+						"displayName": "kosso",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "@Christy If your app uses setInterval or setTimer, (and if you think this is the issue) you might want to try my forked update of `ti.mely`, a native timers replacement module. \r\n\r\nMy apps have been running ok with them for tests running over 24 hours. \r\n\r\n(Note the slightly different syntax required, since you need to create the proxied timer object first. be sure to see the example app.js)  [https://github.com/kosso/ti.mely|https://github.com/kosso/ti.mely] \r\n\r\nMight be worth a shot ;) \r\n\r\n\r\nAlso, a quick google for \"parkConditionallyImpl\" shows some issues related to webkit and thread deadlocks. ",
+					"updateAuthor": {
+						"name": "kosso",
+						"key": "kosso",
+						"displayName": "kosso",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2018-10-05T14:49:07.000+0000",
+					"updated": "2018-10-05T14:51:57.000+0000"
+				},
+				{
+					"id": "442449",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I am not able to provide our project, but I have been trying to create a small reproduction case without all of our code and I have been unsuccessful.  I have an app with what I think may be the issue with the intervals, but I haven't seen a crash.\r\n\r\nI find it interesting that some things work in our app, but don't work in the new 7.4.0 app I created.\r\n\r\nFor instance we have:\r\nvar customDialog = Alloy.createController(...);\r\ncustomDialog.once(event, function);\r\n\r\nAnd this is causing an issue with the new project, but not the old.   Makes me wonder how our old projects is working and if it is really using the latest SDK or not.\r\n\r\nTo get it to work I had to use customDialog.on() instead.\r\n\r\nHow is our old app working?  I'm trying to get the two apps as close as possible without providing all the code.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-09T13:27:30.000+0000",
+					"updated": "2018-10-09T13:27:30.000+0000"
+				},
+				{
+					"id": "442470",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This issue is marked as Resolved and we are still experiencing problems.\r\n\r\n7.4.1.v20181002110641 is more reliable compared to 7.4.1.v20181004162821, but both of them still cause crashes in our app.",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-10T00:59:56.000+0000",
+					"updated": "2018-10-10T00:59:56.000+0000"
+				},
+				{
+					"id": "442570",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~cthomas], by default Alloy uses an old version of backbone (0.9.2) for compatibility with older projects which only has {{on}} and {{off}}. You probably switched to a newer version of backbone in your other project which has support for {{once}} (see https://docs.appcelerator.com/platform/latest/#!/guide/Alloy_Backbone_Migration).\r\n\r\nA few questions to your app behavior in 7.4.1: Do you still see other timer threads than the ones you create yourself when you run your project in Xcode? Is the thread that is now crashing one of your timer threads? Can you give us a list of modules, plugins and node modules you use? Can you give us excerpts of your timer handling?\r\nThat would allow us to do some more investigation until we have a reliable reproduction test case for this issue. Thanks!",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-10-12T20:07:24.000+0000",
+					"updated": "2018-10-13T00:47:22.000+0000"
+				},
+				{
+					"id": "442779",
+					"author": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Yes it's the newer backbone.  Thanks for the information on that as I had forgotten.\r\n\r\nI no longer see the other timer threads, so I do think this issue was resolved.  This hang issue is only happening when on the iPad with iOS 12 (installed via ipa file).  I am unable to connect to it with Xcode to see what is going on.  It does seem to be a new issue with the hanging and may be more related to TIMOB-26391 or something with iOS 12 as the problem doesn't happen on iOS 11 with the same build.  I do not have jscore in my tiapp.xml file, so we are using the default.\r\n\r\nHere are the modules and plugins:\r\n    <modules>\r\n        <module platform=\"iphone\">com.demandware.epsonreceipt</module>\r\n        <module platform=\"iphone\" version=\"1.4.0\">ti.paint</module>\r\n        <module platform=\"iphone\">com.demandware.swissarmyutils</module>\r\n        <module platform=\"iphone\">com.demandware.barcodescanner</module>\r\n        <module platform=\"iphone\">com.demandware.verifone</module>\r\n        <module platform=\"iphone\">yy.logcatcher</module>\r\n        <module platform=\"iphone\">ti.ga</module>\r\n        <module platform=\"commonjs\">ti.cloud</module>\r\n    </modules>\r\n    <plugins>\r\n        <plugin version=\"1.0\">ti.alloy</plugin>\r\n    </plugins>\r\n\r\nI don't believe we have any node modules.\r\n\r\nWe are simply doing something like this for our timers.\r\nvar sessionTimer = setInterval(sessionRenewTimeout, 15000);\r\nI don't think this is related to timers anymore though.\r\n",
+					"updateAuthor": {
+						"name": "cthomas",
+						"key": "cthomas",
+						"displayName": "Christy Thomas",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-10-19T00:15:32.000+0000",
+					"updated": "2018-10-19T00:15:32.000+0000"
+				},
+				{
+					"id": "442804",
+					"author": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~cthomas], thanks for the additional info. We still suspect it's causes by timers which are causing a deadlock. Your colleague Holger send us various crash reports and log output from our debug build indicating this.\r\n\r\nWould you mind testing with the timers module [~kosso] mentioned in his comment? If that solves the issues we can safely assume it's due the timers and maybe integrate his work into our core.",
+					"updateAuthor": {
+						"name": "jvennemann",
+						"key": "jvennemann",
+						"displayName": "Jan Vennemann",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-10-19T18:08:25.000+0000",
+					"updated": "2018-10-19T18:08:25.000+0000"
+				}
+			],
+			"maxResults": 22,
+			"total": 22,
+			"startAt": 0
+		}
+	}
+}

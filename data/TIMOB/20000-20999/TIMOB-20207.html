@@ -1,0 +1,108 @@
+---
+title: "[TIMOB-20207] create a unit  or spec deploy type so that unit testing becomes trivial"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Andrew McElroy</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2015-07-02T06:33:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+My initial ramblings from flowdock -- Titanium Contributors 
+
+{quote}So the command I wish I could use is [appc] ti build --platform=iphone -D unit
+platform could be either iphone,android, windows, what ever
+the idea is I would want a duplicate of development
+but not have it be called development and NOT encrypt my javascript.
+i see how I could do the pull request with titanium npm package. Question is, is that the correct place to do a pull request to essentially duplicate the development deploy type
+this is probably a cbarber question, but I'm not going to @ him right now because I suspect people in California are asleep
+or.. is this going to end up being an ugly CLI hook where I beat titanium command into submission?
+1:22
+either way once this is possible, unit testing becomes HUGELY easier to deal with in titanium. It also opens up a legit out side in BDD loop for those that care
+{quote}
+
+Also, I will be releasing a copy of Alloy Hunter which is fully ti mocha & ti calabash tested. 
+It will further demonstrate that going into package.json to change a value in env:development is really a sad state.
+
+I am tempted to create a CLI hook for this, but why? This really should be somnething that titanium can just do.
+
+This would not be hard to accomplish. I already see how to do it. I just want to make sure I am not about to a pull request on a dead CLI.
+
+I'm not sure where the appc cli code is.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2015-07-02
+
+   [~sophrinix] if what you want is to skip JS minification you can use the <code>--skip-js-minify</code> flag:
+   <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/guide/Titanium_Command-Line_Interface_Reference-section-35619828_TitaniumCommand-LineInterfaceReference-GenericBuildOptionsandFlags</li>
+<li>Andrew McElroy 2015-07-02
+
+   but does minification equate to encryption? I'll test this, but the problem is when you encrypt the js you can recursively find it with a directory lookup and then require it.
+   AKA this fails:
+   
+   var require_path = 'specs/tests/';
+   var specs_dir = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory + require_path);
+   var spec_files = specs_dir.getDirectoryListing();
+   for (var i=0; i<spec_files.length; i++) { 
+   	require(require_path + spec_files[i].replace('.js', ''));
+   }
+   
+   yet in development it works. why? because when you run this in env:test you can't see any js files-- and you can in development. 
+   
+   <rant>I wish jira supported markdown.</rant></li>
+<li>Fokke Zandbergen 2015-07-02
+
+   You are right, encryption is a separate setting you can't override via a CLI flag like you can with minification:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L1064-L1066" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L1064-L1066</a>
+   
+   So you could do a request and PR to add a <code>--skip-js-encrypt</code> flag.</li>
+<li>Fokke Zandbergen 2015-07-02
+
+   Or maybe even better, include an option to pass a custom json object with a deploy profile. I can see a use for overriding <code>includeAllTiModules</code> as well.</li>
+<li>Andrew McElroy 2015-07-02
+
+   I really just want the minimum required change. If I could have a second copy of development, but called something other than development. i'd be so happy. 
+   It's really that simple.
+   
+   I'd sooner do a different pull request to change module include behavior.
+   I could see having what I am talking about and then a second pull request where the module tags could accept some additional properties like such
+   
+   <modules>
+   			<module platform="iphone" >ti.map</module>
+   			<module platform="android" >ti.map</module>
+   			<module version="1.0.0" platform="iphone" deploy-type="unit">com.sttts.exit</module>
+       </modules>
+   
+   the default behavior would continue to be include the module with all envs, but if you specified a deploy-type then it would only include in that specific deploy-type env
+    ( this of course is a separate issue)
+   </li>
+<li>Fokke Zandbergen 2015-07-02
+
+   I like that deployType-specific modules idea! But that would require the ability to add custom profiles.
+   
+   Maybe the <code>--deployType</code> option could also accept a JSON string that has the properties like the built-in, plus a name:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L1055-L1061" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/cli/commands/_build.js#L1055-L1061</a>
+   
+   Then another change would be to check for the deployType when including modules.</li>
+<li>Andrew McElroy 2015-07-02
+
+   the other problem with only having a --skip-js-encrypt option is that  env:test apparently means you intend to deploy on a device but with a development provisioning profile. It would become confusing to use the test deploy type for more than it was intended for.  I'd rather leave that behavior alone. 
+   
+   Now if we wanted to do both your idea and my idea, I could see that, but just --skip-js-encrypt by itself is not enough.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20207.json">JSON Source</a></p>

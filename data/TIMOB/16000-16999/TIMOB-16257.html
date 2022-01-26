@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-16257] Ti.UI.ScrollView.setScrollingEnabled results in Java Exception"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-10-25T18:56:02.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, scrollview, ui</td></tr>
+<tr><th>Reporter</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2013-11-05T16:28:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-26T22:15:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi all, after upgrading to Alloy 1.2.2 Ti.UI.ScrollView.setScrollingEnabled results in and Uncaught Java Exception with no further details.
+
+Also, the same result happens if statically setting the property.
+
+<code><pre>
+<Alloy>
+	<ScrollView contentHeight="auto" contentWidth="auto" layout="vertical" height="Ti.UI.SIZE"></ScrollView>
+</Alloy>
+</pre></code>
+
+<code><pre>
+// Both of these return the same error
+$.getView().setScrollingEnabled(true);
+$.getView().scrollingEnabled = true;
+</pre></code>
+
+Lee.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Biju pm 2014-01-22
+
+   PR:-
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/5244" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5244</a></li>
+<li>Joshua Quick 2017-10-24
+
+   I'm able to reproduce this crash in a Classic App with the following lines of code in the "app.js" file
+   
+   <code><pre>
+   var scrollView = Ti.UI.createScrollView({});
+   scrollView.scrollingEnabled = true;
+   </pre></code>
+   
+   And with the "tiapp.xml" file set up to not run on the main UI thread.
+   _(This crash will never happen if running from the main thread.)_
+   
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+       <property name="run-on-main-thread" type="bool">false</property>
+   </ti:app>
+   </pre></code>
+   
+   *Result:*
+   The following exception gets outputted to the Android log...
+   
+   <code><pre>
+   [ERROR] :  TiApplication: (main) [63,63] Sending event: exception on thread: main msg:java.lang.RuntimeException: Unable to start activity ComponentInfo{com.appcelerator.testing/com.appcelerator.testing.ClassicapptestActivity}: java.lang.ClassCastException: java.lang.Integer cannot be cast to java.util.HashMap; Titanium 7.0.0,2017/10/23 15:17,undefined
+   [ERROR] :  TiApplication: java.lang.RuntimeException: Unable to start activity ComponentInfo{com.appcelerator.testing/com.appcelerator.testing.ClassicapptestActivity}: java.lang.ClassCastException: java.lang.Integer cannot be cast to java.util.HashMap
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2665)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:2726)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.-wrap12(ActivityThread.java)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1477)
+   [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:102)
+   [ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:154)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:6119)
+   [ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:886)
+   [ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:776)
+   [ERROR] :  TiApplication: Caused by: java.lang.ClassCastException: java.lang.Integer cannot be cast to java.util.HashMap
+   [ERROR] :  TiApplication: 	at ti.modules.titanium.ui.ScrollViewProxy.handleMessage(ScrollViewProxy.java:107)
+   [ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:98)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.common.TiMessenger.dispatchMessage(TiMessenger.java:394)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.common.TiMessenger.dispatchPendingMessages(TiMessenger.java:379)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.common.TiMessenger$2.getResult(TiMessenger.java:257)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.common.TiMessenger.sendBlockingMessage(TiMessenger.java:291)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.common.TiMessenger.sendBlockingRuntimeMessage(TiMessenger.java:191)
+   [ERROR] :  TiApplication: 	at org.appcelerator.kroll.KrollProxy.callPropertySync(KrollProxy.java:725)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.TiBaseActivity$4.run(TiBaseActivity.java:1203)
+   [ERROR] :  TiApplication: 	at android.app.Activity.runOnUiThread(Activity.java:5866)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.TiBaseActivity.dispatchCallback(TiBaseActivity.java:1200)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.java:687)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActivity.java:169)
+   [ERROR] :  TiApplication: 	at org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.java:161)
+   [ERROR] :  TiApplication: 	at android.app.Activity.performCreate(Activity.java:6679)
+   [ERROR] :  TiApplication: 	at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1118)
+   [ERROR] :  TiApplication: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:2618)
+   [ERROR] :  TiApplication: 	... 9 more
+   </pre></code>
+   
+   *Cause:*
+   There is message ID collision between the TiViewProxy and the ScrollViewProxy. The "MSG_FIRST_ID" should start from "TiViewProxy.MSG_LAST_ID", not "KrollProxy.MSG_LAST_ID"...
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/ScrollViewProxy.java#L39" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/ui/src/java/ti/modules/titanium/ui/ScrollViewProxy.java#L39</a>
+   </li>
+<li>Joshua Quick 2017-10-24
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9550" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9550</a>
+   PR (6.3.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/9551" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9551</a></li>
+<li>Lokesh Choudhary 2017-10-25
+
+   FR passed for both master & backport PR.</li>
+<li>Lokesh Choudhary 2017-10-25
+
+   Master PR merged.
+   Waiting for 6.3.0 PR to get merge enabled.</li>
+<li>Lokesh Choudhary 2017-10-26
+
+   PR for backport merged.</li>
+<li>Lokesh Choudhary 2017-10-26
+
+   Verified the fix in SDK 6.3.0.v20171026120401 & 7.0.0.v20171025141436.
+   
+   Closing.
+   
+   Studio Ver: 4.10.0.201709271713
+   OS Ver: 10.12.3
+   Xcode Ver: Xcode 8.3.3
+   Appc NPM: 4.2.10-2
+   Appc CLI: 6.3.0-master.15
+   Ti CLI Ver: 5.0.14
+   Alloy Ver: 1.10.6
+   Node Ver: 7.10.1
+   Java Ver: 1.8.0_101
+   Devices: ⇨ google Nexus 5 — Android 6.0.1
+   ⇨ google Pixel — Android 7.1.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16257.json">JSON Source</a></p>

@@ -1,0 +1,111 @@
+---
+title: "[TIMOB-28149] Android: App builds fail if it includes "Java-WebSocket" library"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-11-30T19:10:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 9.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, build, gradle, library</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2020-09-22T14:43:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-11-30T19:10:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If an app includes the "Java-WebSocket" library via gradle (or a module that references it via gradle), then it will fail to build.
+
+*Steps to reproduce:*
+<h4>Create a "Classic" Titanium app project.</h4>
+<h4>Add the below "build.gradle" to project folder: <code>./platform/android</code></h4>
+<h4>Build for Android.</h4>
+
+./platform/android/build.gradle
+<code><pre>
+dependencies {
+	implementation 'org.java-websocket:Java-WebSocket:1.5.1'
+}
+</pre></code>
+
+*Result:*
+The following build failure will occur...
+<code><pre>
+[ERROR] [GRADLE]   java.lang.RuntimeException: Duplicate class org.java_websocket.AbstractWebSocket found in modules jetified-Java-WebSocket-1.5.1.jar (org.java-websocket:Java-WebSocket:1.5.1) and jetified-titanium-9.2.0-runtime.jar (org.appcelerator:titanium:9.2.0)
+</pre></code>
+
+*Cause:*
+Titanium builds with a local "java_websocket.jar" below. It's used by V8 for debugging. We need to remove th JAR and instead reference the library via gradle.
+<a href="https://github.com/appcelerator/titanium_mobile/tree/master/android/runtime/v8/lib" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/tree/master/android/runtime/v8/lib</a>
+
+*Work-Around:*
+Add the following "build.gradle" to the app project's <code>./platform/android</code> folder. It will exclude websocket library references from the gradle build to avoid collision with Titanium's local JAR. Although, once we fix this issue, you'll need to remove the below.
+<code><pre>
+configurations {
+	all {
+		exclude group: 'org.java-websocket', module: 'Java-WebSocket'
+	}
+}
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-09-22
+
+   [~hknoechel], our "ti.socketio" module was updated in Titanium 9.0.0 to stop using local JARs and reference this library via gradle instead. (We did the same with all of our other modules in 9.0.0 as well.)
+   <a href="https://github.com/appcelerator-modules/titanium-socketio/pull/25" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/titanium-socketio/pull/25</a>
+   
+   You must be using a 3rd party module that's bundling its own local websocket JAR ("Java-WebSocket-1.5.1.jar"?) and that's the cause of the collision. It needs to be updated to reference it in the "build.gradle" similar to how we're doing it below.
+   <a href="https://github.com/appcelerator-modules/titanium-socketio/blob/master/android/build.gradle" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/titanium-socketio/blob/master/android/build.gradle</a>
+   </li>
+<li>Hans Knöchel 2020-09-22
+
+   We do not use Ti.SocketIO, that's why I'm wondering</li>
+<li>Joshua Quick 2020-09-22
+
+   Hold on. You're right. Titanium has a local web socket JAR used by V8 here...
+   <a href="https://github.com/appcelerator/titanium_mobile/tree/master/android/runtime/v8/lib" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/tree/master/android/runtime/v8/lib</a>
+   
+   I can reproduce the issue you're seeing by setting up a Titanium app with the following "build.gradle" file.
+   <code><pre>
+   dependencies {
+   	implementation 'org.java-websocket:Java-WebSocket:1.5.1'
+   }
+   </pre></code>
+   
+   So, I still think you have a module which is referencing the websocket library, but that module is likely indirectly referencing websockets the "right" way via gradle. It's Titanium that needs to change to reference it via gradle as well.
+   
+   For now, you can work-around the issue by adding the following to your app project's "build.gradle". This tells the build system to exclude a websocket library gradle dependency. Although once we update Titanium to reference it via gradle too, you'll need to remove the below.
+   <code><pre>
+   configurations {
+   	all {
+   		exclude group: 'org.java-websocket', module: 'Java-WebSocket'
+   	}
+   }
+   </pre></code>
+   
+   Thanks for bringing this up.</li>
+<li>Hans Knöchel 2020-09-22
+
+   Thanks Josh! I kept the old version (as an .aar) for now, but it would be great to update it during one of the next releases :)</li>
+<li>Joshua Quick 2020-09-22
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12119" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12119</a></li>
+<li>Sohail Saddique 2020-10-07
+
+   FR passed. Waiting for Jenkins.</li>
+<li>Lokesh Choudhary 2020-11-30
+
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28149.json">JSON Source</a></p>

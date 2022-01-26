@@ -1,0 +1,78 @@
+---
+title: "[TIMOB-24488] iOS: appcelerator.encrypteddatabase and pspdfkit modules conflict and throw database error"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2017-03-20T18:08:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Joe Finnigan</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-03-15T16:14:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-07-17T15:41:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The current app store version of our app uses version 1.3.1 of the appcelerator.encrypteddatabase module and titanium sdk version 5.5.0.GA and doesn't have the 3rd party module PSPDFKIT included.
+
+When we upgrade the installed app to the new app version with a build using version 2.0.2 of appcelerator.encrypteddatabase and sdk version 6.0.2.GA and and including pspdfkit version 6.5.0 titanium module.
+
+We get the error at the bottom of this message, when trying launch our app.
+
+ It appears to be a conflict with maybe SQLCipher versions between PDFkit and the encrypted database module we use? It's strange that as soon as we remove PSPDFKIT from the project, we have no database problems at all. 
+
+PSPDFKIT say they don't ship SQLite with their module, so confusing why it is happening. As soon as we comment out the PSPDFKIT module from our tiapp.xml with literally no other changes. Clean and build...we have no problems at all. 
+
+
+[ERROR] : A SQLite database error occurred on database '/var/mobile/Containers/Data/Application/D267402E-F179-4B0E-9D4A-D0CF969E866E/Library/Private Documents/alloy.enc.db.sql': Error Domain=com.plausiblelabs.EncPLDatabase Code=3 "An error occured parsing the provided SQL statement." UserInfo={com.plausiblelabs.EncPLDatabase.error.vendor.code=26, com.plausiblelabs.EncPLDatabase.error.vendor.string=file is encrypted or is not a database, com.plausiblelabs.EncPLDatabase.error.query.string=CREATE TABLE IF NOT EXISTS migrations (latest TEXT, model TEXT);, NSLocalizedDescription=An error occured parsing the provided SQL statement.} (SQLite #26: file is encrypted or is not a database) (query: 'CREATE TABLE IF NOT EXISTS migrations (latest TEXT, model TEXT);')
+[ERROR] : Script Error {
+[ERROR] : column = 4383;
+[ERROR] : line = 1;
+[ERROR] : message = "invalid SQL statement";
+[ERROR] : nativeLocation = "-[AppceleratorEncrypteddatabaseDBProxy execute:] (AppceleratorEncrypteddatabaseDBProxy.m:261)";
+[ERROR] : nativeReason = "Error Domain=com.plausiblelabs.EncPLDatabase Code=3 \"An error occured parsing the provided SQL statement.\" UserInfo={com.plausiblelabs.EncPLDatabase.error.vendor.code=26, com.plausiblelabs.EncPLDatabase.error.vendor.string=file is encrypted or is not a database, com.plausiblelabs.EncPLDatabase.error.query.string=CREATE TABLE IF NOT EXISTS migrations (latest TEXT, model TEXT);, NSLocalizedDescription=An error occured parsing the provided SQL statement.}";
+[ERROR] : sourceURL = "file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/sync/enc.db.js";
+[ERROR] : stack = "[native code]\nGetMigrationFor@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/sync/enc.db.js:1:4383\nMigrate@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/sync/enc.db.js:1:5124\nafterModelCreate@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/sync/enc.db.js:1:8395\nM@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy.js:1:1939\nfile:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/models/User.js:1:648\nglobal code@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/models/User.js:2:70\nrequire@[native code]\ncreateCollection@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy.js:1:5408\ngetLoginUserModel@file:///var/containers/Bundle/App
+lication/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/controllers/Account/login.js:1:22842\nlogin@file:///var/containers/Bundle/Application/A32BB2A9-DF9C-4414-A1F9-3242E4843DB2/Q-Pulse.app/alloy/controllers/Account/login.js:1:20470";
+[ERROR] : }
+[ERROR] : Script Error Module "alloy/models/User.js" failed to leave a valid exports object
+[ERROR] : ErrorController is up. ABORTING showing of modal controller
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Peter Steinberger 2017-03-15
+
+   PSPDFKit founder here. I can confirm that we do not ship any version of SQLite or SQLCipher. However, we internally use sqlite; but simply by linking not much code runs. We use some runtime discovery to automatically find and adopt SQLCipher if it's in the runtime:
+   <a href="https://pspdfkit.com/guides/ios/current/security/encryption-support-in-pspdflibrary/" rel="nofollow" target="_blank">https://pspdfkit.com/guides/ios/current/security/encryption-support-in-pspdflibrary/</a>
+   
+   We also prefix all of our classes with "PSPDF" so we can rule out a naming conflict.
+   We user a dynamic framework so we can rule out a function clash as mach does two-level namespacing.
+   
+   Is the source code of appcelerator.encrypteddatabase available somewhere? I feel the only sane way to debug this will be stepping through the code and comparing. 
+   
+   You'll find more infos and how to download our module here. You don't need a login for that - download + demo license is fully automated:
+   <a href="https://pspdfkit.com/guides/ios/current/other-languages/appcelerator-titanium/" rel="nofollow" target="_blank">https://pspdfkit.com/guides/ios/current/other-languages/appcelerator-titanium/</a></li>
+<li>Hans Knöchel 2017-03-15
+
+   Quick update from our side: I'm in direct contact with Peter to resolve this together. We found a possible solution that won't require an update if it works, only a change in the module metadata. More updates as soon we received feedback, thanks!</li>
+<li>Peter Steinberger 2017-03-20
+
+   Confirmed to be fixed when <code>-lsqlite3</code> is removed from the module.xcconfig. Thanks Hans for your help! :)</li>
+<li>Hans Knöchel 2017-03-20
+
+   Thanks Joe and Peter!</li>
+<li>Lee Morris 2017-06-07
+
+   Closing issue with reference to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24488.json">JSON Source</a></p>

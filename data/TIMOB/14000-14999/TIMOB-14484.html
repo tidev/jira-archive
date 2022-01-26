@@ -1,0 +1,143 @@
+---
+title: "[TIMOB-14484] Titanium can link different standard C++ libraries (versions) during build process which causes terrible problems (e.g. crashing or worse)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Reopened</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Eric Wing</td></tr>
+<tr><th>Assignee</th><td>Rene Pot</td></tr>
+<tr><th>Created</th><td>2013-07-03T00:36:30.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-02-20T12:42:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Overview
+------------------------
+Titanium can link different standard C++ libraries (versions) during build process which causes terrible problems (e.g. crashing or worse)
+
+(I am writing this bug against Android because I have a clear test case for this. However, this type of problem is theoretically possible for iOS too and you probably should consider that code too.)
+
+The Titanium build process uses C++ and links to a standard C++ library. In your specific case, this is libstlport_shared.so. C++ is actually quite terrible for usage in libraries because its ABI is extremely fragile. Many open source projects typically expect end users to compile from source all the way through which mitigates this problem. Those that provide binaries must provide binaries for every version and variant of their compiler (unless they know the output to be binary compatible) and usually expect users to build end applications, not intermediate libraries (or the intermediate libraries may have similar issues). The Titanium build process is not like either of these and also has the additional complexity of allowing 3rd parties to write modules. And it is precisely in the 3rd party module case where I hit the problem with Titanium.
+
+
+As far as I can tell, Titanium does this:
+1) Precompiles some libraries (like kroll) to be shipped in with the Titanium SDK
+2) For 3rd party modules, C++ code is dynamically generated to create bindings and a library is built using a combination of Titanium and Android SDK/NDK.
+3) For building a final app, all the components are assembled together from both the Titanium SDK, the plugins, and the Android SDK/NDK. I'm not sure if this has any code generation or relinking, but if it does (e.g. iOS) there could be additional problems here.)
+
+
+So the fundamental problem is that you are potentially mixing different versions of the C++ standard library during the different stages of the build process. Mixing different libraries and or different versions is very bad and can lead to very strange problems. I finally got lucky and produced a startup crash. But when unlucky, things can behave strangely.
+
+As I partly explained in TIMOB-13983, I have legitimate reasons to need the (near) latest SDK/NDK and this is really an Android best practice item.
+
+Reproducing the problem:
+------------------------
+To produce the problem, you simply need to create a new Android module (following the documentation). The one extra step is to add a jni directory that builds something. It doesn't have to be C++ and may be pure C, but it still produces this problem. (I believe this is due to your code generation process which includes Titanium headers which are written in C++, so the C++ dependency leaks out.)
+
+
+To get you started, I have provided an example that demonstrates this problem.
+<a href="https://github.com/ewmailing/TitaniumMixedCppLibraryCrashAndroidModule" rel="nofollow" target="_blank">https://github.com/ewmailing/TitaniumMixedCppLibraryCrashAndroidModule</a>
+
+This is a slight modification from my function calling benchmark that has been passed around internally at AppC. The code itself is not interesting and not even worth looking at, but with this particular code modification, I was able to make a reproducible crash. (The original benchmark program worked without a problem which is why this is a really scary type of bug.) The main thing to look at is that the libstlport_shared.so is being linked in. You are linking against libstlport_shared.so included with Titanium, not from my Android NDK. (Look at the byte size left in the libs directories.)
+
+Note: My environment
+OS X 10.8.4
+Titanium 3.1.1.GA
+Android SDK 4.2.2 (API 17)
+Android SDK 2.3.3 (API 10)
+Android SDK 2.2 (API 8)
+Android NDK r8d
+
+If you do a 'find' for the libstlport_shared.so in my NDK, you won't find a version that matches.
+
+
+Now if you use my module in a real project:
+<a href="https://github.com/ewmailing/CalloverheadBenchmarkTitaniumSWIGTestApp" rel="nofollow" target="_blank">https://github.com/ewmailing/CalloverheadBenchmarkTitaniumSWIGTestApp</a>
+(disable IOS or build my iOS module:
+<a href="https://github.com/ewmailing/CalloverheadBenchmarkTitaniumSWIGiOSModdule)" rel="nofollow" target="_blank">https://github.com/ewmailing/CalloverheadBenchmarkTitaniumSWIGiOSModdule)</a>
+
+(My project explicitly uses the latest toolchain via the tiapp.xml rules which might help trigger this problem.)
+
+But first you actually will see a different problem. The build process fails on signing because there are 2 libstlport_shared.so's.
+
+Now this is actually a secondary bug, but it highlights the fundamental problem. You guys seem to recognize this and your module build scripts seem to have a rule that excludes libstlport_shared.so from being packaged in the module. But for unknown reason, the rule didn't work in this case.
+
+I have a little script that strips out the libstlport_shared.so in my module repo called purge_stlport.sh. You can use it or manually delete it yourself.
+
+Once you remove the module's libstlport_shared.so, the thing will build, and the app will hopefully crash on startup. The crash isn't interesting, but if you dig into the .apk, you will see the byte size of the libstlport_shared.so does not match the one in bundled with Titanium. It does however match the one in my NDK.
+
+Workaround:
+---------------------
+As a temporary workaround, I modified my build.xml to call a modification of my own build script which controls the Application.mk. This is in the module repo under the subdirectory called WORKAROUND. Copy these to the directory above to try.
+The key is forcing static linkage for stlport:
+APP_STL := stlport_static
+(I also make sure my API is bumped:)
+TARGET_PLATFORM = android-17
+
+This doesn't really address the problem that there is mixing of C++ library versions. Titanium should be compiled statically too for complete safety.
+
+Summary:
+-------------
+Basically, you cannot rely on C++ binaries being stable, particularly for libraries. This is the short summary of problems faced on Android with C++ and Titanium:
+- The C++ library implementations for Android are all incomplete and broken in completely different ways 
+- Android can't make up their mind about which C++ library to ship, so they ship 3 different ones (it's not safe to mix them of course), each with a static or dynamic variation. Clang's new libc++ will probably soon create a 4th version.
+- Android changes/updates each of these libraries with each release of the ndk
+- Titanium uses C++ in their core and thus has a C++ dependency. They chose libstlport_shared.
+- Titanium is shipping with an old/stale libstlport_shared. I don't know what version that is from.
+- When you build a Titanium module, Titanium will sometimes link their libstlport_shared to your module under circumstances I don't fully understand. Note, this is their copy of libstlport, not the one in the current Android NDK.
+- There is actually a bug in Titanium where they don't expect this to happen and they copy in libstlport_shared into your module. When you build your final app, you get two copies of libstlport_shared because they copy in another one for building your app. This breaks the build.
+- Excluding the module one is the expected behavior and their ant scripts seems to explicitly do this, though I don't know why their script breaks under certain circumstances. You can delete libstlport_shared.so from the build module manually and re-package it to work around it.
+- Building the final app links against libstlport_shared.so from the Android NDK. This is not the same one from Titanium. 
+
+Suggested Actions:
+---------------------
+- You should statically link in C++ for everything that requires it. That probably means changing the build process so that all the Titanium supplied libraries such as kroll, as well as 3rd party modules are instructed to build with the static versions of the C++ libraries. (The final stage for the app build process may be able to use dynamic linking, but it may be simpler/safer to statically link that too.) This will minimize most problems. (Yes, code will bloat. But that's part of the cost of using C++.)
+
+- Consider removing C++ from your codebase. It really is fragile to build libraries on top of, especially when you don't/can't control the entire technology stack. Plain old C is really the best at this. (I'm quite serious about this and am not joking.)
+
+- If you can't completely remove C++, try to firewall all your "public" APIs behind extern "C". (By "public", I mean anything your code-generated code calls in addition to what the user calls.) This will prevent contamination. I know v8 is particularly problematic because they let their C++ leak out. JavaScriptCore is a much better example of doing it right. The advantage is that if the user is not using C++ directly (e.g. C), then the C++ linkage for the module won't be necessary. They will link to say JSCore, but not directly to JSCore's dependencies.
+
+	- Note users may need to control the variant of the C++ library they want to use (gnu, stlport, clang). You really should allow for this. I don't know if static linking is completely safe for this because of all the template inlining and assumptions about STL implementations built into each. This is another reason mixing and matching is so dangerous. Firewalling behind C so no C++ can leak out so everything communicates via C interfaces will minimize this problem. Static linking of C++ libraries will hopefully resolve the rest.
+
+- Update Titanium to build with the latest stable (or at least semi-recent) version of the NDK. I explained this in TIMOB-13983, but I should also add that Android's library implementations have been quite terrible and you really do need to be on the latest just to get bug fixes. I am aware you are affected by a bug in r8e, so I understand if you are stuck on r8d. However, your version is really old and I don't know what version that is from. Remember that Google likes to show you the latest version to download and hides old versions. Assuming you keep growing users, your users will generally be downloading the latest and your new users are the ones you really want to show that your stuff works out of the box.
+
+- This might also be a good time to start re-evaluating which C++ library you want to use. I think the GNU one is a lot better now than when you started and may be the more commonly used one now than STLport. But if you are thinking of moving to clang, the clang one would be best for that.
+
+
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Eric Wing 2013-07-17
+
+   Just to clarify, this technically is a bug, not a feature request. Thanks!</li>
+<li>Chris Barber 2013-08-07
+
+   According to Allen, this is not a Android build thing. Rather it should probably be resolved by the new SDK builder scons replacement thinger.</li>
+<li>Eric Wing 2013-08-07
+
+   So I'm not sure what you mean by 'not a Android build thing'. This is definitely a real problem caused by not choosing the correct build flags in the Android tool chain. Ultimately, this is controlled in Android's build system by specifying in Application.mk:
+   APP_STL := stlport_static
+   
+   </li>
+<li>Chris Barber 2013-08-07
+
+   There's two build systems here. There's the scons build system that builds a Titanium SDK (as well as modules) and that's what we believe your ticket best applies to. The other build system is the Android build system that builds Android apps.</li>
+<li>Rene Pot 2020-02-20
+
+   probably no longer relevant as everything has migrated since then</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14484.json">JSON Source</a></p>

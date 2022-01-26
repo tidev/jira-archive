@@ -1,0 +1,93 @@
+---
+title: "[TIMOB-28059] Android: Modify Ti.Media APIs to use scoped storage"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-10-22T22:19:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, camera, media, photo, storage, video</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2020-07-30T04:52:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-10-22T22:19:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The following APIs can write to file outside of the app's sandbox on external storage and need to be changed for Android 11.
+* <code>Ti.Media.showCamera()</code>
+* <code>Ti.Media.saveToPhotoGallery()</code>
+
+*To-Do:*
+Remove usage of the following Java APIs for Android 10 and above...
+* [Environment.getExternalStorageDirectory()](<a href="https://developer.android.com/reference/android/os/Environment#getExternalStorageDirectory())" rel="nofollow" target="_blank">https://developer.android.com/reference/android/os/Environment#getExternalStorageDirectory())</a>
+* [Environment.getExternalStoragePublicDirectory()](<a href="https://developer.android.com/reference/android/os/Environment#getExternalStoragePublicDirectory(java.lang.String))" rel="nofollow" target="_blank">https://developer.android.com/reference/android/os/Environment#getExternalStoragePublicDirectory(java.lang.String))</a>
+
+When using an external camera app, it would be better to let it save the photo to its default location and then use a Java <code>ContentResolver</code> to access the photo's <code>InputStream</code>.
+<a href="https://developer.android.com/training/camera/photobasics" rel="nofollow" target="_blank">https://developer.android.com/training/camera/photobasics</a>
+
+For saving a photo to the gallery...
+* Use [ContentResolver.openOutputStream()](<a href="https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))" rel="nofollow" target="_blank">https://developer.android.com/reference/android/content/ContentResolver#openOutputStream(android.net.Uri))</a> on Android 10.
+* Use [MediaStore.createWriteRequest()](<a href="https://developer.android.com/reference/android/provider/MediaStore#createWriteRequest(android.content.ContentResolver" rel="nofollow" target="_blank">https://developer.android.com/reference/android/provider/MediaStore#createWriteRequest(android.content.ContentResolver</a>,%20java.util.Collection<android.net.Uri>)) on Android 11.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67576/CameraPhotoExternalTest.js">CameraPhotoExternalTest.js</td></td><td>2020-10-01T21:28:49.000+0000</td><td>984</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67580/CameraPhotoInternalTest.js">CameraPhotoInternalTest.js</td></td><td>2020-10-01T22:08:02.000+0000</td><td>1465</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67578/CameraVideoExternalTest.js">CameraVideoExternalTest.js</td></td><td>2020-10-01T21:28:49.000+0000</td><td>1095</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67581/CameraVideoInternalTest.js">CameraVideoInternalTest.js</td></td><td>2020-10-01T22:08:02.000+0000</td><td>1841</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67598/ImageToGalleryTest.js">ImageToGalleryTest.js</td></td><td>2020-10-10T04:36:37.000+0000</td><td>870</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28059_67596/Screenshot_1602166786.png">Screenshot_1602166786.png</td></td><td>2020-10-08T14:23:40.000+0000</td><td>67687</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-10-01
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12143" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12143</a></li>
+<li>Sohail Saddique 2020-10-08
+
+   [~jquick] I carried out some extensive testing of this PR and can confirm the fixes are mostly okay.
+   
+   However, on this particular section of this PR, saved images/screenshots to the photo gallery are not seen unless restarting the emulator (Android 4.4 - 9.0). No restart is required for Android 10/11.
+   
+   This message appears for Android versions < 10. But the screenshot is actually present in the gallery if the emulator is restarted.
+   
+    !Screenshot_1602166786.png|thumbnail! </li>
+<li>Joshua Quick 2020-10-09
+
+   [~ssaddique], you're right.
+   
+   On Android 6 to Android 9, it will fail to save to the gallery if the app was not granted <code>WRITE_EXTERNAL_STORAGE</code> permission. This permission is only not needed on Android 10 and higher.
+   
+   On Android 4.4, there is a bug on Google's end (link below) where it will fail if you've never saved a photo/video on the device before. It's happening because the photo directory doesn't exist. I can only reproduce it by formatting external storage (aka: the SD card). I can fix this issue in Titanium by creating the directory tree if missing.
+   <a href="https://issuetracker.google.com/issues/37002888" rel="nofollow" target="_blank">https://issuetracker.google.com/issues/37002888</a>
+   
+   I'll try to get this PR fixed by your Monday. Thanks!</li>
+<li>Joshua Quick 2020-10-10
+
+   [~ssaddique], the PR has been updated. Can you re-run all of the tests on the PR please? I've also updated the  attached [^ImageToGalleryTest.js] script to use the <code>Ti.Media.requestPhotoGalleryPermissions()</code> method on Android, which was newly added to that PR and covers ticket [TIMOB-28183].</li>
+<li>Sohail Saddique 2020-10-13
+
+   Fixes look good. FR passed and PR merged.</li>
+<li>Lokesh Choudhary 2020-10-22
+
+   Verified the fix with SDK 9.3.0.v20201022111908.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28059.json">JSON Source</a></p>

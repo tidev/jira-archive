@@ -1,0 +1,228 @@
+---
+title: "[TIMOB-17573] iOS: Unable to Set Multiple Cookies in Request Header"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-06-02T21:02:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SDK3.3.0, httpclient</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2014-08-29T03:35:17.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T22:25:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>IOS: Fail to Set Multiple Cookie in Request Header for Ti.Network.HTTPClient in SDK 3.3.0</h4>
+
+
+<h4>Reproduce and Test Case:</h4>
+<code><pre>
+var sessionid = Ti.App.getSessionId();
+var token = "example_token";
+var contextid = '1234567';
+var endpoint = "<a href="http://127.0.0.1:8888" rel="nofollow" target="_blank">http://127.0.0.1:8888</a>";
+//Ti.API.info(endpoint);
+
+var loader = Titanium.Network.createHTTPClient({
+     onload : function(e) {
+         Ti.API.info("Received text: " + this.responseText);
+         alert("Received text: " + this.responseText);
+         alert('success');
+     },
+     onerror : function(e) {
+         Ti.API.debug(e.error);
+         alert('error');
+     },
+     timeout : 5000  // in milliseconds
+}); 
+
+loader.open("GET", endpoint);
+loader.setRequestHeader('Content-Type', 'application/json;charset=utf-8'); 
+loader.setRequestHeader('User-Agent', Titanium.userAgent); 
+loader.setRequestHeader('Cookie', 'Context='+contextid); 
+loader.setRequestHeader('Cookie', 'sessionID='+sessionid);
+loader.setRequestHeader('Cookie', 'Auth_token='+token); 
+loader.send(); 
+</pre></code>
+
+<h4>Expect Result:</h4>
+Server host can get all three cookie information.
+For example:
+<code><pre>
+Context=1234567; sessionID=486E0EFB-C4A1-478A-9A5B-A9EB683B310C; Auth_token=example_token
+</pre></code> 
+
+<h4>Actual Result:</h4>
+Only the last cookie has been passed to server.
+For example:
+<code><pre>
+Auth_token=example_token
+</pre></code>
+
+It seems like the previous cookies property will be overwritten by the next when you set multiple cookies information at one request header on SDK 3.3.0.GA. 
+
+N.B. Only happens in 3.3.0.GA. It works well in 3.2.3 and 3.2.1. 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17573_50852/cookieTest.js">cookieTest.js</td></td><td>2014-08-29T03:39:37.000+0000</td><td>501</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17573_55359/cookieTest2.js">cookieTest2.js</td></td><td>2015-05-13T06:04:16.000+0000</td><td>573</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2014-08-29
+
+   Attached a simple nodejs server to get cookie information from http request.</li>
+<li>Ingo Muschenetz 2014-08-29
+
+   As a workaround, can you set them as a single call?</li>
+<li>Pedro Enrique 2014-08-29
+
+   The internal headers are a key dictionary where the first param is the key and the second the value. Setting a second cookie will replace the previous.
+   Here's the workaround for the meantime
+   <code><pre>
+   loader.setRequestHeader('Cookie', 'Context='+contextid+';sessionID='+sessionid+';Auth_token='+token); 
+   </pre></code></li>
+<li>Shuo Liang 2014-09-04
+
+   Sorry, Please ignore my last comment, as choosing wrong version of SDK. the workaround works well in SDK 3.3.0</li>
+<li>kosso 2014-11-11
+
+   This is still happening in 3.4.0.GA 
+   
+   Also, clearCookies() does not appear to be working any more. 
+   
+   Has the ASI Library been deprecated? Is this why these changes have occurred?  Does 'APSHTTPClient' handles all the Ti.Network.HTTPClient  methods now?
+   </li>
+<li>Jon Alter 2015-03-12
+
+   This should not be fixed. It is working as it should. We should update the docs with Pedro's solution</li>
+<li>Ingo Muschenetz 2015-03-12
+
+   See <a href="http://stackoverflow.com/questions/1268673/set-a-request-header-in-javascript" rel="nofollow" target="_blank">http://stackoverflow.com/questions/1268673/set-a-request-header-in-javascript</a> for a reference.</li>
+<li>Chee Kiat Ng 2015-05-07
+
+   Advised to use workaround described by Pedro for issues like this.</li>
+<li>Ingo Muschenetz 2015-05-07
+
+   No, this is not working as it should If you view the StackOverflow post, we are created a web-influenced API. Thus, we should adopt a web-like behavior, and you can set multiple cookies in the browser. Apologies if this wasn't clear before, but I do think we _should_ fix this.</li>
+<li>Chee Kiat Ng 2015-05-08
+
+    PR Here: <a href="https://github.com/appcelerator/titanium_mobile/pull/6827" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6827</a>
+    and PR Here: <a href="https://github.com/appcelerator/APSHTTPClient/pull/23" rel="nofollow" target="_blank">https://github.com/appcelerator/APSHTTPClient/pull/23</a>
+    
+    Mutliple calls to setRequestHeader on the 'Cookie' key, will result in the values being appended with a ';' in between each value, instead of one replacing the other.</li>
+<li>Chee Kiat Ng 2015-05-12
+
+    [~pec1985], To address your github comments for the PR.
+    <a href="https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest#setRequestHeader()" rel="nofollow" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest#setRequestHeader()</a>
+    According to this abstracted from the link, _if this method is called several times with the same header, the values are merged into one single request header._
+    and [~ingo]'s comment that we should follow a web-influenced API and adopt a web-like behavior, we can only use *setRequestHeader* and *not* create another method called *addRequestHeader* (although i would have preferred the latter option as well). 
+    Here is another link that shows an example for setting the same header twice:
+    <a href="http://www.w3.org/TR/XMLHttpRequest/#the-setrequestheader()-method" rel="nofollow" target="_blank">http://www.w3.org/TR/XMLHttpRequest/#the-setrequestheader()-method</a>
+    and the abstracted sample code here:
+    <code><pre>
+    // The following script:
+    var client = new XMLHttpRequest();
+    client.open('GET', 'demo.cgi');
+    client.setRequestHeader('X-Test', 'one');
+    client.setRequestHeader('X-Test', 'two');
+    client.send();
+    
+    // …results in the following header being sent:
+    X-Test: one, two
+    </pre></code> 
+    
+    If it's agreed that we follow the web-like behavior, I will proceed to work on the Android portion.
+    </li>
+<li>Chee Kiat Ng 2015-05-13
+
+    After further research from earlier links, these links and the native SDK references:
+    <a href="https://github.com/AliSoftware/OHHTTPStubs/issues/43" rel="nofollow" target="_blank">https://github.com/AliSoftware/OHHTTPStubs/issues/43</a>
+    <a href="http://www.tutorialspoint.com/http/http_header_fields.htm" rel="nofollow" target="_blank">http://www.tutorialspoint.com/http/http_header_fields.htm</a>
+    <a href="http://blog.hjoseph.com/post/93171041261/setting-nsmutableurlrequest-cookies" rel="nofollow" target="_blank">http://blog.hjoseph.com/post/93171041261/setting-nsmutableurlrequest-cookies</a>
+    
+    It is concluded that:
+    <h4>repeated calls to setRequestHeader appends the field values</h4>
+    <h4>if the field is cookie, append is done with ';', while other fields use ','</h4>
+    
+    <h4>new sample code:</h4>
+    <code><pre>
+    var sessionid = Ti.App.getSessionId();
+    var token = "example_token";
+    var contextid = '1234567';
+    var endpoint = "<a href="http://127.0.0.1:8888" rel="nofollow" target="_blank">http://127.0.0.1:8888</a>";
+     
+    var loader = Titanium.Network.createHTTPClient({
+         onload : function(e) {
+             Ti.API.info("Received text: " + this.responseText);
+             alert("Received text: " + this.responseText);
+             alert('success');
+         },
+         onerror : function(e) {
+             Ti.API.debug(e.error);
+             alert('error');
+         },
+         timeout : 5000  // in milliseconds
+    }); 
+     
+    loader.open("GET", endpoint);
+    loader.setRequestHeader('Content-Type', 'application/json;charset=utf-8'); 
+    loader.setRequestHeader('User-Agent', Titanium.userAgent); 
+    loader.setRequestHeader('Accept', 'text/plain; q=0.5');
+    loader.setRequestHeader('Accept', 'text/html');
+    loader.setRequestHeader('Cookie', 'Context='+contextid); 
+    loader.setRequestHeader('Cookie', 'sessionID='+sessionid);
+    loader.setRequestHeader('Cookie', 'Auth_token='+token); 
+    
+    loader.send(); 
+    </pre></code>
+    
+    <h4>expected result (seen on from cookieTest2.js attached)</h4>
+    <code><pre>
+    Context=1234567; sessionID=1202D4C5-98E0-4968-8118-9335936C2E79; Auth_token=example_token
+    request header is
+    { host: '127.0.0.1:8888',
+      'x-titanium-id': '25FE4B6E-7DA9-4344-B55B-25195570860F',
+      'x-requested-with': 'XMLHttpRequest',
+      accept: 'text/plain; q=0.5, text/html',
+      'content-type': 'application/json;charset=utf-8',
+      cookie: 'Context=1234567; sessionID=1202D4C5-98E0-4968-8118-9335936C2E79; Auth_token=example_token',
+      'accept-language': 'en-us',
+      'accept-encoding': 'gzip, deflate',
+      connection: 'keep-alive',
+      'user-agent': 'Appcelerator Titanium/0.0.0 (iPhone Simulator/8.3; iPhone OS; en_US;), Appcelerator Titanium/0.0.0 (iPhone Simulator/8.3; iPhone OS; en_US;)' }
+    </pre></code></li>
+<li>Chee Kiat Ng 2015-05-13
+
+    iOS APSHttpClient PR: <a href="https://github.com/appcelerator/APSHTTPClient/pull/25" rel="nofollow" target="_blank">https://github.com/appcelerator/APSHTTPClient/pull/25</a>
+    iOS Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6844" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6844</a>
+    
+    android PR coming soon.</li>
+<li>Ashraf Abu 2015-05-13
+
+    Android PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6845" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6845</a></li>
+<li>Pedro Enrique 2015-06-01
+
+    Reopening, reason: Waiting for android PR to be merged</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as fixed, if there are any problems, please file a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17573.json">JSON Source</a></p>

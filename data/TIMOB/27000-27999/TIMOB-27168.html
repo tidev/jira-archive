@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-27168] Android: HTTP requests broken on Android 10+"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-28T19:00:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-06-19T13:53:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-28T19:05:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On Android 10, the following request never triggers a callback (neither <code>success</code> nor <code>error</code>):
+<code><pre>
+function sendRequest() {
+	var url = "<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>";
+	var client = Ti.Network.createHTTPClient({
+		// function called when the response data is available
+		onload : function(e) {
+			Ti.API.info("Received text: " + this.responseText);
+			alert('success');
+		},
+		// function called when an error occurs, including a timeout
+		onerror : function(e) {
+			Ti.API.debug(e.error);
+			alert('error');
+		},
+		timeout : 5000  // in milliseconds
+	});
+	// Prepare the connection.
+	client.open("GET", url);
+	// Send the request.
+	client.send();
+}
+
+var win = Ti.UI.createWindow({
+    backgroundColor: '#fff'
+});
+
+var btn = Ti.UI.createButton({
+    title: 'Send request!'
+});
+
+btn.addEventListener('click', function () {
+    sendRequest();
+});
+
+win.add(btn);
+win.open();
+</pre></code>
+The same request works fine on Android < 10. We hope it just requires some kind of whitelisting like ATS on iOS.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2019-06-19
+
+   [~hknoechel], this works for me in my Android 10 emulator. The "onload" callback was successfully invoked when the HTTP response was received.
+   
+   I even tried a ridiculously short 10ms timeout and verified that the timeout correctly invokes the "onerror" callback.
+   
+   What I find interesting about your test code is the "<a href="http://www.appcelerator.com" rel="nofollow" target="_blank">http://www.appcelerator.com</a>" URL. That will cause the server to respond with a redirect to the equivalent HTTPS URL. Switching between http/https protocols is normally considered a security issue on ALL platforms (Android, iOS, Windows) and involves us writing code to handle the redirect response ourselves... which we do.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/network/src/java/ti/modules/titanium/network/TiHTTPClient.java#L1330" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/network/src/java/ti/modules/titanium/network/TiHTTPClient.java#L1330</a>
+   
+   Do you see errors in the log that might help?</li>
+<li>Gary Mathews 2019-06-21
+
+   With <code>android:usesCleartextTraffic</code> specified, I'm also able to receive a response from the <code>onload</code> callback. Although, this is enabled by default.
+   
+   <code><pre>
+   <application ... android:usesCleartextTraffic="true">
+   </pre></code></li>
+<li>Hans Knöchel 2019-06-21
+
+   I was only able to reproduce it on one emulator so far. Maybe this setting was misconfigured there? And would you recommend forcing it to <code>true</code>?</li>
+<li>Joshua Quick 2019-06-22
+
+   </li>
+<li>Hans Knöchel 2019-06-22
+
+   There is no such setting in our app right now, so I guess it's an emulator issue. Does Axway run Android Q emulators for their unit tests already? Would be good to run all tests with it by now.</li>
+<li>Joshua Quick 2019-06-24
+
+   bq. There is no such setting in our app right now
+   
+   I'm not sure what you mean by that. Can you double check the "AndroidManifest.xml" file generated under your project's "./build/android" directory please? Look for the <code><application/></code> XML element's "usesCleartextTraffic" attribute and make sure it is set to "true". If it's not there, then that's the issue. This attribute being missing will cause "http" communications to fail on Android P and above.
+   
+   bq. Does Axway run Android Q emulators for their unit tests already?
+   
+   Not yet. We currently run our test suite on Android 9.0 and Android 4.4. We also test on real physical devices as well.
+   
+   That said, I've personally ran our mocha unit test suite kitchensink-v2 via the Android Q emulator. The only issue I ran into was with reading JSON and JavaScript via a <code>Ti.Blob</code>, which we've resolved by [TIMOB-26954]. And yes, our mocha "HTTPClient" unit tests covers HTTP to HTTPS redirects.
+   
+   Also note that we don't support "targeting" Android Q (aka: API Level 29) yet. We plan on targeting it in Titanium 8.3.0. You will run into breaking-changes if you target it (we have to address these breaking-changes in 8.3.0). But so far, a Titanium 8.1.0 build which targets Android P by default has proven to be backward compatible on Android Q.
+   </li>
+<li>Joshua Quick 2019-10-28
+
+   We still can't reproduce this issue.
+   
+   We've done extensive testing with 2 physical Android Q devices and in the emulator. It's working. We've also tested TLS 1.3 support as well.
+   
+   So, I'm going to close this issue and assume it was caused by something else.
+   (Most likely the JSON file reading issue we used to have on Android Q that was solved a while ago.)</li>
+<li>Hans Knöchel 2019-10-28
+
+   This did not happen again, so yeah, most likely it's fixed by now. Thanks again for checking!</li>
+<li>Joshua Quick 2019-10-28
+
+   Good to know it's not happening to you anymore. Thanks for this.
+   (We're just following-up on our remaining Android Q tickets.)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27168.json">JSON Source</a></p>

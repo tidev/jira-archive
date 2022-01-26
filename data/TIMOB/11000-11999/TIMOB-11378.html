@@ -1,0 +1,225 @@
+---
+title: "[TIMOB-11378] iOS: ButtonBar makes the app slower"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2012-10-31T10:16:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>2012 Sprint 22 Core, 2012 Sprint 22</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, notable, triage</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2012-10-11T10:52:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-23T05:07:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+It looks like ButtonBar use makes the app running slower as with the time.
+
+<h4>Steps to reproduce</h4>
+- Use the following single-file sample to see the issue
+- Run the app and see the console
+- Click the button many times (I tested 100) and see how the opening takes more and more time
+- Change ENABLE_BUTTON_BAR to false to disable all the button bar items in the app and repeat the test: now the loading takes always the same time
+
+<code><pre>
+var ENABLE_BUTTON_BAR = true;
+
+Titanium.UI.setBackgroundColor('#000');
+
+var baseWindow = Titanium.UI.createWindow({backgroundColor:'#ffffff'});
+
+var searchWindow = Ti.UI.createWindow({title:'Search', backgroundColor:'#ffffff'});
+var navGroup = Ti.UI.iPhone.createNavigationGroup({window:searchWindow});
+
+baseWindow.add(navGroup);
+
+baseWindow.open();
+
+var button = Ti.UI.createButton({
+    title: 'Start test'
+});
+button.addEventListener('click', openDocument);
+searchWindow.add(button);
+
+var counter = 0;
+function openDocument(){
+    var startTime = new Date().getTime();
+    var documentWindow = Ti.UI.createWindow({title:'Document', backgroundColor:'#ffffff'});
+   
+    var dir = Ti.Filesystem.resourcesDirectory + Ti.Filesystem.separator;
+    
+    if(ENABLE_BUTTON_BAR) { 
+        var buttonBar = Titanium.UI.createButtonBar({
+            labels: ['One', 'Two', 'Three'],
+            style:Titanium.UI.iPhone.SystemButtonStyle.BAR,
+        });
+         
+        documentWindow.rightNavButton = buttonBar;
+    }
+   
+    mainView = Titanium.UI.createView({backgroundColor: '#eaeaea', bottom:44});
+    documentWindow.add(mainView);
+        
+    fileView = Ti.UI.createWebView({
+        bottom:0,
+        left:0,
+        right:0,
+        top:0,
+        visible:false
+    });
+        
+    mainView.add(fileView); 
+    
+    if(ENABLE_BUTTON_BAR) {
+        lastSyncButton = Titanium.UI.createButtonBar({
+            labels: ['Loading...'],
+            style:Titanium.UI.iPhone.SystemButtonStyle.BAR,
+            backgroundColor:'#35850C',
+            touchEnabled: false,
+            width:220
+        });
+        
+        lastSyncButton.addEventListener('click', syncButtonEvent);
+        function syncButtonEvent(e) {}
+        
+        favouriteButton = Titanium.UI.createButtonBar({
+            labels: [{width: 200, title:'Favourite'}],
+            style:Titanium.UI.iPhone.SystemButtonStyle.BAR,
+            backgroundColor:'#795ca2'
+        });
+         
+        favouriteButton.addEventListener('click', favouriteButtonEvent);
+        function favouriteButtonEvent(e){}
+        
+        acknowlegeButton = Titanium.UI.createButtonBar({
+            labels: [{width: 200, title: 'Acknowledge'}],
+            style:Titanium.UI.iPhone.SystemButtonStyle.BAR,
+            backgroundColor:'#ED5555'
+        });
+         
+        acknowlegeButton.addEventListener('click', acknowledgeButtonEvent);
+        
+        function acknowledgeButtonEvent(e){}
+        
+        bottomToolbar = Titanium.UI.iOS.createToolbar({bottom:0, borderTop:true, borderBottom:false, barColor:'#795ca2'});
+        documentWindow.add(bottomToolbar);
+    }
+    
+    documentWindow.addEventListener('open', function(){
+        mainView.show();
+        fileView.show();
+        
+        if(ENABLE_BUTTON_BAR) {
+            var flexSpace = Titanium.UI.createButton({systemButton:Titanium.UI.iPhone.SystemButton.FLEXIBLE_SPACE});
+            bottomToolbar.items = [flexSpace, lastSyncButton, flexSpace, favouriteButton, flexSpace, acknowlegeButton, flexSpace];
+        }
+            
+        var endTime = new Date().getTime();
+        var timeTaken = (endTime - startTime );
+        Ti.API.info(counter + ' - Open Document: '+timeTaken + 'ms');
+        counter++;
+        
+        setTimeout(function() {
+            navGroup.close(documentWindow);
+        }, 200);
+    });
+    
+    documentWindow.addEventListener('close', function(){
+        fileView = null;
+        
+        if(ENABLE_BUTTON_BAR) {
+            bottomToolbar.items = [];
+            bottomToolbar = null;
+            
+            lastSyncButton.removeEventListener('click', syncButtonEvent);
+            favouriteButton.removeEventListener('click', favouriteButtonEvent);
+            acknowlegeButton.removeEventListener('click', acknowledgeButtonEvent);
+            
+            flexSpace = null;
+            lastSyncButton = null;
+            favouriteButton = null;
+            acknowlegeButton = null;
+            
+            documentWindow.rightNavButton = null;
+            buttonBar = null;
+        }
+    });
+    
+    navGroup.open(documentWindow);
+}
+</pre></code>
+
+<h4>My results</h4>
+First time the window is open (counter=0), it takes a bit longer, but then it runs smoothly. This test was performed on the iPad simulator with iOS 6 on a MacBook Pro. On the device, the issue seems to be even more visible.
+
+<code><pre>
+var ENABLE_BUTTON_BAR = false;
+
+[INFO] 0 - Open Document: 405ms
+[INFO] 1 - Open Document: 357ms
+[INFO] 2 - Open Document: 356ms
+...
+[INFO] 98 - Open Document: 355ms
+[INFO] 99 - Open Document: 356ms
+[INFO] 100 - Open Document: 356ms
+</pre></code>
+
+<code><pre>
+var ENABLE_BUTTON_BAR = true;
+
+[INFO] 0 - Open Document: 386ms
+[INFO] 1 - Open Document: 363ms
+[INFO] 2 - Open Document: 362ms
+...
+[INFO] 98 - Open Document: 476ms
+[INFO] 99 - Open Document: 477ms
+[INFO] 100 - Open Document: 479ms
+</pre></code>
+
+<h4>Note</h4>
+The bug comes from a customer, which has a document viewer app that uses a few ButtonBars; opening documents becomes slower and slower, but if the ButtonBars are removed, everything runs normally.
+
+Note that in the sample the new window is open and closed automatically, to make test easier; the original app of course doesn't have this behavior, but the problem remains.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2012-10-11
+
+   Is the customer truly using SDK 3.0.0? Does it happen with SDK 2.1.3?</li>
+<li>Davide Cassenti 2012-10-11
+
+   Yes, also with 2.1.3</li>
+<li>Vishal Duggal 2012-10-25
+
+   Pull pending <a href="https://github.com/appcelerator/titanium_mobile/pull/3329" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3329</a>
+   Closed this PR. Does not solve the issue.</li>
+<li>Max Stepanov 2012-10-30
+
+   The problem is caused by leaking CGImage/UiResizableImage.
+   Reproducible in a native app.
+   <code><pre>
+   segmentedControl=[[UISegmentedControl alloc] initWithFrame:rect];
+   [segmentedControl setSegmentedControlStyle:UISegmentedControlStyleBar];
+   [segmentedControl setTintColor:[UIColor redColor]];
+   [segmentedControl insertSegmentWithTitle:@"Button 1" atIndex:0 animated:NO];
+   [segmentedControl insertSegmentWithTitle:@"Button 2" atIndex:1 animated:NO];
+   </pre></code>
+   
+   iOS6 only.
+   The issue is reported to Apple Bug Reporter - <a href="http://openradar.appspot.com/radar?id=2222401" rel="nofollow" target="_blank">http://openradar.appspot.com/radar?id=2222401</a></li>
+<li>Vishal Duggal 2012-10-30
+
+   @Davide.
+   setting backgroundColor on buttonBar sets tint color on the segmented control</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11378.json">JSON Source</a></p>

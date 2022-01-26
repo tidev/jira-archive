@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-27415] CLI: Check and fix executable permissions on titanium_prep binaries on install"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>cb-tooling</td></tr>
+<tr><th>Reporter</th><td>Ewan Harris</td></tr>
+<tr><th>Assignee</th><td>Ewan Harris</td></tr>
+<tr><th>Created</th><td>2019-09-23T20:55:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-30T23:23:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+
+We've seen a number of people having issues around the titanium_prep executables stripped of their executable permissions (AC-6376, and slack). We should try and check these on download just incase they get lost somehow
+
+This is fixable by running 
+
+iOS: <code>chmod +x ~/Library/Application\ Support/Titanium/mobilesdk/osx/<SDK VERSION>/iphone/titanium_prep</code>
+Android: <code>chmod +x /~/Library/Application\ Support/Titanium/mobilesdk/osx/<SDK VERSION>/android/titanium_prep.macos</code>
+
+This commonly manifests in the following kind of errors
+
+<code>\[ERROR\] Error: spawn EACCES</code>
+<code><pre>
+2019-09-23T17:39:47.317Z | ERROR  | An uncaught exception was thrown!
+Cannot read property 'replace' of undefined
+2019-09-23T17:39:47.318Z | ERROR  | Cannot read property 'replace' of undefined
+</pre></code>
+<code><pre>
+[ERROR] :  TypeError: Cannot read property 'on' of undefined
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2019-09-23
+
+   cc [~cb1kenobi], what're your thoughts on this?
+   
+   It's a bandaid fix, but this seems to be random. It happens to people who install via Studio, the CLI itself, and even VS Code (which uses titaniumlib and not the CLI to install). I've had absolutely no luck in reproducing, and due to the low number of people that seem to have hit this I don't see it being an issue with the actual SDK we're shipping but maybe something on the machines sniping them</li>
+<li>Chris Barber 2019-09-23
+
+   There are issues [years ago] with Node-based zip libraries with preserving the executable flag for both creating and extracting zip files which is part of the reason we use adm-zip (and recently yauzl) to unzip and archiver to zip.
+   
+   I would be very interested in inspected the actual SDK zip files to ensure the executables are indeed flags as executable as well as look into titaniumlib's SDK extraction to see what's going on.</li>
+<li>Ewan Harris 2019-09-23
+
+   The zip file itself is definitely fine (I checked it), and <a href="https://github.com/appcelerator/titanium_mobile/pull/10835" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10835</a> fixes any errors in copying over from Jenkins. After some further work I was able to repro in atom/vs code, we use titaniumlib there so I guess that's my port of call tomorrow to see whether that is extracting ok</li>
+<li>Chris Barber 2019-09-23
+
+   It's unfortunate that the executable flag is not be honored and that PR was necessary.
+   
+   Are you using the latest titaniumlib in the Atom/VS Code plugins? Perhaps you're dealing with a bugged, outdated dependency?</li>
+<li>Ewan Harris 2019-09-23
+
+   [~cbarber], we're using 1.x but I can confirm I'm seeing the same on 2.x</li>
+<li>Ewan Harris 2019-09-23
+
+   Probably yauzl <a href="https://github.com/thejoshwolfe/yauzl/issues/101" rel="nofollow" target="_blank">https://github.com/thejoshwolfe/yauzl/issues/101</a></li>
+<li>Chris Barber 2019-09-23
+
+   OK, I follow now. So we need to get the entry's file "mode" and set it after writing it. We do not do this currently in titaniumlib, we just continue to the next entry: <a href="https://github.com/appcelerator/titaniumlib/blob/master/src/util.js#L133." rel="nofollow" target="_blank">https://github.com/appcelerator/titaniumlib/blob/master/src/util.js#L133.</a></li>
+<li>Alberto Marcone 2019-09-30
+
+   I'm one of the 'lucky' ones. I got this error by downloading the sdk from the cli and manually (stopped using Studio years ago). Chmod +x didn't help. I really don't know how to fix it.</li>
+<li>Chris Barber 2019-09-30
+
+   Here's the titaniumlib PR that fixes the Atom plugin and Titanium daemon plugin: <a href="https://github.com/appcelerator/titaniumlib/pull/17." rel="nofollow" target="_blank">https://github.com/appcelerator/titaniumlib/pull/17.</a>
+   
+   node-appc (used by <code>ti sdk install</code>) should already be good to go: <a href="https://github.com/appcelerator/node-appc/blob/master/lib/zip.js#L59." rel="nofollow" target="_blank">https://github.com/appcelerator/node-appc/blob/master/lib/zip.js#L59.</a></li>
+<li>Ewan Harris 2019-09-30
+
+    [~a.marcone], can you paste the error you're seeing into this ticket so we can try to help solve it</li>
+<li>Alberto Marcone 2019-10-01
+
+    I actually dug a little deeper on the issue, and it's not the same thing
+    
+    <code><pre>
+    [INFO]  Creating assets image set
+    [LiveView] TypeError: Cannot read property 'replace' of undefined
+        at iOSBuilder.<anonymous> (/Users/xxx/Library/Application Support/Titanium/mobilesdk/osx/8.3.0.v20190927113609/iphone/cli/commands/_build.js:5772:51)
+        at Array.forEach (<anonymous>)
+    </pre></code>
+    
+    and the replace mentioned is actually about assets:
+    <code><pre>
+    const imageSet = {
+    	idiom: !match[4] ? 'universal' : match[3].replace('~', ''),
+    	filename: imageName + '.' + imageExt,
+    	scale: !match[3] ? '1x' : match[3].replace('@', '')
+    };
+    </pre></code>
+    
+    I worked aroud that and it's all good now. Thank you</li>
+<li>Tim Poulsen 2019-12-28
+
+    I seem to have encountered the same issue as Alberto (same error as his Oct 1 comment). I removed all graphics that contained a tilde (~) in their name and now my app will build.
+    
+    TiSDK 8.3.0.GA, Alloy 1.14.5, Titanium CLI v5.2.2, and with Node I tried with versions 12.13, 10.18, and 8.17. Per a recommendation in TiSlack, I downgraded from XCode 11.3 to 11.2 but that didn't help. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27415.json">JSON Source</a></p>

@@ -1,0 +1,130 @@
+---
+title: "[TIMOB-19709] Ti.UI.iOS.ApplicationShortcuts.addDynamicShortcut icon does not work with custom images"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-10-13T20:58:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-10-11T15:44:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-10-21T22:07:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you use a custom image for <code>Ti.UI.iOS.ApplicationShortcuts.addDynamicShortcut()</code> it won't work because the [source code](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIiOSApplicationShortcutsProxy.m#L182)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIiOSApplicationShortcutsProxy.m#L182)</a> doesn't [hash the passed image path](<a href="https://github.com/appcelerator/titanium_mobile/pull/7248/files)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7248/files)</a> so it work with now we're generate asset catalogs for images with TIMOB-19296.
+
+<code><pre>
+	appShortcuts.addDynamicShortcut({
+		itemtype: 'my.type',
+		title: 'My title',
+		subtitle: 'My subtitle',
+
+		// does not work:
+		// icon: '/images/shortcutItemIcon.png',
+
+		// does work
+		icon: '6ce9fb071294c440a20ff73b7c09fef2082c2206',
+	});
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2015-10-13
+
+   With PR and <a href="https://github.com/appcelerator-developer-relations/appc-sample-3dtouch" rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-3dtouch</a> still doesn't work and seems to be an error in the new code:
+   
+   <code><pre>
+   -(NSString*)urlInAssetCatalog:(NSString*)url
+   {
+       NSString *resultUrl = nil;
+   
+       NSLog(@"[ERROR] In urlInAssetCatalog");
+       
+       unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+       NSData *stringBytes = [url dataUsingEncoding: NSUTF8StringEncoding];
+       if (CC_SHA1([stringBytes bytes], (CC_LONG)[stringBytes length], digest)) {
+   
+           NSLog(@"[ERROR] In urlInAssetCatalog IF");
+   
+           // SHA-1 hash has been calculated and stored in 'digest'.
+           NSMutableString *sha = [[NSMutableString alloc] init];
+           for (int i = 0; i < CC_SHA1_DIGEST_LENGTH; i++) {
+               [sha appendFormat:@"%02x", digest[i]];
+           }
+           [sha appendString:@"."];
+           [sha appendString:[url pathExtension]];
+   
+           NSLog(@"[ERROR] resultUrl %@ wow", sha);
+           
+           resultUrl = sha;
+           RELEASE_TO_NIL(sha)
+       }
+   
+       NSLog(@"[ERROR] resultUrl %@ wow", resultUrl);
+       
+       return resultUrl;
+   }
+   </pre></code>
+   
+   gives:
+   
+   <code><pre>
+   [ERROR] In urlInAssetCatalog
+   [ERROR] In urlInAssetCatalog IF
+   [ERROR] resultUrl 6ce9fb071294c440a20ff73b7c09fef2082c2206.png wow
+   [ERROR] resultUrl [ERROR] resultUrl  wow
+   </pre></code>
+   
+   so I guess <code>resultUrl</code> needs to be a proper copy of <code>sha</code> or <code>sha</code> should not be nilled.
+   
+   If I remove the <code>RELEASE_TO_NIL</code> line or replace the preceding reference with the following copy it works:
+   
+   <code><pre>
+   resultUrl = [NSMutableString stringWithString: sha];
+   </pre></code></li>
+<li>Fokke Zandbergen 2015-10-13
+
+   Also, the current implementation only works for <code>images/shortcutItemIcon.png</code> and not <code>/images/shortcutItemIcon.png</code> while the following works fine as it should:
+   
+   <code><pre>
+   <ImageView image="/images/shortcutItemIcon.png" />
+   <ImageView image="images/shortcutItemIcon.png" />
+   </pre></code>
+   
+   So you need to strip the first slash if found.</li>
+<li>Hans Knöchel 2015-10-13
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/7290" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7290</a>
+   PR (5_1_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/7298" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7298</a></li>
+<li>Hans Knöchel 2015-10-21
+
+   [~fokkezb] Renamed the ticket and adjusted methods to reflect the renamed methods.</li>
+<li>Harry Bryant 2015-10-21
+
+   Verified as fixed, able to use Ti.UI.iOS.ApplicationShortcuts.addDynamicShortcut() with custom images.
+   
+   Mac OSX El Capitan 10.11 (15A284)
+   Studio: 4.3.3.201510201834
+   Ti SDK: 5.2.0.v20151020100425
+   Appc NPM: 4.2.1-5
+   Appc CLI: 5.2.0-18
+   Ti CLI: 5.0.4
+   Xcode 7.0(7A218)
+   Node v4.2.1
+   iPhone 6S Plus (9.0)
+   production
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19709.json">JSON Source</a></p>

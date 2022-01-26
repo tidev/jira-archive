@@ -1,0 +1,179 @@
+---
+title: "[TIMOB-6493] iOS: Titanium.Media.takeScreenshot fails to orient captured image to reflect hardware orientation"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-09-15T16:13:31.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-49, Release 1.8.0.1, Release 2.0.0, Release 3.4.0, Release 3.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_media, parity, qe-3.4.0, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Radamantis Torres-Lechuga</td></tr>
+<tr><th>Assignee</th><td>Jon Alter</td></tr>
+<tr><th>Created</th><td>2011-12-06T16:45:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-21T20:31:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Expected Behavior:</h4>
+Take an horizontal screenShot and attach it to an email and the image attached goes horizontal too, or save the screenshot on the Photo Gallery and save it horizontal too.
+
+<h4>Actual Behavior:</h4>
+The image saves and attach to the email vertically, even if i create a matrix transformation and rotate this one, if i add to the window the image rotated looks good, but if i save to the photo gallery or attach it to an email, looks vertical again
+
+<h4>Test Case:</h4>
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor:'#FFFFFF',
+    orientationModes:[Ti.UI.PORTRAIT,Titanium.UI.LANDSCAPE_LEFT,Titanium.UI.LANDSCAPE_RIGHT]
+});
+ 
+var button = Ti.UI.createButton({
+    title: 'ScreenShot!!'
+})
+ 
+button.addEventListener('click',function(){
+    Titanium.Media.takeScreenshot(function(event){
+        var screenShot = event.media;
+        var img = Titanium.UI.createImageView({ 
+            image: screenShot,
+            borderColor: 'red',
+            borderWidth: 10
+        });
+        Ti.API.info('taking screenshot');
+        img.addEventListener('click', function() {
+            Ti.API.info('remove image');
+            win.remove(img);
+            img = null;
+        });
+        win.add(img);
+    });
+});
+ 
+win.add(button);
+win.open();
+</pre></code> 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6493_50960/ios_7.png">ios_7.png</td></td><td>2014-09-03T22:01:53.000+0000</td><td>53297</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6493_50961/ios_8.png">ios_8.png</td></td><td>2014-09-03T22:01:53.000+0000</td><td>52084</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-12-07
+
+   Transforms don't appear to be applied to image views when converting to blobs. Looks like that's probably the issue here.</li>
+<li>Blain Hamon 2011-12-09
+
+   Aha. I get it now. It's because it's a screen shot. The UIScreen, of course, never rotates or is 'portrait' or 'landscape'. The rotation happens lower down, on the RootViewController. Thus, we have to manaually rotate the screenshot to meet expectations.</li>
+<li>Blain Hamon 2011-12-09
+
+   Also, here's an updated test, now that screenshot taking does the right thing in terms of image orientation:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor:'#FFFFFF',
+   	orientationModes:[Ti.UI.PORTRAIT,Titanium.UI.LANDSCAPE_LEFT,Titanium.UI.LANDSCAPE_RIGHT]
+   });
+   
+   var button = Ti.UI.createButton({
+   	title: 'ScreenShot!!'
+   })
+   
+   button.addEventListener('click',function(){
+   	Titanium.Media.takeScreenshot(function(event){
+   		var screenShot = event.media;
+   		var img = Titanium.UI.createImageView({ image: screenShot });
+   		Ti.API.info('saving the image into photogallery');
+   		Titanium.Media.saveToPhotoGallery(img.image);
+   		Ti.API.info('saving the blob into photogallery');
+   		Titanium.Media.saveToPhotoGallery(img.toImage());
+   		Ti.API.info('launch the email client!!');
+   		var emailDialog = Titanium.UI.createEmailDialog()
+   		emailDialog.subject = "Colors of...";
+   		emailDialog.messageBody = 'Lorem ipsum...';
+   		emailDialog.addAttachment(img.toImage());
+   		emailDialog.open();
+   		win.add(img);
+   	});
+   });
+   
+   win.add(button);
+   win.open();
+   </pre></code></li>
+<li>Wilson Luu 2011-12-10
+
+   Closing bug. Verified fix on:
+   
+   OS: Mac OS X Lion
+   SDK build: 1.8.0.1.v20111209204243
+   Titanium Studio, build: 1.0.7.201112080131
+   Device: iphone 4S (5.0.1)</li>
+<li>Wilson Luu 2011-12-10
+
+   Reopening issue to add qe-port label</li>
+<li>Wilson Luu 2011-12-10
+
+   Closing bug after adding label.</li>
+<li>Dustin Hyde 2012-01-04
+
+   Added label qe-testadded.</li>
+<li>Lokesh Choudhary 2014-09-03
+
+   Reopening.
+   
+   This issue is seen on IOS 8 beta 5 device. 
+   Tested on IOS 7.1.2 device & works fine.
+   
+   Environment:
+   Appc Studio : 3.4.0.201408291834
+   Ti SDK :   3.4.0.v20140829184521
+   Mac OSX : 10.9.4
+   Alloy : 1.5.0-dev
+   CLI - 3.4.0-dev
+   Code Processor: 1.1.1
+   xcode 6 beta 7
+   iphone 4S - IOS 8.0b5
+   Ipad mini - IOS 8.0b5</li>
+<li>Wilson Luu 2014-09-03
+
+   Was able to reproduce the issue *only* on an iOS 8 device with Blain's code and the bug description's code (needed to fix it up first before trying it out). See ios_8.png attachment for the actual behavior and ios_7.png attachment for the expected behavior; in both attachment, the phone was oriented left (Titanium.UI.LANDSCAPE_LEFT).
+   
+   *Tested on:*
+   Appcelerator Studio, build: 3.4.0.201409021758
+   SDK: 3.4.0.v20140829184521 
+   CLI: 3.4.0-dev
+   Alloy: 1.5.0-dev
+   Xcode: 6-beta7
+   Devices: ipad 4 (8.0-beta5), iphone 5 (8.0-beta5)</li>
+<li>Jon Alter 2014-09-08
+
+    PR master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6029" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6029</a>
+    PR 3_4_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/6030" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6030</a></li>
+<li>Wilson Luu 2014-09-10
+
+    Closing ticket as fixed. Ti.Media.takeScreenshot correctly orients the image to reflect hardware orientation.
+    
+    Tested on:
+    
+    Appcelerator Studio, build: 3.4.0.201409081810
+    SDK build:  3.4.0.v20140909222515 
+    CLI: 3.4.0-rc
+    Alloy: 1.5.0-rc
+    Xcode: 6 GM seed
+    Devices: ipad 4 (8 GM Seed)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6493.json">JSON Source</a></p>

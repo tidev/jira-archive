@@ -1,0 +1,90 @@
+---
+title: "[ALOY-723] Alloy: Remove log unimportant log calls in production"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-20T20:37:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 02</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>alloy, compile, compiler, log, logging, production</td></tr>
+<tr><th>Reporter</th><td>Carter Lathrop</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2013-06-26T07:47:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-28T23:19:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The compiler should remove <code>Titanium.API.log</code> (and <code>console.log</code>) calls from the code that are not relevant in production environments, being <code>log</code> and <code>debug</code>.
+
+An implementation for this is already provided here:
+<a href="https://gist.github.com/tsteur/5745279" rel="nofollow" target="_blank">https://gist.github.com/tsteur/5745279</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-01-20
+
+   Investigating, I think this is already done by the platform.</li>
+<li>Tim Poulsen 2014-01-20
+
+   At the platform level, debug() messages are apparently not output though the other levels are output. Platform references:
+   
+    * iOS: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/APIModule.m" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/APIModule.m</a> 
+    * Android: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/common/src/java/org/appcelerator/kroll/common/Log.java" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/common/src/java/org/appcelerator/kroll/common/Log.java</a>
+   
+   If your concern is crossing the bridge, you can write a simple wrapper for the Ti.API.info() like the following:
+   
+   <code><pre>
+   /*
+     Use:
+        var log = require('logger');
+        log.info('Logged, except in a production build');
+   */
+   
+   // put in app/lib/logger.js
+   exports.info = function(str) {
+       if(ENV_PRODUCTION) return;
+       Ti.API.info(str);
+   };
+   </pre></code>
+   
+   
+   For non-Alloy projects, add a custom property to tiapp.xml, and check for it, like this:
+   
+   <code><pre>
+   // in tiapp.xml, add:
+   <property name="production" type="bool">false</property>
+   
+   // in your logger.js
+   
+   exports.info = function(str) {
+       if(Ti.App.Properties.getBool('production', false)===true) return;
+       Ti.API.info(str);
+   };
+   
+   </pre></code></li>
+<li>Tim Poulsen 2014-01-20
+
+   I'm marking this as "won't fix" because it's partially handled by the underlying platform and suitable workarounds are available.</li>
+<li>Fokke Zandbergen 2014-01-20
+
+   [~skypanther], you're worse then Tony ;)</li>
+<li>Matthew Tondreau 2014-01-22
+
+   Looking at:
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/APIModule.m#L53" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/APIModule.m#L53</a>
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/v8/src/native/modules/APIModule.cpp#L169" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/runtime/v8/src/native/modules/APIModule.cpp#L169</a>
+   
+   Is it correct to say in production (non-debug) iphone only logs error-level, where with android only debug-level is *not* displayed? </li>
+<li>Tim Poulsen 2014-01-22
+
+   Yes, Matthew, that's how the API level handles it. I've opened a docs ticket to document the behavior since it doesn't seem to be covered anywhere right now.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-723.json">JSON Source</a></p>

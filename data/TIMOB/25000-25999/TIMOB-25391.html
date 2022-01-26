@@ -1,0 +1,380 @@
+---
+title: "[TIMOB-25391] iOS: TiUITable crashes app with a Zombie"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-24T17:30:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TableView, ios</td></tr>
+<tr><th>Reporter</th><td>Uriel Lizama</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2017-10-13T23:06:39.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-01T01:53:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm using Titanium SDK 6.2.2.GA with Xcode 9 and iOS 11.
+
+I'm testing the app with the new SDK and Xcode and I noticed that my app started crashing a lot. After some debugging I was able to see that the crash was happening when I close a Window that has a TableView with data binding.
+
+I ran the app using Instruments with the Zombie profile and the crash is happening because is finding a zombie in the 
+<code><pre>
+TiUITableView dealloc
+</pre></code>
+ on this line:
+
+<code><pre>
+[headerViewProxy setProxyObserver:nil];
+</pre></code>
+
+
+I'm also getting crashes on this line:
+<code><pre>
+[footerViewProxy setProxyObserver:nil];
+</pre></code>
+
+My app crashes at least 1 of 3 times when closing windows that have TableViews.
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2017-10-14
+
+   Hello, your description is not clear "Instruments with the Zombie profile and the crash is happening because is finding a zombie in the"??!!. Send us a sample project that regenerates the issue. Thanks.</li>
+<li>Hans Knöchel 2017-10-15
+
+   This sounds like a possible regression from [this commit](<a href="https://github.com/appcelerator/titanium_mobile/commit/ce57ad9044368066260b879fd7657ba6279f9768#diff-2284f41c2b88680b145a949a6972d02e)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/ce57ad9044368066260b879fd7657ba6279f9768#diff-2284f41c2b88680b145a949a6972d02e)</a> but it's since 6.1.0 already, so I am wondering why this occurs on 6.2.2 only for you. Moving over.
+   
+   Please also provide a minimal test-case that reproduces the issue, if possible!</li>
+<li>Uriel Lizama 2017-10-15
+
+   I'll isolate the controller in my app that's triggering this behavior and I'll post it.
+   
+   Hans, I see the ticket you are referencing, and indeed it looks like the same behavior, and it crashes with the same logs, which makes me wonder why it would be ignoring the if statement:
+   
+   <code><pre>
+   if (headerViewProxy != nil) {
+   </pre></code>
+   
+   </li>
+<li>Hans Knöchel 2017-10-15
+
+   That's what I am wondering as well. I think it's not nil, but the memory has already been given away at that point, which would also explain the zombie-state. I'll investigate it further once the test-case is ready, thank you for catching this!
+   
+   *EDIT*: I am unable to reproduce it with a simple table inside a window that is closed. It has a footer-view and some rows, but the error isn't triggered. Can you try the following (by replacing it in your SDK):
+   <code><pre>
+   if (headerViewProxy != nil) {
+       [headerViewProxy setProxyObserver:nil];
+       [[self proxy] forgetProxy:headerViewProxy];
+       RELEASE_TO_NIL(headerViewProxy);
+   }
+       
+   if (footerViewProxy != nil) {
+       [footerViewProxy setProxyObserver:nil];
+       [[self proxy] forgetProxy:footerViewProxy];
+       RELEASE_TO_NIL(footerViewProxy);
+   }
+   </pre></code></li>
+<li>Uriel Lizama 2017-10-15
+
+   Hans, I did the patch with the code you gave me, and though it didn't fix the issue, it did move the error to a different place, but its still crashing.
+   
+   I was able to create a test app that correctly replicates the issue:
+   <a href="http://baboonmedia.com/titanium/DebugApp.zip" rel="nofollow" target="_blank">http://baboonmedia.com/titanium/DebugApp.zip</a>
+   
+   How to test:
+   1. Build the app
+   2. Click on the "Message Center" button to open a window with a TableView and binding. A list of rows should load
+   3. Close the window
+   4. Repeat 2 and 3 until the app crashes (usually within 3-5 window opens, though I've seen it happen after 20 attempts)
+   
+   I have the app crashing on an iPhone 6 Plus with iOS 11.0.3, and on the Simulator using an iPhone 8 with Xcode 9.
+   
+   </li>
+<li>Uriel Lizama 2017-10-17
+
+   Any updates on this? Have you been able to reproduce with my test app?</li>
+<li>Uriel Lizama 2017-10-19
+
+   I tested the app with the new 6.3.0.RC and the issue still persists.
+   
+   This is a big breaking issue for my apps, because it happens really often where the app becomes unusable, hopefully we can get more feedback to try and come up with a solution.
+   </li>
+<li>Hans Knöchel 2017-10-23
+
+   Hey Uriel, we didn't forget your issue! I tried it out with 35+ attempts in 6.2.2 and it does not break. I have main-thread enabled, not sure if that changes something. Will try more attempts. Please also note that (at least in your example), you do not initialize the infinite-loading properly, see this warning:
+   <code><pre>
+   [nl.fokkezb.infiniteScroll] Do not forget to call init() passing a TableView or ListView
+   </pre></code>
+   Please attach your full trace log of the crash as well, thx!</li>
+<li>Uriel Lizama 2017-10-24
+
+   Hi Hans,
+   
+   Sorry for the late response.
+   
+   Today I started debugging and as it happened with you I wasn't able to make the app crash. The code hasn't changed and we are using the same SDK, so it doesn't make sense for it to stop crashing suddenly. Since I started debugging this issue I had a gut feeling that we might be encountering a "rush" issue, maybe if we closed the window at the same time as the data binding tried to load the views it will then crash.
+   
+   What I did to test this is:
+   
+   1. I added a couple of lines so I don't have to be clicking buttons like a mad man :D  Please edit the following files:
+   
+   *index.js*
+   Add the following interval:
+   <code><pre>
+   setInterval(function(){
+   	doClick();
+   }, 4000);
+   </pre></code>
+   
+   *tableWindow.js*
+   On line 100 append the date to the request params:
+   <code><pre>
+   &date=' + new Date();
+   </pre></code>
+   
+   On the open() function add a timeout to automatically close the window:
+   <code><pre>
+   	setTimeout(function(){
+   		$.tableWindow.close();
+   	}, 100);
+   </pre></code>
+   
+   With these changes now the app will automatically open and close the message window.
+   
+   2. Once I did this, the app was able to open/close the window without any issues for dozens and dozens of times. So, what I did is that I enabled the Network Link Conditioner, so that the data loads slower:
+   <a href="https://www.natashatherobot.com/simulate-bad-network-ios-simulator/" rel="nofollow" target="_blank">https://www.natashatherobot.com/simulate-bad-network-ios-simulator/</a>
+   
+   I used the "Very Bad Network Profile".
+   
+   And done, the app crashes very often. My current theory is that right now our server is responding very quick, so the data loads and the tableviews are created before we even have a chance to close the window. When we setup a slow connection, we increase the possibility of this rush case to come in.
+   
+   Here is the output I get from lldb:
+   <code><pre>
+   * thread #1, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x10)
+       frame #0: 0x0000000185ae4430 libobjc.A.dylib<code>objc_msgSend + 16
+     * frame #1: 0x00000001004f7334 DebugApp</code>-[TiUITableView dealloc](self=0x000000010162d920, _cmd="dealloc") at TiUITableView.m:346
+       frame #2: 0x0000000185aee138 libobjc.A.dylib<code>(anonymous namespace)::AutoreleasePoolPage::pop(void*) + 836
+       frame #3: 0x0000000186482050 CoreFoundation</code>_CFAutoreleasePoolPop + 28
+       frame #4: 0x000000018fc2f7f4 UIKit<code>_prepareForCAFlush + 132
+       frame #5: 0x000000018fc501a8 UIKit</code>_beforeCACommitHandler + 20
+       frame #6: 0x00000001865638b8 CoreFoundation<code>__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 32
+       frame #7: 0x0000000186561270 CoreFoundation</code>__CFRunLoopDoObservers + 412
+       frame #8: 0x000000018656182c CoreFoundation<code>__CFRunLoopRun + 1292
+       frame #9: 0x00000001864822d8 CoreFoundation</code>CFRunLoopRunSpecific + 436
+       frame #10: 0x0000000188313f84 GraphicsServices<code>GSEventRunModal + 100
+       frame #11: 0x000000018fa2f880 UIKit</code>UIApplicationMain + 208
+       frame #12: 0x000000010049047c DebugApp<code>main(argc=1, argv=0x000000016f977888) at main.m:30
+       frame #13: 0x0000000185fa656c libdyld.dylib</code>start + 4
+   </pre></code>
+   
+   Let me know if you are able to make the app crash now.
+   
+   PS: The infiniteScroll is initialized on the script, that warning shows regardless.</li>
+<li>Uriel Lizama 2017-10-25
+
+    I don't know if this is related to the same issue. I have another app that started crashing with the latest SDK as well *6.2.2.GA*.
+    
+    The crash happens when I open a window with a TableView, close it, and then open a different window with another TableView. The crash happens constantly, and only when I open and close windows with different tableviews. Here is the lldb log:
+    
+    <code><pre>
+    * thread #1, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=1, address=0x20)
+        frame #0: 0x0000000185aed7f4 libobjc.A.dylib<code>objc_object::release() + 16
+        frame #1: 0x00000001865f9e94 CoreFoundation</code>cow_cleanup + 168
+        frame #2: 0x000000018648b934 CoreFoundation<code>-[__NSDictionaryM dealloc] + 68
+      * frame #3: 0x00000001003820e8 SAVY Lot</code>-[TiProxy _destroy](self=0x000000014e9e2a00, _cmd="_destroy") at TiProxy.m:428
+        frame #4: 0x0000000100310ce0 SAVY Lot<code>-[TiViewProxy _destroy](self=0x000000014e9e2a00, _cmd="_destroy") at TiViewProxy.m:1604
+        frame #5: 0x00000001003824dc SAVY Lot</code>-[TiProxy dealloc](self=0x000000014e9e2a00, _cmd="dealloc") at TiProxy.m:459
+        frame #6: 0x0000000100310624 SAVY Lot<code>-[TiViewProxy dealloc](self=0x000000014e9e2a00, _cmd="dealloc") at TiViewProxy.m:1518
+        frame #7: 0x0000000100340cd0 SAVY Lot</code>-[TiUITableViewProxy dealloc](self=0x000000014e9e2a00, _cmd="dealloc") at TiUITableViewProxy.m:60
+        frame #8: 0x0000000186543108 CoreFoundation<code>cow_cleanup + 112
+        frame #9: 0x00000001865ea344 CoreFoundation</code>_cow_release + 212
+        frame #10: 0x000000018648a50c CoreFoundation<code>-[__NSArrayM dealloc] + 52
+        frame #11: 0x0000000100310c74 SAVY Lot</code>-[TiViewProxy _destroy](self=0x000000014e078c00, _cmd="_destroy") at TiViewProxy.m:1602
+        frame #12: 0x00000001004809c0 SAVY Lot<code>-[TiWindowProxy _destroy](self=0x000000014e078c00, _cmd="_destroy") at TiWindowProxy.m:49
+        frame #13: 0x00000001003235d8 SAVY Lot</code>-[TiUIWindowProxy _destroy](self=0x000000014e078c00, _cmd="_destroy") at TiUIWindowProxy.m:132
+        frame #14: 0x00000001003824dc SAVY Lot<code>-[TiProxy dealloc](self=0x000000014e078c00, _cmd="dealloc") at TiProxy.m:459
+        frame #15: 0x0000000100310624 SAVY Lot</code>-[TiViewProxy dealloc](self=0x000000014e078c00, _cmd="dealloc") at TiViewProxy.m:1518
+        frame #16: 0x000000010048086c SAVY Lot<code>-[TiWindowProxy dealloc](self=0x000000014e078c00, _cmd="dealloc") at TiWindowProxy.m:45
+        frame #17: 0x0000000100323bc4 SAVY Lot</code>-[TiUIWindowProxy dealloc](self=0x000000014e078c00, _cmd="dealloc") at TiUIWindowProxy.m:159
+        frame #18: 0x00000001002f8c1c SAVY Lot<code>-[KrollObject dealloc](self=0x00000001c42989c0, _cmd="dealloc") at KrollObject.m:507
+        frame #19: 0x00000001002f7290 SAVY Lot</code>KrollFinalizer(ref=0x00000001045ff030) at KrollObject.m:132
+        frame #20: 0x00000001005b9e44 SAVY Lot<code>TI::JSCallbackObjectData::finalize(TI::Handle<TI::Unknown>, void*) + 60
+        frame #21: 0x0000000100757860 SAVY Lot</code>TI::WeakBlock::sweep() + 112
+        frame #22: 0x00000001007596c0 SAVY Lot<code>TI::WeakSet::sweep() + 32
+        frame #23: 0x000000010066b07c SAVY Lot</code>TI::MarkedBlock::sweep(TI::MarkedBlock::SweepMode) + 28
+        frame #24: 0x000000010056acf4 SAVY Lot<code>TI::IncrementalSweeper::doSweep(double) + 140
+        frame #25: 0x000000010056992c SAVY Lot</code>TI::HeapTimer::timerDidFire(__CFRunLoopTimer*, void*) + 188
+        frame #26: 0x000000018656499c CoreFoundation<code>__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 28
+        frame #27: 0x00000001865646c0 CoreFoundation</code>__CFRunLoopDoTimer + 864
+        frame #28: 0x0000000186563ec0 CoreFoundation<code>__CFRunLoopDoTimers + 248
+        frame #29: 0x0000000186561aa8 CoreFoundation</code>__CFRunLoopRun + 1928
+        frame #30: 0x00000001864822d8 CoreFoundation<code>CFRunLoopRunSpecific + 436
+        frame #31: 0x0000000188313f84 GraphicsServices</code>GSEventRunModal + 100
+        frame #32: 0x000000018fa2f880 UIKit<code>UIApplicationMain + 208
+        frame #33: 0x00000001002da978 SAVY Lot</code>main(argc=1, argv=0x000000016fb2b888) at main.m:30
+        frame #34: 0x0000000185fa656c libdyld.dylib`start + 4
+    </pre></code>
+    
+    I don't know if I should open a new ticket about, but since it seems to be happening with dealloc as well on TableViews, I'm thinking it might be related.</li>
+<li>Hans Knöchel 2017-10-29
+
+    Ok, let's get this started. First of all: The above is the same issue. Then: Can you try to revert [this PR](<a href="https://github.com/appcelerator/titanium_mobile/pull/8758/files)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8758/files)</a> locally and see if it still crashes? Finally: Did you see crashes without data-binding? I'd like to know if that one caused it or a previous one. In the mean-time, I'll try to get an actual crash reproduced.</li>
+<li>Uriel Lizama 2017-10-30
+
+    Ok, if I remove the following lines:
+    <code><pre>
+    	if (headerViewProxy != nil) {
+    		[headerViewProxy setProxyObserver:nil];
+    		[[self proxy] forgetProxy:headerViewProxy];
+    		headerViewProxy = nil;
+    	}
+        
+    	if (footerViewProxy != nil) {
+    		[footerViewProxy setProxyObserver:nil];
+    		[[self proxy] forgetProxy:footerViewProxy];
+    		footerViewProxy = nil;
+    	}
+    </pre></code>
+    
+    The bug doesn't appear, I  tested by opening and closing the window 100 times without a crash. If I add the lines back, I get a crash within the first 10 opens.
+    
+    Next I'm doing the test without the data binding.</li>
+<li>Uriel Lizama 2017-10-30
+
+    Ok, so I can't reproduce the bug on a Table without data binding.
+    
+    And I expected this, more coming with the fact that to be able to reproduce the bug consistently I needed not only to have data binding, but to also have poor connection so that the binding could still continue while trying to destroy the Window.
+    
+    What do you think?</li>
+<li>Hans Knöchel 2017-11-06
+
+    Yes, that is correct. It might be a race-condition happening because the requests still pends and completes when the window is already closed. In that case, the requests need to ensure to be cancelled when the window is closed. I think that will resolve all issues, can you confirm that? Moving out of 7.0.0.</li>
+<li>Christy Thomas 2017-12-19
+
+    I am having this same problem after moving to Appcelerator 7.0.0 and Xcode 9.2.
+    How do I accomplish this: "requests need to ensure to be cancelled when the window is closed"</li>
+<li>Christy Thomas 2017-12-21
+
+    I am only seeing this problem in the simulator.  Is that the case for you as well?
+    
+    Below is the crash log and the crash in Xcode is showing EXC_BAD_ACCESS on this line in TiUITableView.m:
+    
+    [headerViewProxy setProxyObserver:nil];
+    
+    <code><pre>
+    Exception Type: EXC_BAD_ACCESS (SIGSEGV)
+    Exception Codes: KERN_INVALID_ADDRESS at 0x0000000000000018
+    Exception Note: EXC_CORPSE_NOTIFY
+    
+    Termination Signal: Segmentation fault: 11
+    Termination Reason: Namespace SIGNAL, Code 0xb
+    Terminating Process: exc handler [0]
+    
+    VM Regions Near 0x18:
+    --> 
+    __TEXT 0000000108903000-0000000108e9c000 [ 5732K] r-x/rwx SM=COW /Users/USER/Library/Developer/CoreSimulator/Devices/EBB6A469-8625-4491-B1D5-45709ECE6889/data/Containers/Bundle/Application/BFA4D0BF-35E4-4C19-BEE9-B16686F1EE27/EndlessAisle.app/EndlessAisle
+    
+    Application Specific Information:
+    objc_msgSend() selector name: setProxyObserver:
+    CoreSimulator 494.33 - Device: iPad Pro (9.7 inch) - Runtime: iOS 10.3 (14E8301) - DeviceType: iPad Pro (9.7-inch)
+    
+    Thread 0 Crashed:: Dispatch queue: com.apple.main-thread
+    0 libobjc.A.dylib 0x000000010fdedacb objc_msgSend + 11
+    1 com.demandware.EndlessAisleOA 0x00000001089a38b1 -[TiUITableView dealloc] + 337 (TiUITableView.m:331)
+    2 libobjc.A.dylib 0x000000010fdec2fa (anonymous namespace)::AutoreleasePoolPage::pop(void*) + 866
+    3 com.apple.CoreFoundation 0x00000001107f0e96 _CFAutoreleasePoolPop + 22
+    4 com.apple.UIKit 0x000000010b80f5dc _prepareForCAFlush + 602
+    5 com.apple.UIKit 0x000000010b84146b _beforeCACommitHandler + 15
+    6 com.apple.CoreFoundation 0x0000000110847717 __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 23
+    7 com.apple.CoreFoundation 0x0000000110847687 __CFRunLoopDoObservers + 391
+    8 com.apple.CoreFoundation 0x000000011082c720 __CFRunLoopRun + 1200
+    9 com.apple.CoreFoundation 0x000000011082c016 CFRunLoopRunSpecific + 406
+    10 com.apple.GraphicsServices 0x0000000114770a24 GSEventRunModal + 62
+    11 com.apple.UIKit 0x000000010b816134 UIApplicationMain + 159
+    12 com.demandware.EndlessAisleOA 0x0000000108905ea4 main + 100 (main.m:30)
+    13 libdyld.dylib 0x0000000111a6665d start + 1
+    </pre></code>
+    
+    </li>
+<li>Christy Thomas 2018-01-02
+
+    This is a critical issue for us to upgrade to Appcelerator 7.0 and Xcode 9.</li>
+<li>Hans Knöchel 2018-07-24
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10199" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10199</a>
+    Test-Case: See TIMOB-24320 for details, since we didn't really have any isolated one here.</li>
+<li>Samir Mohammed 2018-08-20
+
+    *Closing ticket.* Verified fix with SDK version: <code>7.4.0.v20180820034952</code>. No crashes seen with the test case provided by [~hknoechel]. 
+    
+    *Test Environment*
+    <code><pre>
+    APPC Studio:  5.1.0.201808080937
+    APPC CLI: 7.0.5
+    iphone 6 simulator (11.2)
+    ipad pro 9.7 inch (11.2) 
+    Operating System Name: Mac OS High Sierra
+    Operating System Version: 10.13
+    Node.js Version: 8.9.1
+    Xcode 9.2
+    </pre></code>
+    </li>
+<li>JATIN JOSHI 2018-11-01
+
+    I am seeing this problem in Xcode 10.1 and TI SDK 7.4.1 and testing it on iPhone 6 (v12.1)
+    
+    </li>
+<li>JATIN JOSHI 2018-11-01
+
+    This is in TiUITableView.m
+    
+      if (footerViewProxy != nil) {
+        [footerViewProxy setProxyObserver:nil];
+        [[self proxy] forgetProxy:footerViewProxy];
+        footerViewProxy = nil;
+      }
+    
+    Getting error: Thread 1: EXC_BAD_ACCESS (code=1, address=0x10)</li>
+<li>JATIN JOSHI 2018-11-01
+
+    I am seeing this problem in Xcode 10.1 and TI SDK 7.4.1 and testing it on iPhone 6 (v12.1)
+    
+    This is in TiUITableView.m
+    
+    if (footerViewProxy != nil)
+    
+    { [footerViewProxy setProxyObserver:nil]; [[self proxy] forgetProxy:footerViewProxy]; footerViewProxy = nil; }
+    Getting error: Thread 1: EXC_BAD_ACCESS (code=1, address=0x10)</li>
+<li>JATIN JOSHI 2018-11-01
+
+    I commented the following lines as suggested by "Uriel Lizama", in my local copy on my machine and my app worked without any crash. 
+    
+    TiUITableView.m file:
+    
+      /*
+       if (headerViewProxy != nil) {
+        [headerViewProxy setProxyObserver:nil];
+        [[self proxy] forgetProxy:headerViewProxy];
+        headerViewProxy = nil;
+      }
+    
+      if (footerViewProxy != nil) {
+        [footerViewProxy setProxyObserver:nil];
+        [[self proxy] forgetProxy:footerViewProxy];
+        footerViewProxy = nil;
+      }
+    */</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25391.json">JSON Source</a></p>

@@ -1,0 +1,310 @@
+---
+title: "[TIMOB-16565] iOS: NewHTTPClient Content-Disposition and the Content-Type not set correctly on POST files"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-03-10T22:07:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 05, 2014 Sprint 05 API, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_network, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2014-03-06T18:38:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:43:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When POSTing files, the filename in Content-Disposition and the Content-Type are not being set properly. See the requests for the old and new below (full requests follow)
+
+Old ASIHttpRequest httpClient:
+<code><pre>
+Content-Disposition: form-data; name="files"; filename="somefile.pdf"
+Content-Type: application/pdf
+</pre></code>
+New NSUrlConnection httpClient:
+<code><pre>
+Content-Disposition: form-data; name="files"; filename="file0"
+Content-Type: application/octet-stream
+</pre></code>
+
+Test code:
+<code><pre>
+var win = Titanium.UI.createWindow({
+	backgroundColor: '#CCC'
+});
+
+var startButton = Ti.UI.createButton({
+	title: 'Start Test',
+});
+
+win.add(startButton);
+
+startButton.addEventListener('click', function(){
+
+	var xhr = Ti.Network.createNewHTTPClient({
+		onload: function(e) {
+			var obj = JSON.parse(this.responseText);
+			Ti.API.info(obj);
+		},
+		onerror: function(e) {
+			Ti.API.error(e.error);
+		}
+	});
+	xhr.open('POST', '<a href="http://httpbin.org/post" rel="nofollow" target="_blank">http://httpbin.org/post</a>');
+	// xhr.send(Ti.Filesystem.getFile('cricket.wav').read());
+	// xhr.send({files:Ti.Filesystem.getFile('cricket.wav').read()});
+	// xhr.send(Ti.Filesystem.getFile('cricket.wav'));
+	xhr.send({files:Ti.Filesystem.getFile('cricket.wav')});
+});
+	
+win.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Pedro Enrique 2014-03-07
+
+   Added to PR <a href="https://github.com/appcelerator/titanium_mobile/pull/5433" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5433</a></li>
+<li>Vishal Duggal 2014-03-07
+
+   Test Case
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor: '#CCC',
+       layout:'vertical'
+   });
+    
+    
+   var container1 = Ti.UI.createView({height:Ti.UI.SIZE,top:10})
+     
+   var b1a = Ti.UI.createButton({
+       title: 'Start Test NSURL',
+       left:10,
+       id:1
+   });
+     
+   var b1b = Ti.UI.createButton({
+       title: 'Start Test ASI',
+       right:10,
+       id:1
+   });
+    
+   container1.add(b1a);
+   container1.add(b1b);
+   win.add(container1); 
+    
+   var container2 = Ti.UI.createView({height:Ti.UI.SIZE,top:10})
+     
+   var b2a = Ti.UI.createButton({
+       title: 'Start Test2 NSURL',
+       left:10,
+       id:2
+   });
+     
+   var b2b = Ti.UI.createButton({
+       title: 'Start Test2 ASI',
+       right:10,
+       id:2
+   });
+    
+   container2.add(b2a);
+   container2.add(b2b);
+   win.add(container2); 
+    
+    
+   var container3 = Ti.UI.createView({height:Ti.UI.SIZE,top:10})
+     
+   var b3a = Ti.UI.createButton({
+       title: 'Start Test3 NSURL',
+       left:10,
+       id:3
+   });
+     
+   var b3b = Ti.UI.createButton({
+       title: 'Start Test3 ASI',
+       right:10,
+       id:3
+   });
+    
+   container3.add(b3a);
+   container3.add(b3b);
+   win.add(container3); 
+    
+    
+   var container4 = Ti.UI.createView({height:Ti.UI.SIZE,top:10})
+     
+   var b4a = Ti.UI.createButton({
+       title: 'Start Test4 NSURL',
+       left:10,id:4
+   });
+     
+   var b4b = Ti.UI.createButton({
+       title: 'Start Test4 ASI',
+       right:10,
+       id:4
+   });
+    
+   container4.add(b4a);
+   container4.add(b4b);
+   win.add(container4);
+    
+   var nstest = function(e){
+       var xhr = Ti.Network.createNewHTTPClient({
+           onload: function(e) {
+               var obj = JSON.parse(this.responseText);
+               Ti.API.info(obj);
+           },
+           onerror: function(e) {
+               Ti.API.error(e.error);
+           }
+       });
+       xhr.open('POST', '<a href="http://httpbin.org/post" rel="nofollow" target="_blank">http://httpbin.org/post</a>');
+       if(e.source.id == 1) {
+           Ti.API.info('\n**********NSURL TEST 1*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav').read());
+       } else if (e.source.id == 2) {
+           Ti.API.info('\n**********NSURL TEST 2*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav').read()});
+       } else if (e.source.id == 3) {
+           Ti.API.info('\n**********NSURL TEST 3*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav'));
+       } else {
+           Ti.API.info('\n**********NSURL TEST 4*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav')});
+       }
+   } 
+    
+   var asitest = function(e){
+       var xhr = Ti.Network.createHTTPClient({
+           onload: function(e) {
+               var obj = JSON.parse(this.responseText);
+               Ti.API.info(obj);
+           },
+           onerror: function(e) {
+               Ti.API.error(e.error);
+           }
+       });
+       xhr.open('POST', '<a href="http://httpbin.org/post" rel="nofollow" target="_blank">http://httpbin.org/post</a>');
+       if(e.source.id == 1) {
+           Ti.API.info('\n**********ASI TEST 1*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav').read());
+       } else if (e.source.id == 2) {
+           Ti.API.info('\n**********ASI TEST 2*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav').read()});
+       } else if (e.source.id == 3) {
+           Ti.API.info('\n**********ASI TEST 3*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav'));
+       } else {
+           Ti.API.info('\n**********ASI TEST 4*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav')});
+       }
+   } 
+    
+   b1a.addEventListener('click',nstest);
+   b2a.addEventListener('click',nstest);
+   b3a.addEventListener('click',nstest);
+   b4a.addEventListener('click',nstest);
+    
+    
+   b1b.addEventListener('click',asitest);
+   b2b.addEventListener('click',asitest);
+   b3b.addEventListener('click',asitest);
+   b4b.addEventListener('click',asitest);
+   win.open();
+   </pre></code></li>
+<li>Pedro Enrique 2014-03-10
+
+   Updated PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5433" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5433</a></li>
+<li>Pedro Enrique 2014-04-22
+
+   Here's the updated code.
+   Note:
+   You need a file called "cricket.wav" in your Resources dir
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor: '#CCC',
+       layout:'vertical'
+   });
+        
+   var b1 = Ti.UI.createButton({
+       title: 'Start Test 1',
+       top:10, id: 1
+   });
+     
+   var b2 = Ti.UI.createButton({
+       title: 'Start Test 2',
+       top:10, id: 2
+   });
+     
+   var b3 = Ti.UI.createButton({
+       title: 'Start Test 3',
+       top:10, id: 3
+   });
+      
+   var b4 = Ti.UI.createButton({
+       title: 'Start Test 4',
+       top:10, id: 4
+   });
+   
+     
+   var httpTest = function(e){
+       var xhr = Ti.Network.createHTTPClient({
+           onload: function(e) {
+               var obj = JSON.parse(this.responseText);
+               Ti.API.info(obj);
+           },
+           onerror: function(e) {
+               Ti.API.error(e.error);
+           }
+       });
+       xhr.open('POST', '<a href="http://httpbin.org/post" rel="nofollow" target="_blank">http://httpbin.org/post</a>');
+       if(e.source.id == 1) {
+           Ti.API.info('\n**********TEST 1*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav').read());
+       } else if (e.source.id == 2) {
+           Ti.API.info('\n**********TEST 2*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav').read()});
+       } else if (e.source.id == 3) {
+           Ti.API.info('\n**********TEST 3*************\n');
+           xhr.send(Ti.Filesystem.getFile('cricket.wav'));
+       } else {
+           Ti.API.info('\n**********TEST 4*************\n');
+           xhr.send({files:Ti.Filesystem.getFile('cricket.wav')});
+       }
+   };
+     
+   b1.addEventListener('click',httpTest);
+   b2.addEventListener('click',httpTest);
+   b3.addEventListener('click',httpTest);
+   b4.addEventListener('click',httpTest);
+     
+   win.add(b1);
+   win.add(b2);
+   win.add(b3);
+   win.add(b4);
+   
+   win.open();
+   </pre></code></li>
+<li>Samuel Dowse 2014-05-16
+
+   Verified fixed on:
+   Mac OSX 10.9.3
+   Appcelerator Studio, build: 3.3.0.201405121247
+   Titanium SDK, build: 3.3.0.v20140515133312
+   Titanium CLI, build: 3.3.0-dev
+   Alloy: 1.4.0-alpha
+   
+   Used test code provided by Pedro.
+   Content-type correctly showing "Content-Type" = "audio/wav";
+   Closing.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16565.json">JSON Source</a></p>

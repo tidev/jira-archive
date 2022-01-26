@@ -1,0 +1,227 @@
+---
+title: "[TIMOB-23265] Cannot access Appcelerator AWS storage from Android httpclient request"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-22T07:59:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2016-04-06T15:36:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:54:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description</h4>
+
+Mark files as private (s3_acl:private) in the appcelerator cloud storage is returning 403:forbidden response from AWS in Android when user try to download the file. 
+
+<h4>Steps to replicate</h4>
+1. App queries cloud to get a list of files 
+2. User selects a file from generated list 
+3. App queries cloud to get temporary URL for selected file 
+4. returned url is used in httpclient to download the file (A pdf in this case) 
+5. file is displayed 
+
+On iOS this works fine, however on Android is returning a 403:forbidden response from AWS when I try to download the pdf. Before setting the files to private, this solution worked fine and I was able to download and display the files on both OS's 
+
+<h4>Additional notes</h4>
+All of the calls to the cloud are done through an ArrowDB app hosted on node.js and I've tried using the sessionCookie from that login, but with no luck - though I'd assume that once the URL has been retrieved it is temporarily available to anyone and doesn't require further authentication - can't find much in the way of documentation around the differences of setting s3_acl to private. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-04-07
+
+   So a curl command works perfectly fine? Then this ticket should be in the TIMOB project if it's specific to httpclient request.
+   And i think we are going to need more description, as this seems like a specific use case.
+   
+   can you give sample code? including the titanium app code you to request, and how arrowdb is setup on the backend?</li>
+<li> Ricardo Ramirez 2016-04-07
+
+   Snippet of code showing how the url is retrieved and the httpclient request: 
+   <code><pre>
+   Alloy.Globals.Arrow.services_getUrl({ 
+   _id:id, 
+   _session:Alloy.Globals.defaultSession 
+   },function(error,args){ 
+   if(error){ 
+   console.log(error); 
+   callback("failed"); 
+   }else{ 
+   var url = args.message; 
+   var xhr = Ti.Network.createHTTPClient({ 
+   onload: function() { 
+   callback(this.responseData); 
+   }, 
+   cache:false, 
+   onerror: function(e){ 
+   try{ 
+   console.log(e); 
+   }catch(e){ 
+   console.log("exception thrown"); 
+   //403 error seems to break android sometimes... 
+   } 
+   callback("failed"); 
+   }, 
+   timeout:10000 /* in milliseconds */ 
+   }); 
+   xhr.open("GET", url); 
+   xhr.send(); 
+   } 
+   }); 
+   </pre></code>
+   The code on the service which is handling the URL request is: 
+   <code><pre>
+   arrowLocal.filesShow({ 
+   session_id:req.query._session, 
+   file_id:req.query._id 
+   },function(error,result){ 
+   if(!error){ 
+   res.send({"status":"success","message":result.body.response.files[0].url}); 
+   }else{ 
+   res.send({"status":"failure","message":"Connection error, please try again"}); 
+   } 
+   }); 
+   </pre></code></li>
+<li> Ricardo Ramirez 2016-04-13
+
+   [~msamah] Here more details about this issue:
+   
+   The app uses a front end for submitting files which I'm currently working on. The user submits a file and names it, then sends a post request to the service: 
+   <code><pre>
+   arrowLocal.filesCreate({ 
+   session_id:req.body.sessionToken, 
+   name:req.body.fileName, 
+   file:fs.createReadStream(req.files.fileUploaded.path), 
+   custom_fields:{ 
+   type:req.body.type, 
+   size:req.files.fileUploaded.size 
+   }, 
+   s3_acl:'private', 
+   acl_name:"MaternityAppControl" 
+   },function(error,args){ 
+   if(error){ 
+   res.writeHead(405, error.body.meta.message, {'Content-Type': 'text/html'}); 
+   res.end('<html><head><title>405 - '+error.body.meta.message+'</title></head><body><h1>'+error.body.meta.message+'</h1></body></html>'); 
+   }else{ 
+   res.writeHead(200, "OK", {'Content-Type': 'text/html'}); 
+   res.end('<html><head><title>File Submitted</title></head><body><h1>Success - File Submitted</h1></body></html>'); 
+   } 
+   }); 
+   </pre></code>
+   
+   The app contains a table which populates based on the results of a query to the files database: 
+   
+   <code><pre>
+   arrowLocal.filesQuery({ 
+   session_id:req.query._session, 
+   limit:1000, 
+   },function(error,result){ 
+   if(!error){ 
+   res.send({"status":"success","message":result.body.response.files}); 
+   }else{ 
+   res.send({"status":"failure","message":"Connection error, please try again"}); 
+   } 
+   }); 
+   </pre></code>
+   
+   If the user clicks on a file in the app, another request will be sent to the service to get the up-to-date URL: 
+   
+   <code><pre>
+   arrowLocal.filesShow({ 
+   session_id:req.query._session, 
+   file_id:req.query._id 
+   },function(error,result){ 
+   if(!error){ 
+   res.send({"status":"success","message":result.body.response.files[0].url}); 
+   }else{ 
+   res.send({"status":"failure","message":"Connection error, please try again"}); 
+   } 
+   }); 
+   </pre></code>
+   
+   Everything up to this point works fine. The URL is returned, it can be opened in a browser and displays the correct file. 
+   
+   The next step is where Android falls over. The app attemps to use the URL in a HTTPClient in order to download and handle the file within the app: 
+   
+   <code><pre>
+   var xhr = Ti.Network.createHTTPClient({ 
+   onload: function() { 
+   callback({status:"success",message:this.responseData}); 
+   }, 
+   cache:false, 
+   onerror: function(e){ 
+   try{ 
+   console.log(e); 
+   }catch(e){ 
+   console.log(JSON.stringify(xhr.getAllResponseHeaders())); 
+   console.log("exception thrown"); 
+   //403 error seems to break android sometimes... 
+   } 
+   callback({status:"failed"}); 
+   }, 
+   timeout:10000 /* in milliseconds */ 
+   }); 
+   xhr.open("GET", url); 
+   xhr.send(); 
+   </pre></code>
+   
+   The responseData here should be the file, and on iOS this works fine. I can store the file to a temp directory and open it with the document viewer. However, on Android the http request fails with a "403-forbidden" response from amazon aws. 
+   
+   
+   When I was uploading files without the s3-acl property set to private, Android was able to access the files and open them through intents. With this property set the connection is rejected from Android devices. 
+   
+   For now I've implemented a workaround on Android to just open the file in the browser (Which triggers a download) but this has the drawback of not immediately opening the file, so isn't ideal. </li>
+<li>Ashraf Abu 2016-04-22
+
+   Here's how to overcome this issue.
+   1) Please set autoEncodeUrl to false in the HTTPClient (in Android)
+   2) Set the requestHeader as such, setRequestHeader("Content-Type", ""); This has to be done between the xhr.open() and xhr.send().
+   
+   Example of the code to download the file:-
+   <code><pre>
+   var xhr = Ti.Network.createHTTPClient({ 
+   autoEncodeUrl: false,
+   onload: function() { 
+   console.log("success" + this.responseData); 
+   }, 
+   cache:false, 
+   onerror: function(e){ 
+   try{ 
+   console.log(e); 
+   }catch(e){ 
+   console.log(JSON.stringify(xhr.getAllResponseHeaders())); 
+   console.log("exception thrown"); 
+   //403 error seems to break android sometimes... 
+   } 
+   console.log("failed:"+e); 
+   }, 
+   timeout:10000 /* in milliseconds */ 
+   }); 
+   
+   
+   xhr.open("GET", url); 
+   xhr.setRequestHeader("Content-Type", "");
+   xhr.send();
+   });
+   </pre></code>
+   
+   The content-type of the headers seem to be causing an issue with AWS. Clearing it out makes it work. Also ensuring that the passed Url is not encoded helps too.</li>
+<li>Ashraf Abu 2016-04-22
+
+   [~rramirez] Resolving this ticket. Please see above for solution.</li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23265.json">JSON Source</a></p>

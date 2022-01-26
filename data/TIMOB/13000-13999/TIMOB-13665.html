@@ -1,0 +1,127 @@
+---
+title: "[TIMOB-13665] Ti API: Provide a means for native modules to be active during app startup before app.js loads"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-28T19:10:17.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 10 API, 2013 Sprint 10, Release 3.1.1, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS, TiAPI</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.1.1</td></tr>
+<tr><th>Reporter</th><td>Blain Hamon</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2013-04-24T01:41:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-28T19:10:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+There are some times where external code must be run very early on, or during specific times. Native Titaniums need to provide a means for:
+
+<h4>Indicating a module needs to start early. This is a property of the module.</h4>
+<h4>Allow a module to optionally run during the app startup (EG, AppDidFinishLaunching on iOS)</h4>
+<h4>Allow a module to optionally run before the app.js is processed and run.</h4>
+<h4>Allow a module to optionally run after the app.js is processed and run.</h4>
+
+Due to the short time needed, these will be OS-specific, but allow for commonality where logical.
+
+Implementation will probably be thusly:
+
+* A module's manifest includes a boolean to allow it to run early. (Does this need to happen? Perhaps we can introspect it?)
+* The module template and/or a protocol will indicate what class/static method names will be.
+* The application build scripts/CLI will read from the module manifests and leave some message for the application to know what module classes to call the method.
+* The application, on startup, will know what module classes to method call, and call thusly.
+* The application will broadcast (NSNotifications during AppDidFinishLaunching, before calling willStartNewContext, after calling didStartNewContext; and android equiv )
+* By adding notificationListeners/(Android equiv) during the early method call, the module can execute whatever it wants during those specific points.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13665_38759/dancer.zip">dancer.zip</td></td><td>2013-05-20T21:24:52.000+0000</td><td>124064</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Neeraj Gupta 2013-04-24
+
+   From Allen for Android:
+   It looks like we already have a hook to perform some tasks before app.js is loaded. When you create a new module, there should be a method onAppCreate() inside the module.java class:
+   
+   @Kroll.onAppCreate
+   public static void onAppCreate(TiApplication app)
+   {
+     Log.d(TAG, "inside onAppCreate");
+     // put module init code that needs to run when the application is created
+   }
+   
+   Both Soasta and crittercism should be able to place their initialization code there.</li>
+<li>Blain Hamon 2013-04-29
+
+   Agreed. Android does have onAppCreate as a static/class method for modules and this launches early in the lifecycle. There should be a class method on iOS, but the OS doesn't use the 'onFoo' motif. The iOS modules are very loosely loaded, and while there is the ability to have things in applicationMods, this file is not used during simulator loads. This will require no work on Android, and changes to the CLI and SDK on iOS.
+   
+   The next step, then is to allow the modules to inject into the spots mentioned. iOS already provides NSNotificationCenter, so this will be a relatively easy task. Android, I'm still looking into.</li>
+<li>Blain Hamon 2013-05-17
+
+   Okay, I should have known this. Obj-C has +[load] that happens whenever the code is loaded (IE, before the app even starts). This allows for registering for app lifespan events (AppDidFinishLoading, etc). However, for things where you want to inject right into the runtime, (Where we can't use NSNotificationCenter, due to nc's thread unsafety), there's two new APIs:
+   
+   * +[TiProxy performSelectorDuringRunLoopStart:] Convenience method for the C function, especially for autoloading modules. The selector is a class method taking one argument, which is the TiBindingRunLoop started.
+   * TiBindingRunLoopCallOnStart(TiBindingCallback, void *) adds a callback that will be run every time a run loop is started, before the file is executed.
+   
+   So, to test:
+   <code><pre>
+   +(void)doALittleDance:(TiBindingRunLoop)runLoop
+   {
+   	NSLog(@"I'm doing a little dance for %@",runLoop);
+   }
+   
+   +(void)load
+   {
+   	NSLog(@"I'mma do a little dance.");
+   	[self performSelectorDuringRunLoopStart:@selector(doALittleDance:)];
+   }
+   </pre></code></li>
+<li>Jeff English 2013-05-17
+
+   FWIW, the +[load] mechanism is used in the ti.newsstand module since there are calls that must be made during application startup. The current module startup method is called too late in the process and also only if the main app.js requires it.</li>
+<li>Sabil Rahim 2013-05-17
+
+   CR &FR on both master & 3_1_X</li>
+<li>Sabil Rahim 2013-05-20
+
+   <h4>Testing Instruction.</h4>
+   
+   * Download and install [this](<a href="https://dl.dropboxusercontent.com/u/43336767/TIMOB-13665/ti.testmodule.zip)" rel="nofollow" target="_blank">https://dl.dropboxusercontent.com/u/43336767/TIMOB-13665/ti.testmodule.zip)</a> native module in the right Location (~/Library/Application\ Support/Titanium/modules/iphone/).
+   * Create a new app and make sure you add the new module(ti.testmodule) in tiapp.
+   * Build the app and run it.
+   * Check log to see the following output <code>I'm doing a little dance for KrollContext<somevalue></code>
+   
+   </li>
+<li>Blain Hamon 2013-05-20
+
+   To use: Build module, use in app. Note debug message about dancing with KrollContext.</li>
+<li>Federico Casali 2013-05-30
+
+   Verified working as expected, showing the expected message
+   <code><pre>
+   May 30 11:38:23 iPhone classicProject[33853] <Warning>: I'm doing a little dance for <KrollContext: 0x20846120>
+   </pre></code>
+   
+   Environment:
+   Appcelerator Studio 3.1.1.201305292130
+   Titanium SDK 3.1.1.v20130529114554
+   Alloy 1.1.3-alpha
+   Titanium-Code-Processor 1.1.3-alpha3
+   
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13665.json">JSON Source</a></p>

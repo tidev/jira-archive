@@ -1,0 +1,391 @@
+---
+title: "[AC-4748] Missing database error/warnings console logs"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-03-30T08:21:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ricardo Pereira</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2017-01-20T12:16:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-30T08:23:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Missing all the console logs from database query errors and warnings.
+
+Try it: 
+<code><pre>
+var db = Ti.Database.open("myDbName"),
+    fieldset,
+    queries = [
+        "SELECT * FROM someUnexistingTable",
+        "SELECT 'test' AS testColumn",
+        "32 some random strs 2352 ojndslk",
+        "other some random data sfgfs 23r g f",
+    ];
+
+db && queries.forEach(function(query) {
+
+    console.log(query);
+    Ti.API.info(query);
+
+    try {
+
+        console.log("TRY");
+        Ti.API.info("TRY");
+    
+        fieldset = db.execute(query);
+
+        console.log(fieldset);
+        Ti.API.info(fieldset);
+    }
+    catch(e) {
+
+        console.log("ERROR");
+        Ti.API.info("ERROR");
+
+        console.log(e);
+        Ti.API.info(e);
+    }
+
+    query = null;
+});
+
+db.close();
+
+db = null;
+</pre></code>
+
+Thanks to [~psheth] for his time and help
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-01-20
+
+   Hey Ricardo, so logs outside the loop work? [~cbarber] might have a guess here!</li>
+<li>Ricardo Pereira 2017-01-20
+
+   [~hansknoechel], yes, all logs work, the ones that doesn't work are placed inside the catch. I'f you run a query without the exception handling (try, catch) it's supposed to throw the development red error, but it doesn't.
+   
+   Basically it's the Ti.Database.DB *execute* method that doesn't throw an error if something is wrong with the query</li>
+<li>Hans Knöchel 2017-01-20
+
+   Gotcha. It should throw, at least the iOS source indicates that. Do you having his on iOS or Android?</li>
+<li>Sharif AbuDarda 2017-01-24
+
+   Hello, I can see the error in Android. But the error doesn't show in iOS. See my test log.
+   iOS
+   <code><pre>
+   -- Start simulator log -------------------------------------------------------
+   [INFO]  sha156/1.0 (6.0.1.265db0d)
+   [INFO]  SELECT * FROM someUnexistingTable
+   [INFO]  SELECT * FROM someUnexistingTable
+   [INFO]  TRY
+   [INFO]  TRY
+   [INFO]  <null>
+   [INFO]  <null>
+   [INFO]  SELECT 'test' AS testColumn
+   [INFO]  SELECT 'test' AS testColumn
+   [INFO]  TRY
+   [INFO]  TRY
+   [INFO]  [object TiDatabaseResultSet]
+   [INFO]  [object TiDatabaseResultSet]
+   [INFO]  32 some random strs 2352 ojndslk
+   [INFO]  32 some random strs 2352 ojndslk
+   [INFO]  TRY
+   [INFO]  TRY
+   [INFO]  <null>
+   [INFO]  <null>
+   [INFO]  other some random data sfgfs 23r g f
+   [INFO]  other some random data sfgfs 23r g f
+   [INFO]  TRY
+   [INFO]  TRY
+   [INFO]  <null>
+   [INFO]  <null>
+   </pre></code>
+   
+   Android
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [INFO]  SELECT * FROM someUnexistingTable
+   [INFO]  SELECT * FROM someUnexistingTable
+   [INFO]  TRY
+   [INFO]  TRY
+   [ERROR] SQLiteLog: (1) no such table: someUnexistingTable
+   [ERROR] TiDB: (main) [760,760] Error executing sql: no such table: someUnexistingTab
+   le (code 1): , while compiling: SELECT * FROM someUnexistingTable
+   [ERROR] TiDB: android.database.sqlite.SQLiteException: no such table: someUnexisting
+   Table (code 1): , while compiling: SELECT * FROM someUnexistingTable
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.nativePrepareStatement(N
+   ative Method)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.acquirePreparedStatement
+   (SQLiteConnection.java:889)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.prepare(SQLiteConnection
+   .java:500)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteSession.prepare(SQLiteSession.java:
+   588)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteProgram.<init>(SQLiteProgram.java:5
+   8)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteQuery.<init>(SQLiteQuery.java:37)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDirectCursorDriver.query(SQLiteDire
+   ctCursorDriver.java:44)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.rawQueryWithFactory(SQLite
+   Database.java:1318)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.rawQuery(SQLiteDatabase.ja
+   va:1257)
+   [ERROR] TiDB:   at ti.modules.titanium.database.TiDatabaseProxy.execute(TiDatabasePr
+   oxy.java:108)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Nativ
+   e Method)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime
+   .java:196)
+   [ERROR] TiDB:   at org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:2
+   41)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.loadActivityScript(TiL
+   aunchActivity.java:128)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunch
+   Activity.java:183)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActi
+   vity.java:107)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.
+   java:673)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActiv
+   ity.java:169)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.
+   java:96)
+   [ERROR] TiDB:   at android.app.Activity.performCreate(Activity.java:6664)
+   [ERROR] TiDB:   at android.app.Instrumentation.callActivityOnCreate(Instrumentation.
+   java:1118)
+   [ERROR] TiDB:   at android.app.ActivityThread.performLaunchActivity(ActivityThread.j
+   ava:2599)
+   [ERROR] TiDB:   at android.app.ActivityThread.handleLaunchActivity(ActivityThread.ja
+   va:2707)
+   [ERROR] TiDB:   at android.app.ActivityThread.-wrap12(ActivityThread.java)
+   [ERROR] TiDB:   at android.app.ActivityThread$H.handleMessage(ActivityThread.java:14
+   60)
+   [ERROR] TiDB:   at android.os.Handler.dispatchMessage(Handler.java:102)
+   [ERROR] TiDB:   at android.os.Looper.loop(Looper.java:154)
+   [ERROR] TiDB:   at android.app.ActivityThread.main(ActivityThread.java:6077)
+   [ERROR] TiDB:   at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(Zygote
+   Init.java:865)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:755)
+   
+   [INFO]  ERROR
+   [INFO]  ERROR
+   [INFO]  no such table: someUnexistingTable (code 1): , while compiling: SELECT * FRO
+   M someUnexistingTable
+   [INFO]  no such table: someUnexistingTable (code 1): , while compiling: SELECT * FRO
+   M someUnexistingTable
+   [INFO]  SELECT 'test' AS testColumn
+   [INFO]  SELECT 'test' AS testColumn
+   [INFO]  TRY
+   [INFO]  TRY
+   [INFO]  {"rowCount":1,"validRow":true,"fieldCount":1,"bubbleParent":true,"apiName":"
+   Ti.Database.ResultSet"}
+   [INFO]  [object TiResultSet]
+   [INFO]  32 some random strs 2352 ojndslk
+   [INFO]  32 some random strs 2352 ojndslk
+   [INFO]  TRY
+   [INFO]  TRY
+   [ERROR] SQLiteLog: (1) near "32": syntax error
+   [ERROR] TiDB: (main) [13,773] Error executing sql: near "32": syntax error (code 1):
+    , while compiling: 32 some random strs 2352 ojndslk
+   [ERROR] TiDB: android.database.sqlite.SQLiteException: near "32": syntax error (code
+    1): , while compiling: 32 some random strs 2352 ojndslk
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.nativePrepareStatement(N
+   ative Method)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.acquirePreparedStatement
+   (SQLiteConnection.java:889)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.prepare(SQLiteConnection
+   .java:500)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteSession.prepare(SQLiteSession.java:
+   588)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteProgram.<init>(SQLiteProgram.java:5
+   8)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteStatement.<init>(SQLiteStatement.ja
+   va:31)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.executeSql(SQLiteDatabase.
+   java:1675)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.execSQL(SQLiteDatabase.jav
+   a:1656)
+   [ERROR] TiDB:   at ti.modules.titanium.database.TiDatabaseProxy.execute(TiDatabasePr
+   oxy.java:141)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Nativ
+   e Method)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime
+   .java:196)
+   [ERROR] TiDB:   at org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:2
+   41)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.loadActivityScript(TiL
+   aunchActivity.java:128)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunch
+   Activity.java:183)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActi
+   vity.java:107)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.
+   java:673)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActiv
+   ity.java:169)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.
+   java:96)
+   [ERROR] TiDB:   at android.app.Activity.performCreate(Activity.java:6664)
+   [ERROR] TiDB:   at android.app.Instrumentation.callActivityOnCreate(Instrumentation.
+   java:1118)
+   [ERROR] TiDB:   at android.app.ActivityThread.performLaunchActivity(ActivityThread.j
+   ava:2599)
+   [ERROR] TiDB:   at android.app.ActivityThread.handleLaunchActivity(ActivityThread.ja
+   va:2707)
+   [ERROR] TiDB:   at android.app.ActivityThread.-wrap12(ActivityThread.java)
+   [ERROR] TiDB:   at android.app.ActivityThread$H.handleMessage(ActivityThread.java:14
+   60)
+   [ERROR] TiDB:   at android.os.Handler.dispatchMessage(Handler.java:102)
+   [ERROR] TiDB:   at android.os.Looper.loop(Looper.java:154)
+   [ERROR] TiDB:   at android.app.ActivityThread.main(ActivityThread.java:6077)
+   [ERROR] TiDB:   at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(Zygote
+   Init.java:865)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:755)
+   [INFO]  ERROR
+   [INFO]  ERROR
+   [INFO]  near "32": syntax error (code 1): , while compiling: 32 some random strs 235
+   2 ojndslk
+   [INFO]  near "32": syntax error (code 1): , while compiling: 32 some random strs 235
+   2 ojndslk
+   [INFO]  other some random data sfgfs 23r g f
+   [INFO]  other some random data sfgfs 23r g f
+   [INFO]  TRY
+   [INFO]  TRY
+   [ERROR] SQLiteLog: (1) near "other": syntax error
+   [ERROR] TiDB: (main) [2,775] Error executing sql: near "other": syntax error (code 1
+   ): , while compiling: other some random data sfgfs 23r g f
+   [ERROR] TiDB: android.database.sqlite.SQLiteException: near "other": syntax error (c
+   ode 1): , while compiling: other some random data sfgfs 23r g f
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.nativePrepareStatement(N
+   ative Method)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.acquirePreparedStatement
+   (SQLiteConnection.java:889)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteConnection.prepare(SQLiteConnection
+   .java:500)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteSession.prepare(SQLiteSession.java:
+   588)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteProgram.<init>(SQLiteProgram.java:5
+   8)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteStatement.<init>(SQLiteStatement.ja
+   va:31)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.executeSql(SQLiteDatabase.
+   java:1675)
+   [ERROR] TiDB:   at android.database.sqlite.SQLiteDatabase.execSQL(SQLiteDatabase.jav
+   a:1656)
+   [ERROR] TiDB:   at ti.modules.titanium.database.TiDatabaseProxy.execute(TiDatabasePr
+   oxy.java:141)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Nativ
+   e Method)
+   [ERROR] TiDB:   at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime
+   .java:196)
+   [ERROR] TiDB:   at org.appcelerator.kroll.KrollRuntime.runModule(KrollRuntime.java:2
+   41)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.loadActivityScript(TiL
+   aunchActivity.java:128)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.windowCreated(TiLaunch
+   Activity.java:183)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.windowCreated(TiRootActi
+   vity.java:107)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiBaseActivity.onCreate(TiBaseActivity.
+   java:673)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiLaunchActivity.onCreate(TiLaunchActiv
+   ity.java:169)
+   [ERROR] TiDB:   at org.appcelerator.titanium.TiRootActivity.onCreate(TiRootActivity.
+   java:96)
+   [ERROR] TiDB:   at android.app.Activity.performCreate(Activity.java:6664)
+   [ERROR] TiDB:   at android.app.Instrumentation.callActivityOnCreate(Instrumentation.
+   java:1118)
+   [ERROR] TiDB:   at android.app.ActivityThread.performLaunchActivity(ActivityThread.j
+   ava:2599)
+   [ERROR] TiDB:   at android.app.ActivityThread.handleLaunchActivity(ActivityThread.ja
+   va:2707)
+   [ERROR] TiDB:   at android.app.ActivityThread.-wrap12(ActivityThread.java)
+   [ERROR] TiDB:   at android.app.ActivityThread$H.handleMessage(ActivityThread.java:14
+   60)
+   [ERROR] TiDB:   at android.os.Handler.dispatchMessage(Handler.java:102)
+   [ERROR] TiDB:   at android.os.Looper.loop(Looper.java:154)
+   [ERROR] TiDB:   at android.app.ActivityThread.main(ActivityThread.java:6077)
+   [ERROR] TiDB:   at java.lang.reflect.Method.invoke(Native Method)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(Zygote
+   Init.java:865)
+   [ERROR] TiDB:   at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:755)
+   [INFO]  ERROR
+   [INFO]  ERROR
+   [INFO]  near "other": syntax error (code 1): , while compiling: other some random da
+   ta sfgfs 23r g f
+   [INFO]  near "other": syntax error (code 1): , while compiling: other some random da
+   ta sfgfs 23r g f
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity =
+    com.gsl.sha156.Sha156Activity@89fee80
+   [ERROR] libEGL: load_driver(/system/lib/egl/libGLES_emulation.so): dlopen failed: li
+   brary "/system/lib/egl/libGLES_emulation.so" not found
+   </pre></code>
+   
+   
+   </li>
+<li>Ricardo Pereira 2018-03-27
+
+   This is still happening here. 
+   
+   I've formatted another *MacBook Pro (Retina, 13-inch, Early 2015)* with *macOS Sierra*.
+   
+   Install the *latest Axway Appcelerator* version, with *Titanium SDK 7.1.0.GA*
+   
+   *Operating System*
+   {noformat}
+    Name                        = Mac OS X
+    Version                     = 10.12.6
+    Architecture                = 64bit
+    # CPUs                      = 4
+    Memory                      = 8.0GB
+   {noformat}
+   
+   *Node.js*
+   {noformat}
+    Node.js Version             = 9.9.0
+    npm Version                 = 5.6.0
+   {noformat}
+   
+   *Appcelerator CLI*
+   {noformat}
+    Installer                   = 4.2.12
+    Core Package                = 7.0.2
+   {noformat}
+   
+   *Titanium CLI*
+   {noformat}
+    CLI Version                 = 5.0.14
+    node-appc Version           = 0.2.41
+   {noformat}
+   
+   *Titanium SDKs*
+   {noformat}
+    7.1.0.GA
+      Version                   = 7.1.0
+      Install Location          = /Users/rjcpereira/Library/Application/Support/Titanium/mobilesdk/osx/7.1.0.GA
+      Platforms                 = iphone, android
+      git Hash                  = df92fbf
+      git Timestamp             = 3/14/2018 20:46
+      node-appc Version         = 0.2.43
+   {noformat}</li>
+<li>Hans Knöchel 2018-03-30
+
+   This ticket was indeed valid and AC-5685 was created to stand up for the issue. Thanks [~ricardo_jcp]! As discussed in the other ticket, it's a duplicate of TIMOB-25906 and already has an open fix ready today, to be included in the official SDK 7.2.0. See the other tickets for details.</li>
+</ol>
+
+
+<p><a href="/AC/AC-4748.json">JSON Source</a></p>

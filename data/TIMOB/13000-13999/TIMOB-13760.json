@@ -1,0 +1,278 @@
+{
+	"id": "113848",
+	"key": "TIMOB-13760",
+	"fields": {
+		"issuetype": {
+			"id": "2",
+			"description": "A new feature of the product, which has yet to be developed.",
+			"name": "New Feature",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2013-05-06T14:01:23.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "28483",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "113924",
+					"key": "TIMOB-13779",
+					"fields": {
+						"summary": "Android: remove access to V8's gc from JavaScript",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": null,
+		"updated": "2018-02-28T20:04:01.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "V8 can wait too long to release memory which in turn causes the native side to go berserk in releasing memory which can causes some slow ups / stuttering in an app.  I've seen this on any major Android app where we've tested through the app thoroughly and for a longer duration of time than just 4-5 min.\r\n\r\n\r\n-- OLD SUGGESTION BUT IS NOT THE STATED PROBLEM --\r\nMaybe the answer is to expose a method to force garbage collection on V8?\r\n\r\nRef.  http://www.my-ride-home.com/2011/01/v8-garbage-collection/\r\n\r\nNode has a way to expose the GC control:\r\n`node --expose-gc`\r\n\r\nThen in the app:\r\n`global.gc();`\r\n\r\nWould be nice to have this level of control.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "V8 Waits Too Long to GC and Causes Major Hiccups / Slow Downs.",
+		"creator": {
+			"name": "rblalock",
+			"key": "rblalock",
+			"displayName": "Rick Blalock",
+			"active": false,
+			"timeZone": "America/Havana"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "rblalock",
+			"key": "rblalock",
+			"displayName": "Rick Blalock",
+			"active": false,
+			"timeZone": "America/Havana"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "250334",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I understand the desire, but calling GC manually is a last resort. [~mlangston], any thoughts?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-05-06T17:21:28.000+0000",
+					"updated": "2013-05-06T17:21:28.000+0000"
+				},
+				{
+					"id": "250483",
+					"author": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I understand and empathize with the reporter's concern, and have experienced similar problems with another customer. Unfortunately, explicitly calling V8's gc won't solve his particular issue.\n\nThe root cause of the reporter's problem is two-fold:\n\n1. There is garbage to be collected. We have seen with another customer that garbage can be reduced or eliminated by simple software engineering techniques (more details below) and may be an option for the reporter.\n\n2. When there are objects that share memory between the Dalvik VM and the V8 VM, then the two garbage collectors can be too decoupled from each other. In these instances the two garbage collectors need to be better coordinated, and will require Titanium platform changes in how memory is managed between the two VMs.\n\nWe studied both of these root causes in some detail with another customer having problems with memory pressure, and based on our data and experience there are several reasons we should not expose access to any garbage collector (V8 or otherwise) as a part of the Titanium API:\n\n1. The customer I worked with was having performance and memory pressure issues. Upon investigation we discovered that they were calling the system's gc, and based on careful measurement that this was responsible for a large portion of their performance issues. Removing this one line from their app improved its performance noticeably. The lesson we learned is that a VM's garbage collector is \"smarter\" at collecting garbage at the appropriate times than any developer can ever be. In this particular customer's case we taught them how not to generate garbage in the first place. This not only reduced their memory footprint, but also improved their app's performance.\n\n2. The garbage collector is an implementation detail of the platform that we don't currently have any control over. Therefore, V8's gc should not be a part of Titanium's public API.\n\n3. Calling V8's gc does not (and should not) trigger a garbage collection. This is contrary to many developer's expectations who are not familiar with garbage collector algorithms and internals. This is what tripped up the the customer I referred to above. In particular, Titanium customers should not (and do not) have to be familiar with garbage collector algorithms and internals.\n\nI would recommend that the reporter profile their app and look for tight loops, and then investigate these loops for variables that can be hoisted outside of the loop. This may help him mitigate (if not eliminate) his memory pressure issues as it did with the customer I cited.\n\n\n",
+					"updateAuthor": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-05-07T04:55:14.000+0000",
+					"updated": "2013-05-07T04:55:14.000+0000"
+				},
+				{
+					"id": "250805",
+					"author": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"body": "I changed the title and modified the description because I was blurring a possible solution with the problem.\r\n\r\nI dont want to confuse the \"need a way to manually cause GC\" with the root issue:\r\n\r\nV8 doesn't release memory until it needs to (e.g. when it's getting low on it).  This is a big problem for Ti apps because memory doesn't get cleaned up until wayyyyy too late which can cause an app to appear as if it's froze for a few seconds or in the best case scenario stutter for a few seconds.\r\n\r\nThe platform needs to manage this more aggressively, especially on Android where there are such small limits.  On iOS, JSCore seems to be much more aggressive and responsive around GC.  Without making semi-educated suggestions on how to mitigate this, what can be done so Ti Android apps dont pause for several seconds after continued use because of the GC?",
+					"updateAuthor": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"created": "2013-05-08T15:37:35.000+0000",
+					"updated": "2013-05-08T15:56:01.000+0000"
+				},
+				{
+					"id": "250813",
+					"author": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"body": "As a side question:  How do I find out what version of V8 we are using so I can compare?  It looks like some of the newer versions have much more incremental / zealous GC routines.",
+					"updateAuthor": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"created": "2013-05-08T16:07:39.000+0000",
+					"updated": "2013-05-08T16:07:39.000+0000"
+				},
+				{
+					"id": "250822",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~rblalock] and [~mlangston]. I believe the preference is to avoid needing to call GC to being with, no? Once a GC happens, it was my understanding that it happened in such a way that it would cause UI freezes, or can that be avoided?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-05-08T16:38:52.000+0000",
+					"updated": "2013-05-08T16:38:52.000+0000"
+				},
+				{
+					"id": "250823",
+					"author": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The latest Titanium release 3.1.0.GA uses V8 version 3.9.24.2.",
+					"updateAuthor": {
+						"name": "mlangston",
+						"key": "mlangston",
+						"displayName": "Matt Langston",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-05-08T16:39:50.000+0000",
+					"updated": "2013-05-08T16:39:50.000+0000"
+				},
+				{
+					"id": "250824",
+					"author": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"body": "@Ingo - I've been told since we've implemented V8 that it can't be avoided from the Ti developer POV.  So I'm bringing this up to see if there's a way to prevent the UI freezes or hiccups because of GC.",
+					"updateAuthor": {
+						"name": "rblalock",
+						"key": "rblalock",
+						"displayName": "Rick Blalock",
+						"active": false,
+						"timeZone": "America/Havana"
+					},
+					"created": "2013-05-08T16:41:39.000+0000",
+					"updated": "2013-05-08T16:41:39.000+0000"
+				},
+				{
+					"id": "251858",
+					"author": {
+						"name": "joshroesslein",
+						"key": "joshroesslein",
+						"displayName": "Josh Roesslein",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Incremental GC was added in 3.9. So we do have that in our current V8 build.",
+					"updateAuthor": {
+						"name": "joshroesslein",
+						"key": "joshroesslein",
+						"displayName": "Josh Roesslein",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-05-14T18:20:30.000+0000",
+					"updated": "2013-05-14T18:20:30.000+0000"
+				}
+			],
+			"maxResults": 9,
+			"total": 9,
+			"startAt": 0
+		}
+	}
+}

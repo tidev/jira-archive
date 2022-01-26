@@ -1,0 +1,122 @@
+---
+title: "[TIMOB-15200] Android: ImageView.image from XHR no longer shows new image"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-18T18:59:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 19, 2013 Sprint 19 API, Release 3.1.3, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>imageView, qe-closed-3.1.3, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Nic Jansma</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2013-09-15T23:43:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-10-09T15:41:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After installing SDK 3.1.3.v20130913160104 to verify the fix for TIMOB-14777
+
+i.e. <a href="https://github.com/appcelerator/titanium_mobile/pull/4657" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4657</a>
+
+I have found that setting the .image property on an ImageView does not show the actual image.
+
+Here's a reduced repro (that can be placed into FirstView.js after creating a new project, for example):
+
+<code><pre>
+var win = Ti.UI.createWindow();
+function FirstView() {
+    var imageView = Ti.UI.createImageView();
+     
+    var xhr = Ti.Network.createHTTPClient();
+    xhr.onload = function() {
+        imageView.image = xhr.responseData;
+    };
+     
+    xhr.open('GET', '<a href="http://nicj.net/wd-icon-small.png" rel="nofollow" target="_blank">http://nicj.net/wd-icon-small.png</a>');
+    xhr.send();
+     
+    return imageView;
+}
+var v = FirstView();
+
+win.add(v);
+win.open();
+</pre></code>
+
+On SDK 3.1.2, the logo shows up.
+
+On SDK 3.1.3.v20130913160104, the logo does not show up.
+
+The XHR.onload event does fire, but it appears setting imageView.image has no effect.
+
+I suspect that it may be related to the fix I mention TIMOB-14777.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15200_42590/3.1.2.GA.png">3.1.2.GA.png</td></td><td>2013-09-18T16:51:25.000+0000</td><td>33808</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15200_42591/3.1.3.png">3.1.3.png</td></td><td>2013-09-18T16:51:25.000+0000</td><td>23929</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Philippe Wueger 2013-09-18
+
+   I have this issue too.
+   
+   I assume that in TiUIImageView.java (lines 140 and 227)
+   <code><pre>
+   imgsrc.getUrl()
+   </pre></code>
+   
+   returns null, when an image is set from a blob. With the fix mentioned in the description, the image bitmap will never be set in this case.</li>
+<li>Philippe Wueger 2013-09-18
+
+   Pull Request for my fix:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4710" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4710</a></li>
+<li>Olga Romero 2013-09-18
+
+   The bug is reproducible with:
+   Appcelerator Studio, build: 3.1.3.201309132456
+   Titanium SDK, build: 3.1.3.v20130917141554
+   CLI 3.1.2
+   Alloy 1.2.2-cr
+   code-processor 1.0.3-cr
+   GalaxyS3 Android version 4.0.4
+   
+   See screenshots</li>
+<li>Hieu Pham 2013-09-18
+
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4711" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4711</a>
+   3.1.x PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4712" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4712</a></li>
+<li>Ping Wang 2013-09-18
+
+   [~philet] thanks very much for your work. Your PR is great. The only problem is the additional check is not necessary for the method handleCacheAndSetImage which is only used in downloadListener, since the downloaded image must have a url. Due to the tight time schedule for the release 3.1.3, I submitted another PR which only adds the additional check in loadImageListener.
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4711" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4711</a>
+   3_1_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4712" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4712</a></li>
+<li>Olga Romero 2013-09-19
+
+   Tested and verified the fix with:
+   Appcelerator Studio, build: 3.1.3.201309132456
+   Titanium SDK, build: 3.1.3.GA
+   CLI 3.1.2
+   Alloy 1.2.2
+   code-processor 1.0.3
+   Device: Nexus7 Android version:4.3
+   
+   The image is shown</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15200.json">JSON Source</a></p>

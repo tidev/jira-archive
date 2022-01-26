@@ -1,0 +1,135 @@
+---
+title: "[TIMOB-26118] iOS: Add new ES6 "String" methods to iOS 8"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2018-09-18T19:56:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>es6, ios</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-06-08T23:20:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-09-18T21:47:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+iOS 8 does not support the following new ES6 "String" methods when "tiapp.xml" setting <code><transpile></code> is set to <code>true</code>. We should add them so that ES6 support is consistent between iOS versions.
+* <code>String.prototype.startsWith()</code>
+* <code>String.prototype.endsWith()</code>
+* <code>String.prototype.includes()</code>
+* <code>String.prototype.repeat()</code>
+
+*Steps to reproduce:*
+<h4>Set up a project's "tiapp.xml" with the below "transpile" setting.</h4>
+<h4>Build and run the below code on iOS 8.</h4>
+
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<transpile>true</transpile>
+</ti:app>
+</pre></code>
+
+<code><pre>
+Ti.API.info("@@@ String.startsWith: " + (typeof String.prototype.startsWith));
+Ti.API.info("@@@ String.endsWith: " + (typeof String.prototype.endsWith));
+Ti.API.info("@@@ String.includes: " + (typeof String.prototype.includes));
+Ti.API.info("@@@ String.repeat: " + (typeof String.prototype.repeat));
+
+var message = "Hello World";
+Ti.API.info("@@@ String.startsWith() works? " + message.startsWith("Hello"));
+Ti.API.info("@@@ String.endsWith() works? " + message.endsWith("World"));
+Ti.API.info("@@@ String.includes() works? " + message.includes("ello"));
+Ti.API.info("@@@ String.repeat() works? " + ("a".repeat(3) === "aaa"));
+</pre></code>
+
+*Result:*
+The above throws an exception on iOS 8 because the new ES6 String methods are undefined.
+
+The above works fine on iOS 9 and newer iOS versions.
+The above works fine on Android as well.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26118_65259/String.js">String.js</td></td><td>2018-06-11T18:54:53.000+0000</td><td>2236</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-06-08
+
+   We could use "polyfill" as mentioned here: [TIMOB-25816]
+   
+   Alternatively, we can add these methods to the <code>String.prototype</code> ourselves if we bootstrap the "app.js" loading on all platforms as proposed here: [TIMOB-26015]
+   _(This is the faster/simpler approach.)_</li>
+<li>Hans Knöchel 2018-06-09
+
+   I'd vote either for the polyfill or adding it on a native level. Using the shell-file for that feels wrong to me.</li>
+<li>Joshua Quick 2018-06-11
+
+   Implementing the missing functions via a JS file is exactly how it would work via polyfill and a webpage's JS. A polyfill is just an ES5 implementation of ES6 functions.
+   
+   Case-in-point, Mozilla shows devs how to implement their own polyfill of the <code>startsWith()</code> function below. Although their implementation can be optimized to use an <code>indexOf()</code> instead, but the point is that you can just implement your own JavaScript function if it's missing. Pretty easy.
+   <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith" rel="nofollow" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/startsWith</a>
+   
+   Also, I've already done it now. :)
+   See attached  [^String.js] 
+   _(I'll see about optimizing my <code>endsWith()</code> function further to remove the <code>substr()</code> call.)_
+   
+   I'm not saying we should implement all of the ES6 functions ourselves. But we can implement the popular ones. Especially since Titanium supports disabling trasncoding.</li>
+<li>Hans Knöchel 2018-06-12
+
+   [~jquick] The main reason for the babel-polyfill is that it would only be applied to targets that do not support it already, so it reduces the overhead of the built-in scripts. Also, see TIMOB-26123 for the general iOS 8 removal.</li>
+<li>Joshua Quick 2018-06-16
+
+   I do agree that a native implementation would be superior to a polyfill via JavaScript. Especially for the <code>String.prototype.repeat()</code> method.
+   
+   For now, I need a solution since the core JS scripts I'm introducing to all platforms needs a couple of these functions and it's convenient to have them via our own polyfill. Only Android and Windows would be punished by this overhead (which I think is negligible) since they already have these ES6 functions. But an iOS app would always have these polyfills while the min iOS version supported is iOS 8. So, iOS requires the polyfill overhead unless we add these functions natively.
+   
+   If you can offer me an alternative then I would love to hear it.</li>
+<li>Joshua Quick 2018-06-16
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10112" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10112</a></li>
+<li>Joshua Quick 2018-09-18
+
+   Titanium now supports ES6 polyfill when "tiapp.xml" transpile setting is set <code>true</code>. That is expected to be used instead. Closing.</li>
+<li>Lokesh Choudhary 2018-09-18
+
+   FR Passed.
+   
+   <code>ES6 "String"</code> methods works with IOS 8 when <code><transpile>true</transpile></code>
+   
+   Studio Ver:     5.1.1.201809051655
+   SDK Ver:        7.5.0.v20180913121236
+   OS Ver:         10.13.5
+   Xcode Ver:      Xcode 9.4.1
+   Appc NPM:       4.2.13
+   Appc CLI:       7.0.6
+   Daemon Ver:     1.1.3
+   Ti CLI Ver:     5.1.1
+   Alloy Ver:      1.13.2
+   Node Ver:       8.9.1
+   NPM Ver:        5.5.1
+   Java Ver:       10.0.2
+   IOS Simulator: 8.4</li>
+<li>Lokesh Choudhary 2018-09-18
+
+   Please ignore above FR comment. The ticket was closed & I had not refreshed my webpage, </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26118.json">JSON Source</a></p>

@@ -1,0 +1,120 @@
+---
+title: "[TIMOB-1349] Titanium.Platform.displayCaps.dpi returns wrong value on iPhone 4"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:55:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>density, dpi, iphone4, patch, resolution</td></tr>
+<tr><th>Reporter</th><td>Brion Vibber</td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:50:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:55:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>In StatusNet Mobile, I'm trying to check the display resolution
+to see whether higher-resolution avatar images should be fetched
+when running on an iPhone 4 or high-resolution Android device.</p>
+<p>Expected behavior:</p>
+<p>On iPhone 4 (or iPhone SDK 4 simulator with hardware set to
+iPhone 4), Titanium.Platform.displayCaps.dpi should return 320.</p>
+<p>Actual behavior:</p>
+<p>Titanium.Platform.displayCaps.dpi is currently hardcoded to
+return 160 for iPhoneOS/iOS unless on an iPad, in which case it's
+hardcoded to return 130; this leaves apps unable to distinguish
+between an iPhone 2g/3g/3gs and an iPhone 4.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Fix calling the existing scale check helper functions on
+   TiUtils:</p>
+   <p><a href=
+   "<a href="http://github.com/brion/titanium_mobile/commit/778cf65ca1aaa47d0e14fd62566d1450413d9e6b" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/778cf65ca1aaa47d0e14fd62566d1450413d9e6b</a>">
+   <a href="http://github.com/brion/titanium_mobile/commit/778cf65ca1aaa47d0e14..." rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/778cf65ca1aaa47d0e14...</a></a></p>
+   <p>Note that this leaves the details of 160/320 as two hardcoded
+   alternatives; also the existing code returns "high" density for
+   iPad, which I did not change although it looks wrong -- iPad's
+   density is around 130 dpi (which it <em>does</em> report
+   correctly), the lowest of any iOS device.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>The above commit had a stray { sneak in which breaks building;
+   corrected version here:<br>
+   <a href=
+   "<a href="http://github.com/brion/titanium_mobile/commit/2b279bf36d5086a10c7373d2a10f66cbce00a38a" rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/2b279bf36d5086a10c7373d2a10f66cbce00a38a</a>">
+   <a href="http://github.com/brion/titanium_mobile/commit/2b279bf36d5086a10c73..." rel="nofollow" target="_blank">http://github.com/brion/titanium_mobile/commit/2b279bf36d5086a10c73...</a></a></p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Adding "[PATCH]" to title.</p></div></li>
+<li>Luke Melia 2011-04-15
+
+   <div><p>+1 for this. I have the same need: deciding whether to fetch
+   high-res resolution images from our servers.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Assigning open patches from StatusNet to our support contact per
+   request.</p></div></li>
+<li>James K 2011-04-15
+
+   <div><p>I've never heard of a 'dots per inch' measure in a context not
+   involving printers or documents.</p>
+   <p>Does 'dots per inch' mean the same thing as 'pixels per
+   inch'?</p>
+   <p>If so, values of 160 and 320 are both wrong -- they should be
+   <a href="<a href="http://www.apple.com/iphone/iphone-3gs/specs.html" rel="nofollow" target="_blank">http://www.apple.com/iphone/iphone-3gs/specs.html</a>">163</a>
+   and <a href="<a href="http://www.apple.com/iphone/specs.html" rel="nofollow" target="_blank">http://www.apple.com/iphone/specs.html</a>">326</a>.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>'dpi' is very often used to describe logical on-screen pixel
+   density in the fun world of software, as anybody who's done
+   graphics programming on Windows or Mac OS in the last 25 years can
+   assure you. :)</p>
+   <p>163/326 are more correct for the hardware, but whatever the case
+   currently rounded values are being returned. (On Android, the fixed
+   values 120, 160, or 240 are returned, as these are what's defined
+   as available on the platform, though honestly I'd be surprised if
+   every phone has those EXACT resolutions in hardware. On regular
+   computer screens, standard logical values like 72, 96 or 120 are
+   usually returned for the logical screen "dpi" despite having only a
+   very approximate correspondence with the actual screen's
+   resolution.)</p>
+   <p>I can't find an actual dpi/ppi/whatever check in iOS's available
+   display caps checks (just the scale factor from the logical
+   coordinate system to the framebuffer's pixel grid), so I don't know
+   what Apple would like to "call" it in software, but returning 160
+   on iPhone 4 <em>definitely</em> is wrong -- it should be twice what
+   we get back from an iPhone original/3G/3Gs.</p>
+   <p>On Android we get the defined value for the framebuffer space
+   (120, 160, 240) for dpi, while platformWidth and platformHeight
+   give us logical coordinates. If that's the correct behavior there,
+   then we should be getting 320 (or 326, or whatever) as dpi on
+   iPhone 4. Main point is, we need to be able to distinguish between
+   different screen resolutions so we can ensure we are working with
+   images of the appropriate resolution.</p></div></li>
+<li>Brion Vibber 2011-04-15
+
+   <div><p>Any issues with this patch? Anyone whose attention I should
+   bring it to specifically?</p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+   <div><p>merged.</p></div></li>
+<li>Thomas Huelbert 2011-04-15
+
+    <div><p>iPad - 130 (160 in compatibility mode)<br>
+    3g/3gs/ipod touch (3rd) - 160<br>
+    4g/4th gen ipod touch - 320</p>
+    <p>Closing as resolved.</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1349.json">JSON Source</a></p>

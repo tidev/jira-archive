@@ -1,0 +1,335 @@
+---
+title: "[TIMOB-11178] iOS: Implement iOS6 Core Location AutoPause API"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-18T17:57:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.1.0, 2013 Sprint 06 API, 2013 Sprint 06</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, background, geolocation, ios6, iphone, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Timan Rebel</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-09-25T10:05:14.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-10-23T23:15:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+In iOS 6 Apple has made breaking changes to Core Location by implementing the AutoPause API. The AutoPause API pauses the location updates when an application goes into the background and applies to a couple of criteria (i.e. user not moving, no location fix, user discontinues activity). To accurately handle pause events Apple requests to help better predicting whether or not to pause location updates setting an activity type (i.e. navigation, fitness, other). 
+
+The AutoPause API is enabled by default when an application is compiled against iOS 6.
+
+The problem is that at this moment we, Appcelerator Mobile developers, are not able to configure the AutoPause API and updates are always paused when going into the background, even when UIBackgroundModes is set to location and the application is allowed to keep running in the background for longer then 10 minutes. This breaks the working of any tracking or navigation app and renders it useless.
+
+The easy fix is to disable the AutoPause API for now by always setting 'pausesLocationUpdatesAutomatically' to NO. Location updates will be send even when the app goes in the background, like it used to work in < iOS 6. Hopefully this could be implemented in the 2.1.3 GA release, so we can resubmit our app to the App Store.
+
+The best case scenario is to implement the AutoPause API by adding pausesLocationUpdatesAutomatically and activityType properties (CLLocationManager.h), the CLActivityType constants (CLLocationManager.h) and the pause event listeners (CLLocationManagerDelegate.h) to Ti.Geolocation(.iPhone)
+
+<h4>Test case</h4>
+
+A test application compiled against iOS6 implementing Ti.Geolocation tracking will receive no updates when going into background. Our application did receive a location update every 4 to 5 minutes with horrible accuracy (1000s of meters)
+
+<h4>References</h4>
+
+WWDC 2012 video explaining the AutoPause API: <a href="https://developer.apple.com/videos/wwdc/2012/?include=303#303" rel="nofollow" target="_blank">https://developer.apple.com/videos/wwdc/2012/?include=303#303</a>
+WWDC 2012 Slides explaining the AutoPause API: <a href="http://adcdownload.apple.com//wwdc_2012/wwdc_2012_session_pdfs/session_303__staying_on_track_with_location_services.pdf" rel="nofollow" target="_blank">http://adcdownload.apple.com//wwdc_2012/wwdc_2012_session_pdfs/session_303__staying_on_track_with_location_services.pdf</a>
+
+CLLocationManager Class Reference (pausesLocationUpdatesAutomatically and activityType properties): <a href="http://developer.apple.com/library/ios/#documentation/CoreLocation/Reference/CLLocationManager_Class/CLLocationManager/CLLocationManager.html" rel="nofollow" target="_blank">http://developer.apple.com/library/ios/#documentation/CoreLocation/Reference/CLLocationManager_Class/CLLocationManager/CLLocationManager.html</a>
+
+CLLocationManagerDelegate protocol reference (pause eventlisteners): <a href="http://developer.apple.com/library/ios/#documentation/CoreLocation/Reference/CLLocationManagerDelegate_Protocol/CLLocationManagerDelegate/CLLocationManagerDelegate.html" rel="nofollow" target="_blank">http://developer.apple.com/library/ios/#documentation/CoreLocation/Reference/CLLocationManagerDelegate_Protocol/CLLocationManagerDelegate/CLLocationManagerDelegate.html</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2012-10-08
+
+   Test case 
+   
+   <code><pre>
+   //Global Variables
+   var appInBackground = false;
+     
+     
+   var mainWindow = Titanium.UI.createWindow({  
+       backgroundColor:Ti.UI.iOS.COLOR_UNDER_PAGE_BACKGROUND
+   });
+      
+   var label1 = Titanium.UI.createLabel({
+       color:'#444',
+       text:'GeoLocation Test \n----log console----',
+       font:{fontSize:18,fontFamily:'Helvetica Neue', fontWeight: 'bold'},
+       textAlign:'center',
+       width:Ti.UI.FILL,
+       top: 2
+   });
+   mainWindow.add(label1);
+     
+   var label = Ti. UI.createLabel({
+       top: 50, right:10, left:10,
+       textAlign: 'left',
+       width: Ti.UI.SIZE,
+       height: Ti.UI.SIZE,
+       text: 'Current Location',
+       color:'green'
+   });
+   var ta = Ti.UI.createLabel({
+       top: 70, right:10, left:10,
+       textAlign: 'left',
+       width: Ti.UI.SIZE,
+       height: Ti.UI.SIZE,
+       text: 'Location update not Received',
+       color:'red'
+   });
+   mainWindow.add(label);
+   mainWindow.add(ta);
+   function appendTA(txt) {
+       ta.text = '\n *********************************** \n' + txt;
+       ta.color = "red";
+       setTimeout(function()
+               {
+                   ta.color = "green";
+               },100);
+       Ti.API.info('Location Update Received!!');
+       Ti.API.info('autopause :: ' + Ti.Geolocation.pauseLocationUpdateAutomatically );
+       Ti.API.info(txt);
+   }
+     
+   var locationAdded = false; //Global Variable
+     
+   Ti.Geolocation.purpose = "GPS demo";
+     
+   function translateErrorCode(code) {
+       if (code == null) {
+           return null;
+       }
+       switch (code) {
+           case Ti.Geolocation.ERROR_LOCATION_UNKNOWN:
+               return "Location unknown";
+           case Ti.Geolocation.ERROR_DENIED:
+               return "Access denied";
+           case Ti.Geolocation.ERROR_NETWORK:
+               return "Network error";
+           case Ti.Geolocation.ERROR_HEADING_FAILURE:
+               return "Failure to detect heading";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_DENIED:
+               return "Region monitoring access denied";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_FAILURE:
+               return "Region monitoring access failure";
+           case Ti.Geolocation.ERROR_REGION_MONITORING_DELAYED:
+               return "Region monitoring setup delayed";
+       }
+   }
+     
+   if (Titanium.Geolocation.locationServicesEnabled === false)
+   {
+       Titanium.UI.createAlertDialog({title:'Kitchen Sink', message:'Your device has geo turned off - turn it on.'}).show();
+   }
+   else
+   {
+       var authorization = Titanium.Geolocation.locationServicesAuthorization;
+       Ti.API.info('Authorization: '+authorization);
+       if (authorization == Titanium.Geolocation.AUTHORIZATION_DENIED) {
+           Ti.UI.createAlertDialog({
+               title:Titanium.App.getName(),
+               message:'You have disallowed Titanium from running geolocation services.'
+           }).show();
+       }
+       else if (authorization == Titanium.Geolocation.AUTHORIZATION_RESTRICTED) {
+           Ti.UI.createAlertDialog({
+               title:Titanium.App.getName(),
+               message:'Your system has disallowed Titanium from running geolocation services.'
+           }).show();
+       } else {
+            
+           //
+           //  SET ACCURACY - THE FOLLOWING VALUES ARE SUPPORTED
+             
+           /***********************************************************************************
+              POSSIBLE VALUES
+              Titanium.Geolocation.ACCURACY_BEST
+              Titanium.Geolocation.ACCURACY_NEAREST_TEN_METERS
+              Titanium.Geolocation.ACCURACY_HUNDRED_METERS
+              Titanium.Geolocation.ACCURACY_KILOMETER
+              Titanium.Geolocation.ACCURACY_THREE_KILOMETERS
+              Titanium.Geolocation.ACCURACY_BEST_FOR_NAVIGATION // NEWLY ADDED
+           ************************************************************************************/
+             
+           Titanium.Geolocation.accuracy = Titanium.Geolocation.ACCURACY_THREE_KILOMETERS;
+         
+           //
+           //  SET DISTANCE FILTER.  THIS DICTATES HOW OFTEN AN EVENT FIRES BASED ON THE DISTANCE THE DEVICE MOVES
+           //  THIS VALUE IS IN METERS
+           //
+         
+           Titanium.Geolocation.distanceFilter = 0.1;
+         
+         
+           /************************************************************************************
+           Titanium.Geolocation.ACTIVITYTYPE_OTHER;// default
+           Titanium.Geolocation.ACTIVITYTYPE_AUTOMOTIVE_NAVIGATION;
+           Titanium.Geolocation.ACTIVITYTYPE_FITNESS;// 
+           Titanium.Geolocation.ACTIVITYTYPE_OTHER_NAVIGATION;// 
+           ************************************************************************************/
+             
+             
+           Titanium.Geolocation.activityType =Titanium.Geolocation.ACTIVITYTYPE_FITNESS;
+           Titanium.Geolocation.pauseLocationUpdateAutomatically = false;//change switch value(s1) also
+             
+           Titanium.Geolocation.addEventListener('locationupdatepaused',function(){
+               Ti.API.info('Geolocation location updates Paused!!**********************');
+               var notification = Ti.App.iOS.scheduleLocalNotification({
+                   alertBody:"Location Update Paused !!!",
+                   alertAction:"Resume ?",
+               });
+           });
+             
+           Titanium.Geolocation.addEventListener('locationupdateresumed',function(){
+                   Ti.API.info('********************Geolocation location updates Resumed!!**********************');
+                   var notification = Ti.App.iOS.scheduleLocalNotification({
+                       alertBody:"Location Update Resumed !!!",
+                       alertAction:"Resume ?",
+                   });
+               });
+         
+             
+           var l1 = Ti.UI.createLabel({
+               text:'pauseLocationUpdatesAutomatically?:',
+               font:{fontSize:12},
+               bottom:2,
+               left:0
+           });
+           var s1 = Ti.UI.createSwitch({
+               value:false,
+               right:10,
+               bottom:2,
+           });
+           s1.addEventListener('change', function() {
+               if (s1.value) {
+                   Titanium.Geolocation.pauseLocationUpdateAutomatically = true;
+               }
+               else {
+                   Titanium.Geolocation.pauseLocationUpdateAutomatically = false;
+               }
+           });
+             
+           mainWindow.add(l1);
+           mainWindow.add(s1);
+       }
+     
+        
+   }   
+   var logLocation = function(e)
+   {
+       Ti.Media.vibrate();
+       if (!e.success || e.error)
+               {               
+           appendTA('error:' + JSON.stringify(e.error));
+           Ti.API.info("Code translation: "+translateErrorCode(e.code));
+                   return;
+       }
+       var longitude = e.coords.longitude;
+       var latitude = e.coords.latitude;
+       var altitude = e.coords.altitude;
+       var heading = e.coords.heading;
+       var accuracy = e.coords.accuracy;
+       var speed = e.coords.speed;
+       var timestamp = e.coords.timestamp;
+       var altitudeAccuracy = e.coords.altitudeAccuracy;   
+         
+       var logMessage = 'Location Update \n (lat: ' + latitude+ ', long:' + longitude +') \n accuracy:' + accuracy  +' \n timestamp:' +new Date(timestamp);  
+          
+       appendTA(logMessage);
+       if(appInBackground){
+           Ti.API.info('APP is in background going to fire event');
+           var notification = Ti.App.iOS.scheduleLocalNotification({
+               alertBody:"Location Update from background received \n" +logMessage,
+               alertAction:"Re-Launch!",
+               date:new Date(new Date().getTime() ) 
+           });
+       }
+         
+   }   
+     
+     
+   mainWindow.addEventListener('close', function(e) {
+       Ti.API.info("Window closed !! ");
+       if (locationAdded) {
+           Ti.API.info("removing location callback on destroy");
+           Titanium.Geolocation.removeEventListener('location', logLocation);
+           locationAdded = false;
+       }
+   });
+     
+   mainWindow.addEventListener('open', function(e) {
+       Ti.API.info("Window opened !!");
+     
+       if (!locationAdded && logLocation) {
+           Ti.API.info("adding location callback on resume");
+           Titanium.Geolocation.addEventListener('location', logLocation);
+           locationAdded = true;
+       }
+   });
+     
+   Titanium.Geolocation.addEventListener('locationupdatepaused', function(){
+       Ti.API.info('location manager paused!!');
+   });
+   Titanium.Geolocation.addEventListener('locationupdateresumed', function(){
+       Ti.API.info('location manager resumed!!');
+   });
+     
+     
+   Ti.App.addEventListener('resumed',function(e){
+       appInBackground = false;
+       Ti.API.info("app has resumed from the background");
+   });
+     
+   Ti.App.addEventListener('pause',function(e){
+       Ti.API.info("app was paused from the foreground");
+       appInBackground = true;
+   });
+     
+   Ti.App.addEventListener('resume',function(e){
+       appInBackground = false;
+       Ti.API.info("app has resumed from the background");
+   });
+     
+   Ti.App.addEventListener('paused',function(e){
+       Ti.API.info("app was paused from the foreground");
+       appInBackground = true;
+   });
+      
+   mainWindow.open();   
+   </pre></code></li>
+<li>Timan Rebel 2012-10-24
+
+   Any progress? We currently have a non working app in the app store, which we can't update because we're waiting on this fix.
+   
+   What is necessary to properly test this feature and what can we do to help?</li>
+<li>Vishal Duggal 2012-12-04
+
+   Will revisit the ticket after 6.1.0 is out officially</li>
+<li>Sabil Rahim 2013-03-13
+
+   </li>
+<li>Sabil Rahim 2013-03-13
+
+   New PR is up <a href="https://github.com/appcelerator/titanium_mobile/pull/3963" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3963</a></li>
+<li>Olga Romero 2013-03-20
+
+   Tested and verified fix with:
+   Titanium Studio, build: 3.1.0.201303182358
+   Titanium SDK, build: 3.1.0.v20130319225749
+   XCode 4.6
+   Device: iPhone5 iOS 6.1.2
+   
+   Following Testing instructions, results as expected.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11178.json">JSON Source</a></p>

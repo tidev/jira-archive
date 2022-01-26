@@ -1,0 +1,227 @@
+---
+title: "[TIMOB-8477] Android: background service crashes when exiting application"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-26T07:08:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 09</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Eric Rushing</td></tr>
+<tr><th>Assignee</th><td>jithinpv</td></tr>
+<tr><th>Created</th><td>2012-03-09T16:31:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-02-04T12:47:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Following the directions outlined at <a href="https://wiki.appcelerator.org/display/guides/Simple+Android+Services+in+Titanium." rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/Simple+Android+Services+in+Titanium.</a>  Created a brand new project with two files:
+
+<code><pre>
+var intent = Ti.Android.createServiceIntent({
+	url: 'ans.js'
+});
+intent.putExtra('interval', 1000);
+Ti.Android.startService(intent);
+</pre></code>
+
+<code><pre>
+Ti.API.info('Running NotifierService');
+</pre></code>
+
+
+<code><pre>
+<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+  <services>
+    <service url="ans.js" type="interval"/>
+  </services>
+</android>
+</pre></code>
+
+
+Running the program starts the service and outputs "Running NotifierService" to the log as expected.  The documentation states:
+"Speaking of "going and going and going", while you're testing your service you can back out completely from the application, and the service should still continue to run and emit these "Hello World" statements to the log."
+
+When the back button is pressed to exit the application the service does not continue to output to the log as expected.  Instead the service crashes:
+
+
+<code><pre>
+03-09 15:46:36.234: A/libc(19291): *Fatal signal 11 (SIGSEGV) at 0x00000000 (code=1)*
+03-09 15:46:36.640: I/DEBUG(18946): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+03-09 15:46:36.640: I/DEBUG(18946): Build fingerprint: 'google/mysid/toro:4.0.2/ICL53F/235179:user/release-keys'
+03-09 15:46:36.640: I/DEBUG(18946): pid: 19291, tid: 19306  >>> redacted <<<
+03-09 15:46:36.640: I/DEBUG(18946): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 00000000
+03-09 15:46:36.640: I/DEBUG(18946):  r0 00000001  r1 00000002  r2 000000a3  r3 5c3b5571
+03-09 15:46:36.640: I/DEBUG(18946):  r4 0021c378  r5 00224918  r6 000f9710  r7 00223924
+03-09 15:46:36.640: I/DEBUG(18946):  r8 00000000  r9 00000000  10 00000000  fp 41337848
+03-09 15:46:36.640: I/DEBUG(18946):  ip 5bc39290  sp 5b72fb20  lr 5b9249bc  pc 5ba231d0  cpsr 20000010
+03-09 15:46:36.640: I/DEBUG(18946):  d0  5bc523555bc5221d  d1  5bc530455bc52d50
+03-09 15:46:36.640: I/DEBUG(18946):  d2  5bc52e315bc544c5  d3  5bc545d12b27365b
+03-09 15:46:36.640: I/DEBUG(18946):  d4  5bc500c15bc522e9  d5  5bc54b615bc525d9
+03-09 15:46:36.640: I/DEBUG(18946):  d6  5c038b8d5bc55455  d7  5bc5513d5bc55331
+03-09 15:46:36.640: I/DEBUG(18946):  d8  0000000000000000  d9  0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d10 0000000000000000  d11 0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d12 0000000000000000  d13 0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d14 0000000000000000  d15 0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d16 000000004162d278  d17 0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d18 4059000000000000  d19 3ff0000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d20 4197d78400000000  d21 0000000000000000
+03-09 15:46:36.640: I/DEBUG(18946):  d22 0102030405060708  d23 0102030405060708
+03-09 15:46:36.640: I/DEBUG(18946):  d24 0000000000000000  d25 0000036b0000e8c8
+03-09 15:46:36.640: I/DEBUG(18946):  d26 0000b3bc000d1551  d27 0001036c0000e8c8
+03-09 15:46:36.640: I/DEBUG(18946):  d28 0000000000000000  d29 090a0b0c0d0e0f10
+03-09 15:46:36.640: I/DEBUG(18946):  d30 0000000900000009  d31 0000000900000009
+03-09 15:46:36.640: I/DEBUG(18946):  scr 30000012
+03-09 15:46:36.781: I/DEBUG(18946):          #00  pc 5ba231d0  /data/data/redacted/lib/libkroll-v8.so
+03-09 15:46:36.781: I/DEBUG(18946):          #01  lr 5b9249bc  /data/data/redacted/lib/libkroll-v8.so
+03-09 15:46:36.781: I/DEBUG(18946): code around pc:
+03-09 15:46:36.781: I/DEBUG(18946): 5ba231b0 e2811001 e3500001 e24dd030 e58415c0  ......P.0.M.....
+03-09 15:46:36.781: I/DEBUG(18946): 5ba231c0 e1a08002 e59475b8 e59455bc 0a000032  .....u...U..2...
+03-09 15:46:36.781: I/DEBUG(18946): 5ba231d0 e5983000 e3130001 1a000014 e1b0a0c3  .0..............
+03-09 15:46:36.781: I/DEBUG(18946): 5ba231e0 4a000050 e1a01006 e1a0200a e1a00004  P..J..... ......
+03-09 15:46:36.781: I/DEBUG(18946): 5ba231f0 e58da028 ebffbe90 e1a06000 e59435c0  (........<code>...5..
+03-09 15:46:36.781: I/DEBUG(18946): code around lr:
+03-09 15:46:36.781: I/DEBUG(18946): 5b92499c e1a07000 e5930000 e1a06001 eb02efbf  .p.......</code>......
+03-09 15:46:36.781: I/DEBUG(18946): 5b9249ac e1a01007 e1a02006 e1a05000 eb03f9f6  ..... ...P......
+03-09 15:46:36.781: I/DEBUG(18946): 5b9249bc e2003003 e3530003 e1a09000 0a000007  .0....S.........
+03-09 15:46:36.781: I/DEBUG(18946): 5b9249cc e59505b8 e59535bc e1500003 0a000048  .....5....P.H...
+03-09 15:46:36.781: I/DEBUG(18946): 5b9249dc e2803004 e58535b8 e5809000 e8bd87f0  .0...5..........
+03-09 15:46:36.781: I/DEBUG(18946): stack:
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fae0  00000001  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fae4  0021c378  [heap]
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fae8  0021c378  [heap]
+03-09 15:46:36.781: I/DEBUG(18946):     5b72faec  0021c378  [heap]
+03-09 15:46:36.781: I/DEBUG(18946):     5b72faf0  00000000  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72faf4  00000003  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72faf8  5b798398  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fafc  5b798330  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb00  00000003  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb04  0021be90  [heap]
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb08  5b798398  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb0c  5b798330  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb10  00000003  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb14  0021be30  [heap]
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb18  df0027ad  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb1c  00000000  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb20  4131a758  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb24  0000000c  
+03-09 15:46:36.781: I/DEBUG(18946):     5b72fb28  00000006  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb2c  5b9313d8  /data/data/redacted/lib/libkroll-v8.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb30  4131a758  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb34  00000006  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb38  5b72fb50  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb3c  0021c378  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb40  0021c3d0  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb44  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb48  4088cfb8  /system/lib/libdvm.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb4c  4131a748  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb50  5bc391b8  /data/data/redacted/lib/libkroll-v8.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb54  0021c378  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb58  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb5c  000f9710  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb60  00001c34  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb64  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb68  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb6c  5b9249bc  /data/data/redacted/lib/libkroll-v8.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb70  0021c378  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb74  0021c3d0  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb78  000f9710  [heap]
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb7c  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb80  00000004  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb84  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb88  00000000  
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb8c  5b8ae504  /data/data/com.classifiedconcepts.app.homesearch/lib/libkroll-v8.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb90  5bc391b8  /data/data/com.classifiedconcepts.app.homesearch/lib/libkroll-v8.so
+03-09 15:46:36.789: I/DEBUG(18946):     5b72fb94  0000129c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fb98  000f9710  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fb9c  5b72fbc8  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fba0  000f9710  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fba4  5b808573  /data/data/com.classifiedconcepts.app.homesearch/lib/libkroll-v8.so
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fba8  0000129c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbac  00223920  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbb0  00000000  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbb4  9868d18c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbb8  0000555c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbbc  5b72fc10  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbc0  5b49bf0c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbc4  00000008  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbc8  0021c378  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbcc  00000000  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbd0  00000000  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbd4  001d9600  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbd8  00000003  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbdc  5b49bf14  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbe0  5b72fc10  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbe4  5b72fc10  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbe8  5b49be9c  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbec  5b5b7f9a  /data/dalvik-cache/data@app@com.classifiedconcepts.app.homesearch-1.apk@classes.dex
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbf0  5b72fc24  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbf4  56bef120  /dev/ashmem/dalvik-LinearAlloc (deleted)
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbf8  001d9698  [heap]
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fbfc  00000007  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fc00  5b49beac  
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fc04  407f3bf4  /system/lib/libdvm.so
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fc08  4131b088  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.796: I/DEBUG(18946):     5b72fc0c  41615ec0  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc10  5b49be98  
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc14  00000001  
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc18  41337848  /dev/ashmem/dalvik-heap (deleted)
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc1c  001d96a8  [heap]
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc20  5b72feb8  
+03-09 15:46:36.804: I/DEBUG(18946):     5b72fc24  4082deaf  /system/lib/libdvm.so
+03-09 15:46:38.335: I/DEBUG(18946): *debuggerd committing suicide to free the zombie!*
+03-09 15:46:38.343: I/DEBUG(19361): debuggerd: Feb 25 2012 07:17:23
+03-09 15:46:38.367: D/Zygote(214): *Process 19291 terminated by signal (11)*
+03-09 15:46:38.367: I/ActivityManager(315): *Process com.classifiedconcepts.app.homesearch (pid 19291) has died.*
+03-09 15:46:38.367: W/ActivityManager(315): *Scheduling restart of crashed service com.classifiedconcepts.app.homesearch/.AnsService in 5000ms*
+03-09 15:46:43.406: I/ActivityManager(315): Start proc com.classifiedconcepts.app.homesearch for service com.classifiedconcepts.app.homesearch/.AnsService: pid=19365 uid=10078 gids={1015, 3003}
+03-09 15:46:43.421: I/dalvikvm(19365): Turning on JNI app bug workarounds for target SDK version 8...
+03-09 15:46:43.453: I/TiApplication(19365): (main) [0,0] checkpoint, app created.
+03-09 15:46:43.523: D/dalvikvm(19365): GC_CONCURRENT freed 290K, 4% free 9258K/9607K, paused 2ms+1ms
+03-09 15:46:43.523: I/TiApplication(19365): (main) [70,70] Titanium 1.8.2 (2012/02/23 17:46 59b3a90)
+03-09 15:46:43.945: I/TiApplication(19365): (main) [423,493] Titanium Javascript runtime: v8
+03-09 15:46:43.953: D/dalvikvm(19365): Trying to load lib /data/data/com.classifiedconcepts.app.homesearch/lib/libstlport_shared.so 0x412e64d8
+03-09 15:46:43.960: D/dalvikvm(19365): Added shared lib /data/data/com.classifiedconcepts.app.homesearch/lib/libstlport_shared.so 0x412e64d8
+03-09 15:46:43.960: D/dalvikvm(19365): No JNI_OnLoad found in /data/data/com.classifiedconcepts.app.homesearch/lib/libstlport_shared.so 0x412e64d8, skipping init
+03-09 15:46:43.960: D/dalvikvm(19365): Trying to load lib /data/data/com.classifiedconcepts.app.homesearch/lib/libkroll-v8.so 0x412e64d8
+03-09 15:46:43.968: D/dalvikvm(19365): Added shared lib /data/data/com.classifiedconcepts.app.homesearch/lib/libkroll-v8.so 0x412e64d8
+03-09 15:46:44.226: E/TiApplication(19365): (KrollRuntimeThread) [279,772] APP PROXY: ti.modules.titanium.app.AppModule@4133a5b8
+03-09 15:47:00.039: I/ActivityManager(315): Start proc com.levelup.beautifulwidgets for broadcast com.levelup.beautifulwidgets/.CalendarWidget: pid=19389 uid=10071 gids={3003, 3002, 3001, 1015}
+03-09 15:47:00.046: I/dalvikvm(19389): Turning on JNI app bug workarounds for target SDK version 12...
+03-09 15:47:00.054: D/dalvikvm(19389): Debugger has detached; object registry had 1 entries
+03-09 15:47:00.140: D/Beautiful Widgets(19389): Creating application object
+03-09 15:47:00.148: D/dalvikvm(19389): GC_CONCURRENT freed 162K, 3% free 9382K/9607K, paused 2ms+2ms
+03-09 15:47:00.203: E/Beautiful Widgets(19389): Skin path: /mnt/sdcard/data/beautifulwidgets/skins/spirelli-cyano
+03-09 15:47:03.437: W/ActivityManager(315): Timeout executing service: ServiceRecord{42bbb210 com.classifiedconcepts.app.homesearch/.AnsService}
+</pre></code>
+
+Also of note: Despite the "scheduling restart of service", the service is never successfully restarted.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Michael Belkin 2012-10-02
+
+   any update on this?</li>
+<li>jithinpv 2013-04-26
+
+   cannot reproduce
+   
+   Tested with
+   Titanium Studio, build: 3.0.1.201212181159
+   Titanium SDK version: 3.1.0
+   Android Emulator: Android SDK version: 2.2   
+   </li>
+<li>Asif 2016-02-04
+
+   This issue still exists.
+   
+   The background service and process is getting stopped whenever we exit the application. Even though the background service is showing as started, the notification are not anymore working. </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8477.json">JSON Source</a></p>

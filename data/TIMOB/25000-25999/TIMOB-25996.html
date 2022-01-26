@@ -1,0 +1,55 @@
+---
+title: "[TIMOB-25996] CLI: build process does not lookup modules the same way as ti module"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 7.0.2, Release 7.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>cb-tooling, config, engSchedule, modules</td></tr>
+<tr><th>Reporter</th><td>Creative</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2018-04-30T12:42:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-30T22:00:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When i set a custom module path using *appc ti config paths.modules "mycustom/path"*, the modules I put in here are not recognized in the build command.
+
+I checked using the *appc ti module* command, and my module is listed under *Configured Path Modules*, and not under *Global Modules* (which is correct). However, the one under Configured Path Modules points to the correct path but it is not recognized during build, and therefore it throws:
+
+<code><pre>
+[ERROR] Could not find all required Titanium Modules:
+[ERROR]    id: com.mymodule	 version: 1.1.0	 platform: iphone	 deploy-type: development
+</pre></code>
+
+The desired situation checks both the default directory (the global one under "~/Library/Application Support/Titanium/modules"), but also the custom directory added using the config file.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2018-05-01
+
+   This is a valid bug and looks to be due to a discrepancy in the lookup functions used in each case (<code>ti module</code> vs <code>ti build</code>). 
+   
+   <code>ti module</code>, calls [scopedDetect](<a href="https://github.com/appcelerator/node-appc/blob/d42127a142569be3201cab1530beef06dac021f3/lib/timodule.js#L47-L78)" rel="nofollow" target="_blank">https://github.com/appcelerator/node-appc/blob/d42127a142569be3201cab1530beef06dac021f3/lib/timodule.js#L47-L78)</a> which assumes that the paths given to it are valid paths to a modules directory (e.g /Users/eharris/Library/Application\ Support/Titanium/modules) this then just scans the directory as normal and therefore detects all modules.
+   
+   <code>ti build</code>, calls (eventually) [detect](<a href="https://github.com/appcelerator/node-appc/blob/d42127a142569be3201cab1530beef06dac021f3/lib/timodule.js#L93-L184)" rel="nofollow" target="_blank">https://github.com/appcelerator/node-appc/blob/d42127a142569be3201cab1530beef06dac021f3/lib/timodule.js#L93-L184)</a> which assumes that the paths given to it are valid paths to the parent of a modules directory (e.g /Users/eharris/Library/Application\ Support/Titanium), during the detection it will then construct the modules path to search ( /Users/eharris/Library/Application\ Support/Titanium/modules), if you've already given it the full path ( /Users/eharris/Library/Application\ Support/Titanium/modules) then you get an invalid path ( /Users/eharris/Library/Application\ Support/Titanium/modules/modules).
+   
+   The easy workaround for now is to include both paths in the paths.modules array, you can add them in one go by just including them in the same command <code>ti config paths.modules /Users/eharris/Desktop/ /Users/eharris/Desktop/modules</code>. [~uzbbert] could you maybe try that and see if it works for you?
+   
+   Edit: There is actually a specific order you have to enter them it, I had it in the wrong order previously the parent directory (the one without /modules) *_+must be passed first+_* and show in the first position of the paths.modules array, then the child directory second</li>
+<li>Creative 2018-05-01
+
+   yes thank you, the workaround works. Only inconvenience now is that I had to change my custom directory to *modules* locally, because it is actually a git repository that is named differently on the remote. But it'll do for now, thanks for the quick investigation.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25996.json">JSON Source</a></p>

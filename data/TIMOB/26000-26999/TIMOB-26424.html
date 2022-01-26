@@ -1,0 +1,160 @@
+---
+title: "[TIMOB-26424] Android: Added Ti.App "pause" and "resume" lifecycle events"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2018-10-29T23:12:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, events, lifecycle, parity, pause, resume</td></tr>
+<tr><th>Reporter</th><td>Gary Mathews</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-10-01T17:23:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-18T14:19:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+- <code>Ti.App</code> lifecycle events are not fired
+
+<code><pre>
+Ti.App.addEventListener('resume', () => {
+    Ti.API.info('RESUME');
+});
+
+Ti.App.addEventListener('pause', () => {
+    Ti.API.info('PAUSE');
+});
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-10-01
+
+   Here's one thing you may need to watch out for regarding "resume" and the screen-lock.
+   
+   If your app is in the foreground, you press the power button to turn off the screen, and then turn on the screen... the <code>Activity.onResume()</code> will get called while the screen-lock is displayed (you can't see your app yet). This is fine for most apps... unless they play music or video. Media is not expected to be resumed until after the screen-lock has been cleared. You have to use a <code>BroadcastReceiver</code> to detect if the screen-lock has been cleared.
+   
+   Another interesting thing to watch out for is some screen-locks become transparent as you swipe them off to reveal the app underneath it. So, the app needs to update its content for the current orientation too.
+   
+   I notice that we have a "resume" and "resumed" event. Perhaps the "resume" can be tied to <code>Activity.onResume()</code> and "resumed" tied to after the screen-lock has been swiped away?
+   </li>
+<li>Gary Mathews 2018-10-02
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/10359" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10359</a></li>
+<li>Lokesh Choudhary 2018-10-04
+
+   FR Passed. PR Merged.</li>
+<li>Samir Mohammed 2018-10-10
+
+   *Closing ticket.* Fix can now be verified in SDK version <code>7.5.0.v20181008124804</code>.
+   
+   Test and other information can be found at:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10359" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10359</a></li>
+<li>Michael Gangolf 2018-12-05
+
+   I see this output when using the code in the PR
+   
+   <code><pre>
+   -- Start application log -----------------------------------------------------
+   [INFO]  TiApplication: (main) [0,0] checkpoint, app created.
+   [INFO]  MultiDex: VM with version 2.1.0 has multidex support
+   [INFO]  MultiDex: Installing application
+   [INFO]  MultiDex: VM has multidex support, MultiDex support library is disabled.
+   [INFO]  TiApplication: (main) [141,141] Analytics have been disabled
+   [INFO]  TiApplication: (main) [2633,2774] Titanium Javascript runtime: v8
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity create, savedInstanceState: null
+   [WARN]  art: Before Android 4.1, method android.graphics.PorterDuffColorFilter android.support.graphics.drawable.VectorDrawableCompat.updateTintFilter(android.graphics.PorterDuffColorFilter, android.content.res.ColorStateList, android.graphics.PorterDuff$Mode) would have incorrectly overridden the package-private method in android.graphics.drawable.Drawable
+   [INFO]  test_window 1.0 (Powered by Titanium 7.5.0.2e5a7423d0)
+   [INFO]  TiApplication: (main) [260,260] Analytics have been disabled
+   [INFO]  TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.miga.testmap.Test_windowActivity@d367838
+   [INFO]  RESUME
+   [INFO]  RESUMED
+   [INFO]  PAUSE
+   [INFO]  PAUSED
+   [DEBUG] Window: Checkpoint: postWindowCreated()
+   [INFO]  RESUME
+   [INFO]  RESUMED
+   </pre></code>
+   
+   Why the pause/paused at the start? Is the splashscreen calling pause/resume already?
+   
+   And when extending the code with a button and a new window:
+   <code><pre>
+   var win1 = Ti.UI.createWindow({
+   	backgroundColor: 'white'
+   });
+   
+   Ti.App.addEventListener('resume', () => {
+       Ti.API.info('RESUME');
+   });
+   
+   Ti.App.addEventListener('pause', () => {
+       Ti.API.info('PAUSE');
+   });
+   
+   
+   Ti.App.addEventListener('resumed', () => {
+       Ti.API.info('RESUMED');
+   });
+   
+   Ti.App.addEventListener('paused', () => {
+       Ti.API.info('PAUSED');
+   });
+   
+   var btn = Ti.UI.createButton({
+   	title: "open"
+   });
+   
+   btn.addEventListener("click",function(){
+   	var win2 = Ti.UI.createWindow({
+   		backgroundColor: 'white'
+   	});
+   	win2.open();
+   })
+   
+   win1.add(btn);
+   win1.open();
+   </pre></code>
+   
+   I'll get another pause-paused-resume-resumed when opening a new window. So the event is not app level but activity/window level? So I still have to manually check if a new window was opened or the app is in background?</li>
+<li>Arjan 2018-12-19
+
+   I am wondering the same thing; currently the resume/pause events are also fired when opening/closing a new Window. How do I separate this from an app-level pause/resume?
+   
+   Thanks</li>
+<li>Prashant Saini 2019-01-17
+
+   Same here, this issue is not resolved yet and it's become more problematic now as the events are getting fired for all windows no matter where you add the listener in the code. Need a quick fix on this.</li>
+<li>Joshua Quick 2019-01-18
+
+   [~michael], [~arif], [~prashant_saini],
+   
+   After looking at it, I agree. The current pause/remove behavior does not work like iOS. Nor does it match Titanium's documentation. It's currently following the native Android Activity <code>onPause()</code> and <code>onResume()</code> behavior, which we already have callbacks for, but ultimately app devs need the ability to detect when the app is put into the background/foreground.
+   
+   I've written up a ticket to have this resolved in the near future. See: [TIMOB-26746]</li>
+<li>Prashant Saini 2019-01-18
+
+   @Joshua, thanks for the input, but seems that we are not going to have any events even in 8.0.0.GA release, isn't it?
+   If yes, then we would appreciate if you can provide any proper work-arounds to know when the app was actually put in background without going through all the pains of checking the activity pause-resume events when app can be put in background anytime.</li>
+<li>Joshua Quick 2019-01-18
+
+    We're currently code freezing Titanium 8.0.0 and are only allowing show-stopper fixes. We're trying to push an RC of 8.0.0 in the near future. But I'm going to push to get this fix into 8.0.1.
+    
+    As for a work-around, I think the only solution is to monitor every activity your app opens and keep a count of each one that has had its <code>onStart</code> callback invoked. That's currently how it has to work natively to solve this issue as well. (Internally, we can't solve the problem via Google's new <code>ProcessLifecyleOwner</code> support class yet.)
+    
+    This "can" be solved by creating an Android module, but that's a lot of effort for something so small. But if you were to do it, it would have to do the same thing Titanium's internal "GestureModule.java" code does to start/stop its sensors in the link below (it's a small block of code). We disable sensors when backgrounded and resume sensors when brought back to the foreground.
+    [GestureModule.java#L78](<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/gesture/src/java/ti/modules/titanium/gesture/GestureModule.java#L78)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/gesture/src/java/ti/modules/titanium/gesture/GestureModule.java#L78)</a>
+    </li>
+<li>Michael Gangolf 2019-01-18
+
+    [~prashant_saini] you still can use Bencoding.tools or this Hyperloop module: <a href="https://github.com/dieskim/Appcelerator.Hyperloop.appPauseResume" rel="nofollow" target="_blank">https://github.com/dieskim/Appcelerator.Hyperloop.appPauseResume</a>  as a work-around.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26424.json">JSON Source</a></p>

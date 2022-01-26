@@ -1,0 +1,77 @@
+---
+title: "[ALOY-455] Remove Backbone eventing from Titanium proxies"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-18T16:48:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.0.0, 2013 Sprint 02</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>GA-candidate, notable</td></tr>
+<tr><th>Reporter</th><td>Tony Lukasavage</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-01-11T10:42:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+To this point Alloy was adding Backbone eventing functions to the Titanium proxies that are generated from the XML markup. This added the <code>on()</code>, <code>off()</code>, and <code>trigger()</code> functions to proxies that essentially served the same purpose the proxies' traditional <code>addEventListener()</code>, <code>removeEventListener()</code>, and <code>fireEvent()</code> respectively. This was some experimental functionality to see if Alloy could enhance the event handling on proxies without needing changes from the platforms themselves. 
+
+Unfortunately, though, in doing some deep functional and performance testing prior to the upcoming Alloy 1.0.0 GA release I found that adding the Backbone eventing to each proxy was significantly increasing the time necessary to generate those proxies. Due to the nature of the native platform relationship proxies have in Titanium, it's impossible to augment them without this overhead. The following example shows creating 10000 Ti.UI.Views with traditional Titanium dev and Alloy dev. 
+
+<code><pre>
+var iterations = 10000;
+for (var k = 0; k < 5; k++) {
+	var start = new Date().getTime();
+	for (var i = 0; i < iterations; i++) {
+		var bob = Ti.UI.createView();	
+	}
+	var end = new Date().getTime();
+	var time = end - start;
+	Ti.API.info('Traditional time: ' + time);
+	
+	start = new Date().getTime();
+	for (i = 0; i < iterations; i++) {
+		var bob = A$(Ti.UI.createView());	
+	}
+	end = new Date().getTime();
+	time = end - start;
+	Ti.API.info('Alloy time: ' + time);
+}
+</pre></code>
+
+The output of the above app on my machine was as follows:
+
+<code><pre>
+[INFO] :  Traditional time: 288
+[INFO] :  Alloy time: 1558
+[INFO] :  Traditional time: 304
+[INFO] :  Alloy time: 1543
+[INFO] :  Traditional time: 252
+[INFO] :  Alloy time: 1619
+[INFO] :  Traditional time: 350
+[INFO] :  Alloy time: 1633
+[INFO] :  Traditional time: 294
+[INFO] :  Alloy time: 1535
+</pre></code>
+
+So as is apparent here, the <code>A$</code> function that adds backbone eventing to the proxies significantly slows down proxy creation. For this reason, in the 1.0.0 GA for Alloy, I will be removing all Backbone eventing on all proxies generated from markup. 
+
+What does this mean? Essentially, if you were using on(), off(), and trigger() on your proxies, go back to using addEventListener(), removeEventListener(), and fireEvent(). That's pretty much it. Be aware that the Alloy controllers themselves will still have Backbone eventing, as will of course the models and collections. Only the proxies created from Alloy XML markup will be affected.
+
+All samples and documentation will also need to be updated to reflect the absence of backbone eventing on proxies.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-01-18
+
+   The Alloy.A() wrapper function that added Backbone eventing to Titanium proxies built from markup has been removed. All references used in Alloy to that function have been removed. All use of on()/off()/trigger() functions in Alloy code has been removed. All test apps that utilized these functions have been replaced with addEventListener()/removeEventListener()/fireEvent() respectively.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-455.json">JSON Source</a></p>

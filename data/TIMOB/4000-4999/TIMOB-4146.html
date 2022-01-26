@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-4146] Android: aborting large file download crashes app with NullPointerException"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-11-05T13:49:29.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.6.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-23, Release 1.7.2, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jon Alter</td></tr>
+<tr><th>Assignee</th><td>Opie Cyrus</td></tr>
+<tr><th>Created</th><td>2011-05-19T14:52:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-11-05T13:49:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Aborting large file download crashes the app.
+
+Step 1: run the code below
+Step 2: start the download
+Step 3: abort the download or wait for it to auto abort
+Step 4: wait for a few seconds and the app will crash
+
+Error:
+<code><pre>
+[TRACE] W/dalvikvm( 830): threadid=10: thread exiting with uncaught exception (group=0x4001d800)
+[TRACE] E/TiUncaughtHandler( 830): (TiHttpClient-1) [4,18096] Sending event: exception on thread: TiHttpClient-1 msg:java.lang.NullPointerException; Titanium 1.6.2,2011/04/18 17:16,78906d
+[TRACE] E/TiUncaughtHandler( 830): java.lang.NullPointerException
+[TRACE] E/TiUncaughtHandler( 830): at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1009)
+[TRACE] E/TiUncaughtHandler( 830): at java.lang.Thread.run(Thread.java:1096)
+[TRACE] E/AndroidRuntime( 830): FATAL EXCEPTION: TiHttpClient-1
+[TRACE] E/AndroidRuntime( 830): java.lang.NullPointerException
+[TRACE] E/AndroidRuntime( 830): at ti.modules.titanium.network.TiHTTPClient$ClientRunnable.run(TiHTTPClient.java:1009)
+[TRACE] E/AndroidRuntime( 830): at java.lang.Thread.run(Thread.java:1096)
+[TRACE] W/ActivityManager( 60): Force finishing activity com.appcelerator.test1/.Test1Activity
+</pre></code>
+Example code:
+<code><pre>
+var win = Titanium.UI.createWindow();
+
+var ind=Titanium.UI.createProgressBar({
+	width:200,
+	height:50,
+	min:0,
+	max:1,
+	value:0,
+	top:10,
+	message:'Downloading ' + (Ti.Platform.name == 'android' ? 'PNG' : 'PDF') + ' File',
+	font:{fontSize:12, fontWeight:'bold'},
+	color:'#888'
+});
+
+win.add(ind);
+ind.show();
+
+var abort = Titanium.UI.createButton({
+	title:'Abort',
+	height:40,
+	width:200,
+	top:170
+});
+win.add(abort);
+abort.addEventListener('click', function()
+{
+	c.abort();
+	ind.value = 0;
+});
+
+var largeFile = Titanium.UI.createButton({
+	title:'Large File Download',
+	height:40,
+	width:200,
+	top:220
+});
+win.add(largeFile);
+
+largeFile.addEventListener('click', function()
+{
+	ind.value = 0;
+	c = Titanium.Network.createHTTPClient();
+	var myAbort = function(e){
+		Ti.API.info('Aborted!!!');
+		c.abort();
+	}
+	
+	c.setTimeout(10000);
+	c.onload = function(e)
+	{
+		Ti.API.info("ONLOAD = "+e);
+	};
+	c.ondatastream = function(e)
+	{
+		ind.value = e.progress ;
+		Ti.API.info('ONDATASTREAM1 - PROGRESS: ' + e.progress);
+		if(e.progress > .02){
+			myAbort();
+		}
+	};
+	c.onerror = function(e)
+	{
+		Ti.UI.createAlertDialog({title:'XHR', message:'Error: ' + e.error}).show();
+	};
+
+	c.open('GET','<a href="http://www.appcelerator.com/download-win32" rel="nofollow" target="_blank">http://www.appcelerator.com/download-win32</a>');
+	c.send();
+});
+
+win.open();
+</pre></code>
+
+<h4>Associated Helpdesk Ticket</h4>
+<a href="http://appc.me/c/APP-476121" rel="nofollow" target="_blank">http://appc.me/c/APP-476121</a>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4146_20995/tsDefault.zip">tsDefault.zip</td></td><td>2011-06-08T13:36:09.000+0000</td><td>5358046</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Opie Cyrus 2011-06-08
+
+   test app to verify fix.  Once "Large File Download" is selected, read the logcat to see that onload fires.  Should be able to call multiple times in the test app but wait till the current test finishes before starting another.</li>
+<li>Don Thorp 2011-06-23
+
+   merged to 1_7_X</li>
+<li>Natalie Huynh 2011-07-06
+
+   Tested with Nexus S 2.3.4 and Nexus One 2.2.2 with 1.7.2.v20110630161836</li>
+<li>Don Thorp 2011-11-05
+
+   Standardizing summary and labels.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4146.json">JSON Source</a></p>

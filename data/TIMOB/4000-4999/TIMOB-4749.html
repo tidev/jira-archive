@@ -1,0 +1,198 @@
+---
+title: "[TIMOB-4749] Android: Add support for Camera autohide property"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-05-28T16:08:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.1, Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 15, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, camera, media, module_media, parity, qe-testadded, tbs-1.9.0</td></tr>
+<tr><th>Reporter</th><td>Opie Cyrus</td></tr>
+<tr><th>Assignee</th><td>Bill Dawson</td></tr>
+<tr><th>Created</th><td>2011-07-22T11:04:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-05-28T16:08:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4749_40624/app.js">app.js</td></td><td>2013-07-09T22:34:55.000+0000</td><td>2722</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Roger Mabillard 2012-08-07
+
+   Is there any reason why this feature is taking so long? I am building an app that uses a custom overlay but there is no way right now to keep the camera open after takePicture. We are creating picture series to upload them all in the same collection. Any advice? Thanks</li>
+<li>Steve Richmann 2013-03-12
+
+   We need this functionality too, we are building an app which sends images continously to a remote server and automatically closing the cameraview is a real showkiller for us on android.</li>
+<li>Bill Dawson 2013-07-09
+
+   Test app.</li>
+<li>Bill Dawson 2013-07-09
+
+   <h4>Testing Notes</h4>
+   
+   * Note that docs were changed too, so don't forget to test.
+   
+   * Use attached app.js file. The UI contains a switch to toggle the autohide property.  As you take photos, they'll appear (stretched and ugly, but still proving that you're getting the data) in a scrollview one after the other.  If you turn off autohide, you can take a bunch of pictures and they'll line up.  
+   
+   * When you click the Close button while using the camera with autohide off, that calls the new Ti.Media.hideCamera.  So if the camera preview goes away, then you've successfully tested that too.  That's the test for TIMOB-14180.</li>
+<li>Bill Dawson 2013-07-09
+
+   PR:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4446" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4446</a></li>
+<li>Ping Wang 2013-07-29
+
+   An extended test case:
+   <code><pre>
+   /* jshint undef: true, unused: true */
+   /* global Ti: false, console: false */
+   
+   Ti.UI.backgroundColor = "#fff";
+   var win = Ti.UI.createWindow({  
+           title:'Test',
+           backgroundColor:'#fff',
+           exitOnClose: true,
+           orientationModes: [Ti.UI.PORTRAIT]
+       }),
+       log = function(s) {
+           console.log(s);
+       },
+       btn = Ti.UI.createButton({
+           title: "Show camera",
+           top: "16dp",
+           left: "16dp"
+       }),
+       hideSwitch = Ti.UI.createSwitch({
+           titleOn: "autohide=true",
+           titleOff: "autohide=false",
+           value: true,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE,
+           right: "16dp",
+           top: "16dp"
+       }),
+       overlaySwitch = Ti.UI.createSwitch({
+           titleOn: "with overlay",
+           titleOff: "without overlay",
+           value: true,
+           width: Ti.UI.SIZE,
+           height: Ti.UI.SIZE,
+           left: "35%",
+           top: "16dp"
+       }),
+       overlayView = Ti.UI.createView({
+           width: Ti.UI.FILL,
+           height: Ti.UI.FILL
+       }),
+       overlayButtonClick = Ti.UI.createButton({
+           width: Ti.UI.SIZE,
+           height: "48dp",
+           bottom: "8dp",
+           left: "16dp",
+           title: "Take Photo"
+       }),
+       overlayButtonClose = Ti.UI.createButton({
+           width: Ti.UI.SIZE,
+           height: "48dp",
+           bottom: "8dp",
+           right: "16dp",
+           title: "Close"
+       }),
+       options = {
+           cancel: function() {
+               log("Cancelled");
+           },
+           error: function(e){
+               log("Error - " + e.error);
+           },
+           success: function(e) {
+               log("Media type: " + e.mediaType);
+               log("Media size: " + e.media.length);
+               makeImageView(e.media);
+           },
+           autohide: hideSwitch.value,
+           saveToPhotoGallery: false,
+           showControls: false
+       },
+       sv = Ti.UI.createScrollView({
+           contentWidth: 'auto',
+           contentHeight: 'auto',
+           width: Ti.UI.FILL,
+           height: Ti.UI.FILL,
+           layout: 'vertical',
+           top: "80dp",
+           scrollType: 'vertical',
+           backgroundColor: 'black'
+       });
+   
+   overlayView.add(overlayButtonClick);
+   overlayView.add(overlayButtonClose);
+   
+   overlayButtonClick.addEventListener("click", function() {
+   	Ti.Media.takePicture();
+   });
+   
+   overlayButtonClose.addEventListener("click", function() {
+   	Ti.Media.hideCamera();
+   });
+   
+   btn.addEventListener("click", function() {
+       options.autohide = hideSwitch.value;
+       if (!overlaySwitch.value) {
+           if (options.overlay) {
+               delete options.overlay;
+           }
+       } else {
+           options.overlay = overlayView;
+       }
+       Ti.API.info("options: " + JSON.stringify(options));
+   	Ti.Media.showCamera(options);
+   });
+   
+   function makeImageView(blob) {
+       sv.add(Ti.UI.createImageView({
+           image: blob.imageAsThumbnail(Ti.Platform.displayCaps.platformWidth, 1, 20),
+           height: (3 * 48) + "dp",
+           width: (Ti.Platform.displayCaps.platformWidth - 48) + "px",
+           top: "8dp"
+       }));
+   }
+   
+   win.add(btn);
+   win.add(hideSwitch);
+   win.add(overlaySwitch);
+   win.add(sv);
+   
+   win.open();
+   </pre></code></li>
+<li>Federico Casali 2013-10-16
+
+   Verified working as expected. 
+   
+   TiSDK 3.2.0.v20131016114850
+   CLI 3.2.0
+   Titanium Studio 3.2.0.201310152326
+   
+   Closing.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4749.json">JSON Source</a></p>

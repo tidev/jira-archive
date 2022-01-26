@@ -1,0 +1,298 @@
+{
+	"id": "173464",
+	"key": "AC-6207",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "10000",
+			"description": "",
+			"name": "Done"
+		},
+		"resolutiondate": "2019-04-30T23:48:13.000+0000",
+		"created": "2019-04-11T20:48:35.000+0000",
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "shossain",
+			"key": "shossain",
+			"displayName": "Shak Hossain",
+			"active": false,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-04-30T23:48:15.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [],
+		"description": "Most android devices are far too slow when handling batch inserts on an encrypted database. Here is a link to an example project that highlights the issue:\r\n[https://drive.google.com/file/d/1FFXryxVuyL6eCNcAY3hwRhllnv6LCT3Q/view?usp=sharing]\r\n\r\nThis example runs a batch insert of 10000 rows on both an encrypted DB and a non encrypted DB and logs the time taken for each. I have tried decreasing batch size to 1000 rows and running 10 of those queries and the performance doesn't improve. \r\n\r\nRunning the example on a Nexus 4 with Android 6 gave the following results:\r\n\r\n[ERROR] \b\b \bTook 45.502s to execute on encrypted DB...\r\n[ERROR] \b\b \bTook 0.081s to execute on non encrypted DB...",
+		"attachment": [],
+		"flagged": false,
+		"summary": "EncryptedDB slow inserts on Android",
+		"creator": {
+			"name": "nwhitesell",
+			"key": "nwhitesell",
+			"displayName": "Nate Whitesell",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "nwhitesell",
+			"key": "nwhitesell",
+			"displayName": "Nate Whitesell",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Nexus 4 Android 6 (simulator and device)\r\nGoogle Pixel Android 8 (device)\r\nLG VS986 Android 6 (simulator and device)\r\nNexus 9 Android 7 (simulator and device)",
+		"comment": {
+			"comments": [
+				{
+					"id": "447629",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-11T22:24:02.000+0000",
+					"updated": "2019-04-11T22:24:27.000+0000"
+				},
+				{
+					"id": "447630",
+					"author": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Hey Joshua, we don't have permission to view that comment.  We're seeing these performance issues with a single SQL statement, not multiple statements.  Also, SQLCipher should implicitly create transactions, however we've also attempted to use explicit BEGIN/COMMIT statements to manage the transactions ourselves and see no difference in performance for the use case stated in this JIRA.  We're seeing a significant discrepancy between the EncryptedDB module and the native Ti.Database module with identical schemas and queries.  I understand encryption adds overhead, however even if we use the module without an encryption key in a non-encrypted manner we are still seeing the performance issues.  I also understand that Ti.Database uses the system's native SQLite library, but we don't understand why the discrepancy would be this dramatic.",
+					"updateAuthor": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2019-04-11T23:15:04.000+0000",
+					"updated": "2019-04-11T23:25:16.000+0000"
+				},
+				{
+					"id": "447669",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Oh shoot. I didn't realize I was linking to a private ticket. Here's a copy and paste of some of the key comments below.\r\n\r\nbq. We use the SQLCipher library to implement encrypted SQLite database support on Android and iOS. They provide the following guidance in improving performance...\r\nhttps://discuss.zetetic.net/t/sqlcipher-performance/14\r\nbq. So, transactions should be used when doing multiple INSERTs and UPDATEs as a single batch. And you should be using indexes to reduce the SELECT, INSER, and UPDATE execution times as well. Also, opening the database file is expensive as well and you should leave it open if you are actively using it. Don't open and close it per database transaction.\r\nbq. Note that execution times on Android are going to be a bit slower compared to iOS because there is \"language-interop\" involved. On iOS, the JavaScript, SQLite, and encryption APIs are all implemented in C, so there is no language interop or extra string copies that need to happen. On Android, there's additional overhead with copying the JavaScript C/C++ strings to/from Java strings (involves transcoding to/from UTF-8 and UTF-16 too).\r\n\r\n[~ryan@mvretail.com], below is the code I use to demo the performance differences between {{Ti.Database}} and {{appcelerator.encrypteddatabase}} with and without transaction. The setting the top 2 variables {{isEncrypted}} and {{useTransactions}} to {{true}}/{{false}} allows you to see the performance differences. The \"BEGIN TRANSACTION\"/\"COMMIT\" does significantly improve the performance. You should also keep the database connection open, because opening/closing the database file has significant overhead as well.\r\n{code:javascript}\r\nvar isEncrypted = true;\r\nvar useTransactions = true;\r\nvar database = isEncrypted ? require(\"appcelerator.encrypteddatabase\") : Ti.Database;\r\nif (isEncrypted) {\r\n\tdatabase.setPassword(\"password\");\r\n}\r\n\r\nvar dbConnection = null;\r\ntry {\r\n\t// Open the database file.\r\n\tvar dbName = isEncrypted ? \"test_encrypted.db\" : \"test.db\";\r\n\tdbConnection = database.open(dbName);\r\n\r\n\t// Drop the table created below if we're re-running the app.\r\n\tdbConnection.execute(\"DROP TABLE IF EXISTS test;\");\r\n\r\n\t// Create the database table.\r\n\tif (useTransactions) {\r\n\t\tdbConnection.execute(\"BEGIN TRANSACTION;\");\r\n\t}\r\n\tdbConnection.execute(\"CREATE TABLE test(id integer PRIMARY KEY, name TEXT);\");\r\n\tdbConnection.execute(\"CREATE INDEX test_name ON test(name);\");\r\n\tif (useTransactions) {\r\n\t\tdbConnection.execute(\"COMMIT;\");\r\n\t}\r\n\t\r\n\t// Insert rows and measure performance.\r\n\tTi.API.info(\"@@@ DB inserts started.\");\r\n\tvar startTime = new Date();\r\n\tif (useTransactions) {\r\n\t\tdbConnection.execute(\"BEGIN TRANSACTION;\");\r\n\t}\r\n\tfor (var index = 1; index <= 1000; index++) {\r\n\t\tdbConnection.execute(\"INSERT INTO test(name) VALUES ('Row \" + index + \"');\");\r\n\t}\r\n\tif (useTransactions) {\r\n\t\tdbConnection.execute(\"COMMIT;\");\r\n\t}\r\n\tTi.API.info(\"@@@ DB insert duration: \" + (new Date() - startTime) + \" ms\");\r\n} catch (err) {\r\n\t// Database error occurred.\r\n\talert(err);\r\n\tTi.API.error(err);\r\n} finally {\r\n\t// Close the database.\r\n\tif (dbConnection) {\r\n\t\ttry {\r\n\t\t\tdbConnection.close();\r\n\t\t} catch (err) {\r\n\t\t\talert(err);\r\n\t\t\tTi.API.error(err);\r\n\t\t}\r\n\t\tdbConnection = null;\r\n\t}\r\n}\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-12T21:18:26.000+0000",
+					"updated": "2019-04-30T21:46:15.000+0000"
+				},
+				{
+					"id": "447672",
+					"author": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Joshua, have you looked at our example project at all?  We are not running individual insert statements.  We are running a single query and seeing the performance issues mentioned.\r\n\r\nWe are already aware of the recommendations for running multiple insert statements in a single connection/transaction.  This is a different scenario altogether.",
+					"updateAuthor": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2019-04-12T21:24:03.000+0000",
+					"updated": "2019-04-12T21:24:03.000+0000"
+				},
+				{
+					"id": "447673",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "bq. have you looked at our example project at all?\r\n\r\nNo. I'm providing general guidance on how to get the best performance out of the 3rd party \"SQLCipher\" library which is what the EncrypteDB wraps. Effectively this...\r\nhttps://discuss.zetetic.net/t/sqlcipher-performance-optimization/14\r\n\r\nThe other performance improvement you can make is keep the database connection open and re-use. There is a major performance hit every time you open/close the encrypted database file as well.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-12T21:31:50.000+0000",
+					"updated": "2019-04-12T21:31:50.000+0000"
+				},
+				{
+					"id": "447674",
+					"author": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Again, we've already implemented those suggestions.  We are still having massive performance issues with EncryptedDB.",
+					"updateAuthor": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2019-04-12T21:34:30.000+0000",
+					"updated": "2019-04-12T21:34:30.000+0000"
+				},
+				{
+					"id": "447680",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~ryan@mvretail.com], then the performance bottleneck you are most likely running into is the transcoding of your very large SQL string to/from UTF-8/UTF-16. Because this involves transcoding the JavaScript UTF-8 string to a Java UTF-16 string, which is then passed to the \"SQLCipher\" library, which in the end will be transcoded back to UTF-8 when sent to the C/C++ to be written to the database.\r\n\r\nWith the code I posted above, doing 1000 separate inserts with \"transactions\" is pretty reasonable between the encrypted and unencrypted database modules. The average times for me on a physical Pixel 2 device are:\r\n* {{appcelerator.encrypteddatabase}}: 102 ms\r\n* {{Ti.Database}}: 42 ms\r\n\r\nI suggest that you do the same and split your giant INSERT SQL string into separate INSERT strings surrounded by a begin/end transaction call. This is proven to be far more efficient.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-13T02:30:31.000+0000",
+					"updated": "2019-04-13T02:30:31.000+0000"
+				},
+				{
+					"id": "447681",
+					"author": {
+						"name": "nwhitesell",
+						"key": "nwhitesell",
+						"displayName": "Nate Whitesell",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Joshua, Thanks for addressing this promptly. I ran your code on a Nexus 4 with Android 6 (one of the environments I described as having this problem) and the results were:\r\n\r\n* appcelerator.encrypteddatabase: @@@ DB insert duration: 9604 ms\r\n* Ti.Database: @@@ DB insert duration: 130 ms\r\n\r\nAnd when I increased the row size to 10000 like in my sample project, I got the following results:\r\n\r\n* appcelerator.encrypteddatabase: @@@ DB insert duration: 104572 ms\r\n* Ti.Database:@@@ DB insert duration: 1070 ms\r\n\r\nThis shows the problem exists still even with your suggestions. As I stated in the original bug report, this isn't happening on all android devices. Even the large batch inserts on my sample projects are fast on most devices with android 8 and above. While your suggestions on optimization are helpful, they are no match for the issue on these environments. Could you please investigate why it is so slow on the devices and android versions specified?",
+					"updateAuthor": {
+						"name": "nwhitesell",
+						"key": "nwhitesell",
+						"displayName": "Nate Whitesell",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-13T03:28:43.000+0000",
+					"updated": "2019-04-13T03:28:43.000+0000"
+				},
+				{
+					"id": "447705",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I ran my code on a physical Nexus 4 (Android 4.4) device:\r\n* appcelerator.encrypteddatabase: 559 ms\r\n* Ti.Database: 328 ms\r\n\r\nI'm pretty sure my Nexus 4 device is older/slower than yours. I've never seen such awful times like you're reporting before.\r\n\r\nI'm curious if you're running into the same performance issue mentioned to the SQLCipher team below. The claim is that happens with the newest SQLCipher 4.0.1 library version, which is what the \"appcelerator.encrypteddatabase\" module uses.\r\nhttps://github.com/sqlcipher/android-database-sqlcipher/issues/411\r\n\r\nIn the above link, they were able to work-around the performance issue by executing the following pragma. Would you mind trying this on your Nexus 4?\r\n{code:javascript}\r\ndbConnection.execute(\"PRAGMA cipher_memory_security = OFF;\");\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-15T22:03:30.000+0000",
+					"updated": "2019-04-15T22:11:40.000+0000"
+				},
+				{
+					"id": "447825",
+					"author": {
+						"name": "nwhitesell",
+						"key": "nwhitesell",
+						"displayName": "Nate Whitesell",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Turning off the cipher_memory_security seems to have stopped the extreme slow down. Thanks for digging into this! I will update if this work-around ever stops working or seems to create new issues. ",
+					"updateAuthor": {
+						"name": "nwhitesell",
+						"key": "nwhitesell",
+						"displayName": "Nate Whitesell",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-22T15:28:23.000+0000",
+					"updated": "2019-04-22T15:28:23.000+0000"
+				},
+				{
+					"id": "447837",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Oh good. I'm glad it worked.\r\nAnd sorry if I came across as being difficult here.\r\n\r\nWe'll keep an eye out for any potential fixes for this on the SQLCipher library's end too. Thanks.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-22T18:28:40.000+0000",
+					"updated": "2019-04-22T18:28:40.000+0000"
+				}
+			],
+			"maxResults": 13,
+			"total": 13,
+			"startAt": 0
+		}
+	}
+}

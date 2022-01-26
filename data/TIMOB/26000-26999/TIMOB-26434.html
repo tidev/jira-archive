@@ -1,0 +1,109 @@
+---
+title: "[TIMOB-26434] Android: Support building "app bundles""
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-30T16:44:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>2019-cl, android, build, production</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-10-03T12:38:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-30T16:44:01.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+Google Play allows you to upload your app as an "app bundle" (aka: an <code>*.aab</code> file) instead of an APK. How this works is that Google will generate multiple APKs from the app bundle, split by architecture and image density, and digitally sign each APK with a keystore you've uploaded for you. This is a similar feature to what Apple provides on iOS and allows for smaller apps to be downloaded to the Android device.
+<a href="https://developer.android.com/guide/app-bundle" rel="nofollow" target="_blank">https://developer.android.com/guide/app-bundle</a>
+
+*Note:*
+You cannot install/run an app bundle on an Android devices. That is, Android devices still only support APKs. An app bundle is only a Google Play publishing feature.
+
+This is why a Titanium "test" or "development" build should not build an app bundle, because it's useless for local testing purposes. It only makes sense for "production" builds for publishing.
+
+*Recommended Solution:*
+When doing a "production" build, Titanium should generate both an APK and app-bundle to the destination directory. No configuration required.
+
+Note that building a "production" APK is still useful. Some features such as push notifications, in-app billing, Google LVL licensing, etc. can't be tested with a "debug.keystore" signed APK. Also, app bundles do not support Google expansion files. Nor are app bundles supported on other Android app stores such as Amazon (ie: only supported on Google Play).
+
+We can implement app bundle support once we've adopted gradle build support.
+<a href="https://developer.android.com/studio/build/building-cmdline" rel="nofollow" target="_blank">https://developer.android.com/studio/build/building-cmdline</a>
+
+The <code>gradlew</code> command line would be something like this...
+<code><pre>
+./gradlew :app:bundleRelease
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-10-25
+
+   Note that this should be a build "option" and not a replacement. Reasons are:
+   * App bundle ".aab" files are only supported by Google Play and no other Android app store, such as Amazon.
+   * App bundles do not support Google Expansion Files. _(This is a huge negative.)_
+   * It would likely mean dropping Android 4.x OS support, but that may be okay.
+   <a href="https://developer.android.com/guide/app-bundle/#known_issues" rel="nofollow" target="_blank">https://developer.android.com/guide/app-bundle/#known_issues</a>
+   
+   I'm fine with us supporting AAB app bundles since it offers us a solution to split apps by architecture (ARMv7, ARM64, and x86). The C/C++ .so libraries is where most of the binary bloat a Titanium app has (the Java side is very small in comparison). But doing separate APK builds per architecture is still a good option as well because it doesn't have the above mentioned limitations. And it's the only option if you want to publish to other Android app stores.</li>
+<li>Hans Knöchel 2018-10-26
+
+   I agree! It should not even be the default, but an optional parameter to enable it would be awesome. It seems like we could invoke indeed trigger it with the CLI (usually it's enabled with Gradle / Android Studio). *If* Studio wants to support it, we need some new input forms for it I think, as well as prompts for the CLI. Bumping to Android 5 for it should be worth it. Exciting topic for sure. </li>
+<li>Darius G 2019-01-07
+
+   Waiting for this feature!</li>
+<li>Ygor Lemos 2019-02-19
+
+   +1 for this.
+   
+   App Bundles are needed for "App Signing by Google Play" and it seems that this is the new "recommended" way for signing apps in the future as it is much more flexible (and safe?!) towards signing keys since it is all managed by Google.
+   
+   It also enables Dynamic Delivery as mentioned before according to <a href="https://developer.android.com/guide/app-bundle/#dynamic_delivery" rel="nofollow" target="_blank">https://developer.android.com/guide/app-bundle/#dynamic_delivery</a>
+   
+   As for other stores, Google mentions in the docs that you should generate your own signing keys and provide them to Google in the opt-in process so you still be able to sign apks for other stores.
+   
+   bq. "Note: When you opt in to App signing by Google Play, you aren’t able to download the signing key from Google. If you want to use the same signing key across multiple stores, make sure to provide your own signing key when you opt in to App signing by Google Play, instead of having Google generate one for you."</li>
+<li>Hans Knöchel 2019-06-03
+
+   Starting today, Google play officially warns you your APK's is not optimized and that app bundles should be used. Can someone just write a CLI plugin to use the official [<code>bundletool</code> CLI  tools](<a href="https://github.com/google/bundletool)?" rel="nofollow" target="_blank">https://github.com/google/bundletool)?</a> It saves between 20 and 40 % app size in general, which is quite important to compete these days. Thanks!</li>
+<li>Trevor Crawford 2019-06-13
+
+   I'd really like to see this feature get implemented!</li>
+<li>Ygor Lemos 2019-07-19
+
+   I'm receiving the Play Store warns on every build since June as well...</li>
+<li>Carlos Henrique Zinato 2019-07-22
+
+   +1 waiting for this feature</li>
+<li>Louis van de Wiele 2019-07-22
+
+   +1 Love to see this soon :)</li>
+<li>Ygor Lemos 2019-09-12
+
+    any news on this?</li>
+<li>Joshua Quick 2019-12-21
+
+    PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11407" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11407</a></li>
+<li>Satyam Sekhri 2020-01-28
+
+    FR Passed. Creating a production build for a project created a .apk and .aab file. The app bundle uploads successfully on play store.
+    
+    Waiting on Jenkins build.</li>
+<li>Christopher Williams 2020-01-30
+
+    merged to master for 9.0.0</li>
+<li>Sohail Saddique 2020-01-30
+
+    Ticket verified on build: 9.0.0.v20200130071742. APK and AAB files are both generated as expected. Ticket closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26434.json">JSON Source</a></p>

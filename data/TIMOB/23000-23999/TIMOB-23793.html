@@ -1,0 +1,145 @@
+---
+title: "[TIMOB-23793] Hyperloop: iOS - Function not being converted to Block in a specific scenario"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 3.2.0</td></tr>
+<tr><th>Components</th><td>Hyperloop</td></tr>
+<tr><th>Labels</th><td>engArch, error, hyperloop, ios</td></tr>
+<tr><th>Reporter</th><td>Rodolfo Perottoni</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2016-08-17T07:34:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-15T15:48:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm running an iOS HyperLoop project with TesseractOCR.
+One of the features of TesseractOCR is detecting characters and execute a block after finishing the recognition. That is done with *NSOperationQueues*.
+
+Inside their *G8RecognitionOperation* class (which extends NSOperation), they are defining a block type:
+
+<code><pre>
+typedef void(^G8RecognitionOperationCallback)(G8Tesseract *tesseract);
+</pre></code>
+
+And right after that they create a property with that type: 
+
+<code><pre>
+@property (nonatomic, copy) G8RecognitionOperationCallback recognitionCompleteBlock;
+</pre></code>
+
+Normally with HyperLoop i'd send a JS function to that property, with:
+
+<code><pre>
+operation = G8RecognitionOperation.alloc().init();
+operation.recognitionCompleteBlock = function(obj) {
+    Ti.API.error('finished');
+};
+</pre></code>
+
+But when i build my project with this code i'm getting this error:
+
+<code><pre>
+[ERROR] Script Error {
+[ERROR]     column = 14;
+[ERROR]     description = "-[KrollCallback copyWithZone:]: unrecognized selector sent to instance 0x7fe47d82bc20";
+[ERROR]     line = 134;
+[ERROR]     message = "-[KrollCallback copyWithZone:]: unrecognized selector sent to instance 0x7fe47d82bc20";
+[ERROR]     name = NSInvalidArgumentException;
+</pre></code>
+
+So i went to the HyperLoop generated JS files and found out that the functions are not being converted to blocks in this case:
+
+<code><pre>
+recognitionCompleteBlock: {		
+    set: function (_recognitionCompleteBlock) {
+        if (!$init) { $initialize(); }
+	this.$private.recognitionCompleteBlock = _recognitionCompleteBlock;
+        $dispatch(this.$native, 'setRecognitionCompleteBlock:', _recognitionCompleteBlock);
+    },
+    enumerable: false
+},
+</pre></code>
+
+Normally i'd have something like... (extracted from the hyperloop examples project, inside the generated UIView JS wrapper):
+
+<code><pre>
+// convert to block: void (^)(void)
+var _animationsCallback = function () {
+    var args = [];
+    // convert arguments into local JS classes
+    _animations && _animations.apply(_animations, args);
+};
+var _animationsBlock = $dispatch(Hyperloop.createProxy({ class: 'HyperloopUIKit', alloc: false, init: 'class' }), 'Block_void_____void_:', [_animationsCallback], false);
+</pre></code>
+
+I think that HyperLoop is not seeing blocks defined with *typedef* as "normal" blocks, which is preventing me to use this feature of TesseractOCR. If that is indeed true, i believe this is kinda critical. *typedef*'ing should be supported.
+
+
+
+
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-08-19
+
+   The problem here is that we usually handle blocks as parameter, not as properties. I can't think of a native usage that follows that pattern. So we would need a syntax for defining blocks manually (like the syntax you suggested above). </li>
+<li>Rodolfo Perottoni 2016-08-24
+
+   I could use the suggested syntax as above, but there's no selectors being generated inside the HyperLoop-generated *.m* files (inside */build/hyperloop/ios/js/*) that return what i need. (in this case, a G8Tesseract object).
+   
+   A possible solution for this: a default method to convert functions to blocks that return the objects of the type the user specifies.</li>
+<li>Alberto Marcone 2017-02-02
+
+   I'm facing a similar error when trying to pass a callback as property.
+   
+   Like 
+   
+   bq. myObject.callback = function() { };
+   
+   and in objective c
+   
+   bq. @property(copy) KrollCallback* callback;
+   
+   I get the error:
+   
+   bq. [KrollCallback copyWithZone:]: unrecognized selector sent to instance </li>
+<li>Hans Knöchel 2018-03-28
+
+   Sorry for moving this once again, but we want to get Hyperloop 3.1.0 out of the door asap, enabling full Hyperloop ES6+ development. Thanks everyone for the patience on this one!</li>
+<li>Brad Jenkins 2018-04-03
+
+   +1... I need this as well (but for typedef'd blocks in the Stripe SDK). Is there a workaround in the meantime? </li>
+<li>sali.abdullah 2019-03-05
+
+   Facing the same issue with healthkit 
+   original objective c code: 
+   <code><pre>
+   query.initialResultsHandler =
+   ^(HKStatisticsCollectionQuery *query, HKStatisticsCollection *results, NSError *error) {
+   })
+   </pre></code>
+   
+   JS code: 
+   
+   <code><pre>
+   query.initialResultsHandler = function(query, results, error){
+           
+       };
+   </pre></code>
+    and I'm getting this error [KrollCallback copyWithZone:]: unrecognized selector sent to instance 0x600000370980
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23793.json">JSON Source</a></p>

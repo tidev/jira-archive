@@ -1,0 +1,192 @@
+---
+title: "[TIMOB-17887] iOS: Add Swift modules support"
+---
+<table>
+<tr><th>Type</th><td>Epic</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-14T18:52:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, modules, swift</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2014-10-22T20:36:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-27T20:14:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+It is not currently possible to add Swift code to a Titanium module.
+
+<h4>Steps to reproduce:</h4>
+<h4>ti create -n ti.test -p ios --id ti.test -t module -url "<a href="http://test.com" rel="nofollow" target="_blank">http://test.com</a>" -d .</h4>
+<h4>Open up the project in Xocde. Confirm it builds.</h4>
+<h4>Add a Swift file and accept the addition of a “bridging header".</h4>
+<h4>Attempt to build. It then prompts to update the minimum target version from 4.0 to 7.0</h4>
+<h4>Build and get the following error:</h4>
+
+<code><pre>
+ Libtool build/ti.test.build/Release-iphoneos/ti.test.build/Objects-normal/arm64/libTiTest.a normal arm64
+    cd /Users/ingo/Documents/ti.test/iphone
+    export IPHONEOS_DEPLOYMENT_TARGET=7.0
+    export PATH="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin:/Applications/Xcode.app/Contents/Developer/usr/bin:/Users/ingo/Documents/adt-bundle-mac-x86/sdk/platform-tools:/Users/ingo/Documents/adt-bundle-mac-x86/sdk/tools:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/libtool -static -arch_only arm64 -syslibroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.1.sdk -L/Users/ingo/Documents/ti.test/iphone/build/Release-iphoneos -filelist /Users/ingo/Documents/ti.test/iphone/build/ti.test.build/Release-iphoneos/ti.test.build/Objects-normal/arm64/TiTest.LinkFileList -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -Xlinker -force_load -Xlinker /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/arc/libarclite_iphoneos.a -Xlinker -add_ast_path -Xlinker /Users/ingo/Documents/ti.test/iphone/build/ti.test.build/Release-iphoneos/ti.test.build/Objects-normal/arm64/TiTest.swiftmodule -framework Foundation -o /Users/ingo/Documents/ti.test/iphone/build/ti.test.build/Release-iphoneos/ti.test.build/Objects-normal/arm64/libTiTest.a
+error: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/libtool: unknown option character `X' in: -Xlinker
+Usage: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/libtool -static [-] file [...] [-filelist listfile[,dirname]] [-arch_only arch] [-sacLT] [-no_warning_for_no_symbols]
+Usage: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/libtool -dynamic [-] file [...] [-filelist listfile[,dirname]] [-arch_only arch] [-o output] [-install_name name] [-compatibility_version #] [-current_version #] [-seg1addr 0x#] [-segs_read_only_addr 0x#] [-segs_read_write_addr 0x#] [-seg_addr_table <filename>] [-seg_addr_table_filename <file_system_path>] [-all_load] [-noall_load]
+</pre></code>
+
+This is the error reported here: <a href="http://stackoverflow.com/questions/24020986/error-when-compiling-a-static-library-using-swift-unknown-option-character-x" rel="nofollow" target="_blank">http://stackoverflow.com/questions/24020986/error-when-compiling-a-static-library-using-swift-unknown-option-character-x</a>
+
+And this is because you can't built a static library using Swift:
+
+<a href="http://openradar.appspot.com/radar?id=5536341827780608" rel="nofollow" target="_blank">http://openradar.appspot.com/radar?id=5536341827780608</a>
+
+It may be possible to get around this:
+
+<a href="http://andelf.github.io/blog/2014/06/25/write-swift-module-with-swift-cont/" rel="nofollow" target="_blank">http://andelf.github.io/blog/2014/06/25/write-swift-module-with-swift-cont/</a>
+
+Generate .swiftmodule .swiftdoc
+<code><pre>
+xcrun swift -sdk $ (xcrun --show-sdk-path --sdk macosx) SwiftyJSON.swift -emit-library -emit-module -module-name SwiftyJSON -v -o libswiftSwiftyJSON.dylib -module-link-name swiftSwiftyJSON
+</pre></code>
+
+Generate .o
+<code><pre>
+xcrun swift -sdk $ (xcrun --show-sdk-path --sdk macosx) -c SwiftyJSON.swift -parse-as-library -module-name SwiftyJSON -v -o SwiftyJSON.o
+</pre></code>
+
+Generate .a
+<code><pre>
+ar rvs libswiftSwiftyJSON.a SwiftyJSON.o
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>me@gmail.com 2014-10-23
+
+   We also need to account for Swift based dylib files. Frameworks are already being developed using these and wrapping them for titanium modules is next to imposable with the current build tools.</li>
+<li>me@gmail.com 2014-10-23
+
+   An example of an SDK using swift dylibs would be <a href="https://secure.paymentech.com/developercenter/mobilesdk/ios/?WT.mc_id=adc001_sdk" rel="nofollow" target="_blank">https://secure.paymentech.com/developercenter/mobilesdk/ios/?WT.mc_id=adc001_sdk</a></li>
+<li>Gary Crook 2015-02-10
+
+   Does Apple's announcement of Swift 1.2 address this problem, or are static libraries a different beast?
+   
+   From page 4 of <a href="http://adcdownload.apple.com//Developer_Tools/Xcode_6.3_beta/Xcode_6.3_beta_Release_Notes.pdf" rel="nofollow" target="_blank">http://adcdownload.apple.com//Developer_Tools/Xcode_6.3_beta/Xcode_6.3_beta_Release_Notes.pdf</a> ...
+   
+   “static” methods and properties are now allowed in classes (as an alias for “class final”). You are now
+   allowed to declare static stored properties in classes, which have global storage and are lazily initialized
+   on first access (like global variables). Protocols now declare type requirements as “static” requirements
+   instead of declaring them as “class” requirements. (17198298)</li>
+<li>Ingo Muschenetz 2015-02-10
+
+   [~pragmateq] No -- different "static."</li>
+<li>Moshe Marciano 2015-04-12
+
+   is there any news about this? I mean including swift code directly in a titanium module?
+   I thought Appcelerator declared it was possible:
+   
+   <a href="http://www.appcelerator.com/blog/2014/06/ios-8-support/" rel="nofollow" target="_blank">http://www.appcelerator.com/blog/2014/06/ios-8-support/</a>
+   
+   <code><pre>
+    This means that you could build a Titanium native module for iOS in Objective C or Swift and start taking advantage of all of the great features of iOS 8 and Swift right now.
+   </pre></code>
+   
+   is there an ETA on this to be fixed? a lot of OSS code out there for iOS is being now written using Swift and we are left behind..</li>
+<li>Gary Crook 2015-04-12
+
+   This must surely be of the highest priority. I'm really feeling held back with lack of Swift support and can't offer my clients any custom modules (obj c is too alien for me). I know you guys are probably busting a gut to get features implemented soon as and Hyperloop may void the need for what we're asking. Can we have a little feedback on what the current state of play is with Swift? It's such a great language.</li>
+<li>Shannon Hicks 2015-04-13
+
+   I'm not sure that (without seriously overhauling how Titanium works) Swift support will happen. Swift doesn't allow you to compile to a static library, and Titanium can't use a dynamic library. I believe that accommodating this is one of the goals of Ti.Next though.
+   
+   So we're stuck until Apple finally lets us compile a normal static library, or until Ti.Next comes along.</li>
+<li>Gary Crook 2015-04-13
+
+   OK could there be any workaround or middle-man that lets the base obj-c static lib call a separate Swift dynamic lib?</li>
+<li>Hans Knöchel 2018-04-04
+
+   *To all watchers of this ticket*: You might receive a few notification mails as this is now scheduled and transitioned to an Epic. It will include sub-tasks and general discussion. 
+   
+   One of the big tasks to solve here is to move the Titanium iOS-core into an independent framework, e.g. "TitaniumSDKCoreKit.framework", which will then be used in both normal Titanium development but also in combination with native modules. Talking about that, native modules will likely also be able to handle the dependency via Cocoapods to ease general dependency management across different versions. 
+   
+   This task is expected to be completed in the SDK 8.0.0 time frame and will likely break native modules, requiring them to be recompiled with the core-framework again. More over the next months!</li>
+<li>Hans Knöchel 2018-04-05
+
+    Basic implementation is done - moving the SDK core to an own framework that is used by the SDK itself. To prevent dependency issues across multiple version of the core-framework, we will likely also add CocoaPods support for classic modules like done for Hyperloop. All remaining tasks are CLI- and cleanup-related. 
+    
+    Note: This ticket will allow both to *use* Swift libraries in native modules, but also to *build* Swift powered modules that are packaged as universal frameworks, e.g. "TiMap.framework".</li>
+<li>Hans Knöchel 2018-08-08
+
+    Update: The changes to the core are done. Some details:
+    - The core of the Titanium iOS-SDK is now moved to a framework and provided precompiled to the build process, saving 4-5 seconds build time. Together with other recent build pipeline improvements, we will save 10-15 seconds for clean builds, compared to older version of the SDK
+    - This change does *not* represent a breaking change, retaining full backwards compatibility with older modules. No (iOS) modules will need to get recompiled in order to use this
+    - You can now select between a Swift- and Obj-C template when creating a new module. The new templates also includes examples for distributing your module via CocoaPods and Carthage
+    
+    The changes and many more details can be seen in the [designated pull request](<a href="https://github.com/appcelerator/titanium_mobile/pull/10218)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10218).</a></li>
+<li>Ingo Muschenetz 2018-08-08
+
+    This is awesome!</li>
+<li>Hans Knöchel 2018-11-27
+
+    This is already resolved now.</li>
+<li>Lokesh Choudhary 2018-12-14
+
+    Resolving as PR is merged.</li>
+<li>Samir Mohammed 2019-01-10
+
+    *Closing ticket* Verified in SDK version <code>8.0.0.v20190109125941</code> Able to create module using swift and run it in a titanium project. 
+    
+    Test Steps:
+    <h4>Created a new test module using <code>ti create -t module --name test --id com.example.tese --code-base swift</code></h4>
+    <h4>Packaged the module using <code>appc run -p ios --build-only</code> (iOS folder within the module)</h4>
+    <h4>Created a new titanium project</h4>
+    <h4>Added the following code</h4>
+    <code><pre>
+    var test = require('com.example.tese');
+    Ti.API.info('module is => ' + test);
+    Ti.API.info('module tryThis method returns => ' + test.tryThis());
+    Ti.API.info('module exampleProp is => ' + test.testProperty);
+    test.testProperty = 'Should equal Hello World';
+    </pre></code>
+    <h4>Ran the program</h4>
+    <h4>Able to see the correct outputs</h4>
+    
+    *Test Environment*
+    <code><pre>
+    iPhone 6S (12.1) Sim
+    APPC CLI: 7.0.9
+    Operating System Name: Mac OS Mojave
+    Operating System Version: 10.14.2
+    Node.js Version: 8.9.1
+    Xcode 10.1
+    </pre></code>
+    </li>
+<li>kosso 2019-05-27
+
+    I have just tried the commands above and am getting an error when trying to compile the module created. 
+    
+    After opening the default project in XCode 10.2.1 and letting it update the settings (and out-of-date Swift version!) the error is in ComExampleTeseExampleProxy.swift  line 15 : 
+    
+    <code><pre>
+    Cannot override a Self return type with a non-Self return type
+    "1. Overridden declaration is here (TitaniumKit.TiProxy)"
+    </pre></code>
+    
+    
+    <code><pre>
+    Test Environment: 
+    Appc CLI : 7.0.10
+    NodeJs 10.15.3
+    macOs Mohave 10.14.5
+    </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17887.json">JSON Source</a></p>

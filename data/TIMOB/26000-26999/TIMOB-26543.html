@@ -1,0 +1,88 @@
+---
+title: "[TIMOB-26543] TiAPI: require() behavior differs across platforms"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android, iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2018-11-10T19:59:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-12T11:33:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We noticed two weird glitches between iOS and Android: 
+1. The "utils" module seems to be treated quite special on iOS, because the kroll-core thinks we want to use "Ti.Utils" - whyever that is
+2. If the "utils" module causing an error in Alloy controller if require'd  via <code>./utils</code> on Android, but works fine on iOS.
+
+To replicate, simply create a new Alloy project and add a file "utils.js" to app/lib. Then, create a sub-controller, let's day <code>controllers/test/index.js</code> and try to import/require it from there
+
+The app crashes on Android, works fine on iOS. 
+
+Workaround: Rename the file to something like "app-utils".
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2018-11-12
+
+   1) The <code>utils</code> module behaviour only happens as a fallback if just use the word <code>utils</code> as the module, using an absolute or relative path fixes this issue. When requiring a file from libs in a controller you almost always wanna use an absolute path.
+   2) This looks like a parity bug, <code>require('./utils')</code> where utils resides under lib should not work from any controller to my knowledge. The files don't reside in the same folder so _shrug_, I wouldn't agree that this is a major issue however.
+   
+   Can you confirm the code below is correct? We can probably distill that down to a pure classic example.
+   
+   <code><pre>
+   module.exports = 'fff';
+   </pre></code>
+   
+   <code><pre>
+   <Alloy>
+   	<Window class="container">
+   		<Label id="label" onClick="doClick">Hello2</Label>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   <code><pre>
+   function doClick(e) {
+   	Alloy.createController('/sub/index.js').getView().open()
+   }
+   
+   $.index.open();
+   </pre></code>
+   
+   <code><pre>
+   <Alloy>
+   	<Window class="container">
+   		<Label id="label" onClick="doClick">Hello2</Label>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   <code><pre>
+   function doClick(e) {
+   	const util = require('./utils');
+   	alert(util);}
+   
+   $.index.open();
+   </pre></code></li>
+<li>Hans Knöchel 2018-11-12
+
+   [~eharris] I agree it is not major, since a workaround is applicable. It's still something many people run into and takes a good bunch of time to properly find out what's going on. Your example sounds correct and probably even works, but in our case, we used ES6+ imports and they all crashed. E.g.:
+   <code><pre>
+   import Utils from 'utils';
+   import { method1, method2 } from 'utils';
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26543.json">JSON Source</a></p>

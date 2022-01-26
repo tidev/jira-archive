@@ -1,0 +1,168 @@
+{
+	"id": "174683",
+	"key": "TIMOB-27744",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2020-01-31T21:27:44.000+0000",
+		"priority": {
+			"name": "None",
+			"id": "6"
+		},
+		"labels": [
+			"cb-tooling"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "emerriman",
+			"key": "emerriman",
+			"displayName": "Eric Merriman ",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2020-02-06T16:23:05.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "13103",
+				"name": "CLI",
+				"description": "Node-based command line interface"
+			}
+		],
+		"description": "Our CLI seems to be extra slow in terms of installing SDKs. Particularly, I believe the extracting portion is much slower than anticipated. I suspect our custom progressive's bar/unzip implementation may be introducing a significant performance penalty. (we forked the npm package 'progress' long ago and are using 30 ms timeouts to spit out progress, but also introduced a setTimeout in the unzip loop to let it render!)\r\n\r\nI don't have exact timings, but ideally we'd just delegate to the {{unzip}} command on Linux/macOS to do the work - particularly when we we're extracting without progress bars.\r\n\r\nThere's some unix pipe magic going on here for linux: https://medium.com/@takanori.ishikawa/how-to-show-progress-bar-while-unzipping-tons-of-files-7b1ea7a84b01\r\n\r\nNote that I intentionally avoided using node-app's unzip in our SDK build scripts when we unzip native module zips for this exact reason... (and hand-rolled some code to just call unzip)",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Improve the speed of SDK installs",
+		"creator": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "454022",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "You are correct, the extraction is slow.\r\n\r\nWe used to use the system unzip command, but that didn't exist on Windows and so we actually shipped the 7-Zip binary for Windows. Ultimately, there was a discussion to remove 7-Zip and use a pure JavaScript solution, namely adm-zip to extract and archiver to create.\r\n\r\nThis simplified distribution and unlike spawning unzip, we can report extraction progress. The idea is people would be better waiting a bit longer just knowing it was working.\r\n\r\nNowadays, we use yauzl (https://www.npmjs.com/package/yauzl) instead of adm-zip. I doubt it is as fast as the unzip command, but I doubt it's slower than adm-zip.\r\n\r\nIn any case, you should be using our titaniumlib (https://github.com/appcelerator/titaniumlib) to install SDKs. It supports GA releases, branches, CI builds, arbitrary URLs, local zip files, you name it.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2020-02-03T23:04:37.000+0000",
+					"updated": "2020-02-03T23:04:37.000+0000"
+				},
+				{
+					"id": "454092",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Well, I'm using our titanium CLI. Wed have to update it to use titaniumlib.\r\n\r\nAnyways, even if we decide *not* to use a native unzip for performance, we could have gains by ding a streaming unzip int he common case we have to download and unzip - i.e. don't download it all and then unzip, but unzip in a stream so we download and extract in parallel.",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2020-02-06T15:02:42.000+0000",
+					"updated": "2020-02-06T15:02:42.000+0000"
+				},
+				{
+					"id": "454095",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "No can do. A zip file has a central directory is located at the end of the file. Each file entry does have a header, but it would be considered bad practice to use the filename, attributes, etc from the headers. So, you need to download the entire file. Once downloaded, the unzip library streams the decompressed bytes back to disk per file.\r\n\r\nFor more info, please look at https://www.npmjs.com/package/yauzl#no-streaming-unzip-api.\r\n\r\nI'd be curious to see some benchmarks between what node-appc uses (adm-zip) and what titaniumlib uses (yauzl).",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2020-02-06T16:05:31.000+0000",
+					"updated": "2020-02-06T16:05:31.000+0000"
+				},
+				{
+					"id": "454097",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Side note, I was just updating my Android SDK and I noticed they download the entire zip file before extracting. This seems to be a common practice.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2020-02-06T16:23:05.000+0000",
+					"updated": "2020-02-06T16:23:05.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

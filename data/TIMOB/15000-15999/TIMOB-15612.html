@@ -1,0 +1,304 @@
+---
+title: "[TIMOB-15612] Android: HttpClient.abort() does not stop file upload"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-11-17T21:35:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 23, 2013 Sprint 23 API, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Community</td></tr>
+<tr><th>Reporter</th><td>Bitfabrikken - Dan Wulff Kronholm</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2013-10-28T10:17:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-02-12T01:56:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Currently, it's not possible to stop an upload with HttpClient on Android. 
+
+Calling abort() does abort the transfer, but the transfer starts over from 0%, and runs to completion, somewhat hidden - even calling the onload() callback when it's done. 
+
+On the server-side, it's apparant that the socket connection is closed when abort() is called, but a new socket connection is instantly opened, where the upload is restarted.
+
+Here's some source (app.js) to reproduce the issue - it starts an upload, then abort() is called after 1 second:
+<code><pre>
+var win = Ti.UI.createWindow({    exitOnClose:            true,});
+win.open();
+ 
+ 
+var percent_done = 0;
+ 
+var xhr = Ti.Network.createHTTPClient({
+     onload : function(e) {
+        alert("onload: "+this.responseText);
+     },
+     onerror : function(e) {
+         alert("e.error: "+e.error);
+     },
+     onreadystatechange: function(e){
+        console.log("onreadystatechange: "+this.readyState);  
+     },
+     onsendstream : function(e){
+        var curr_percent_done = parseInt(e.progress*100);
+        if (percent_done == curr_percent_done) return;
+        percent_done = curr_percent_done;
+        console.log(percent_done+"% done. readyState: "+this.readyState);
+     },
+     timeout: 10000
+});
+ 
+ 
+function upload(){
+    console.log("STARTING UPLOAD");
+    var url = "<a href="http://bitfabrikken.dk/upload" rel="nofollow" target="_blank">http://bitfabrikken.dk/upload</a>";    //using this server for simplicity's sake
+    var file = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory()+"500k_test.mp4"); //just use any large-ish file, 500kb+ or so
+    xhr.open("POST", url);
+    xhr.send({ file: file });       
+}    
+ 
+ 
+upload();
+setTimeout(function(){
+    console.log("ABORTING UPLOAD - calling xhr.abort");
+    xhr.abort();
+},1000);
+</pre></code>
+
+
+The console output looks this, where it's clear to see that somehow the transfer is re-initiated at 0%, when abort() is called:
+<code><pre>
+[INFO][TiAPI   ( 3108)]  STARTING UPLOAD
+[INFO][ActivityManager( 1015)] Displayed dk.bitfabrikken.nettest/.NettestActivity: +636ms
+[INFO][TiAPI   ( 3108)]  onreadystatechange: 1
+[INFO][TiAPI   ( 3108)]  1% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  2% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  3% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  4% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  5% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  6% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  7% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  8% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  9% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  ABORTING UPLOAD - calling xhr.abort
+[INFO][TiAPI   ( 3108)]  0% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  1% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  2% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  3% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  4% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  5% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  6% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  7% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  8% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  9% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  10% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  11% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  12% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  13% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  14% done. readyState: 1
+-----SNIP - LOTS OF REPETITION-----
+[INFO][TiAPI   ( 3108)]  93% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  94% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  95% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  96% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  97% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  98% done. readyState: 1
+[INFO][TiAPI   ( 3108)]  99% done. readyState: 1
+[INFO][TiAPI   ( 3213)]  100% done. readyState: 1
+[INFO][TiAPI   ( 3213)]  onreadystatechange: 2
+[INFO][TiAPI   ( 3213)]  onreadystatechange: 3
+[INFO][TiAPI   ( 3213)]  onreadystatechange: 4
+[INFO][ALERT   ( 3213)] (KrollRuntimeThread) [7533,8510] onload: null
+</pre></code>
+
+
+Previously I've side-stepped this issue by using TCPSocket to handle uploading. However now my client wants SSL, and since that's not supported with TCPSocket, I'm back to being stuck on this error.
+
+
+Links to a few Q&A threads where this bug is the problem:
+<a href="http://developer.appcelerator.com/question/144392/android-httpclientabort-does-not-stop-file-upload" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/144392/android-httpclientabort-does-not-stop-file-upload</a>
+<a href="http://developer.appcelerator.com/question/146555/how-to-abort-an-upload" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/146555/how-to-abort-an-upload</a>
+<a href="http://developer.appcelerator.com/question/158669/how-to-abort-a-file-upload-via-httpclient-android" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/158669/how-to-abort-a-file-upload-via-httpclient-android</a>
+<a href="https://developer.appcelerator.com/question/154693/httpclient---how-to-stop-an-upload-in-progress---abort" rel="nofollow" target="_blank">https://developer.appcelerator.com/question/154693/httpclient---how-to-stop-an-upload-in-progress---abort</a>
+<a href="https://developer.appcelerator.com/question/152916/abort-of-sending-by-http-client-show-progress-of-send--receive-characters-stream" rel="nofollow" target="_blank">https://developer.appcelerator.com/question/152916/abort-of-sending-by-http-client-show-progress-of-send--receive-characters-stream</a>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15612_43504/500k_test.mp4">500k_test.mp4</td></td><td>2013-10-28T10:36:04.000+0000</td><td>514506</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bitfabrikken - Dan Wulff Kronholm 2013-10-28
+
+   Use this file for upload, or any other 500k+ file..</li>
+<li>Sunila 2013-11-09
+
+   Make sure that we don't write to the stream after abort
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4938" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4938</a></li>
+<li>Paras Mishra 2013-12-17
+
+   Url "<a href="http://bitfabrikken.dk/upload" rel="nofollow" target="_blank">http://bitfabrikken.dk/upload</a>" mentioned above does not work anymore.</li>
+<li>Bitfabrikken - Dan Wulff Kronholm 2013-12-17
+
+   That URL never existed.
+   The URL isn't really important for the example, you could even type in "<a href="http://appcelerator.com/upload" rel="nofollow" target="_blank">http://appcelerator.com/upload</a>" if you wanted to. 
+   The essence of the bug is that you can't abort a transfer, no matter what URL you upload towards.</li>
+<li>Paras Mishra 2013-12-17
+
+   So a valid URL is not required to test this scenario, I am getting alert as "
+   Onload: null " when ever I run the above test code.</li>
+<li>Bitfabrikken - Dan Wulff Kronholm 2013-12-17
+
+   I think it's because it can't find the file in the resources folder, needed for the upload - 500k_test.mp4 (it's attached above).
+   I confirmed this by adding the following check after the line containing "var file = ...":
+   
+   <code><pre>
+   if (!file || !file.exists()) {alert("local mp4 file not found - be sure to include 500k_test.mp4 in resources directory"); return; }
+   </pre></code>
+   
+   So try adding the file to Resources dir in your project, and it should work as advertised :)</li>
+<li>Lokesh Choudhary 2013-12-17
+
+   While testing found out that the URL : "<a href="http://bitfabrikken.dk/upload" rel="nofollow" target="_blank">http://bitfabrikken.dk/upload</a>" in the above code does not exist . Is there any other url to upload directly ?</li>
+<li>Bitfabrikken - Dan Wulff Kronholm 2013-12-17
+
+   As stated in an earlier comment today, above, the URL doesn't matter for this bug.</li>
+<li>Lokesh Choudhary 2013-12-17
+
+   @Dan - Thanks for the clarification.</li>
+<li>Lokesh Choudhary 2013-12-17
+
+    Verified the fix. After abort is called no new connection is opened & the upload stops.
+    
+    Get the following logs in console:
+    <code><pre>
+    [INFO] :   1% done. readyState: 1
+    [INFO] :   2% done. readyState: 1
+    [INFO] :   3% done. readyState: 1
+    [INFO] :   4% done. readyState: 1
+    [INFO] :   5% done. readyState: 1
+    [INFO] :   6% done. readyState: 1
+    [INFO] :   ABORTING UPLOAD - calling xhr.abort
+    [DEBUG] :  HTTPClient: The persistent handle is disposed.
+    </pre></code>
+    
+    Closing.
+    
+    Environment:
+    Appcel Studio : 3.2.0.201312162210
+    Ti SDK : 3.2.0.v20131216191854
+    Mac OSX : 10.8.5
+    Alloy : 1.3.0-cr2	
+    CLI - 3.2.0-cr3
+    Samsung Galaxy S4 running android 4.2.2</li>
+<li>Bitfabrikken - Dan Wulff Kronholm 2013-12-17
+
+    @Lokesh Choudhary - Can you tell me if there's somewhere I can see an ETA of when this fix will be live? (3.2.0)</li>
+<li>Lokesh Choudhary 2013-12-17
+
+    @dan kronholm - the fix is available in the CI builds 3_2_X branch till we go GA with 3.2.0 SDK.
+    </li>
+<li>carlo 2014-07-18
+
+    problem is still present in 3.3.0
+    
+    try code below, if you press the button while the request is in progress it still onload
+    
+    <code><pre>
+    var click = 0;
+    var errori = 0;
+    var datastream = 0;
+    var load = 0;
+    var readystatechange = 0;
+    var states = "";
+    var sendstream = 0;
+    
+    
+    var NET = Ti.Network.createHTTPClient();
+    NET.onerror = function(){errori++;setText();};
+    NET.ondatastream = function(){datastream++;setText();};
+    NET.onreadystatechange = function(){readystatechange++;setText();};
+    NET.onsendstream = function(){sendstream++;setText();};
+    NET.onload = function(){load++;states+=this.statusText+" ";setText();};
+    
+    	
+    
+    var win = Titanium.UI.createWindow({layout:'vertical', height:Titanium.UI.FILL, backgroundColor:"#FFF"});
+    
+    var label1 = Titanium.UI.createLabel({font:{fontSize:30}});
+    label1.setText('Test');
+    
+    var button1 = Titanium.UI.createButton({top:50,title:"cancel pending + new request"});
+    button1.addEventListener('click', function(){
+    	click++;
+    	NET.abort();
+    	NET.open("GET", "<a href="http://carlo.tnx.it/sleep.php?secondi=2&kb=500" rel="nofollow" target="_blank">http://carlo.tnx.it/sleep.php?secondi=2&kb=500</a>");
+    	NET.send();
+    	setText();
+    });
+    
+    
+    function setText(){
+    	label1.setText(
+    		'click: '+click+"\n"+
+    		'errors: '+errori+"\n"+
+    		'datastream: '+datastream+"\n"+
+    		'load: '+load+"\n"+
+    		'readystatechange: '+readystatechange+"\n"+
+    		'sendstream: '+sendstream+"\n"+
+    		'states: '+states+"\n"
+    	);
+    	
+    }
+    
+    
+    win.add(button1);
+    win.add(label1);
+    win.open();
+    </pre></code></li>
+<li>Donovan Lewis 2014-09-19
+
+    I'm also experiencing this issue on iOS 8 with SDK 3.4.0. When uploading a file abort() does not work. </li>
+<li>Sunila 2014-10-19
+
+    Additional handling for abort when submitting the request and handling the response.
+    
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/6235" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6235</a></li>
+<li>John Jardin 2014-12-09
+
+    I can confirm that HTTPClient.abort() is still not working using SDK 3.3.0.GA on Android 4.1.1
+    
+    Is this ticket regarded as resolved in the sense that Appcelerator do not plan on fixing this?</li>
+<li>Ingo Muschenetz 2014-12-09
+
+    [~johnjardin] The fix version is later than the version you tested. You can use the current master branch which contains 3.6.0, or cherry pick the fix into a branch of the SDK of your choosing.</li>
+<li>Ewan Harris 2015-02-12
+
+    Verified fix on:
+    
+    Mac OSX 10.10.2
+    Appcelerator Studio, build:  4.0.0.201502051633
+    Titanium SDK build: 4.0.0.v20150211151855
+    Titanium CLI, build: 3.6.0-dev
+    Alloy: 1.5.1
+    Nexus 5 (5.0), Galaxy S3 (4.4.2)
+    
+    Built to both devices, when the download is aborted the onload callback no longer occurs.
+    
+    Closing ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15612.json">JSON Source</a></p>

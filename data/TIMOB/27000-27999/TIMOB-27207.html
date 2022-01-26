@@ -1,0 +1,151 @@
+---
+title: "[TIMOB-27207] TableView / TableViewRow memory leak"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-15T11:11:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0, Release 8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.2.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>VDLP</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2019-06-28T14:06:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-06-02T01:29:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Old table row references are not cleared when calling *tableView.setData(rows)*.
+
+In a production app running SDK 7.4.1.GA this is causing serious memory issues. Because the row structure is quite complex, it's important that old rows are completely cleaned from memory before new ones are set.
+
+We've been able to reproduce this issue in a example application for multiple SDK's (8.0.0.GA, 7.4.1.GA, 8.0.1.GA). As demonstrated in the attached video you can see that the objects are not cleared from memory. The source code for the app running in the video has also been attached to this issue.
+
+We've tried calling <code>$.off();$.destroy();</code> on the <code>controllers/imagerow</code> controller, this does not destroy the proxies.
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27207_66730/app.zip">app.zip</td></td><td>2019-06-28T13:57:18.000+0000</td><td>8445019</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27207_67049/Findings for TIMOB-27207.pdf">Findings for TIMOB-27207.pdf</td></td><td>2019-10-10T12:05:46.000+0000</td><td>68678</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27207_66731/invalid-references.mov">invalid-references.mov</td></td><td>2019-06-28T13:56:49.000+0000</td><td>1371563</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27207_66752/memleak8.0.2.GA.mp4">memleak8.0.2.GA.mp4</td></td><td>2019-07-03T08:41:25.000+0000</td><td>354404</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27207_66753/Memory Leak Monitoring.mov">Memory Leak Monitoring.mov</td></td><td>2019-07-04T05:23:41.000+0000</td><td>6690669</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2019-06-29
+
+   [~menzo],
+   Thanks for sharing with us. Are you experiencing this for both iOS and android platform?</li>
+<li>VDLP 2019-07-01
+
+   Currently testing this on iOS. Not sure how to accurately profile Android.
+   
+   For our production app, the memory issues also occur on Android.</li>
+<li>VDLP 2019-07-03
+
+   Any updates on this? :)</li>
+<li>Rakhi Mitro 2019-07-03
+
+   [~menzo],
+   Thanks for your feedback. Can you please test this on 8.0.2.GA and let us know the results?</li>
+<li>VDLP 2019-07-03
+
+   We've already tested this on 8.0.2.GA. Same issues, the Proxy's are not removed.</li>
+<li>VDLP 2019-07-03
+
+    [^memleak8.0.2.GA.mp4] </li>
+<li>Rakhi Mitro 2019-07-03
+
+   [~menzo],
+   Are you experiencing the same behaviour also in device also? Can you please check that?</li>
+<li>VDLP 2019-07-03
+
+   Yes.</li>
+<li>Jan Vennemann 2019-07-05
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/11028" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11028</a>
+   PR (8_1_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/11029" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11029</a>
+   
+   [~menzo], you may want to try this line before you update <code>table.data</code> as a workaround:
+   
+   <code><pre>
+   table.data.forEach(s => s.rows.forEach(r => r));
+   table.data = yourTableData;
+   </pre></code></li>
+<li>Rakhi Mitro 2019-07-07
+
+    [~menzo],
+    
+    Hope you are doing fine today. 
+    Would you please reply us regarding previous reviews? We are looking forward to your response.
+    </li>
+<li>VDLP 2019-07-08
+
+    Fix suggested by Jan doesn't work on *7.4.1.GA* & *8.0.2.GA*
+    
+    <code><pre>
+    table.data.forEach(s => s.rows.forEach(r => r));
+    table.data = yourTableData;
+    </pre></code>
+    
+    Our app is running on 7.4 so upgrading to 8.1.X isn't really a option at this moment. Some more info on how the above code snippet is supposed fix our problem would be great.</li>
+<li>Jan Vennemann 2019-07-09
+
+    [~menzo], see the ticket for a in-depth explanation. Long story short, accessing the sections and rows in JavaScript once will make sure they get properly garbage collected like they should. Here is a longer example which should make it more clear how to apply this workaround:
+    
+    <code><pre>
+    const win = Ti.UI.createWindow({
+      layout: 'vertical'
+    });
+    const table = Ti.UI.createTableView({
+      data: [ {title: 'Iron Man'}, {title: 'Deadpool'}, {title: 'Star-Lord'}, {title: 'Venom'} ]
+    });
+    // Workaround (1): access table data after initially creating the table ...
+    table.data.forEach(s => s.rows.forEach(r => r));
+    const btn = Ti.UI.createButton({
+      title: 'Reload',
+      top: 40
+    });
+    btn.addEventListener('click', () => {
+      table.data = [ {title: 'Iron Man'}, {title: 'Deadpool'}, {title: 'Star-Lord'}, {title: 'Venom'} ];
+      // Workaround (2): ... or whenever setting new table data.
+      table.data.forEach(s => s.rows.forEach(r => r));
+    });
+    win.add(btn);
+    win.add(table);
+    win.open();
+    </pre></code>
+    
+    Note that it may take a while for the JS garbage collection to kick in so you won't notice an immediate change in Instruments.</li>
+<li>Jan Vennemann 2019-10-10
+
+    PR (8_2_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/11274" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11274</a></li>
+<li>Sohail Saddique 2019-10-10
+
+    Thought I'd give this a go, but for me FR: Failed. Please see attached PDF of findings. [^Findings for TIMOB-27207.pdf] </li>
+<li>Lokesh Choudhary 2019-10-14
+
+    PR's merged.</li>
+<li>Sohail Saddique 2019-10-15
+
+    Verified on builds 8.2.1.v20191014114554 and 8.3.0.v20191014114038.
+    
+    Ticked closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27207.json">JSON Source</a></p>

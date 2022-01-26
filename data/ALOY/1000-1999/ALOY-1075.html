@@ -1,0 +1,94 @@
+---
+title: "[ALOY-1075] Confirm existing adapters support Backbone 1.x"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-24T05:34:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.6.0</td></tr>
+<tr><th>Components</th><td>Models, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Tim Poulsen</td></tr>
+<tr><th>Assignee</th><td>Feon Sua Xin Miao</td></tr>
+<tr><th>Created</th><td>2014-07-07T17:08:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-04T23:29:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Specifically, check Mads' REST adapter. Provide guidance on updating adapters that don't work.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Timan Rebel 2014-08-21
+
+   Can confirm from experience that Mads' REST adapter is working with Backbone 1.x. What would be nice however is to add a REST adapter to Alloy, based upon Backbone's own sync method.</li>
+<li>Feon Sua Xin Miao 2014-09-17
+
+   Looked at backbone version 0.9.9, 0.9.10, 1.0.0, 1.1.0, 1.1.1 and 1.1.2.
+   Model apps in the test directory are affected by following changes that break backwards compatibility:
+   
+   *v0.9.10*
+   {quote}
+   Passing \{silent:true\} on change will no longer delay individual "change:attr" events, instead they are silenced entirely. 
+   {quote}
+   
+   So <code>silent:true</code> suppresses the <code>change:attr</code> events entirely, view is not updated to reflect the new changes .
+   
+   This could be fixed by remove silent option in adapter.
+   
+   *v1.0.0*
+   {quote}
+   Renamed Collection's "update" to set, for parallelism with the similar model.set(), and contrast with reset. It's now the default updating mechanism after a fetch. If you'd like to continue using "reset", pass \{reset: true\}. 
+   {quote}
+   
+   This means that Backbone collections do not emit 'reset' event after fetch, so to use old functionality, pass <code>{reset: true}</code>when calling <code>collection#fetch()</code> will work with existing sql adapter.
+   
+   OR override the fetch method in the model JS file:
+   
+   <code><pre> 
+       extendCollection : function(Collection) {
+           _.extend(Collection.prototype, {
+   			fetch: function(options) {
+   				options = options ? _.clone(options) : {};
+   				options.reset = true;
+   				return Backbone.Collection.prototype.fetch.call(this, options);
+   			}
+           });
+   
+           return Collection;
+       }
+   </pre></code></li>
+<li>Tim Poulsen 2014-09-19
+
+   This change will mean existing apps could break unless they are updated. Therefore, I recommend that we
+   
+   * Continue with Backbone 0.9.x as the default in Alloy 1.6
+   * Provide optional support for 1.1.2 in Alloy 1.6 -- include it, enable setting the version in config.json, and document the new requirements for models if a developer chooses to enable it
+   * Deprecate 0.9.x in Alloy 1.6 -- update the docs, include in release notes
+   * Change to 1.1.2 as the default in 1.7 but continue to ship 0.9.x for backward compatibility</li>
+<li>Feon Sua Xin Miao 2014-09-24
+
+   ALOY-1074 implements the change.</li>
+<li>Tim Poulsen 2014-10-23
+
+   Reopen to backport to 1_6_X branch</li>
+<li>Eric Wieber 2015-03-25
+
+   Verified fixed using:
+   
+   Titanium SDK 4.0.0.v20150323131014
+   Studio 4.0.0.201503231407
+   Appc NPM: 0.3.34
+   Appc CLI 0.2.187
+   Alloy 1.6.0-alpha
+   
+   Adaptors working as expected using backbone 1.1.2.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1075.json">JSON Source</a></p>

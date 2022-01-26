@@ -1,0 +1,80 @@
+---
+title: "[ALOY-851] Alloy: Setting default ID on first top-level XML view element doesn't take platform attribute into account"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-21T22:28:02.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.4.0</td></tr>
+<tr><th>Components</th><td>XML</td></tr>
+<tr><th>Labels</th><td>alloy, compiler, conditions, platform, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Mauro Parra-Miranda</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-10-17T14:33:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-10-12T08:08:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The compiler sets the id of the first top-level XML view element to the default (the controller name) *before* the platform conditions are evaluated. Now if you have a view in which you use the <code>platform</code> attribute to select which top-level element should be used for each platform, this leads to unpredictable behavior. Only the first (conditional) top-level element will get the default id.
+
+<h4>Steps to reproduce</h4>
+1. Create new project: <code>titanium create -p ios,android -n defaultid --id ti.defaultid -d .</code>
+2. Initialize Alloy: <code>cd defaultid && alloy new</code>
+3. Replace contents of <code>index.xml</code> with:
+    <code><pre>
+    <Alloy>
+        <Window platform="ios" class="container">
+            <Label id="label" onClick="doClick">Hello, World</Label>
+        </Window>
+        <Window platform="android" class="container">
+            <Label id="label" onClick="doClick">Hello, World</Label>
+        </Window>
+    </Alloy>
+    </pre></code>
+4. Compile for iOS: <code>alloy compile -c platform=ios</code>
+5. Open <code>Resources/alloy/controllers/index.js</code> and see that the window has correctly been given <code>index</code> as id.
+4. Compile for Android: <code>alloy compile -c platform=android</code>
+5. Open <code>Resources/alloy/controllers/index.js</code> and see that the window has *not* been given <code>index</code> as id.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tim Poulsen 2014-01-21
+
+   I can confirm the behavior is present as described.
+   
+   <code><pre>
+   $.__views.index = Ti.UI.createWindow({
+       id: "index"
+   });
+   </pre></code>
+   
+   <code><pre>
+   $.__views.index = Ti.UI.createWindow({
+       id: "__alloyId0"
+   });
+   </pre></code></li>
+<li>Tony Lukasavage 2014-01-21
+
+   I'm going to solve 2 for 1 here, since in addition to this, the event handler is rendered twice, once for each platform despite that only one should be generated. 
+   
+   PR: <a href="https://github.com/appcelerator/alloy/pull/304" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/304</a>
+   
+   Functional testing should be the same as noted in the description and previous comments. In addition to validating that the default id gets applied in the android case, also assert that in both cases that only one event handler gets assigned. You can assert this by making sure there is on;y one line like this at the bottom of the generated controllers:
+   
+   <code><pre>
+   __defers["$.__views.label!click!doClick"] && $.__views.label.addEventListener("click", doClick);
+   </pre></code>
+   
+   Prior to this fix, the event handler would have showed up twice, one right after the other.</li>
+<li>Fokke Zandbergen 2014-01-22
+
+   Wow, never noticed that double event handler. Nice to have that fixed ;)</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-851.json">JSON Source</a></p>

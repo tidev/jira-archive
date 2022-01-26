@@ -1,0 +1,71 @@
+---
+title: "[TIMOB-15275] iOS: Enable ARC by default in Titanium Mobile Module projects"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-01-30T19:52:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>move-to-arc</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2013-09-18T22:24:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-02-01T22:24:48.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Based on the request as part of TIMOB-12558, this is to enable ARC by default in all newly-created Titanium Mobile Module projects. The current workflow is that a user must manually tweak the project to enable it.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2014-05-12
+
+   It's possible to use ARC (and really - the whole project will be much better off if converted), but some macros generate warnings when ARC is turned on for a module project.
+   For example: ENSURE_UI_THREAD_0_ARGS . </li>
+<li>Hans Knöchel 2017-01-24
+
+   The migration is pretty straight forward. The above macro is causing the (typical ARC) warning <code>PerformSelector may cause a leak because its selector is unknown</code> because we call <code>performSelector</code> without knowing what the selector is. But hand over the responsibility of the selector to the developer, it's normal to mute this LLVM diagnostic warning by using the <code>-Warc-performSelector-leaks</code> statement for that specific macro. 
+   
+   After all, we could consider this change for 6.2.0 as a preparation of the 7.0.0 changes coming with the ARC core migration.
+   
+   *EDIT*: The above warning can be addressed as the following:
+   <code><pre>
+   #define ENSURE_UI_THREAD_1_ARG(x)	\
+   if (![NSThread isMainThread]) { \
+   	SEL callback = _cmd;\
+   _Pragma("clang diagnostic push") \
+   _Pragma("clang diagnostic ignored \"-Warc-performSelector-leaks\"") \
+   	TiThreadPerformOnMainThread(^{[self performSelector:callback withObject:x];}, NO);\
+   _Pragma("clang diagnostic pop") \
+       return; \
+   } \
+   </pre></code>
+   like suggested in the Apple forums and StackOverflow - by leaving the responsibility of the usage to the dev, just like before.</li>
+<li>Hans Knöchel 2017-01-26
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8795" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8795</a></li>
+<li>Lee Morris 2017-02-01
+
+   Can verify that these changes have been implemented however testing will need to be done for this in a separate ticket.
+   Tested with;
+   MacOS 10.11.6 (15G31)
+   Studio 4.8.1.201612050850
+   Ti SDK 6.0.2.20161221155621 and 6.1.0.v20170131132207
+   Appc NPM 4.2.8
+   Appc CLI 6.2.0-12
+   Ti CLI 5.0.11
+   Alloy 1.9.6
+   Arrow 1.10.2
+   Xcode 8.2 (8C38)
+   Node v4.6.0
+   Java 1.7.0_80</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15275.json">JSON Source</a></p>

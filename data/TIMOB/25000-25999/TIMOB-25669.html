@@ -1,0 +1,212 @@
+---
+title: "[TIMOB-25669] Android: when using Ti.UI.Toolbar as ActionBar, onHomeIconItemSelected doesn't work"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-15T09:15:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, drawerlayout, toolbar</td></tr>
+<tr><th>Reporter</th><td>Guillermo Figueras</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2018-01-12T11:39:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-16T20:37:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm using a Toolbar as an ActionBar and I want to show the left drawer menu when clicking on the navigation icon, but the problem is that nothing happens when I click it.
+
+Check my code below.
+
+view/xml:
+<code><pre>
+<Alloy>
+	<Window class="container" id="window" onOpen="open" title="Directions List" >
+		
+		<DrawerLayout id="drawerLayout">
+			
+			<LeftView>
+				
+			</LeftView>
+			
+			<CenterView>
+				<View>
+					<Toolbar
+						title="Directions List"
+						width="Ti.UI.FILL"
+						elevation="10"
+						top="0"
+						barColor="#db4337"
+						titleTextColor="white"
+						displayHomeAsUp="true"
+						homeButtonEnabled="true" 
+						id="actionBar"
+						navigationIcon="/icons/nav_menu_white.png" / > 
+					  
+					<Label text="test" />
+					
+				</View>
+
+			</CenterView>
+		</DrawerLayout>
+
+	</Window>
+</Alloy>
+</pre></code>
+
+style/tss:
+<code><pre>
+"Window":{
+	theme : 'AppTheme.TransBtns.Drawer',
+	windowSoftInputMode: Ti.UI.Android.SOFT_INPUT_STATE_HIDDEN
+}
+</pre></code>
+
+android theme:
+<code><pre>
+<style name="AppTheme.TransBtns.Drawer" parent="Theme.AppCompat.Light.DarkActionBar">
+    	<item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+	<item name="android:buttonStyle">
+		@style/Widget.AppCompat.Button.Borderless.Colored
+	</item>
+</style>
+</pre></code>
+
+controller/js: 
+<code><pre>
+function open() {
+	var activity = $.window.getActivity();
+	
+	if (activity) {
+		var actionBar = activity.getActionBar();
+		if (actionBar) {
+			actionBar.displayHomeAsUp = true;
+			actionBar.onHomeIconItemSelected = function() {
+				$.drawerLayout.toggleLeft();
+			};
+		}
+	}
+}
+</pre></code>
+
+I tried showing on console the value of activity.getActionBar() and apparently it shows the value of the original ActionBar, the one which isn't visible, instead of showing the Toolbar.
+
+I also tried this but nothing happens:
+<code><pre>
+// $.actionBar is the id of the Toolbar
+$.actionBar.onHomeIconItemSelected = function() {
+	$.drawerLayout.toggleLeft();
+};
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mostafizur Rahman 2018-01-13
+
+   Hello [~gfigueras],
+   Thanks for sharing with us. Can you please share a complete runnable test case with us to reproduce the issue on our end?</li>
+<li>Guillermo Figueras 2018-01-15
+
+   Hi Mostafizur,
+   
+   I came up with a solution for my problem. I added the customToolbar property to my DrawerLayout (it has to be the id of the Toolbar).
+   
+   <code><pre>
+   <DrawerLayout id="drawerLayout" toolbarEnabled="false" customToolbar="actionBar">
+   </pre></code>
+   
+   And I also did this on my controller:
+   
+   <code><pre>
+   $.window.activity.supportToolbar = $.actionBar;
+   
+   function open() {
+       $.window.activity.actionBar.displayHomeAsUp = true;
+       $.window.activity.actionBar.onHomeIconItemSelected = function() {
+           $.drawerLayout.toggleLeft();
+       }
+   }
+   </pre></code>
+   
+   The ticket can be closed.</li>
+<li>Hans Knöchel 2018-01-15
+
+   Thanks [~gfigueras], I've resolved the ticket. But it would still make sense to improve the documentation regarding this point I think. If you feel you can describe this in a few sentences, feel free to submit a PR by simply editing [this file](<a href="https://github.com/appcelerator/titanium_mobile/edit/master/apidoc/Titanium/UI/Android/DrawerLayout.yml)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/edit/master/apidoc/Titanium/UI/Android/DrawerLayout.yml).</a> Thanks for your time!</li>
+<li>Eric Merriman  2018-08-06
+
+   Closing as "not our bug". If you disagree, please reopen.</li>
+<li>Michael Gangolf 2019-01-16
+
+   It would be nice to be able to use the <code>onHomeIconItemSelected</code> with a <code>DrawerLayout</code>. 
+   
+   In the following XML the <code>onClickHome</code> is triggered in the controller:
+   <code><pre>
+   <Alloy>
+   	<Window backgroundColor="#fff" theme="Theme.AppCompat.NoTitleBar" customToolbar="toolbar" onOpen="onOpen">
+   		<Toolbar homeButtonEnabled="true" displayHomeAsUp="true" id="toolbar" title="win" top="0" titleTextColor="white" backgroundColor="#333" onHomeIconItemSelected="onClickHome"/>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   But when you add a DrawerLayout:
+   <code><pre>
+   <Alloy>
+   	<Window backgroundColor="#fff" theme="Theme.AppCompat.NoTitleBar" customToolbar="toolbar" onOpen="onOpen">
+   		<Toolbar homeButtonEnabled="true" displayHomeAsUp="true" id="toolbar" title="win" top="0" titleTextColor="white" backgroundColor="#333" onHomeIconItemSelected="onClickHome"/>
+   		<DrawerLayout id="drawer">
+   			<LeftView>
+   				<View backgroundColor="#fff"/>
+   			</LeftView>
+   			<CenterView>
+   				<View id="main">
+   					<Label text="Main view"/>
+   				</View>
+   			</CenterView>
+   		</DrawerLayout>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   it won't trigger the <code>onHomeIconItemSelected</code> function.
+   
+   Both cases create the following classic code
+   <code><pre>
+   $.__views.index.activity.setSupportActionBar($.__views.toolbar), 
+   $.__views.index.activity.actionBar.displayHomeAsUp = !0, 
+   $.__views.index.activity.actionBar.homeButtonEnabled = !0, 
+   $.__views.index.activity.actionBar.onHomeIconItemSelected = onClickHome)
+   </pre></code>
+   
+   Tested with Ti SDK 7.5.0.GA, Android 7 (HTC A9).
+   
+   Assigning the JS in the controller by hand is working as mentioned in the comment above, so you can create a workaround. Still not sure why it is not working with the Alloy-only way</li>
+<li>Ahmed Mohamed 2019-01-16
+
+   The toolbar must be child of window. and you can't put it inside any view to support toolbar by <code>customToolbar</code>
+   
+   <code><pre>
+   <Window backgroundColor="#fff" theme="Theme.AppCompat.NoTitleBar" customToolbar="toolbar">
+       	<View height="Titanium.UI.SIZE" top="0">
+       		<Toolbar onHomeIconItemSelected="onClickHome" homeButtonEnabled="true" displayHomeAsUp="true" id="toolbar" title="win" top="0" titleTextColor="white" backgroundColor="#333"/>
+       	</View>
+       </Window>
+   </pre></code>
+   
+   <code><pre>
+   function onClickHome(){
+   	$.drawer.toggleLeft();
+   }
+   
+   $.index.open();
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25669.json">JSON Source</a></p>

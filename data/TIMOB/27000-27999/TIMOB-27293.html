@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-27293] Android: HTTPClient onsendstream "progress" is always set to 1.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-30T18:22:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.2, Release 8.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, engSchedule, httpclient</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2015-12-16T14:08:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-30T18:22:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When initiating an XHR request on Android, and providing the onsendstream callback function, the progress within the payload (e.progress) will always be 1.
+
+Expected is the actual progress as a number between 0.0 and 1.0
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2015-12-17
+
+   Hello [~topener], Please provide a complete test case which demonstrate your problem. We will try to regenerate the issue. Also please provide the log and your full configuration. Make sure you follow the [documentation](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Network.HTTPClient-property-onsendstream) of uploading file. Thanks.</li>
+<li>Anna 2016-03-01
+
+   I'm still having this problem in Ti SDK 5.1.2.GA</li>
+<li>Anna 2016-03-03
+
+   Reopen this ticket please, it doesn't work now</li>
+<li>Daniel Ethier 2017-04-16
+
+   I am seeing this issue as well. I will see if I can come up with a simple example. I believe I am following the documentation (setting onsendstream before calling open, is there something else?). Please re-open. I am using SDK 6.0.3 ...</li>
+<li>ACI Informatica 2019-07-23
+
+   I can reproduce with this code and Ti SDK 8.0.2 (an 1+ MB image in assets/images folder is required to test or just use an equivalent size string):
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   var progress = Ti.UI.createProgressBar({
+         width:200,
+         min:0,
+         max:1,
+         value:0,  
+         tintColor : "red"
+   });
+   win.add(progress);
+   
+   var timestamp = Date.now();
+   var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, '/images/img.jpg'); // app/assets/images/img.jpg
+   var base64String = Ti.Utils.base64encode(file).toString();
+   
+   win.addEventListener('open', function() {
+   	var xhr = Ti.Network.createHTTPClient({
+   		onload : function() {
+   			var time_passed = Math.floor((Date.now() - timestamp) / 1000);
+   			Ti.API.info('Seconds passed:', time_passed, 'SUCCESS');
+   		},
+   		onsendstream : _.throttle(function(e) {
+   			var time_passed = Math.floor((Date.now() - timestamp) / 1000);
+   			Ti.API.info('Seconds passed:', time_passed + ', progress:', e.progress);
+   			progress.setValue(e.progress);
+   		}, 250)
+   	});
+   	xhr.open('POST', '<a href="https://httpbin.org/post" rel="nofollow" target="_blank">https://httpbin.org/post</a>');
+   	xhr.send(base64String);
+   });
+   
+   win.open();
+   </pre></code></li>
+<li>Sharif AbuDarda 2019-07-29
+
+   Hello [~jquick], The issue is reproducible with SDK 8.0.2.GA. With the above sample code and a >1MB image file in the assets/android/images/ directory the progress always shows 1. And after sometime it shows success. Thanks.
+   
+   <code><pre>
+   [INFO]  Seconds passed: 1, progress: 1
+   [INFO]  Seconds passed: 1, progress: 1
+   [INFO]  Seconds passed: 1, progress: 1
+   [INFO]  Seconds passed: 3, progress: 1
+   [INFO]  Seconds passed: 3, progress: 1
+   [INFO]  Seconds passed: 3, progress: 1
+   [INFO]  Seconds passed: 3, progress: 1
+   [INFO]  Seconds passed: 4, progress: 1
+   [INFO]  Seconds passed: 4, progress: 1
+   [INFO]  Seconds passed: 23 SUCCESS
+   </pre></code>
+   
+    </li>
+<li>Yordan Banev 2019-08-22
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/11168" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11168</a></li>
+<li>Satyam Sekhri 2019-09-18
+
+   FR passed.</li>
+<li>Christopher Williams 2019-10-02
+
+   Moving back out of QE test, because unit tests fail with this PR.</li>
+<li>Christopher Williams 2019-10-21
+
+    merged to master</li>
+<li>Satyam Sekhri 2019-10-30
+
+    Verified on:
+    Mac OS 10.14.6
+    Ti SDK: 8.3.0.v20191030085531
+    Appc CLI: 7.1.1
+    Node: 10.5.0
+    JDK: 1.8.0_162
+    Studio: 5.1.4.201909061933
+    Device: Nexus4 (v5.1.1), Pixel3(v10.0) emulator</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27293.json">JSON Source</a></p>

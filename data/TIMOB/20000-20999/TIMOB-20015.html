@@ -1,0 +1,154 @@
+---
+title: "[TIMOB-20015] iOS: Improve deprecation macros"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-20T03:20:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-5.2.0</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-11-19T04:31:31.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-22T00:42:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The macros for deprecating an API are misleading and need to be unified:
+
+<code><pre>
+#define DEPRECATED_REPLACED(api,in,newapi) \
+DebugLog(@"[WARN] Ti%@.%@ DEPRECATED in %@, in favor of %@.",@"tanium",api,in,newapi);
+ </pre></code>
+This macro expects <code>DEPRECATED_REPLACED(@"Calendar.requestAuthorization", @"5.1.0", @"Titanium.Calendar.requestContactsPermissions");</code>
+
+Note, that the Titanium prefix is added by the macro in the deprecated API, but needs to be added manually in the replaced API. The approach is to clean this up and unify all usages, so that we call <code>DEPRECATED_REPLACED(@"Calendar.requestAuthorization", @"5.1.0", @"Titanium.Calendar.requestContactsPermissions");</code> which generated a proper Ti-prefixed warning for all API's. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2015-11-19
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7476" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7476</a>
+   
+   I also created a test case to check every possible macro by calling 2 properties that internally call the macros:
+   <code><pre>
+   Ti.UI.createWindow({
+   	backgroundColor: "#fff"
+   }).open();
+   
+   Ti.API.info("\n\nWarnings following:\n");
+   
+   // -- Please run this code and verify the console logs with the logs below.
+   
+   /**
+   			Deprecated -> Removed warnings
+   */
+   
+   // Expected log: [WARN] Ti.Media.AUDIO_HEADPHONES DEPRECATED in 3.4.2: REMOVED in 3.6.0
+   var a = Ti.Media.AUDIO_HEADPHONES;
+   
+   // Expected log: [WARN] Ti.UI.iOS.COLOR_SCROLLVIEW_BACKGROUND DEPRECATED in 3.4.2: REMOVED in 3.6.0
+   var b = Ti.UI.iOS.COLOR_SCROLLVIEW_BACKGROUND;
+   
+   
+   /**
+   			Deprecated -> Replaced -> Removed warnings
+   */
+   
+   // Expected log: [WARN] Ti.Media.audioLineType DEPRECATED in 3.4.2, in favor of Ti.Media.currentRoute: REMOVED in 3.6.0
+   var c = Ti.Media.audioLineType;
+   
+   // Expected log: [WARN] Ti.UI.iPhone.StatusBar.OPAQUE_BLACK DEPRECATED in 3.4.2, in favor of Ti.UI.iPhone.StatusBar.LIGHT_CONTENT: REMOVED in 3.6.0
+   var d = Ti.UI.iPhone.StatusBar.OPAQUE_BLACK;
+   
+   
+   /**
+   			Deprecated -> Replaced warnings
+   */
+   
+   // Expected log: [WARN] Ti.UI.iOS.ATTRIBUTE_FONT DEPRECATED in 3.6.0, in favor of Ti.UI.ATTRIBUTE_FONT
+   var e = Ti.UI.iOS.ATTRIBUTE_FONT;
+   
+   // Expected log: [WARN] Ti.UI.iOS.ANIMATION_CURVE_LINEAR DEPRECATED in 2.1.0, in favor of Ti.UI.ANIMATION_CURVE_LINEAR
+   var f = Ti.UI.iOS.ANIMATION_CURVE_LINEAR;
+   </pre></code></li>
+<li>Chee Kiat Ng 2015-11-20
+
+   CR done. APPROVED!</li>
+<li>Harry Bryant 2016-01-20
+
+   Ran the demo code provided by [~hans123] and received the following:
+   
+   <code><pre>
+   Jan 20 09:52:34 SAMWISE keyboardType[552] <Warning>: [WARN] Ti.Media.AUDIO_HEADPHONES DEPRECATED in 3.4.2: REMOVED in 3.6.0
+   Jan 20 09:52:34 SAMWISE keyboardType[552] <Warning>: [WARN] Ti.UI.iOS.COLOR_SCROLLVIEW_BACKGROUND DEPRECATED in 3.4.2: REMOVED in 3.6.0
+   Jan 20 09:52:34 SAMWISE keyboardType[552] <Warning>: [WARN] Ti.Media.audioLineType DEPRECATED in 3.4.2, in favor of Ti.Media.currentRoute: REMOVED in 3.6.0
+   Jan 20 09:52:34 SAMWISE keyboardType[552] <Warning>: [WARN] Ti.UI.iPhone.StatusBar.OPAQUE_BLACK DEPRECATED in 3.4.2, in favor of Ti.UI.iPhone.StatusBar.LIGHT_CONTENT: REMOVED in 3.6.0
+   Jan 20 09:52:34 SAMWISE keyboardType[552] <Warning>: [WARN] Ti.UI.iOS.ANIMATION_CURVE_LINEAR DEPRECATED in 2.1.0, in favor of Ti.UI.ANIMATION_CURVE_LINEAR
+   </pre></code>
+   
+   According to the demo, the message <code>[WARN] Ti.UI.iOS.ATTRIBUTE_FONT DEPRECATED in 3.6.0, in favor of Ti.UI.ATTRIBUTE_FONT</code> should be present as <code>e = Ti.UI.iOS.ATTRIBUTE_FONT</code> is called, however it is not present when run with SDK <code>5.2.0.v20160114021251</code>
+   </li>
+<li>Hans Knöchel 2016-01-20
+
+   Interesting. I just tried <code>var e = Ti.UI.iOS.ATTRIBUTE_FONT;</code> and got <code>\[WARN] Ti.UI.iOS.ATTRIBUTE_FONT DEPRECATED in 3.6.0, in favor of Ti.UI.ATTRIBUTE_FONT</code> using the 5_2_X branch. Anyway, it is possible that the constant is only available in conjunction with the <code>Ti.UI.AttributedString</code> proxy. 
+   
+   Long story short: Can you test the following (all words except the last should be times, the logs should state the warning):
+   
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor: '#ddd',
+   });
+   
+   win.open();
+   
+   var text =  'Bacon ipsum dolor Appcelerator Titanium rocks! sit amet fatback leberkas salami sausage tongue strip steak.';
+   
+   var attr = Titanium.UI.iOS.createAttributedString({
+       text: text,
+       attributes: [{
+           type: Titanium.UI.iOS.ATTRIBUTE_FONT,
+   	value: "Times",
+           range: [0, text.length - 6]
+       }]
+   });
+   
+   var label = Titanium.UI.createLabel({
+       left: 20,
+       right: 20,
+       height: Titanium.UI.SIZE,
+       attributedString: attr
+   });
+   
+   win.add(label);
+   </pre></code></li>
+<li>Harry Bryant 2016-01-20
+
+   As per the above comment on the matter, using the demo code successfully returns the following:
+   <code><pre>
+   // Some comments here
+   [WARN]  Ti.UI.iOS.ATTRIBUTE_FONT DEPRECATED in 3.6.0, in favor of Ti.UI.ATTRIBUTE_FONT
+   [WARN]  Ti.UI.iOS.createAttributedString() DEPRECATED in 3.6.0, in favor of Ti.UI.createAttributedString()
+   </pre></code>
+   
+   Verified as fixed, Tested on:
+   iPhone 6s Plus Device (9.2) & iPhone 6 Plus Device (8.4) 
+   Mac OSX El Capitan 10.11 (15A284)
+   Ti SDK: 5.2.0.v20160114021251
+   Appc NPM: 4.2.3-1
+   App CLI: 5.2.0-228 
+   Xcode 7.2
+   Node v4.2.3
+   
+   *Closing Ticket.*
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20015.json">JSON Source</a></p>

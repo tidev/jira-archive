@@ -1,0 +1,184 @@
+---
+title: "[TIMOB-10223] Android: "Uncaught Error: File: appdata://XYZ contains a path separator" on Android when using Ti.Database.Install with Ti.Filesystem.externalStorageDirectory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-21T22:35:51.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 04, 2014 Sprint 04 API, Release 3.2.3, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, exalture, qe-testadded, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Marco Pantaleoni</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2012-03-20T08:31:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-05-26T01:19:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+
+I'm trying to use Ti.Database.Install() to install on the SD card.
+Following the example in:
+
+<a href="http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.Database.install-method.html" rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.Database.install-method.html</a>
+
+the code is:
+
+<code><pre>
+var db = Ti.Database.install("/mydb", Ti.Filesystem.externalStorageDirectory + "mydb");
+</pre></code>
+
+<h4>Actual Results</h4>
+I always get
+
+<code><pre>
+E/TiJSError(  552): (main) [1997,4200] ----- Titanium Javascript Runtime Error -----
+E/TiJSError(  552): (main) [1,4201] - In ti:/invoker.js:92,19
+E/TiJSError(  552): (main) [0,4201] - Message: Uncaught Error: File appdata://mydb contains a path separator
+E/TiJSError(  552): (main) [0,4201] - Source:
+return delegate.apply(invoker.__thisObj__, args);
+E/V8Exception(  552): Exception occurred at ti:/invoker.js:92: Uncaught Error: File appdata://mydb contains a path separator
+</pre></code>
+
+<h4>Expected Results</h4>
+The example working
+
+<h4>Extra info</h4>
+I've also tried:
+
+<code><pre>
+var db = Ti.Database.install("/mydb", Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory + "mydb").nativePath);
+</pre></code>
+
+which gives a similar error:
+
+<code><pre>
+E/TiJSError(  671): (main) [1945,3930] ----- Titanium Javascript Runtime Error -----
+E/TiJSError(  671): (main) [1,3931] - In ti:/invoker.js:92,19
+E/TiJSError(  671): (main) [0,3931] - Message: Uncaught Error: File file:///mnt/sdcard/com.my.org.myapp/mydb contains a path separator
+E/TiJSError(  671): (main) [0,3931] - Source: 		return delegate.apply(invoker.__thisObj__, args);
+E/V8Exception(  671): Exception occurred at ti:/invoker.js:92: Uncaught Error: File file:///mnt/sdcard/com.my.org.myapp/mydb contains a path separator
+</pre></code>
+
+I've also tried formatting the SD and recreating it from scratch. The results don't change.
+
+Is there any way to copy/open the db on the external storage on Android?
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Neeraj Gupta 2012-07-27
+
+   @Marco - Why are you using a slash in the first parameter name?</li>
+<li>Carter Lathrop 2012-07-28
+
+   the slash doesnt change anything. I tried out the same call with 'mydb' instead of '/mydb' and the error still occurs</li>
+<li>Marco Pantaleoni 2012-07-30
+
+   @Neeraj: as Carter said, the initial slash doesn't change the results.
+   I'd also like to point out that the API docs have the parameter order reversed, citing "install(String path, String dbName)" instead of "install(String dbName, String path)".
+   </li>
+<li>Neeraj Gupta 2012-07-30
+
+   Thanks, Marco.</li>
+<li>Anirudh Nagesh 2012-10-01
+
+   Workaround : Use absolute path of the SD card.
+   <code><pre>
+   var db2 = Ti.Database.open('/mnt/sdcard/com.app.testme/databases/mydb2Installed');
+   </pre></code>
+   where com.app.testme is the appid.
+   
+   Regards,
+   Anirudh</li>
+<li>Florian Sey 2012-11-28
+
+   Does this workaround works with Ti.Database.install(dbName, path); ?
+   I'm trying to install an already existing database from the Resources folder to the 'data' folder of the device. It works fine on iOS. 
+   But with Android, I get the same error as above following the doc. 
+   I tried the workaround, but I always get a No such file or directory error message. 
+   Here the paths I tested: 
+   /mnt/sdcard/com.company.app/mydb
+   /mnt/sdcard/com.company.app/databases/mydb
+   /mnt/sdcard/mydb
+   /sdcard/com.company.app/mydb
+   /sdcard/com.company.app/databases/mydb
+   /sdcard/mydb
+   
+   I'm not familiar with the filesystem on Android though so maybe I missed something. 
+   Should I create folder first? Is com.company.app automatically created? 
+   (I ofcourse replaced com.company.app with the right app id inside the project)
+   </li>
+<li>Mark Henderson 2012-12-13
+
+   Can I please champion this issue to be prioritised thanks!</li>
+<li>Eduardo Gomez 2013-10-17
+
+   I've also tried out to hard code path to DB without success. Furthermore, probably 'Resources' folder might be copied over external storage directory.
+   <h4>e.g.</h4>
+   {quote}
+   var db = Ti.Database.install( '/testdb', '/mnt/sdcard/com.app.test/databases/testdb' ); 
+   10-17 17:20:41.398: W/System.err(5072): java.io.FileNotFoundException: Resources/testdb
+   {quote}
+   
+   Following Appcelerator docs does not seem to work this out:
+   - <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.Database-method-install
+   
+   <h4>Install a Database to External Storage (Android)</h4>
+   {quote}
+   The device is checked for the presence of external storage and a database, with a filename of mydb2 and located in the same directory as the the running script, is installed.
+   {quote}
+   
+   {quote}
+   if (Ti.Platform.name === 'android' && Ti.Filesystem.isExternalStoragePresent()) {
+     var db2 = Ti.Database.install('mydb2', Ti.Filesystem.externalStorageDirectory + 'path' + Ti.Filesystem.separator + 'to' + Ti.Filesystem.separator + 'mydb2Installed');
+   }
+   
+   Unlike on iOS, no file extension is added. The file is copied to the absolute path provided.
+   {quote}
+   
+   </li>
+<li>Sunila 2014-02-12
+
+   Added code to handle external directory. Also make sure that if the db doesn't exist, don't copy.
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/5347" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5347</a></li>
+<li>Pedro Enrique 2014-03-24
+
+    3_2_X Backport PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5509" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5509</a></li>
+<li>Samuel Dowse 2014-03-26
+
+    Verified fixed on:
+    Mac OSX 10.9.2
+    Appcelerator Studio, build: 3.2.3.201403250634
+    Titanium SDK, build: 3.2.3.v20140326130916
+    CLI: 3.2.3-dev
+    Alloy: 1.3.1
+    Android Device: Galaxy SIII (4.1.2, with external sdcard)
+    
+    Used the following code:
+    <code><pre>
+    var db 	= Ti.Database.install('mydb', 'mydb1Installed');
+    var db1 = Ti.Database.install('mydb1', Ti.Filesystem.externalStorageDirectory + 'mydb1');
+    var db2 = Ti.Database.install( '/mydb2', '/mnt/sdcard/com.appcelerator.timob10223/databases/mydb2' ); 
+    </pre></code>
+    All three successfully save db files to sdcard.
+    Closing.</li>
+<li>Joe Falcone 2017-05-26
+
+    We've just run into this bug in Ti.Database.open...  with 5.5.1 SDK on Android 7.0 - just change the code above to Ti.Database.open and you get the "contains a path separator" error
+    
+    var db1 = Ti.Database.open(Ti.Filesystem.externalStorageDirectory + 'mydb1');
+    
+    Sounds like the bug was fixed in install, but not in open.
+    
+    Workaround is to copy the file from externalStorageDirectory to applicationCacheDirectory and then use Ti.Database.install to re-install it so as to preserve the data.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10223.json">JSON Source</a></p>

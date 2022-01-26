@@ -1,0 +1,240 @@
+---
+title: "[TIMOB-17961] TableView - first section doesn't scroll when doing pull to refresh"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-07-11T08:09:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.3.0, Release 3.4.0</td></tr>
+<tr><th>Fix Version/s</th><td>Backlog</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TCSupport</td></tr>
+<tr><th>Reporter</th><td>Ivan Skugor</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2014-09-08T16:36:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-11T08:09:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+To see this issue, run this code:
+
+<code><pre>
+
+var win = Ti.UI.createWindow({
+	top: 20
+});
+
+function formatDate()
+{
+	var date = new Date();
+	var datestr = date.getMonth()+'/'+date.getDate()+'/'+date.getFullYear();
+	if (date.getHours()>=12)
+	{
+		datestr+=' '+(date.getHours()==12 ? date.getHours() : date.getHours()-12)+':'+date.getMinutes()+' PM';
+	}
+	else
+	{
+		datestr+=' '+date.getHours()+':'+date.getMinutes()+' AM';
+	}
+	return datestr;
+}
+
+var section1 = Ti.UI.createTableViewSection({
+	headerTitle:'Header 1'
+});
+for (var i=0; i < 10; i++) {
+	section1.add(Ti.UI.createTableViewRow({
+		title:'Row '+i
+	}));
+}
+
+var section2 = Ti.UI.createTableViewSection({
+	headerTitle:'Header 2'
+});
+for (var i=4; i < 10; i++) {
+	section2.add(Ti.UI.createTableViewRow({
+		title:'Row '+i
+	}));
+}
+
+var lastRow = 4;
+
+var tableView = Ti.UI.createTableView({
+	data: [ section1, section2 ]
+});
+
+win.add(tableView);
+
+var border = Ti.UI.createView({
+	backgroundColor:"#576c89",
+	height:2,
+	bottom:0
+});
+
+var tableHeader = Ti.UI.createView({
+	backgroundColor:"#e2e7ed",
+	width:320,
+	height:60
+});
+
+// fake it til ya make it..  create a 2 pixel
+// bottom border
+tableHeader.add(border);
+
+var arrow = Ti.UI.createView({
+	backgroundImage:"/images/whiteArrow.png",
+	width:23,
+	height:60,
+	bottom:10,
+	left:20
+});
+
+var statusLabel = Ti.UI.createLabel({
+	text:"Pull to reload",
+	left:55,
+	width:200,
+	bottom:30,
+	height:"auto",
+	color:"#576c89",
+	textAlign:"center",
+	font:{fontSize:13,fontWeight:"bold"},
+	shadowColor:"#999",
+	shadowOffset:{x:0,y:1}
+});
+
+var lastUpdatedLabel = Ti.UI.createLabel({
+	text:"Last Updated: "+formatDate(),
+	left:55,
+	width:200,
+	bottom:15,
+	height:"auto",
+	color:"#576c89",
+	textAlign:"center",
+	font:{fontSize:12},
+	shadowColor:"#999",
+	shadowOffset:{x:0,y:1}
+});
+
+var actInd = Titanium.UI.createActivityIndicator({
+	left:20,
+	bottom:13,
+	width:30,
+	height:30
+});
+
+tableHeader.add(arrow);
+tableHeader.add(statusLabel);
+tableHeader.add(lastUpdatedLabel);
+tableHeader.add(actInd);
+
+tableView.headerPullView = tableHeader;
+
+
+var pulling = false;
+var reloading = false;
+
+function beginReloading()
+{
+	// just mock out the reload
+	setTimeout(endReloading,2000);
+}
+
+function endReloading()
+{
+	// simulate loading
+	for (var c=lastRow;c<lastRow+10;c++)
+	{
+		tableView.appendRow({title:"Row "+c});
+	}
+	lastRow += 10;
+
+	// when you're done, just reset
+	tableView.setContentInsets({top:0},{animated:true});
+	reloading = false;
+	lastUpdatedLabel.text = "Last Updated: "+formatDate();
+	statusLabel.text = "Pull down to refresh...";
+	actInd.hide();
+	arrow.show();
+}
+
+tableView.addEventListener('scroll',function(e)
+{
+	var offset = e.contentOffset.y;
+	if (offset <= -65.0 && !pulling && !reloading)
+	{
+		var t = Ti.UI.create2DMatrix();
+		t = t.rotate(-180);
+		pulling = true;
+		arrow.animate({transform:t,duration:180});
+		statusLabel.text = "Release to refresh...";
+	}
+	else if (pulling && (offset > -65.0 && offset < 0) && !reloading )
+	{
+		pulling = false;
+		var t = Ti.UI.create2DMatrix();
+		arrow.animate({transform:t,duration:180});
+		statusLabel.text = "Pull down to refresh...";
+	}
+});
+
+var event1 = 'dragEnd';
+if (Ti.version >= '3.0.0') {
+	event1 = 'dragend';
+}
+
+tableView.addEventListener(event1,function(e)
+{
+	if (pulling && !reloading)
+	{
+		reloading = true;
+		pulling = false;
+		arrow.hide();
+		actInd.show();
+		statusLabel.text = "Reloading...";
+		tableView.setContentInsets({top:60},{animated:true});
+		arrow.transform=Ti.UI.create2DMatrix();
+		beginReloading();
+	}
+});
+
+win.open();
+</pre></code>
+
+
+Pull down table view so loading starts. Then, try to scroll table view. You should see that rows are scrolling, but first section view stays fixed (other seems fine).
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2014-09-09
+
+   </li>
+<li>Ivan Skugor 2014-09-09
+
+   Hello Mauro.
+   
+   
+   I don't think this is duplicate, one issue is made for TableView component and other for ListView component (although, in both cases, issue is identical). I think they'll be resolved differently and because of that I opened two tickets.
+   
+   
+   
+   Ivan</li>
+<li>Ivan Skugor 2014-09-12
+
+   Do I have to open another issue, or this one will be reopened??!!!</li>
+<li>Ivan Skugor 2014-09-12
+
+   Thank you!</li>
+<li>Ivan Skugor 2014-11-05
+
+   </li>
+<li>Hans Knöchel 2016-07-11
+
+   Fixed using the native Pull-To-Refresh in all recent version of Titanium.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17961.json">JSON Source</a></p>

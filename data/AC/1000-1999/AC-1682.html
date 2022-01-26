@@ -1,0 +1,280 @@
+---
+title: "[AC-1682] Ti.Facebook restarts application on sucessful share"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-28T06:08:06.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>facebook, ios, mobilesdk</td></tr>
+<tr><th>Reporter</th><td>Adipa Wijayathilaka</td></tr>
+<tr><th>Assignee</th><td>Sharif AbuDarda</td></tr>
+<tr><th>Created</th><td>2016-01-25T17:30:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:38:10.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+test case:
+1. Make sure the proper properties are set: 
+<a href="https://github.com/appcelerator-modules/ti.facebook/blob/master/ios/README.md" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.facebook/blob/master/ios/README.md</a>
+
+2. Initialize facebook: 
+
+<code><pre>
+	   var FB = require('facebook');
+
+	   var shareParams = {
+                    link: URL,
+                    title: TITLE,
+                    description: " ", //deprecated 
+                    picture: PIC_URL
+            };
+            
+            //FB.display = "popup";
+            //FB.appid = Alloy.CFG.facebookProperties.appid;
+            //FB.permissions = Alloy.CFG.facebookProperties.permissions;
+            //FB.forceDialogAuth = true;
+
+            FB.initialize();
+            
+            FB.addEventListener('shareCompleted', function (e) {
+                if (e.success) {
+                    Ti.API.info('FB - Share request succeeded.');
+                } else {
+                    Ti.API.warn('FB - Failed to share.');
+                    Ti.API.warn(e.error);
+                }
+            });
+
+           FB.presentShareDialog(shareParams);
+</pre></code>
+
+3. Successfully share data (confirmed this works)
+
+At this point the phone quits out of the facebook app and *restarts* the application. On Android it returns back to the application at its previous state correctly. 
+
+Also note the shareCompleted event never fires even though the share successfully goes through. 
+
+Any help would be appreciated, any ideas why this would be the case? There are *no errors* reported on the console when this happens, for all intents it appears the app completely restarts. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2016-01-26
+
+   Hello, I tried to test the project with Ti.Facebook with the below code. This is working as expected. The share works and also the share success alert shows. 
+   
+   <h4>Environment</h4>
+   
+   MacOS X 10.10.5
+   Ti SDK 5.1.2.GA
+   iOS 9.2
+   Ti.Facebook 5.0.0
+   
+   <h4>Code</h4>
+   <code><pre>
+   
+   var fb = require('facebook');
+   
+   var win = Ti.UI.createWindow({
+       title : 'Login/Logout',
+       backgroundColor : '#fff',
+       fullscreen : false
+   });
+   
+   var share = Ti.UI.createButton({
+       title : 'SHARE ON FACEBOOK',
+       width : Ti.UI.SIZE,
+       height : Ti.UI.SIZE,
+       top : 400,
+   });
+   
+   share.addEventListener('click', function() {
+       fb.presentShareDialog({
+           link : '<a href="https://appcelerator.com/" rel="nofollow" target="_blank">https://appcelerator.com/</a>',
+           name : 'great product',
+           description : 'Titanium is a great product',
+           caption : 'it rocks too',
+           picture : '<a href="http://www.appcelerator.com/wp-content/uploads/scale_triangle1.png" rel="nofollow" target="_blank">http://www.appcelerator.com/wp-content/uploads/scale_triangle1.png</a>'
+       });
+   });
+   
+   fb.addEventListener('shareCompleted', function(e) {
+   
+       if (e.success) {
+   
+           Ti.API.info('FB - Share request succeeded.');
+   
+       } else {
+   
+           Ti.API.warn('FB - Failed to share.');
+   
+           Ti.API.warn(e.error);
+   
+       }
+   
+   });
+   
+   win.add(share);
+   
+   </pre></code>
+   Did you follow the steps for configuring facebook module in [documentation](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Facebook-method-presentShareDialog) link?. Please provide the log and your ios section of in tiapp.xml file. Thanks.</li>
+<li>Adipa Wijayathilaka 2016-01-26
+
+   The strange part about all this is it doesn't give any errors! The share goes through (i.e I can see the share post on the facebook wall). However the issue here is that it doesn't fire the sharecomplete event AND it restarts the app, again without errors on iOS. 
+   
+   The only thing different from my configuration from the appcelerator docs/github's readme is I'm not 100% on the FacebookDisplayName in the ios plist. 
+   Going to try redo all of it just in case I missed something see if it still occurs, will be back in a bit with the results. </li>
+<li>Adipa Wijayathilaka 2016-01-26
+
+   First of all sorry for the delay, I thought I had it solved by just rewriting it but it appears it is NOT an issue with ios9, it IS an issue with iOS 8.3 (iphone 5s). Again sorry about that I mixed up my iOS versions. 
+   
+   This is my config:
+   
+   <code><pre>
+   var fb = require('facebook');
+   
+   fb.initialize();
+   fb.presentShareDialog({
+       link : '<a href="https://appcelerator.com/" rel="nofollow" target="_blank">https://appcelerator.com/</a>',
+       name : 'great product',
+       description : 'Titanium is a great product',
+       caption : 'it rocks too',
+       picture : '<a href="http://www.appcelerator.com/wp-content/uploads/scale_triangle1.png" rel="nofollow" target="_blank">http://www.appcelerator.com/wp-content/uploads/scale_triangle1.png</a>'
+   });
+   </pre></code>
+   
+   and my tiapp.xml (condensed to the relevant sections):
+   
+   <code><pre>
+   <ios>
+           <plist>
+               <dict>
+                   <key>CFBundleURLTypes</key>
+                   <array>
+                       <dict>
+                           <key>CFBundleURLName</key>
+                           <!-- Application ID same as the id value in the tiapp.xml file -->
+                           <string>ca.appname.m</string>
+                           <key>CFBundleURLSchemes</key>
+                           <array>
+                               <!-- Prefix the Facebook App ID with 'fb' -->
+                               <string>fbXXXXXXXX</string>
+                           </array>
+                       </dict>
+                   </array>
+                  <key>FacebookAppID</key>
+                   <!-- Facebook App ID -->
+                   <string>XXXXXXXXXXX</string>
+                   <key>FacebookDisplayName</key>
+                   <!-- Facebook App Name from developer.facebook.com -->
+                   <string>FB mobile app name</string>
+                   <key>LSApplicationQueriesSchemes</key>
+                   <array>
+                       <string>fbapi</string>
+                       <string>fb-messenger-api</string>
+                       <string>fbauth2</string>
+                       <string>fbshareextension</string>
+                   </array>
+               </dict>
+           </plist>
+   </ios>
+   </pre></code>
+   
+   It shares successfully but closes and restarts the app. 
+   
+   EDIT: I've put the code here <a href="https://gist.github.com/boarnoah/366ebd76ff5c5ad3865e" rel="nofollow" target="_blank">https://gist.github.com/boarnoah/366ebd76ff5c5ad3865e</a> since Jira's syntax highlighter is hard to work with. 
+   
+   EDIT2: The issue persists whether or not the device has the Facebook app installed. 
+   </li>
+<li>Sharif AbuDarda 2016-01-27
+
+   Hello, I see you didn't provide the FB app name in your tiapp.xml. See the below ios section of tiapp.xml 
+   <code><pre>
+           <plist>
+               <dict>
+                   <key>CFBundleURLTypes</key>
+                   <array>
+                       <dict>
+                           <key>CFBundleURLName</key>
+                           <!-- Application ID same as the id value in the tiapp.xml file -->
+                           <string>com.gsl.shajib</string>
+                           <key>CFBundleURLSchemes</key>
+                           <array>
+                               <!-- Prefix the Facebook App ID with 'fb' -->
+                               <string>fbXXXXXXXXXXXXXXX</string>
+                           </array>
+                       </dict>
+                   </array>
+                   <key>FacebookAppID</key>
+                   <!-- Facebook App ID -->
+                   <string>XXXXXXXXXXXXXXX</string>
+                   <key>FacebookDisplayName</key>
+                   <!-- Facebook App Name from developer.facebook.com -->
+                   <string>AppcNew</string>
+                   <key>LSApplicationQueriesSchemes</key>
+                   <array>
+                       <string>fbapi</string>
+                       <string>fb-messenger-api</string>
+                       <string>fbauth2</string>
+                       <string>fbshareextension</string>
+                   </array>
+               </dict>
+           </plist>
+   </pre></code>
+   
+   Now,
+   <code><pre>
+          <array>
+                    <!-- Prefix the Facebook App ID with 'fb' -->
+                     <string>fbXXXXXXXXXXXXXXX</string>
+          </array>
+   </pre></code>
+   Here you put the facebook app id with addition to 'fb' at first.
+   
+   <code><pre>
+                   <key>FacebookAppID</key>
+                   <!-- Facebook App ID -->
+                   <string>XXXXXXXXXXXXXXX</string>
+                   <key>FacebookDisplayName</key>
+                   <!-- Facebook App Name from developer.facebook.com -->
+                   <string>AppcNew</string>
+   </pre></code>
+   Now, here in the first string tag you provide only the facebook app id and in the second string tag you provide the name of the app. Lets say your FB app display name is "AppcNew". So you put the exact name here. Thanks.
+   
+   </li>
+<li>Adipa Wijayathilaka 2016-01-27
+
+   Sorry for the confusion:
+   (line numbers below correspond to <a href="https://gist.github.com/boarnoah/366ebd76ff5c5ad3865e" rel="nofollow" target="_blank">https://gist.github.com/boarnoah/366ebd76ff5c5ad3865e</a>
+   line 16 is fb + app id(from developer.facebook.com)
+   line 22 is app id (developer.facebook.com) 
+   line 25 is app name (developer.facebook.com)
+   
+   I just replaced them with X or "FB Mobile App Name" for the purposes of example code.
+   Again, I'm fairly sure this code works because it executes and shares fine on iOS 9.0 (both with and without the fb app installed) and android. It even works correctly with iOS 8, it shares the message successfully BUT it closes and restarts the app without error messages which is the issue. 
+   
+   Sorry if I wasn't too clear with my example code. 
+   
+   EDIT: I managed to capture an error message by launching it on the iOS simulator (iphone 6 plus iOS 8.1 and using this; tail -f ~/Library/Logs/CoreSimulator/*/system.log
+   
+   The captured message:
+   
+   <code><pre>
+   Jan 27 15:15:35 computer com.apple.CoreSimulator.SimDevice.39126AA9-9E22-4A0E-ADCC-3F148A3F0994.launchd_sim[6823] (UIKitApplication:ca.XXXXX.m[0xd21][7153]): Service exited due to signal: Segmentation fault: 11
+   </pre></code>
+   
+   
+   </li>
+<li>Sharif AbuDarda 2016-01-28
+
+   </li>
+</ol>
+
+
+<p><a href="/AC/AC-1682.json">JSON Source</a></p>

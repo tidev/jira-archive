@@ -1,0 +1,185 @@
+---
+title: "[TIMOB-15635] Android: anyDensity is set to false always"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-05T17:38:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 23, 2013 Sprint 23 Core, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, androidbuild, cb-verified, qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Dan Tamas</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-11-01T09:23:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:44:11.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The build process sets anyDensity to false without taking in account the tiapp.xml setting.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2013-11-01
+
+   Hi Dan Tamas,
+   
+   Actually i don't find anyDensity is set to false always in tiapp.xml file please notify me clearly with some resource.
+   
+   Thanks</li>
+<li>Dan Tamas 2013-11-01
+
+   Are you kidding? What is not clear?
+   
+   </li>
+<li>Chris Barber 2013-11-04
+
+   [~rborn] Hey Dan, I just tested this and even I'm not sure exactly what the problem is. I don't think the build process has ever set anyDensity to false.
+   
+   If I put the following in my tiapp.xml, anyDensity remains true in the final AndroidManifest.xml:
+   
+   <code><pre>
+   <?xml version="1.0" encoding="UTF-8"?>
+   <ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+   	<!-- snip -->
+   	<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+   		<manifest>
+   			<supports-screens android:anyDensity="true" android:largeScreens="true" android:normalScreens="true" android:smallScreens="true"/>
+   		</manifest>
+   	</android>
+   </ti:app>
+   </pre></code>
+   
+   So, either:
+   
+   1) You are using a custom AndroidManifest.xml and I have a bug (possible)
+   2) There was a bug that was fixed in one of the 12+ CI builds since 3.2.0.v20131030184044 (likely)
+   3) You forgot to put "android:" before the "anyDensity" (unlikely, but possible)
+   4) You put the <supports-screens> tag someplace that was NOT in the <manifest> tag. The new Android build system is VERY strict about the tags. If you put <supports-screens> anywhere besides in the <manifest> tag, it disappears... forever!
+   
+   To match parity with iOS and how it handles <plist> precedence, the custom AndroidManifest.xml wins over the default AndroidManifest.xml and the <manifest> in the tiapp.xml wins over the custom AndroidManifest.xml and default AndroidManifest.xml.</li>
+<li>Dan Tamas 2013-11-04
+
+   Hi Chris, here is the android part tiapp.xml.
+   The support-screens is a little different, and I tried with 3.2.0.v20131031141643
+   No custom manifest file :)
+   
+   However I right now I'm not able to test, so this is something for you just to know.
+   As soon as I'll be able I'll run some tests with the latest CI and let you know. 
+   
+   Thank you.
+   
+   <code><pre>
+       <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+           <application android:debuggable="true"/>
+           <tool-api-level>10</tool-api-level>
+           <manifest android:installLocation="preferExternal">
+               <uses-sdk android:minSdkVersion="10" android:targetSdkVersion="10"/>
+   
+               <supports-screens android:anyDensity="true"/>
+   
+               <uses-permission android:name="android.permission.READ_CALENDAR"/>
+               <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
+               <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+               <uses-permission android:name="android.permission.VIBRATE"/>
+   	    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+           </manifest>
+           <activities>
+               <activity url="app.js">
+                   <intent-filter>
+                       <action android:name="android.intent.action.VIEW"/>
+                       <category android:name="android.intent.category.DEFAULT"/>
+                       <category android:name="android.intent.category.BROWSABLE"/>
+                   </intent-filter>
+               </activity>
+               <activity url="loading_android.js" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:launchMode="singleTask"></activity>
+           </activities>
+           <services>
+               <service android:process=":gcmnotification" url="gcm.js"/>
+           </services>
+       </android>
+   
+   </pre></code></li>
+<li>Chris Barber 2013-11-04
+
+   [~rborn] Cool. Looks pretty cut and dry. Let me know how the most recent CI build does.
+   
+   FYI, <tool-api-level> is deprecated in favor of <uses-sdk>, so now you can shave some bytes off your tiapp.xml.
+   
+   Just out of curiosity, when you look at build/android/AndroidManifest.xml, is anyDensity set to false? Or is it when your app is running? Or are you determining this based on behavior? Are you doing an emulator build or device build? If device, does the name of it start with X, end with M, and have a OO in the middle?
+   
+   For fun, I grepped the Android source and found that there is a variable ingeniously named "anyDensityFalse" which is initialized to false and set to whatever true if the device supports it (based on the ApplicationInfo object). Personally, I think it would have been better to name it "anyDensityNotTrue" and have it initialized to <code>!true</code>. False is just so negative.</li>
+<li>Dan Tamas 2013-11-04
+
+   @Chris - I tested with  3.2.0.v20131104014843  and it seems that the anyDensity is back.
+   I didn't make any change to tiapp.xml so it seems to be fixed.
+   
+   However I didn't make more tests with more apps, just had 5 mins to run a fast compile :)
+   
+   I'll try later this days (this week) to run more tests and see how it's working.
+   
+   Thank you.
+   
+   </li>
+<li>Dan Tamas 2013-11-04
+
+   I lied :(
+   
+   I cleaned the project, recompiled and here it is (in the generated manifest file)
+   <code><pre>
+   	<supports-screens android:anyDensity="false"/> 
+   </pre></code>
+   
+   More info:
+    - I detected this behaviour because the screens don't fit anymore, they are huge - the project is old and at that moment that was the way to keep all the screen sizes happy
+    - deploy to emulator with android 2.3.4
+    - as mentioned before, the anyDensity is set to false in the generated AndroidManifest.xml
+   
+   What else do you need to know? 
+   Thank you :)
+   </li>
+<li>Chris Barber 2013-11-04
+
+   Dan: 1, Chris: 0.
+   
+   Pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/4909" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4909</a>
+   
+   To test, un-Earth a module with a timodule.xml that contains:
+   
+   <code><pre>
+   <android>
+       <manifest>
+           <supports-screens android:anyDensity="false"/>
+       </manifest>
+   </android>
+   </pre></code>
+   
+   Build an Android app and verify the generated build/android/AndroidManifest.xml.</li>
+<li>Dan Tamas 2013-11-04
+
+   Haha, nice catch. Indeed I have a module with anyDensity set to false.
+   Thanks a lot, waiting for the merge and I'll let you know</li>
+<li>Samuel Dowse 2013-12-05
+
+    Verified fixed on:
+    Mac OSX 10.9 Mavericks
+    Titanium Studio, build: 3.2.0.201312031529
+    Titanium SDK, build: 3.2.0.v20131203104847
+    CLI: 3.2.0-beta
+    Alloy: 1.3.0-beta
+    
+    Tested using Chris Barber's test steps.
+    Included code in the tiapp.xml and added modules with with anyDensity set to false.
+    AndroidManifest.xml still had anyDensity set to true after build.
+    Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15635.json">JSON Source</a></p>

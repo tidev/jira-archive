@@ -1,0 +1,151 @@
+---
+title: "[TIMOB-12189] iOS: imageWithRoundedCorner() makes opaque corners instead of transparent corners"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-25T11:17:46.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.0.2, Release 3.1.0, 2013 Sprint 01 Core, 2013 Sprint 01</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>blob, core, defect, ios, module_imageview, parity, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Shawn Lipscomb</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2013-01-03T07:56:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:44:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+The blob.imageWithRoundedCorner() method on iOS creates an image with opaque white corners instead of transparenet corners like the Android version does.  Therefore, this is a parity issue.
+
+I have attached two screenshots.  The iPhone screenshot shows the white corners in the resulting image in the bottom right corner.  The other screenshot is the same code run on the Android emulator, showing the expected result of transparent corners.
+
+<h4>Testcase</h4>
+
+Using the following app.js code, click the "Step 1" button, then the "Step 2" button.
+
+{panel:title=app.js}
+<code><pre>
+var win1=Ti.UI.createWindow({backgroundColor:'blue'});
+
+var RoundedFile;
+
+var PhoneDataDirectory=Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory);
+if (! PhoneDataDirectory.exists())
+  PhoneDataDirectory.createDirectory();
+
+var Label1=Ti.UI.createLabel({top:2, left:2, text:'M and Ms',
+                              color:'orange',
+                              backgroundColor:'black'});
+win1.add(Label1);
+
+function Step1()
+{
+  Ti.Media.takeScreenshot(ContinueStep1);
+}
+var Step1Button=Ti.UI.createButton({title:'Step 1', left:5, top:'50%'});
+win1.add(Step1Button);
+Step1Button.addEventListener('click',Step1);
+
+function ContinueStep1(ScreenShot)
+{
+  var ScreenBlob=ScreenShot.media;
+  var SectionBlob=ScreenBlob.imageAsCropped({x:0,
+                                             y:25,
+                                             width:90,
+                                             height:50
+                                            });
+  var Rounded=SectionBlob.imageWithRoundedCorner(20);
+  RoundedFile=Ti.Filesystem.getFile(PhoneDataDirectory.nativePath,'Rounded.png');
+  RoundedFile.write(Rounded);
+  Step1Button.title='Done';
+}
+
+function Step2()
+{
+  var RoundedImage=Ti.UI.createImageView({image:RoundedFile,
+                                          bottom:2, right:2,
+                                          width:Ti.UI.SIZE,
+                                          height:Ti.UI.SIZE });
+  win1.add(RoundedImage);
+}
+var Step2Button=Ti.UI.createButton({title:'Step 2', left:165, top:'50%'});
+win1.add(Step2Button);
+Step2Button.addEventListener('click',Step2);
+
+win1.open();
+</pre></code>
+{panel}
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-12189_34522/AndroidScreenShot.png">AndroidScreenShot.png</td></td><td>2013-01-03T07:57:23.000+0000</td><td>16017</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-12189_34520/iPhoneScreenShot.png">iPhoneScreenShot.png</td></td><td>2013-01-03T07:56:21.000+0000</td><td>19567</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shawn Lipscomb 2013-01-03
+
+   HD ticket: [APP-692179](<a href="http://support.appcelerator.com/tickets/APP-692179)" rel="nofollow" target="_blank">http://support.appcelerator.com/tickets/APP-692179)</a></li>
+<li>Varun Joshi 2013-01-07
+
+   I tried using the ImageFactory module's  imageWithRoundedCorner and imageWithTransparentBorder methods to have a rounded corner around the image but I still see the white corners. Below is another sample code with ImageFactory module.
+   
+   Steps to to reproduce are the same as mentioned in the ticket description.
+   
+   <a href="https://gist.github.com/9bd72e8cc6aec73da665" rel="nofollow" target="_blank">https://gist.github.com/9bd72e8cc6aec73da665</a></li>
+<li>Max Stepanov 2013-01-08
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/3678" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3678</a></li>
+<li>Shawn Lipscomb 2013-01-10
+
+   Verified fixed with SDK 3.0.1.v20130109180643.  Thanks!</li>
+<li>Satyam Sekhri 2013-01-17
+
+   The image has transparent corners.
+   Verified on:
+   Studio: 3.0.1.201212181159
+   SDK: 3.1.0.v20130114171802
+   iOS Device: iPhone 5(v6.0), iPhone Simulator (v6.0)
+   XCode: 4.5.2</li>
+<li>Shawn Lipscomb 2013-01-23
+
+   Seems I listed the wrong SDK in my "fixed" comment...it's fixed in SDK 3.1.0.v20130109175536.
+   
+   Can this be merged into 3.0.2 ?</li>
+<li>Max Stepanov 2013-01-23
+
+   reopen for backporting</li>
+<li>Olga Romero 2013-01-24
+
+   Closing.
+   Tested with:
+   Titanium Studio, build: 3.0.1.201212181159
+   Studio SDK, build: 3.0.2.v20130124094710
+   Studio SDK, build: 3.1.0.v20130124094206
+   Devices:
+   Nexus4 4.2
+   iPhone4S 5.0.1</li>
+<li>Anshu Mittal 2013-01-25
+
+   Reopening to update labels</li>
+<li>Shawn Lipscomb 2013-01-25
+
+    Verified fixed in SDK 3.0.2.v20130124164131.  Thanks!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-12189.json">JSON Source</a></p>

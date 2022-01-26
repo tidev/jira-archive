@@ -1,0 +1,119 @@
+---
+title: "[TIMOB-16924] iOS: TiViewProxy - An intermittent crash with "Segmentation fault: 11" exception being thrown when launching a Titanium app on iOS 7"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2016-08-04T03:14:57.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.3</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-3.3.0</td></tr>
+<tr><th>Reporter</th><td>Wilson Luu</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2014-05-06T18:01:57.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-04T03:14:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Details:* From this [QA thread](<a href="http://developer.appcelerator.com/question/173862/ios-crash---segmentation-fault-11)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/173862/ios-crash---segmentation-fault-11)</a>, the user is experiencing an intermittent crash with "Segmentation fault: 11" exception being thrown when launching a Titanium app on iOS 7 device (see crash.log).
+
+According to the user, the bug is occurring in the TiViewProxy.m file (specifically, on the line \[self parentForBubbling\]). Hence, he fixed the issue by applying the fix to the following methods in the TiViewProxy.m file:
+<code><pre>
+-(void)setParent:(TiViewProxy*)parent_
+{
+    [parent_ retain];
+    RELEASE_TO_NIL(parent);
+    parent = parent_;
+ 
+    if (parent_!=nil && [parent windowHasOpened])
+    {
+        [self windowWillOpen];
+    }
+}
+</pre></code>
+
+and
+
+<code><pre>
+-(void)dealloc
+{
+    RELEASE_TO_NIL(pendingAdds);
+    RELEASE_TO_NIL(destroyLock);
+    RELEASE_TO_NIL(parent);
+    pthread_rwlock_destroy(&childrenLock);
+ 
+    //Dealing with children is in _destroy, which is called by super dealloc.
+ 
+    [super dealloc];
+}
+</pre></code>
+
+*Note:* No Titanium sample code was provided.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16924_47871/crash.log">crash.log</td></td><td>2014-05-06T18:01:57.000+0000</td><td>2466</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-05-06
+
+   Seems like this might be an easy fix for 3.3.0</li>
+<li>Christian Brousseau 2014-09-26
+
+   I can reproduce the issue with 3.3 100% of the time. But the code base on which I am experiencing the issue is too convoluted to isolate one use case to replicate it. But I would be more than willing to test a continuous build that have this fix and (if possible) add as much info as I can.</li>
+<li>Christian Brousseau 2014-09-26
+
+   It seems the bug comes from bad practices on the JS side. 
+   Here is basically what the defective code does:
+   
+   Say you have a window containing a text field that you want to update the value from another window. (you click on the field, a new window opens with a list of choices, you select an item from the list, the window closes and the field is now updated with the value you selected from the list) The "recommended" way to do it would be to pass a callback function to the popup window so it can be triggered when the user selects an element from the list. 
+   
+   But in this case (the one where it crashes) the original developer passed the *actual field* object to the other window. (stored in a local variable for greater readability I guess)) And then, when the user would select the value from the list, it would just set the value from the text field directly from the popup window. Now we close the popup window, it invalidates and frees the memory. *But*, when it tries to free the local variable containing the textfield from the original window, it should technically fail. (I am speculating here) 
+   
+   So the code would look something like this (keep in mind that I'm doing this by head)
+   
+   <code><pre>
+   var textField = Ti.UI.createTextField();
+   
+   var popup = require('popup')(textField);
+   
+   popup.open();
+   </pre></code>
+   
+   <code><pre>
+   
+   function popup(_fieldFromOtherWin) {
+     var localVar = _fieldFromOtherWin;
+     
+     var newWin = Ti.UI.createWindow();
+     
+     newWin.addEventListener('click', function() {
+       // We update the field through the local var
+       localVal.text = 'Changed from another window';
+       
+       // We close the window, and all its children, but what happens to localVar 
+       // since it references to the textfield from the other window?
+       newWin.close();
+     });
+   
+     return newWin;
+   }
+   module.exports = popup;
+   
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16924.json">JSON Source</a></p>

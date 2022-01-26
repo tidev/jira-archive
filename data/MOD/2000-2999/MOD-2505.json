@@ -1,0 +1,262 @@
+{
+	"id": "173446",
+	"key": "MOD-2505",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10034",
+			"key": "MOD",
+			"name": "Appcelerator Modules",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-04-15T18:41:11.000+0000",
+		"created": "2019-04-06T22:55:43.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android",
+			"database",
+			"engTriage"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "57489",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "173452",
+					"key": "MOD-2506",
+					"fields": {
+						"summary": "Create automated testing builds for modules",
+						"status": {
+							"description": "This issue is being actively worked on at the moment by the assignee.",
+							"name": "In Progress",
+							"id": "3",
+							"statusCategory": {
+								"id": 4,
+								"key": "indeterminate",
+								"colorName": "yellow",
+								"name": "In Progress"
+							}
+						},
+						"priority": {
+							"name": "None",
+							"id": "6"
+						},
+						"issuetype": {
+							"id": "7",
+							"description": "gh.issue.story.desc",
+							"name": "Story",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-04-25T17:48:56.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "13609",
+				"name": "Encrypted SQLite DB"
+			}
+		],
+		"description": "*Summary:*\r\nOn Android, when reading an {{INTEGER}} column via the \"appcelerator.encrypteddatabase\" module's {{RecordSet}}, integer values are always read as 32-bit. This is an issue if the column is storing a 64-bit integer value which exceeds max/min 32-bit signed int and will return an overflowed/underflowed value respectively.\r\n\r\n*Steps to reproduce:*\r\n# Build and run the below code on Android.\r\n# Notice the app throws an exception on startup. (Caused by below {{asserts}} failing.)\r\n\r\n{code:javascript}\r\nvar MAX_SIGNED_INT32 = 2147483647;\r\nvar MIN_SIGNED_INT32 = -2147483648;\r\nvar MAX_SIGNED_INT16 = 32767;\r\nvar MIN_SIGNED_INT16 = -32768;\r\n\r\nvar rows = [\r\n\tNumber.MAX_SAFE_INTEGER,  // <- This fails.\r\n\tMAX_SIGNED_INT32 + 1,  // <- This fails.\r\n\tMAX_SIGNED_INT32,\r\n\tMAX_SIGNED_INT16 + 1,\r\n\tMAX_SIGNED_INT16,\r\n\t1,\r\n\t0,\r\n\t-1,\r\n\tMIN_SIGNED_INT16,\r\n\tMIN_SIGNED_INT16 - 1,\r\n\tMIN_SIGNED_INT32,\r\n\tMIN_SIGNED_INT32 - 1,  // <- This fails.\r\n\tNumber.MIN_SAFE_INTEGER,  // <- This fails.\r\n];\r\n\r\nvar isEncrypted = true;\r\nvar database = isEncrypted ? require(\"appcelerator.encrypteddatabase\") : Ti.Database;\r\nif (isEncrypted) {\r\n\tdatabase.password = \"password\";\r\n}\r\n\r\nvar dbName = isEncrypted ? \"int_test_encrypted.db\" : \"int_test.db\";\r\nvar dbConnection = database.open(dbName);\r\ndbConnection.execute(\"CREATE TABLE IF NOT EXISTS intTable(id INTEGER PRIMARY KEY, intValue INTEGER);\");\r\ndbConnection.execute(\"DELETE FROM intTable;\");\r\nfor (var index = 0; index < rows.length; index++) {\r\n\tdbConnection.execute(\"INSERT INTO intTable (id, intValue) VALUES (?, ?);\", index, rows[index]);\r\n}\r\nvar resultSet = dbConnection.execute(\"SELECT id, intValue FROM intTable ORDER BY id\");\r\nTi.API.info(\"@@@ Database Table 'intTable' row count: \" + (resultSet ? resultSet.rowCount : \"<null>\"));\r\nassert(resultSet.rowCount === rows.length);\r\nfor (var index = 0; resultSet.isValidRow(); resultSet.next(), index++) {\r\n\tTi.API.info(\"- id: \" + resultSet.field(0) + \", intValue: \" + resultSet.field(1));\r\n\tassert(resultSet.field(1) === rows[index]);\r\n}\r\ndbConnection.close();\r\n{code}\r\n\r\n*Cause:*\r\nThe module's {{TiResultSetProxy.java}} is fetch the integer typed column via {{getInt()}} instead of {{getLong()}}.\r\n[TiResultSetProxy.java#L104|https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/blob/f2a188a691e08c84baae24cf50c4849ca825f1a2/android/src/appcelerator/encrypteddatabase/TiResultSetProxy.java#L104]\r\n\r\n*Work-Around:*\r\nStore 64-bit integer values as strings instead. Partly because a JavaScript {{number}} type is a double float and does not have enough digits of precision to store a max 64-bit int value (which a module fix can't solve; this would be an app design issue).\r\n\\\\\r\n----\r\n*Original Ticket Description Below*\r\n----\r\n\r\nUsing a testing release of the encrypteddatabase (3.0.3 on Android), any time I read an integer field from the database it appears to be read incorrectly.  Digging further it appears to be related to integers larger than 32 bits.  The attached sample project demonstrates the issue.  If you run the project and click the \"Press Me\" button you'll see 3 int values written to the warning log.  The first set was created and read back using the built-in Ti.Database module.  The second set uses the exact same queries but with the appcelerator.encrypteddatabase 3.0.3 module.  As you can see the results do not match, and the values appear to be limited to 32 bit values.  Looking at the actual database using the sqlitedbbrowser shows that the values were written to the database correctly.  It seems the problem is with reading the data back from the DB.  This is not an issue with the iOS module.\r\n\r\n[Sample project|https://drive.google.com/file/d/1S6n2cjDg55abNzJfHEJh6FqFq5O4gyUx/view?usp=sharing]\r\n\r\nConsole logs:\r\n\r\n{quote}-- Start application log -----------------------------------------------------\r\n[WARN] \b\b \b art: Unexpected CPU variant for X86 using defaults: x86\r\n[INFO] \b\b \b TiApplication: (main) [0,0] checkpoint, app created.\r\n[INFO] \b\b \b MultiDex: VM with version 2.1.0 has multidex support\r\n[INFO] \b\b \b MultiDex: Installing application\r\n[INFO] \b\b \b MultiDex: VM has multidex support, MultiDex support library is disabled.\r\n[INFO] \b\b \b TiApplication: (main) [558,558] Titanium Javascript runtime: v8\r\n[INFO] \b\b \b TiRootActivity: (main) [1,1] checkpoint, on root activity create, savedInstanceState: null\r\n[WARN] \b\b \b art: Before Android 4.1, method android.graphics.PorterDuffColorFilter android.support.graphics.drawable.VectorDrawableCompat.updateTintFilter(android.graphics.PorterDuffColorFilter, android.content.res.ColorStateList, android.graphics.PorterDuff$Mode) would have incorrectly overridden the package-private method in android.graphics.drawable.Drawable\r\n[INFO] \b\b \b RyansPlayground 1.0 (Powered by Titanium 8.0.0.3726240fa2)\r\n[LiveView] Client connected\r\n[INFO] \b\b \b TiRootActivity: (main) [0,0] checkpoint, on root activity resume. activity = com.movista.ryansplayground.RyansplaygroundActivity@8912b12\r\n[INFO] \b\b \b OpenGLRenderer: Initialized EGL, version 1.4\r\n[WARN] \b\b \b OpenGLRenderer: Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...\r\n[INFO] \b\b \b APSAnalyticsRunnable: Analytics Started\r\n[INFO] \b\b \b APSAnalyticsRunnable: Analytics service flush complete\r\n[INFO] \b\b \b APSAnalyticsRunnable: Stopping Service\r\n[WARN] \b\b \b db file: file:///data/user/0/com.movista.ryansplayground/databases/test.db\r\n[WARN] \b\b \b Int Value: 2147483648\r\n[WARN] \b\b \b Int Value: 4294967296\r\n[WARN] \b\b \b Int Value: 1555072837463\r\n[WARN] \b\b \b db file: file:///data/user/0/com.movista.ryansplayground/databases/encTest.db\r\n[WARN] \b\b \b Int Value: -2147483648\r\n[WARN] \b\b \b Int Value: 0\r\n[WARN] \b\b \b Int Value: 294676311{quote}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "EncryptedDB: Android ResultSet reads 64-bit integer column values as 32-bit which causes overflow/underflow for large values",
+		"creator": {
+			"name": "ryan@mvretail.com",
+			"key": "ryan@mvretail.com",
+			"displayName": "Ryan Aston",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "ryan@mvretail.com",
+			"key": "ryan@mvretail.com",
+			"displayName": "Ryan Aston",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"environment": "SDK 8.0.0.GA\r\nCLI 7.0.10\r\nMojave 10.14.4\r\nXCode 10.2",
+		"closedSprints": [
+			{
+				"id": 1128,
+				"state": "closed",
+				"name": "2019 Sprint 9",
+				"startDate": "2019-04-14T19:05:00.000Z",
+				"endDate": "2019-04-26T19:05:00.000Z",
+				"completeDate": "2019-04-26T22:05:13.933Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "447503",
+					"author": {
+						"name": "rmitro",
+						"key": "rmitro",
+						"displayName": "Rakhi Mitro",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hello,\r\nCan you please share your console logs here?",
+					"updateAuthor": {
+						"name": "rmitro",
+						"key": "rmitro",
+						"displayName": "Rakhi Mitro",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-07T09:59:41.000+0000",
+					"updated": "2019-04-07T09:59:41.000+0000"
+				},
+				{
+					"id": "447505",
+					"author": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Added logs to description",
+					"updateAuthor": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2019-04-07T10:40:35.000+0000",
+					"updated": "2019-04-07T10:40:35.000+0000"
+				},
+				{
+					"id": "447528",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I see a design issue here.\r\n\r\nA JavaScript \"number\" type is a {{double float}} which has {{15}} digits of precision.\r\n\r\nA 64-bit signed integer max value (worst case scenario) is {{9,223,372,036,854,775,807}} which is {{19}} digits. A double float (ie: JavaScript \"number\") can't store a value that large without losing precision. The least significant digits will end up being random junk on all platforms (Android and iOS) when attempting to store max value.\r\n\r\nIf it's possible for the app's 64-bit integer value to exceed 15 digits, then you're eventually going to run into this design problem. The only solution is to store the 64-bit integer as a {{string}} in JavaScript and in the database.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-08T17:57:12.000+0000",
+					"updated": "2019-04-08T17:57:12.000+0000"
+				},
+				{
+					"id": "447529",
+					"author": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "The max safe integer in Javascript is +/- 9007199254740991 which is 16 digits.  Our use case is well within these boundaries.  If we needed to store larger INTs we would certainly use a string, however that is out of scope for this issue.  The bigger issue is the discrepancy between the standard Ti.Database.ResultSet and Appcelerator.Encrypteddatabase.ResultSet on Android.",
+					"updateAuthor": {
+						"name": "ryan@mvretail.com",
+						"key": "ryan@mvretail.com",
+						"displayName": "Ryan Aston",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2019-04-08T18:13:50.000+0000",
+					"updated": "2019-04-08T18:13:50.000+0000"
+				},
+				{
+					"id": "447531",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~ryan@mvretail.com], fair enough. I just wanted to check that you (or anyone reading this) understood this limitation. I've seen devs get burned by this before. And you shouldn't assume the digits of precision is 16. Worst case it's 15 depending on the architecture.\r\nhttps://en.wikipedia.org/wiki/Double-precision_floating-point_format#IEEE_754_double-precision_binary_floating-point_format:_binary64\r\n",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-08T18:31:59.000+0000",
+					"updated": "2019-04-08T18:31:59.000+0000"
+				},
+				{
+					"id": "447536",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR: https://github.com/appcelerator-modules/appcelerator.encrypteddatabase/pull/36",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-04-09T01:57:39.000+0000",
+					"updated": "2019-04-09T01:57:39.000+0000"
+				}
+			],
+			"maxResults": 8,
+			"total": 8,
+			"startAt": 0
+		}
+	}
+}

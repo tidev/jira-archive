@@ -1,0 +1,163 @@
+---
+title: "[TIMOB-14777] Android: NullPointerException on ListView + ImageView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-28T23:23:03.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 18, 2013 Sprint 18 API, Release 3.1.3, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, crash, imageview, listview, nullpointerexception, triage</td></tr>
+<tr><th>Reporter</th><td>Danny Leshem</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2013-08-05T13:10:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-10-28T23:23:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Application would sometimes crash (NPE) when aggressively scrolling a ListView with remote images.
+
+Seems there were some safety checks missing in the code (although they were used elsewhere in the same class). Added the safety checks as needed.
+
+Testing code: 
+<code><pre>
+var section = Ti.UI.createListSection({footerTitle: "Footer 1"});
+
+var data = [];
+for (var i = 0; i < 40; i++) {
+
+    var builtInRow = {
+    	properties: {
+    	height: '150dp',
+		title: "Label " + i, 
+		image: null,
+		accessoryType: 3
+		} 
+	};
+	
+	if (i == 5) {
+	    builtInRow.properties.image = '<a href="https://g.twimg.com/business/page/image/11TwitterForSmallBusiness-300_1.png" rel="nofollow" target="_blank">https://g.twimg.com/business/page/image/11TwitterForSmallBusiness-300_1.png</a>';
+	} else if (i == 10) {
+	   builtInRow.properties.image = '<a href="http://static.appcelerator.com/images/header/appc_logo.png" rel="nofollow" target="_blank">http://static.appcelerator.com/images/header/appc_logo.png</a>';
+	} else if (i == 15) {
+	   builtInRow.properties.image = '<a href="http://www.seobook.com/images/smallfish.jpg" rel="nofollow" target="_blank">http://www.seobook.com/images/smallfish.jpg</a>';
+	} else if (i == 20) {
+	   builtInRow.properties.image = '<a href="http://www.newyorker.com/online/blogs/photobooth/NASAEarth-01.jpg" rel="nofollow" target="_blank">http://www.newyorker.com/online/blogs/photobooth/NASAEarth-01.jpg</a>';
+	} else if (i == 25) {
+	   builtInRow.properties.image = '<a href="http://www.wallcg.com/images/2013/02/nature-fond-ecran-image-arriere-plan-hd-29-hd.jpg" rel="nofollow" target="_blank">http://www.wallcg.com/images/2013/02/nature-fond-ecran-image-arriere-plan-hd-29-hd.jpg</a>';
+	}
+	data.push(builtInRow);
+	
+}
+section.setItems(data);
+
+
+var listView = Ti.UI.createListView({backgroundColor: "white", sections: [section]});
+
+var win = Ti.UI.createWindow({fullscreen: false, backgroundColor: 'red'});
+
+win.add(listView);
+
+win.open();
+</pre></code>
+
+1. Run code
+2. Scroll aggressively. App should not crash.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2013-08-06
+
+   Hi Danny,
+   
+   Thanks for the pull request. Do you happen to be able to create a reproducible test case that we can drop into an app.js and run? It will help us pass through and test the pull request.
+   
+   Cheers.</li>
+<li>Danny Leshem 2013-08-07
+
+   Sorry, no time to create a test case. I think (but not certain) that the bug manifests itself in ListViews where some ImageViews have the image property set to null. Only on Android, of course.
+   
+   The fix simply adds 2 (XXX != null) checks, whose necessity would be immediately apparent to whoever maintains this class.</li>
+<li>Danny Leshem 2013-08-07
+
+   Some additional data regarding the issue-
+   
+   The issue is definitely triggered when a ListView's item template includes an ImageView, and when some items set its "image" field to null while others set it to a remote image URL. In this case, aggressively scrolling back and forth on Android causes a NullPointerException that crashes the app.
+   
+   A workaround is to never have the image field set to null. Instead, to point it to some remote image URL (e.g. a single pixel image) and simply toggle the "visible" field.
+   
+   The pull request does not completely solve the issue. Specifically, a NPE can still be thrown in
+   TiUIImageView$2.loadImageFinished(TiUIImageView.java:140)
+   
+   because if (imgsrc != null) but (imgsrc.getUrl() == null) then
+   TiUrl.getCleanUri(imgsrc.getUrl()).toString()
+   is wrong.</li>
+<li>Nic Jansma 2013-08-29
+
+   I'm seeing a NPE in the same place as Danny in my app (TiUIImageView.java:140).
+   
+   In my case, I always have the ImageView.image field set as a placeholder image on the file system.  Then I fetch new images (via XHR) from the internet and set the ImageView.image.
+   
+   The crash isn't 100%, but happens maybe 10% of the time.  It must be a timing thing for my scenario.
+   
+   Here's the exception:
+   
+   E/TiApplication(  829): java.lang.NullPointerException
+   E/TiApplication(  829):         at ti.modules.titanium.ui.widget.TiUIImageView$2.loadImageFinished(TiUIImageView.java:140)
+   E/TiApplication(  829):         at org.appcelerator.titanium.util.TiLoadImageManager.handleLoadImageMessage(TiLoadImageManager.java:90)
+   E/TiApplication(  829):         at org.appcelerator.titanium.util.TiLoadImageManager.handleMessage(TiLoadImageManager.java:107)
+   E/TiApplication(  829):         at android.os.Handler.dispatchMessage(Handler.java:95)
+   E/TiApplication(  829):         at android.os.Looper.loop(Looper.java:137)
+   E/TiApplication(  829):         at android.app.ActivityThread.main(ActivityThread.java:4745)
+   E/TiApplication(  829):         at java.lang.reflect.Method.invokeNative(Native Method)
+   E/TiApplication(  829):         at java.lang.reflect.Method.invoke(Method.java:511)
+   E/TiApplication(  829):         at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:786)
+   E/TiApplication(  829):         at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:553)
+   E/TiApplication(  829):         at dalvik.system.NativeStart.main(Native Method)
+   
+   3.1.2.GA</li>
+<li>Ingo Muschenetz 2013-08-30
+
+   Hi All,
+   
+   Can anyone submit a test case or piece of sample code? The fix looks safe, but we want to be able to confirm we fixed it on our side.</li>
+<li>Ingo Muschenetz 2013-09-03
+
+   [~dleshem] Can you provide a test case?</li>
+<li>Danny Leshem 2013-09-03
+
+   Sorry, [~ingo]... hard to extract a test case from our implementation.
+   It should be pretty easy to reproduce though, see my last comment.</li>
+<li>Hieu Pham 2013-09-05
+
+   I'm unable to reproduce this issue using a listview with images set to null and remote images. Which devices did you tested with?</li>
+<li>Danny Leshem 2013-09-05
+
+   [~hpham] - Galaxy S4 (Android 4.2.2) and Galaxy S1 (Android 2.3.6)</li>
+<li>Hieu Pham 2013-09-05
+
+    master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4653" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4653</a></li>
+<li>Hieu Pham 2013-09-06
+
+    3.1.X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4657" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4657</a></li>
+<li>Federico Casali 2013-09-13
+
+    Cannot reproduce the issue, tested on HTC One (2.3.6) and Nexus Galaxy (4.2.2)
+    TiSDK: 3.1.3.v20130913121549 
+    CLI 3.1.2 GA
+    Appceleator Studio 3.1.3.201309132456
+    
+    Closing.</li>
+<li>Allen Yeung 2013-10-28
+
+    Reopening to remove labels
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14777.json">JSON Source</a></p>

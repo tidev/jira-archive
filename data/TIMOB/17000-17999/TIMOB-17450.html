@@ -1,0 +1,185 @@
+---
+title: "[TIMOB-17450] Android: Ti.Calendar.Event should expose the attendees of the meeting invite as a property (Parity with iOS)"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-30T15:15:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>calendar, parity</td></tr>
+<tr><th>Reporter</th><td>Bert Grantges</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2014-08-03T16:46:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-30T15:15:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+All properties associated with a Calendar Event should be exposed. Currently for example you can't see the attendees of the event, which is an important aspect of the Calendar event.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Kiley Williams 2014-10-21
+
+   Has there been any review of this issue? It seems that it is exposing a property that is cleanly available through both the Android Platform and the iOS platform. I'd like to help on this if possible, since it is directly impacting a project I am working on. Let me know if I can help!</li>
+<li>Ingo Muschenetz 2014-10-21
+
+   Hi [~Yrkh8trnoy], we have reviewed it, but not scheduled it for a release. I would expect that you should be able to view the existing calendar code and see if you can arrive at a proposed implementation. I would suggest first coming up with a proposal of what the property would look like.</li>
+<li>Kiley Williams 2014-10-21
+
+   Thanks for the quick reply @ingo.
+   
+   Since the property is an array of EKParticipant objects (for iOS, haven't checked Android yet). Keeping in mind that on iOS, "attendees" is a read-only property, and they suggest not creating new EKParticipant object, here's what i am thinking:
+   
+   * Create an EKParticipantProxy (or some better name) that I can then access through my Titanium code and iterate over it there. This seems to be overkill, especially for a read-only, 5-property object, but it seems like the only actual valid way of doing it.</li>
+<li>Kiley Williams 2016-02-17
+
+   So I see this was never resolved and has popped up as an issue once again in our code.</li>
+<li>Melissa Chan 2016-03-03
+
+   Hi, I've started to use the Ti.Calendar.Event in my code and this functionality will be important for me. This issue seems to be a couple years old and I was wondering if there are any updates on it?</li>
+<li>Srikanth Sombhatla 2016-04-26
+
+   iOS: 
+   <a href="https://developer.apple.com/library/ios/documentation/EventKit/Reference/EKParticipantClassRef/index.html#//apple_ref/c/tdef/EKParticipantType" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/documentation/EventKit/Reference/EKParticipantClassRef/index.html#//apple_ref/c/tdef/EKParticipantType</a>
+   
+   Android: <a href="http://developer.android.com/guide/topics/providers/calendar-provider.html#attendees" rel="nofollow" target="_blank">http://developer.android.com/guide/topics/providers/calendar-provider.html#attendees</a>
+   
+   Not all properties can be mapped since there is certain variation or non-existing properties. The following can be considered 
+   
+   name: The attendee name
+   email: The attendee email. For iOS this is URL.resourceSpecifier <a href="http://stackoverflow.com/questions/13642786/how-to-get-ekevent-ekparticipant-email" rel="nofollow" target="_blank">http://stackoverflow.com/questions/13642786/how-to-get-ekevent-ekparticipant-email</a>
+   role: Role of attendee - required, optional. EKParticipant.role in iOS, ATTENDEE_TYPE in Android. 
+   status: Attendee status - unknown, accepted, declined, tentative. </li>
+<li>Kiley Williams 2016-05-04
+
+   Thanks @Srikanth. Looking forward to working with it soon! I'm guessing the Windows implementation of this would be via hyperloop?</li>
+<li>Kiley Williams 2016-05-22
+
+   Hi folks, I see this is in progress. How's it coming along?</li>
+<li>Srikanth 2016-06-03
+
+   PR for iOS and Android: <a href="https://github.com/appcelerator/titanium_mobile/pull/7981" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7981</a>
+   Use the following app.js to test the code
+   <code><pre>
+   var calendars = [];
+   var selectedCalendarName;
+   var selectedid;
+   var pickerData = [];
+   var osname = Ti.Platform.osname;
+   
+   var win = Ti.UI.createWindow({
+     backgroundColor: 'white',
+     exitOnClose: true,
+     fullscreen: false,
+     layout: 'vertical',
+     title: 'Calendar Demo'
+   });
+   
+   win.addEventListener('open', function() {
+   	if (Ti.Calendar.hasCalendarPermissions()) {
+   	    performCalendarReadFunctions();
+   	} else {
+   	    Ti.Calendar.requestCalendarPermissions(function(e) {
+   	        if (e.success) {
+   	            performCalendarReadFunctions();
+   	        } else {
+   	            Ti.API.error(e.error);
+   	            alert('Access to calendar is not allowed');
+   	        }
+   	    });
+   	}
+   });
+   
+   function performCalendarReadFunctions() {
+       var calendar;
+       if (osname === 'android') {
+          calendar = Ti.Calendar.selectableCalendars[0];
+       } else {
+   	   calendar = Ti.Calendar.defaultCalendar;
+       }
+       console.log('Using calendar:'+calendar.name);
+   
+       var currentYear = 2016;
+       var events = calendar.getEventsInMonth(currentYear, 5);
+       if (events && events.length) {
+             console.log(events.length + ' event(s) in ' + currentYear);
+             for (var i = 0; i < events.length; i++) {
+             	var theEvent = events[i];
+             	console.log('event '+theEvent.id+' '+theEvent.title);
+             	printAttendees(theEvent.attendees);
+             }
+       } else {
+             console.log('No events');
+       }
+   }
+   
+   function printAttendees(attendees) {
+   	Ti.API.info('attendees:'+attendees.length);
+   	for (var i = 0; i < attendees.length; i++) {
+   	 var e = attendees[i];
+   	 	Ti.API.info('------------------------------------');
+           Ti.API.info('name:'+e.name);
+           Ti.API.info('email:'+e.email);
+           var role = e.role;
+           Ti.API.info('role:');
+           if (role == Ti.Calendar.ATTENDEE_ROLE_REQUIRED) 
+           	Ti.API.info('ATTENDEE_ROLE_REQUIRED');
+           else if (role === Ti.Calendar.ATTENDEE_ROLE_OPTIONAL)		
+           	Ti.API.info('ATTENDEE_ROLE_OPTIONAL');
+           var status = e.status;
+           Ti.API.info('status:');
+           if (status === Ti.Calendar.ATTENDEE_STATUS_ACCEPTED) 
+           	Ti.API.info('ATTENDEE_STATUS_ACCEPTED');
+           else if (status === Ti.Calendar.ATTENDEE_STATUS_DECLINED)
+           	Ti.API.info('ATTENDEE_STATUS_DECLINED');
+           else if (status === Ti.Calendar.ATTENDEE_STATUS_TENTATIVE)
+           	Ti.API.info('ATTENDEE_STATUS_TENTATIVE');
+           else 
+           	Ti.API.info('ATTENDEE_STATUS_UNKNOWN');
+   
+           if (e.isOrganiser) {
+           	Ti.API.info('Organiser:YES');
+           } else {
+           	Ti.API.info('Organiser:NO');
+           }
+           Ti.API.info('------------------------------------');
+       }
+   }
+   
+   function showCalendars(calendars) {
+       for (var i = 0; i < calendars.length; i++) {
+           Ti.API.info(calendars[i].name);
+       }
+   }
+   
+   win.open();
+   </pre></code></li>
+<li>Ashraf Abu 2016-06-20
+
+    PR has been closed and rejected as the Android portion doesn't compile.</li>
+<li>Kiley Williams 2016-07-01
+
+    Has there been any new movement on this folks?</li>
+<li>Hans Knöchel 2017-01-18
+
+    Scheduling for 6.2.0 for now. TIMOB-18927 exposed this for iOS, the Android equivalent should be handled in this ticket.</li>
+<li>Yordan Banev 2017-08-16
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9325" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9325</a></li>
+<li>Lokesh Choudhary 2017-08-21
+
+    FR Passed for master. 
+    PR merged.</li>
+<li>Yordan Banev 2017-08-30
+
+    6_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9376" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9376</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17450.json">JSON Source</a></p>

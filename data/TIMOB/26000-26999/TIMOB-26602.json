@@ -1,0 +1,374 @@
+{
+	"id": "171472",
+	"key": "TIMOB-26602",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "21052",
+				"description": "",
+				"name": "Release 9.3.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2020-12-14"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2020-10-22T22:24:47.000+0000",
+		"created": "2018-04-07T12:46:45.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [
+			"android",
+			"camera",
+			"engReviewed",
+			"overlay",
+			"photo"
+		],
+		"versions": [
+			{
+				"id": "17609",
+				"description": "",
+				"name": "Release 7.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-12-07"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2020-10-22T22:24:47.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "Hi there. Using this code:\r\n\r\n{code:javascript}\r\nTi.Media.showCamera({\r\n      autohide : false,\r\n      showControls : false,\r\n      overlay : cameraControls.getView(),\r\n      saveToPhotoGallery : false,\r\n      videoMaximumDuration : 60 * 1000,\r\n      mediaTypes : [ Titanium.Media.MEDIA_TYPE_PHOTO, Titanium.Media.MEDIA_TYPE_VIDEO ],\r\n      success : function(e) {\r\n        Ti.API.info(' e.media.mimeType: ' + e.media.mimeType);\r\n      },\r\n      error : function(e) {\r\n        Ti.API.error(JSON.stringify(e));\r\n      },\r\n      cancel : function() {\r\n        Ti.API.info('Action cancelled');\r\n      }\r\n    });\r\n{code}\r\n\r\nAnd calling Ti.Media.takePicture() from \"cameraControls\" controller, outputs \"video/mp4\" in the console, i.e., I've opened the camera for both, taking a photo or a video, but if I take a photo, the callback returns a video mimeType with .mp4 extension.\r\n\r\nI've fixed this by commenting an if block in TiCameraActivity.java (package ti.modules.titanium.media):\r\n\r\n{code:java}\r\nprivate static File writeToFile(byte[] data, boolean saveToGallery) throws Throwable\r\n\t{\r\n\t\ttry {\r\n\t\t\tFile imageFile = null;\r\n\t\t\tif (saveToGallery) {\r\n\t\t\t\timageFile = MediaModule.createGalleryImageFile();\r\n\t\t\t} else {\r\n\t\t\t\t// Save the picture in the internal data directory so it is private to this application.\r\n\t\t\t\tString extension = \".jpg\";\r\n\t\t\t\t// Rodrigo Farfán (phobeous@gmail.com):\r\n\t\t\t\t// This has no sense. The only point where this method is called is in jpegCallback and\r\n\t\t\t\t// video recording creates his own file. So this is absolutely wrong\r\n\t\t\t\t// Let's comment out next if block\r\n\t\t\t\t/*\r\n\t\t\t\tif (mediaType == MEDIA_TYPE_VIDEO) {\r\n\t\t\t\t\textension = \".mp4\";\r\n\t\t\t\t}\r\n\t\t\t\t*/\r\n\t\t\t\timageFile = TiFileFactory.createDataFile(\"tia\", extension);\r\n\t\t\t}\r\n\r\n\t\t\tFileOutputStream imageOut = new FileOutputStream(imageFile);\r\n\t\t\timageOut.write(data);\r\n\t\t\timageOut.close();\r\n\r\n\t\t\tif (saveToGallery) {\r\n\t\t\t\tIntent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);\r\n\t\t\t\tUri contentUri = Uri.fromFile(imageFile);\r\n\t\t\t\tmediaScanIntent.setData(contentUri);\r\n\t\t\t\tActivity activity = TiApplication.getAppCurrentActivity();\r\n\t\t\t\tactivity.sendBroadcast(mediaScanIntent);\r\n\t\t\t}\r\n\t\t\treturn imageFile;\r\n\r\n\t\t} catch (Throwable t) {\r\n\t\t\tthrow t;\r\n\t\t}\r\n\t}\r\n{code}\r\n\r\nPlease, review this and consider adding the fix to master branch for future releases.\r\n\r\nBest regards",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Ti.Media.takePicture() will wrongly assign mp4 extension to image file if camera is configured for MEDIA_TYPE_VIDEO",
+		"creator": {
+			"name": "rfarfan",
+			"key": "rfarfan",
+			"displayName": "Rodrigo Farfán",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "rfarfan",
+			"key": "rfarfan",
+			"displayName": "Rodrigo Farfán",
+			"active": true,
+			"timeZone": "Europe/Madrid"
+		},
+		"environment": "Mac OS\r\nTi 7.0.X\r\nAndroid",
+		"comment": {
+			"comments": [
+				{
+					"id": "436605",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Hello, On Android, you can only do one or the other. If both video and photo types are in the array, then \"video\" will be favored. Now, some camera apps will let you take a photo while in video mode, but not all camera apps will do this. This is because every Android device manufacturer creates and install their own custom camera app and they don't all behave the same. This is a documentation error. We will update the documentation soon. Sorry for the confusion. Thanks.",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2018-04-07T23:09:48.000+0000",
+					"updated": "2018-04-07T23:09:48.000+0000"
+				},
+				{
+					"id": "436607",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Hello Sharif. Sorry but I don't agree you. One of our apps (as many others do also in Android) opens up the camera and let the user take a picture or record a video and this doesn't represent any kind of conflict, at least with an overlay, which ends up opening the TiCameraActivity and depends if you \"takePicture\" or \"startVideoCapture\"/\"stopVideoCapture\". Furthermore, the Ti SDK is totally ready to perform this behaviour and our app is doing absolutely fine, at least using showCamera with an overlay, which makes use of the TiCameraActivity (I haven't tested without an overlay).\r\n\r\nOn the other hand, this is not only a documentation issue, as the user takes a picture but the SDK returns a JPG file, but with a wrong mimeType and extensions, i.e., the picture is actually taken and returned to listener, but wrong notified by the callback (wrong extension and mimeType). So if you finally decide to disable this useful feature on Android, you should also fix in the code, disabling (via exception or so) the takePicture method if the video type is in the array and disabling startVideoCapture/stopVideoCapture if the image type is in the array (and also updating the documentation).\r\n\r\nAnyhow, we're going to go on with our modification because we really need this feature in our app.\r\n\r\nThanks.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-04-08T08:18:19.000+0000",
+					"updated": "2018-04-08T16:26:22.000+0000"
+				},
+				{
+					"id": "436610",
+					"author": {
+						"name": "macasfaj",
+						"key": "macasfaj",
+						"displayName": "Miguel Ángel Castaño",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Same issue on my side. ",
+					"updateAuthor": {
+						"name": "macasfaj",
+						"key": "macasfaj",
+						"displayName": "Miguel Ángel Castaño",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-04-08T18:19:37.000+0000",
+					"updated": "2018-04-08T18:19:37.000+0000"
+				},
+				{
+					"id": "436634",
+					"author": {
+						"name": "topener",
+						"key": "topener",
+						"displayName": "Rene Pot",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~rfarfan] Hi, can you please attach a fully working sample app? I want to try to reproduce the issue locally but don't have all related code it seems.",
+					"updateAuthor": {
+						"name": "topener",
+						"key": "topener",
+						"displayName": "Rene Pot",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-04-09T13:31:12.000+0000",
+					"updated": "2018-04-09T13:31:12.000+0000"
+				},
+				{
+					"id": "436650",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Hello Rene. Please, download sample project from link and replace guid with a new one\r\n\r\nhttps://www.dropbox.com/s/s00n7pllp67tcuk/ti-ac-5695.zip?dl=0\r\n\r\nOnce deployed on a device (I've tested in Galaxy S6 and S8) you'll watch in console that the JSON printed states the following:\r\n\"mediaType\": \"public.video\"\r\nand inside \"media\" property, you'll see \"mimeType\": \"image/jpeg\", but with wrong \"nativePath\": \"file:///data/user/0/es.codecorp.ac5695/app_appdata/tia1523290744135.mp4\"\r\n\r\nOf course tiaxxxxxxxxxxxx.mp4, as it's a dynamic generated name. Media property returns the proper mimeType (is TiMimeTypeHelper responsibility) but the extension is wrong. In fact, the file is actually a JPEG image.\r\n\r\nI hope this clarifies what I'm reporting.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-04-09T16:34:13.000+0000",
+					"updated": "2018-04-09T16:34:13.000+0000"
+				},
+				{
+					"id": "436700",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "[~rfarfan] It's currently being discussed internally, we will let you know asap!",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-04-10T09:25:42.000+0000",
+					"updated": "2018-04-10T09:25:42.000+0000"
+				},
+				{
+					"id": "436702",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Thanks Hans. IMHO, the SDK has the ability to return both videos and pictures, what is great. We're using in one of our apps. The sample code is an excerpt of our code. When longpressing the button, we start video recording and on touchEnd we finish videoRecording. You can test this method in popular apps like Snapchat, Facebook messenger, ... So that's why I'd like to support this feature in Ti.",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-04-10T09:36:31.000+0000",
+					"updated": "2018-04-10T09:36:31.000+0000"
+				},
+				{
+					"id": "436729",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Your {{mediaType}} property is set up to {{MEDIA_TYPE_PHOTO}} and {{MEDIA_TYPE_VIDEO}}. iOS supports multiple media types like this, but unfortunately Android does not. At least with the installed camera app or other 3rd party camera apps. Shariff is completely right about this. This is a limitation with Android's native intents where it can only be set to one action, either photo or video selection. If you specify both, then Titanium will end up favoring {{MEDIA_TYPE_VIDEO}} when showing the installed camera app.\r\n\r\nThe only way to support both is for us to do it ourselves via our own internal camera app, such as our Titanium camera overlay. However, this is not a feature we currently support.\r\n\r\nCurrently, your only option is to specify one or the other on Android.",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-04-10T21:14:35.000+0000",
+					"updated": "2018-04-10T21:14:35.000+0000"
+				},
+				{
+					"id": "436730",
+					"author": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "It's caused by this:\r\nhttps://github.com/appcelerator/titanium_mobile/blob/master/android/modules/media/src/java/ti/modules/titanium/media/MediaModule.java#L272\r\n\r\nIf the {{mediaTypes}} contains {{MEDIA_TYPE_VIDEO}} it will default to {{.mp4}}\r\n\r\nThis is a known limitation, we need to update our docs until we can provider a PR to fix this.",
+					"updateAuthor": {
+						"name": "gmathews",
+						"key": "gmathews",
+						"displayName": "Gary Mathews",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-04-10T21:20:01.000+0000",
+					"updated": "2018-04-10T21:20:01.000+0000"
+				},
+				{
+					"id": "436731",
+					"author": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"body": "Sorry but Ti is currently supporting both media types in Android. There's no problem about this and we are effectively using in our app (of course with an overlay). The issue is that it's returning the wrong extension for the blob and mediaType.\n\nSincerely, I can't see where's the problem. As I suggested when I registered this issue, the only thing to do is to comment a single line if block in TiCameraActivity and you can take a picture or record a video. If you need the full sample performing this feature, just let me know and I'll update the project to add photo on tap & video on longpress (like Snapchat does).",
+					"updateAuthor": {
+						"name": "rfarfan",
+						"key": "rfarfan",
+						"displayName": "Rodrigo Farfán",
+						"active": true,
+						"timeZone": "Europe/Madrid"
+					},
+					"created": "2018-04-10T21:33:32.000+0000",
+					"updated": "2018-04-10T21:33:32.000+0000"
+				},
+				{
+					"id": "457109",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR (master): https://github.com/appcelerator/titanium_mobile/pull/12143",
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2020-10-01T07:41:11.000+0000",
+					"updated": "2020-10-01T07:41:11.000+0000"
+				},
+				{
+					"id": "457206",
+					"author": {
+						"name": "ssaddique",
+						"key": "ssaddique",
+						"displayName": "Sohail Saddique",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "FR Passed for this ticket.",
+					"updateAuthor": {
+						"name": "ssaddique",
+						"key": "ssaddique",
+						"displayName": "Sohail Saddique",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2020-10-08T10:00:13.000+0000",
+					"updated": "2020-10-08T10:00:13.000+0000"
+				},
+				{
+					"id": "457318",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix with SDK 9.3.0.v20201022111908.\r\nClosing.",
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2020-10-22T22:24:42.000+0000",
+					"updated": "2020-10-22T22:24:42.000+0000"
+				}
+			],
+			"maxResults": 19,
+			"total": 19,
+			"startAt": 0
+		}
+	}
+}

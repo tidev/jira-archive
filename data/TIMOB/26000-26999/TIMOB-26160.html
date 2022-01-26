@@ -1,0 +1,186 @@
+---
+title: "[TIMOB-26160] iOS: ScrollableView +  run-on-main-thread - views dont render until scroll when re-adding views"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-24T17:25:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.1, Release 7.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>alloy, ios, run-on-main-thread, scrollableView</td></tr>
+<tr><th>Reporter</th><td>David van de Meer</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2018-06-27T07:27:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-09-10T10:20:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When enabling <code><pre><property name="run-on-main-thread" type="bool">true</property></pre></code> ScrollableView does not render views when re-adding views to the ScrollableView until you scroll a bit then they suddenly render.
+
+When removing <code>run-on-main-thread</code> it works just fine.
+
+Steps to reproduce:
+1. Create new alloy project
+2. In your index.js add the code below
+3. Build to ios simlulator
+4. Scroll to see everything is working 
+5. Click on re-add views button - See that views are now all white / not rendered
+6. Scroll left or right and see that the views then render
+7. Remove run-on-main-thread from tiapp.xml and build and see that everything works fine.
+
+<code><pre>
+function reAddViews(){
+	oldViews = scrollableView.views;
+	scrollableView.views = oldViews;
+
+	// ANOTHER TEST TO PROVE ONLY NEWLY CREATED VIEWS WORK
+	//var view3 = Ti.UI.createView({ backgroundColor:'orange'});
+	//scrollableView.views = [oldViews[0],oldViews[1],view3,oldViews[3],oldViews[4]]
+
+	scrollableView.currentPage = 2;
+}
+
+var button = Titanium.UI.createButton({
+   title: 'Re-Add Views',
+   bottom: 10,
+   height: 50,
+});
+button.addEventListener('click',reAddViews);
+$.index.add(button);
+
+var view1 = Ti.UI.createView({ backgroundColor:'red'});
+var view2 = Ti.UI.createView({ backgroundColor:'blue'});
+var view3 = Ti.UI.createView({ backgroundColor:'yellow'});
+var view4 = Ti.UI.createView({ backgroundColor:'green'});
+var view5 = Ti.UI.createView({ backgroundColor:'pink'});
+
+var scrollableView = Ti.UI.createScrollableView({
+  views:[view1,view2,view3,view4,view5],
+  showPagingControl:true,
+  bottom: 50,
+  currentPage:2,
+  cacheSize: 9,
+});
+
+$.index.add(scrollableView);
+$.index.open();
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26160_65300/bug.mov">bug.mov</td></td><td>2018-06-27T07:39:24.000+0000</td><td>905366</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-06-27
+
+   Looks like a valid bug! We are scheduling it for the next release (7.4.0, since 7.3.0 will go RC already soon).
+   
+   Sandboxes test-case:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   function reAddViews() {
+       oldViews = scrollableView.views;
+       scrollableView.views = oldViews;
+   
+       // ANOTHER TEST TO PROVE ONLY NEWLY CREATED VIEWS WORK
+       //var view3 = Ti.UI.createView({ backgroundColor:'orange'});
+       //scrollableView.views = [oldViews[0],oldViews[1],view3,oldViews[3],oldViews[4]]
+   
+       scrollableView.currentPage = 2;
+   }
+   
+   var button = Titanium.UI.createButton({
+       title: 'Re-Add Views',
+       bottom: 10,
+       height: 50,
+   });
+   button.addEventListener('click', reAddViews);
+   win.add(button);
+   
+   var view1 = Ti.UI.createView({
+       backgroundColor: 'red'
+   });
+   var view2 = Ti.UI.createView({
+       backgroundColor: 'blue'
+   });
+   var view3 = Ti.UI.createView({
+       backgroundColor: 'yellow'
+   });
+   var view4 = Ti.UI.createView({
+       backgroundColor: 'green'
+   });
+   var view5 = Ti.UI.createView({
+       backgroundColor: 'pink'
+   });
+   
+   var scrollableView = Ti.UI.createScrollableView({
+       views: [view1, view2, view3, view4, view5],
+       showPagingControl: true,
+       bottom: 50,
+       currentPage: 2,
+       cacheSize: 9,
+   });
+   
+   win.add(scrollableView);
+   win.open();
+   </pre></code></li>
+<li>David van de Meer 2018-06-27
+
+   ok once there is a fix I can add it to my sdk as its already a mess with other cherry picks to handle other bugs</li>
+<li>Hans Knöchel 2018-06-27
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10135" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10135</a></li>
+<li>Hans Knöchel 2018-06-27
+
+   [~dieskim] We just provided a pull request and the change was integrated into master. Thanks for reporting this, also thanks for the good test-case!</li>
+<li>David van de Meer 2018-06-27
+
+   just tested the fix on my app - so far so good, ill let you know if something else pops up but its looking good so far</li>
+<li>Samir Mohammed 2018-08-20
+
+   *Closing ticket.* Verified fix in SDK version: <code>7.4.0.v20180817092850</code>. Application now renders views when they are being re-added. 
+   
+   *FR Passed (Test Steps):*
+   
+   <h4>Created a titanium application with the test case above</h4>
+   <h4>Ran the program</h4>
+   <h4>Scrolled left and right to confirm views were visible </h4>
+   <h4>Pressed the <code>re-add views button</code></h4>
+   <h4>Able to see views were able to render without scrolling left or right </h4>
+   
+   *Test Environment*
+   
+   <code><pre>
+   APPC Studio:  5.1.0.201808080937
+   APPC CLI: 7.0.5
+   iphone 6 simulator (11.2)
+   Operating System Name: Mac OS High Sierra
+   Operating System Version: 10.13
+   Node.js Version: 8.9.1
+   Xcode 9.2</pre></code>
+   </li>
+<li>Samir Mohammed 2018-09-10
+
+   *Closing ticket.* Also verified using SDK Version <code>7.5.0.v20180906093938</code>
+   
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26160.json">JSON Source</a></p>

@@ -1,0 +1,243 @@
+{
+	"id": "123411",
+	"key": "ALOY-897",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "15758",
+				"description": "Alloy 1.4.0",
+				"name": "Alloy 1.4.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2014-07-17"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2014-01-06T17:39:18.000+0000",
+		"created": "2013-12-06T01:09:05.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"qe-closed-3.3.0",
+			"qe-testadded"
+		],
+		"versions": [
+			{
+				"id": "15602",
+				"description": "Alloy 1.2.2",
+				"name": "Alloy 1.2.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2013-09-18"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "33638",
+				"type": {
+					"id": "10122",
+					"name": "Gantt: start-finish",
+					"inward": "is triggered by",
+					"outward": "is triggering"
+				},
+				"outwardIssue": {
+					"id": "123422",
+					"key": "ALOY-898",
+					"fields": {
+						"summary": "com.appcelerator.loading widget causes memory leak ",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Critical",
+							"id": "1"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2014-05-14T09:52:13.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "12333",
+				"name": "Widgets"
+			}
+		],
+		"description": "h3.Description\r\nProxies do not get released from a window that has a widget added to in in the XML (widget has to be using arguments).\r\n\r\nh3.Repro Steps\r\n-Build attached app.\r\n-Open Xcode Instruments.\r\n-Open the new window, then close it.\r\n-Repeat several times and you will find that Proxies are retained while UIViews are released.\r\n-Comment out line 4 of LandingPage.xml to remove the widget, then repeat steps.  The leak goes away.",
+		"attachment": [
+			{
+				"id": "44430",
+				"filename": "SprintProxyTest.zip",
+				"author": {
+					"name": "aleard",
+					"key": "aleard",
+					"displayName": "Alan Leard",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2013-12-06T01:09:05.000+0000",
+				"size": 5071174,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "Adding a Widget that uses arguments to a controller's XML causes a Proxy leak",
+		"creator": {
+			"name": "aleard",
+			"key": "aleard",
+			"displayName": "Alan Leard",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "aleard",
+			"key": "aleard",
+			"displayName": "Alan Leard",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "iOS Simulator running Instruments",
+		"comment": {
+			"comments": [
+				{
+					"id": "282887",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Found the root of the issue, and Alan's hint that it required arguments being passed to the widget is what helped me find it. At the beginning of the loading widget's controller, all arguments are attached to the loading UI proxy, like this:\n\n{code:javascript}\nvar args = arguments[0] || {};\n\nfor (var k in args) {\n\t$.loading[k] = args[k];\n}\n{code}\n\nThis is meant to attach any arguments passed through <Widget> to the actual loading UI proxy. What the developer of the widget doesn't see is that Alloy also attached hidden properties to the widget's argument list as well that help it understand things like where it is in the view hierarchy, or if it is part of data binding. In this particular case, the {{__parentSymbol}} property, which holds a reference to the parent of this widget, is being attached to the loading UI proxy. When the widget is removed, it retains this {{__parentSymbol}} reference unbeknownst to the developer, and in turn stays in memory since this reference is never nulled out, and hence the seemingly unavoidable memory leak.\n\nSo technically this memory leak is not inherent in Alloy, but is a result of the widget attempting to iterate through all given arguments and attach them to the proxy without validation. It is actually really easy for the widget to be updated to avoid this. That said, the hidden properties Alloy attaches should not be enumerable, and this type of problem should not even be possible.\n\nHere's what will be done:\n\n# Make a small modification to the loading widget to more deliberately handle the incoming arguments, which would prevent the memory leak in this widget and address the immediate problem.\n# Use the {{Object.defineProperty()}} function to make Alloy's hidden variables non-enumerable, which would prevent any other widgets from falling victim to this trap.",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-06T16:45:49.000+0000",
+					"updated": "2013-12-06T16:45:49.000+0000"
+				},
+				{
+					"id": "282909",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The loading widget, the only builtin Alloy widget affected by this, has been fixed in ALOY-898. The underlying issue yet to be addressed here can be worked around on of 2 ways in the meantime:\n\n# Don't blindly iterate over the properties in the \"args\" object as they will contain Alloy hidden properties\n# Use the following code snippet to safely ignore Alloy hidden properties when iterating over \"args\":\n{code:javascript}\nvar args = arguments[0] || {};\n\nfor (var k in args) {\n        // Ignore Alloy hidden properties to work around ALOY-897\n        if (k === 'id' || /^(?:__|#|$)/.test(k)) { continue; }\n\n        $.loading[k] = args[k];\n}\n{code}",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-06T18:04:35.000+0000",
+					"updated": "2013-12-06T18:04:35.000+0000"
+				},
+				{
+					"id": "286774",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR: https://github.com/appcelerator/alloy/pull/294\r\n\r\nFunctional test can be run against the app given in the description to ensure that no memory leaks occur.",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-01-06T17:39:18.000+0000",
+					"updated": "2014-01-06T17:39:18.000+0000"
+				},
+				{
+					"id": "304771",
+					"author": {
+						"name": "pagarwal",
+						"key": "pagarwal",
+						"displayName": "Priya Agarwal",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the FIXED with:\r\nAppc-Studio:3.3.0.201405121247\r\nsdk:3.3.0.v20140513191712\r\nacs:1.0.14\r\nalloy:1.4.0-dev\r\nnpm:1.3.2\r\ntitanium:3.3.0-dev\r\ntitanium-code-processor:1.1.1\r\nxcode:5.1.1\r\nDevice:Iphone Simulator(v7.1)\r\n\r\nRan the app found no memory leaks.\r\nWorking as expected. Hence closing the issue.",
+					"updateAuthor": {
+						"name": "pagarwal",
+						"key": "pagarwal",
+						"displayName": "Priya Agarwal",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-05-14T09:46:54.000+0000",
+					"updated": "2014-05-14T09:46:54.000+0000"
+				}
+			],
+			"maxResults": 5,
+			"total": 5,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-26213] Android: Backing out of root window with exitOnClose false shows splash if child window closed programmatically"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-06T23:28:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.4</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.2.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, exitonclose, window</td></tr>
+<tr><th>Reporter</th><td>Michael Gangolf</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-07-14T15:44:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-08T21:36:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I want to use <code>exitOnClose:false</code> on my root window, so it will go into background and is not exiting. It works fine unless I close a child window with the <code>homeAsUp</code> back arrow. 
+
+*Example:*
+<code><pre>
+var win = Ti.UI.createWindow({backgroundColor: "#fff",exitOnClose: false});
+var btn = Ti.UI.createButton({title: 'open'});
+
+btn.addEventListener('click', function() {
+    var win2 = Ti.UI.createWindow({backgroundColor: "#fff"});
+    var actionBar;
+
+    win2.addEventListener("open", function() {
+        if (Ti.Platform.osname === "android") {
+            if (win2.activity) {
+                actionBar = win2.activity.actionBar;
+                if (actionBar) {
+                    actionBar.displayHomeAsUp = true;
+                    actionBar.onHomeIconItemSelected = function() {win2.close();};
+                }
+            }
+        }
+    });
+    win2.open();
+});
+win.add(btn);
+win.open();
+</pre></code>
+
+*Example video:* <a href="https://migaweb.de/open_window.mp4" rel="nofollow" target="_blank">https://migaweb.de/open_window.mp4</a>
+
+*Steps to reproduce*
+* First three times I open the index and close it and open it again (was in background, seeing no splashscreen -> works fine)
+* After that I open the second window two time and close it with the back button and then the index window, too (same, works fine)
+* Last time I close the second window with the homeAsUp button and I end up at the splashscreen when I close the index. After that I ALWAYS end up at the splashscreen unless I kill the app
+
+*Tested versions:*
+Android 7
+HTC A9
+Ti SDK 7.2.0.GA, 7.3.0.v20180711185043
+
+*Expected behaviour*
+Always go to background and don't show the splashscreen when <code>exitOnClose</code> is set to false on the root window.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2018-07-15
+
+   I can validate the issue in Android 8.1.0 device with SDK 7.2.0.GA. I was able to reproduce the behavior described. Moving to engineering.</li>
+<li>Joshua Quick 2018-07-16
+
+   This is not a bug. This is the correct behavior.
+   The root activity is the splashscreen. That root activity also hosts Titanium's JavaScript runtime.
+   
+   The 1st window you create in Titanium is actually the 2nd activity that gets created and is a child activity window on top of the activity hosting the splashscreen image. When <code>exitOnClose</code> is set to <code>true</code> (the default) on the 1st window you create, Titanium will automatically close the root splashscreen activity when your 1st window is closed. Setting it to <code>false</code> prevents this behavior and the Android OS will navigate back to the root splash activity.
+   
+   If you want the app to be backgrounded instead, then you should override the back button and do a home button equivalent like the below. This effectively makes your app behave like iOS and prevents it from closing.
+   <code><pre>
+   var window = Ti.UI.createWindow();
+   window.addEventListener("androidback", function(e) {
+   	// If the back key was press, cancel it and go to the home-screen instead.
+   	var intent = Ti.Android.createIntent({
+   		action: Ti.Android.ACTION_MAIN,
+   	});
+   	intent.addCategory(Ti.Android.CATEGORY_HOME);
+   	intent.setFlags(Ti.Android.FLAG_ACTIVITY_NEW_TASK);
+   	Ti.Android.currentActivity.startActivity(intent);
+   });
+   window.open();
+   </pre></code>
+   
+   Does this help?</li>
+<li>Michael Gangolf 2018-07-16
+
+   But why does this only happen, when you close the 2nd window with the <code>homeAsUp</code> button and not when you just close the button with the back button? It's not consistent that it will go to the splash screen. It actually goes to background when you open the app and click the system back arrow and won't show the splashscreen (the first try in the video).
+   
+   -I've tested the intent version before but I think it had a different bug. I'll test that again!-
+   The intent version looks correct in the demo app. I'll check it inside the full app to see where the problem was. Might be some implementation </li>
+<li>Joshua Quick 2018-07-16
+
+   I'm not sure what you mean. The <code>displayHomeAsUp</code> is an Android feature intended to go to a root window of your choosing. It's not designed to take you to the Android OS home screen, although you can rig it to do that via the intent I showed you up above.
+   <a href="https://developer.android.com/training/implementing-navigation/ancestral" rel="nofollow" target="_blank">https://developer.android.com/training/implementing-navigation/ancestral</a>
+   
+   But what I said is definitely true. The root activity window is the splash screen. This is what hosts your JS code. Once that root splash activity gets destroyed, it'll also terminate the JS runtime. So, they key to keep it running is to prevent it from being destroyed. And the only known way that I know of is to override the back key and do a home button press equivalent as I've shown you.</li>
+<li>Joshua Quick 2018-07-16
+
+   Hmm... looks like I wasn't fully aware of how are <code>exitOnClose</code> feature completely works. Sorry about that. Yes, this does look like a bug.
+   
+   Our <code>exitOnClose</code> supports 2 bits of functionality when set <code>false</code>:
+   <h4>If you call <code>Window.close()</code>, it will close the window (correct behavior) and takes you back to the root splash screen window instead of exiting the app. _(This is the feature I mentioned above.)_</h4>
+   <h4>If you press the Back button, it'll background the app instead of closing the window. _(I wasn't aware of this feature.)_</h4>
+   
+   The 2 behaviors I've mentioned above can be seen with the following code.
+   <code><pre>
+   var window = Ti.UI.createWindow({ exitOnClose: false });
+   var closeButton = Ti.UI.createButton({ title: "Close Child Window" });
+   closeButton.addEventListener("click", function(e) {
+   	window.close();
+   });
+   window.add(closeButton);
+   window.open();
+   </pre></code>
+   
+   The issue you've mentioned happens when calling a 2nd window's <code>close()</code> method which can be reproduced with the below...
+   <code><pre>
+   var window = Ti.UI.createWindow({ exitOnClose: false });
+   var openButton = Ti.UI.createButton({ title: "Open Child Window" });
+   openButton.addEventListener("click", function(e) {
+   	var childWindow = Ti.UI.createWindow();
+   	var closeButton = Ti.UI.createButton({ title: "Close Child Window" });
+   	closeButton.addEventListener("click", function(e) {
+   		childWindow.close();
+   	});
+   	childWindow.add(closeButton);
+   	childWindow.open();
+   });
+   window.add(openButton);
+   window.open();
+   </pre></code>
+   
+   I suspect this is an issue with our <code>TiBaseActivity.onBackPressed()</code> method looking at the top-most activity's proxy settings instead of its own.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/TiBaseActivity.java#L843" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/TiBaseActivity.java#L843</a>
+   </li>
+<li>Hans Knöchel 2018-08-06
+
+   Is this related to TIMOB-26269?</li>
+<li>Joshua Quick 2018-08-06
+
+   [~hknoechel], no. This ticket is a different issue. The issue here is if you programmatically close a child window, then "exitiOnClose" set to <code>false</code> no longer works.
+   
+   _Edit: Actually, let me double check with the other person in [TIMOB-26269]. I may be misinterpreting the issue he's running into._</li>
+<li>Joshua Quick 2018-08-06
+
+   [~michael], I can't reproduce this issue anymore with our latest changes to "master" and "7_3_X" branches. It looks like [~gmathews] has inadvertently fixed this with his changes to the window/memory handling here...
+   <a href="https://github.com/appcelerator/titanium_mobile/commit/4a76b6f0922ffd90ea9628da174c99210b9c171a#diff-034a9360d01584987d9c951c0a215f65" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/4a76b6f0922ffd90ea9628da174c99210b9c171a#diff-034a9360d01584987d9c951c0a215f65</a>
+   
+   We were missing a <code>removeWindowFromStack()</code> call in our Activity's <code>onDestroy()</code> method, which would happen if we closed the activity programmatically. So, the issue was that our <code>onBackPressed()</code> code was picking up the destroyed child window proxy that was still in the stack instead of the root window's proxy and the child window proxy did not have the "exitOnClose" property set.
+   
+   I guess this means Gary gets 2 points on Slack, eh?
+   Don't spend them point all in one place now. :)</li>
+<li>Joshua Quick 2018-08-06
+
+   *Side Note:*
+   I've confirmed that this issue was introduced as of Titanium 6.0.4.</li>
+<li>Michael Gangolf 2018-08-07
+
+    Awesome! Works fine here, too. 7.3.0 is a great version!</li>
+<li>Lokesh Choudhary 2018-08-08
+
+    Verified works with SDK 7.3.0.v20180807095741 & 7.2.1.v20180726150551.
+    
+    Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26213.json">JSON Source</a></p>

@@ -1,0 +1,103 @@
+---
+title: "[ALOY-1282] Ti.Map.View > Annotation data-binding not working as expected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Alloy 1.6.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Models, XML</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Bruce Wayne</td></tr>
+<tr><th>Created</th><td>2015-06-25T08:03:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-06-26T08:05:32.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The way Map/Annotations data-binding is implemented for ALOY-503 is not working as can be expected from how other data-binding works on other view elements.
+
+<h4>The only way it works</h4>
+It only works if you use the <code><Module></code> tag and no repeater object. The model attributes must be identical to the property names of the Ti.Map.Annotation object because the generated data-binding will use <code>createAnnotation(model.toJSON())</code>, or you need to use <code>dataTransform</code>.
+
+<code><pre>
+<Module module="ti.map" method="createView" dataCollection="pin" />
+</pre></code>
+
+<h4>dataTransform is used exclusive, with no fallback on model</h4>
+For other views, when you use <code>dataTransform</code> it will fall back to the model attributes when the transformation does not include the required property. This means the transform function only needs to return the fields that have been transformed.
+
+Instead, for the Map/Annotations data-binding is relies solely on the returned transformation, with no fallback:
+
+<code><pre>
+        for (var i = 0; len > i; i++) {
+            var __alloyId3 = models[i];
+            __alloyId2.push(require("ti.map").createAnnotation(transformLocation(__alloyId3)));
+        }
+        $.__views.__alloyId1.annotations = __alloyId2;
+</pre></code>
+
+<h4>Repeater objects are not supported</h4>
+You'd expect to be able/required to use a repeater object, allowing you to map any attribute to any property and set styles via TSS.
+
+<code><pre>
+<Module module="ti.map" method="createView" dataCollection="pin">
+  <Annotation title="{address}" latitude="{lat}" longitude="{lng}" />
+</Module>
+</pre></code>
+
+Instead, any annotations in the <code><Module></code> tag will be created as is, resulting in code which is likely to crash your app like:
+
+<code><pre>
+    $.__views.__alloyId2 = require("ti.map").createAnnotation({
+        latitude: 0/0,
+        longitude: 0/0,
+        title: "undefined" != typeof $model.__transform["address"] ? $model.__transform["address"] : $model.get("address"),
+        id: "__alloyId2"
+    });
+</pre></code>
+
+<h4>Regular view tag is not supported</h4>
+You'd expect to be able to use the much nicer <code><View></code> tag, but when you do Alloy won't recognise it as a <code>ti.map</code> object, which is strange since the <code>module</code> attribute still says so.
+
+<code><pre>
+<View module="ti.map" dataCollection="pin" />
+</pre></code>
+
+Instead, the loop in the collection event listener is empty:
+
+<code><pre>
+        for (var i = 0; len > i; i++) {
+            var __alloyId3 = models[i];
+            __alloyId3.__transform = {};
+
+            // NOTHING HERE
+
+        }
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2015-06-26
+
+   For repeater objects, I assume the/a reason this wasn't used is that you can also add other types of children views to the map as overlays. Still, in that case we should do something like:
+   
+   <code><pre>
+   <View module="ti.map">
+     <Annotations dataCollection="pin">
+       <Annotation title="{address}" latitude="{lat}" longitude="{lng}" />
+     </Annotations>
+     <Button>Some button</Button>
+   </View>
+   </pre></code>
+   
+   That way, you could maybe even bind multiple collections to the same map.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-1282.json">JSON Source</a></p>

@@ -1,0 +1,119 @@
+---
+title: "[TIMOB-27865] iOS: Titanium should add view controllers as children"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-01-15T20:09:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Vijay Singh</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2020-04-24T20:51:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-01-28T13:12:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Copied from  [here](<a href="https://github.com/appcelerator/titanium_mobile/issues/11651)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/issues/11651)</a> -
+
+When adding windows to windows (e.g. using Titanium.UI.createNavigationWindow), Titanium ignores the [rules of view controller containment on iOS](<a href="https://developer.apple.com/library/archive/featuredarticles/ViewControllerPGforiPhoneOS/ImplementingaContainerViewController.html)" rel="nofollow" target="_blank">https://developer.apple.com/library/archive/featuredarticles/ViewControllerPGforiPhoneOS/ImplementingaContainerViewController.html)</a> and doesn't add view controllers as children.
+
+The code responsible for calling the required methods has been commented out with a TODO: Revisit for almost 5 years (as of writing this issue):
+
+[titanium_mobile/iphone/TitaniumKit/TitaniumKit/Sources/API/TiWindowProxy.m](<a href="https://github.com/appcelerator/titanium_mobile/blob/1afbbfc3f7fbc3f9f69580043d61ba4e75bf7127/iphone/TitaniumKit/TitaniumKit/Sources/API/TiWindowProxy.m#L150-L174)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/1afbbfc3f7fbc3f9f69580043d61ba4e75bf7127/iphone/TitaniumKit/TitaniumKit/Sources/API/TiWindowProxy.m#L150-L174)</a>
+
+
+<code><pre>
+ - (void)attachViewToTopContainerController 
+ { 
+   UIViewController<TiControllerContainment> *topContainerController = [[[TiApp app] controller] topContainerController]; 
+   UIView *rootView = [topContainerController hostingView]; 
+   TiUIView *theView = [self view]; 
+   [rootView addSubview:theView]; 
+   [rootView bringSubviewToFront:theView]; 
+  
+   // TODO: Revisit 
+   /* 
+     UIViewController<TiControllerContainment>* topContainerController = [[[TiApp app] controller] topContainerController]; 
+     UIView *rootView = [topContainerController hostingView]; 
+  
+     UIViewController* thisViewController = [self hostingController]; 
+     UIView* theView = [thisViewController view]; 
+     [theView setFrame:[rootView bounds]]; 
+  
+     [thisViewController willMoveToParentViewController:topContainerController]; 
+     [topContainerController addChildViewController:thisViewController]; 
+  
+     [rootView addSubview:theView]; 
+     [rootView bringSubviewToFront:theView]; 
+     [thisViewController didMoveToParentViewController:topContainerController]; 
+      */ 
+ }
+</pre></code>
+ 
+This causes issues in view-controller-backed modules (such as PSPDFKit), especially during view controller presentation. UIKit eve logs a warning message about this:
+
+ "Presenting view controllers on detached view controllers is discouraged."
+
+Steps to reproduce- 
+
+Create a plain window and a navigation window. Run the app and inspect the view hierarchy.
+<code><pre>
+var window = Titanium.UI.createWindow({
+    backgroundColor: "white",
+})
+
+var navigationWindow = Titanium.UI.createNavigationWindow({
+    window: window,
+})
+
+navigationWindow.open()
+
+</pre></code>
+
+Expected behavior -
+
+Every view controller in the hierarchy (except for TiRootViewController) has a correctly set parent view controller.
+
+Actual behavior -
+
+UINavigationController managed by Titanium.UI.NavigationWindow is detached and has no parent view controller. See attached image view "controller.png"
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27865_67348/viewcontroller.png">viewcontroller.png</td></td><td>2020-04-24T20:52:51.000+0000</td><td>1480420</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2020-10-17
+
+   This also caused TIMOB-28109 / AC-6615 and should be fixed with high priority.</li>
+<li>Vijay Singh 2020-10-30
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/12233" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12233</a></li>
+<li>Satyam Sekhri 2021-01-14
+
+   FR Passed. Waiting for Jenkins build.</li>
+<li>Christopher Williams 2021-01-15
+
+   Merged to master for 10.0.0 target.</li>
+<li>Samir Mohammed 2021-01-28
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27865.json">JSON Source</a></p>

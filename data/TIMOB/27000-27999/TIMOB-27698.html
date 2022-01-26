@@ -1,0 +1,114 @@
+---
+title: "[TIMOB-27698] iOS: Create an ImageView with $.UI.create crash iOS app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 8.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Pietro Granati</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2019-11-06T10:58:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-27T16:14:59.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi, since the recents updates of iOS 13 and SDK 8.2.X I'm updating all my apps.
+One of them now crashes after taking a photo from camera or gallery.
+I'm attaching the code to reproduce but I've found that the problem is the $.UI.create method.
+
+
+<code><pre>
+// After granted all permission for camera
+function takePhoto(callback){
+Titanium.Media.showCamera({
+success:function(event)
+{
+var selectedImage = event.media;
+var heightOfImage = selectedImage.height;
+var widthOfImage = selectedImage.width;
+var aspectRatio =  heightOfImage / widthOfImage;
+var newWidth = 1000;
+var newHeight = Math.round(newWidth*aspectRatio);
+var newBlob = selectedImage.imageAsResized(newWidth, newHeight);
+var newBlobCompressed = newBlob.imageAsCompressed(0.5);
+callback(newBlobCompressed);
+}
+});
+}
+
+var callbackInsertImage = function(blob){
+//I need a container for other purposes
+var vista = $.UI.create('View', {height:'95', width:'95', left:'5'});
+var image = $.UI.create('ImageView', {height:'95', width:'95', image: blob});
+vista.add(image);
+$.vista.add(vista);
+}
+
+takePhoto(callbackInsertImage)
+</pre></code>
+
+This one above causes:
+{color:#d04437}[WARN] :   Attempted to load TiUIImageViewProxy: Could not find class definition.
+[ERROR] :  Script Error {
+[ERROR] :      column = 35;
+[ERROR] :      line = 230;
+[ERROR] :      message = "invalid method (createImageView) passed to UIModule";
+[ERROR] :      nativeStack = "3   CoreFoundation  0x000000019bef2d90 DA838E75-6B30-360E-9661-C4800A7E1BF6 + 1252752\n4   CoreFoundation  0x000000019bdc2bd0 DA838E75-6B30-360E-9661-C4800A7E1BF6 + 7120\n5   TitaniumKit0x00000001051ac9a4 -[KrollMethod call:] + 664\n6   TitaniumKit0x00000001051abe3c __KrollCallAsFunction_block_invoke + 36\n7   TitaniumKit0x00000001051abc48 KrollCallAsFunction + 408\n8   JavaScriptCore  0x00000001aaca64cc 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2540748\n9   JavaScriptCore  0x00000001ab286040 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 8699968\n10  JavaScriptCore  0x00000001aac78114 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2351380\n11  JavaScriptCore  0x00000001aac78080 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2351232\n12  JavaScriptCore  0x00000001aac78128 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2351400\n13  JavaScriptCore  0x00000001aac78128 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2351400\n14  JavaScriptCore  0x00000001aac597e8 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 2226152\n15  JavaScriptCore  0x00000001ab1b7258 6D4E079B-CBD2-3403-88DF-E601466DFD46 + 7852632\n16  JavaScriptCore  0x00000001ab3a1970 _ZN3JSC12profiledCallEPNS_9ExecStateENS_15ProfilingReasonENS_7JSValueENS_8CallTypeERKNS_8CallDataES3_RKNS_7ArgListE + 184\n17  JavaScriptCore  0x00000001aacb33cc JSObjectCallAsFunction + 376\n18  TitaniumKit0x00000001051a1590 -[KrollCallback call:thisObject:] + 572\n19  TitaniumKit0x00000001051a9b90 -[KrollEvent invoke:] + 112\n20  TitaniumKit0x00000001051a9ecc -[KrollContext invoke:] + 116\n21  TitaniumKit0x00000001051a9f3c -[KrollContext enqueue:] + 92\n22  TitaniumKit0x00000001051737d4 -[KrollBridge fireEvent:withObject:remove:thisObject:] + 156";
+[ERROR] :      sourceURL = "file:///private/var/containers/Bundle/Application/0B50635C-B65E-4E59-973E-D0B31DEC51F9/TestNEW.app/alloy.js";
+[ERROR] :      stack = "    at [native code]\n    at (/alloy.js:230:35)\n    at create(/alloy/controllers/BaseController.js:265:23)\n    at callbackInsertImage(/alloy/controllers/index.js:207:1223)\n    at success(/media2.js:22:9)";
+[ERROR] :      toJSON = "<KrollCallback: 0x2820c8f40>";
+[ERROR] :  }{color}
+
+If instead of $.UI.create you wrote:
+
+<code><pre>
+var vista = Ti.UI.createView({
+    	height: '95',
+	width: "95",
+	left:'5'
+});
+var image = Ti.UI.createImageView({
+	height:'95',
+	width:'95',
+	image: blob
+});
+</pre></code>
+
+Everything works fine, I'm using $.UI.create everywhere since I use the "classes" property.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2019-12-23
+
+   [~Pietro], Could you please share a doc link where you see to use like this "$.UI.create "?
+   
+   Thanks!</li>
+<li>Pietro Granati 2019-12-24
+
+   Sure @morahman , you can find it by searching "dynamic tss" like that wiki.
+   <a href="https://wiki.appcelerator.org/display/guides2/Dynamic+Styles" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/Dynamic+Styles</a></li>
+<li>Motiur Rahman 2019-12-24
+
+   [~Pietro] I was able to reproduce this issue. So I will move it to TiMOB for further investigation. We appreciate your help.</li>
+<li>Pietro Granati 2019-12-30
+
+   @Motiur Rahman thanks</li>
+<li>Vijay Singh 2020-01-02
+
+   Is it working fine with any previous SDK?</li>
+<li>Pietro Granati 2020-01-27
+
+   Yeah but I need to update it, in fact I saw that also with button it doesn't work anymore</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27698.json">JSON Source</a></p>

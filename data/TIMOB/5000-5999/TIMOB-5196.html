@@ -1,0 +1,241 @@
+---
+title: "[TIMOB-5196] Reading from a database crashes the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2011-09-13T15:09:50.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-37</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>dr-list</td></tr>
+<tr><th>Reporter</th><td>João Silva</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2011-08-23T04:29:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T17:28:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Starting from 1.7.0 up to the current 1.7.3.v20110808134952 CI build I'm getting random crashes in my app. I've managed to reproduce them, just copy the following code into the app.js of a new project:
+
+<code><pre>
+function read_from_db(thisLabel)
+{
+  Ti.API.info('read_from_db: start');
+  Ti.API.info('thisLabel' + thisLabel);
+  thisLabel.text = 'Reading from the database...';
+  var db = Ti.Database.open('data.db');
+
+  for(var i=0; i<10000; i++){
+    var resultSet = db.execute('select * from data');
+    if(resultSet.isValidRow()) {
+      Ti.API.info('Database row: (' + i + ') ' + resultSet.fieldByName('col1') + ' / '+ resultSet.fieldByName('col2'));
+    }
+    resultSet.close();
+  }
+  db.close();
+  thisLabel.text = 'Finished reading from the database.';
+  Ti.API.info('read_from_db: end');
+}
+
+var number_of_iterations = 5000;	// This is not required
+var number_of_db_rows = 200;
+
+//Create and initialize the database
+var db = Ti.Database.open('data.db');
+db.execute('create table if not exists data (col1 primary key,col2)');
+db.execute('begin transaction');
+db.execute('delete from data');
+for(var i=0; i<number_of_db_rows; i++) {
+  db.execute('insert or replace into data (col1,col2) values (?,?)',i,i+1);
+}
+db.execute('commit transaction');
+db.close();
+
+var tabGroup = Ti.UI.createTabGroup();
+
+var win1 = Ti.UI.createWindow({
+  backgroundColor: 'green',
+  layout:'vertical'
+});
+
+var b = Ti.UI.createButton({
+  title:'Read from the DB',
+  top:60,
+  height:50
+});
+win1.add(b);
+
+var label = Ti.UI.createLabel({
+  top:60,
+  height:60,
+  color:'white',
+  text:'Click the button to start'
+});
+win1.add(label);
+
+var Tab1 = Titanium.UI.createTab({
+  title:'Tab 1',
+  window:win1
+});
+
+tabGroup.addTab(Tab1);
+tabGroup.open();
+
+b.addEventListener('click',function(e) {
+  read_from_db(label);
+});
+</pre></code>
+
+Clicking the button will crash the iPhone simulator. 
+
+Depending on the timing or the numbers chosen at the start sometimes this code will fail with a 'resultSet.isValidRow is not a valid function' instead of crashing.
+
+<h3>Comments</h3>
+
+<ol>
+<li>João Silva 2011-08-25
+
+   The code presented in this issue clearly demonstrates an important bug in Titanium 1.7. Has anyone reproduced it yet?
+   
+   (See also the Q&A post <a href="http://developer.appcelerator.com/question/123736/reproducible-crash-and-errors-with-database-access-in-172)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/123736/reproducible-crash-and-errors-with-database-access-in-172)</a>
+   </li>
+<li>bxg 2011-08-25
+
+   I cannot get it to happen predictably enough to get a solid case.  It happens every 10 - 20 times I run the simulator.  It's a serious impediment to development.  Once it happens, it will happen every time until I remove the app from the simulator.</li>
+<li>Paul Dowsett 2011-08-30
+
+   Use my code in this updated ticket as a starting point to prove whether this behavior you have observed is actually a bug in Titanium. If it does, reopen this ticket.
+   
+   Some points to note:
+   
+   * use the <code>while</code> construct to iterate through your query
+   * remember to declare variables using the javascript <code>var</code> keyword
+   * functions have scopes. You need to pass any data created outside of them as arguments
+   </li>
+<li>João Silva 2011-09-02
+
+   I've tested the latest code as requested in the Q&A. It crashes as described. See also <a href="http://developer.appcelerator.com/question/124936/app-very-unstable-using-17-fine-on-15" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/124936/app-very-unstable-using-17-fine-on-15</a> 
+   
+   I'm reposting the reply here:
+   
+   I need to, for example, load a given record from a table from various items. So for each item of the list, I do a db.execute, check if the record exists, and close the resultSet. The real app doesn't crash all the time, this code is the reduced version to expose the problem.
+   
+   For me your latest code crashes exactly as I described above.
+   {noformat}
+   Ti version       Simulator version     Result
+   ----------      ------------------   --------
+   1.6.2                iOS 4.3            OK
+   1.7.0                iOS 4.3            Crash
+   1.7.2                iOS 4.0,4.2,4.3    Crash
+   1.7.3v20110826161351 iOS 4.3            Crash
+   {noformat}
+   What are the differences between your environment and mine?
+   
+   I'm using:
+   
+   Titanium Studio, build: 1.0.4.201108101535 Mac Mini (2.4GHz Intel Core 2 Duo, 4GB RAM) with Mac OS/X 10.6.8 Various versions of the iPhone simulator, as described above</li>
+<li>Paul Dowsett 2011-09-02
+
+   Proved latest testcase is valid. Other users are reporting same issue.</li>
+<li>Paul Dowsett 2011-09-07
+
+   Another user has provided some test code for this, in duplicate ticket TC-195. Please test with this also, to confirm fix:
+   
+   Copy this code into a newly created project
+   
+   <code><pre>
+   var num_rows = 100;
+   var dbname = 'user_db5.db';
+   var db = Titanium.Database.open(dbname);
+   db.execute('DROP TABLE IF EXISTS playlist');
+   db.execute('CREATE TABLE IF NOT EXISTS playlist (category_id INTEGER KEY PRIMARY KEY)');
+   for(var i = 0; i < num_rows; ++i)
+   {
+       db.execute('INSERT INTO playlist(category_id) VALUES(?)', i);           
+   }
+   db.close();
+   var win1 = Ti.UI.createWindow({backgroundColor:'blue'});
+   win1.addEventListener('focus', function(){
+       var db = Titanium.Database.open(dbname);
+       for(var j = 0; j < num_rows * 100; ++j)
+       {
+           var r = j % 100;
+           var rows = db.execute('SELECT * FROM playlist WHERE category_id=?', r);
+           var id = rows.fieldByName('category_id');
+           Ti.API.info('id = ' + id);
+           rows.close();
+       }
+       db.close();
+   });
+   var win2 = Ti.UI.createWindow({backgroundColor:'red'});
+   var tab_group = Ti.UI.createTabGroup();
+   tab_group.addTab(
+       Ti.UI.createTab({window:win1})
+   );
+   tab_group.addTab(
+       Ti.UI.createTab({window:win2})
+   );
+   tab_group.open();
+   </pre></code>
+   
+   Run in IOS simulator
+   Switch between tabs until crash occurs. 
+   In Studio the application will just exit, running under XCode gives a EXC_BAD_ACCESS with the following callstack
+   
+   <code><pre>
+   #0  0x002d7bab in _Z4toJSPN2TI10TiExcStateEPK13OpaqueTiValue [inlined] at /Users/stiv/src/appcelerator/tijscore/TiCore/API:75
+   #1  0x002d7bab in TiObjectSetProperty at /Users/stiv/src/appcelerator/tijscore/TiCore/API/TiObjectRef.cpp:295
+   #2  0x00056291 in -[KrollObject noteObject:forTiString:context:] at /Users/martinslater/code/EasyLang/mobile/EasyLang Mobile/build/iphone/Classes/KrollObject.m:1302
+   #3  0x0005155b in KrollGetProperty ()
+   #4  0x002da7ff in TI::TiCallbackObject<TI::TiObject>::getOwnPropertySlot(TI::TiExcState*, TI::Identifier const&, TI::PropertySlot&) ()
+   #5  0x002b8b2a in _ZN2TI6TiCell22fastGetOwnPropertySlotEPNS_10TiExcStateERKNS_10IdentifierERNS_12PropertySlotE [inlined] ()
+   #6  0x002b8b2a in TI::TiValue::get(TI::TiExcState*, TI::Identifier const&, TI::PropertySlot&) const ()
+   #7  0x002b6126 in cti_op_get_by_id_generic ()
+   #8  0x0c3f9746 in <????> ()
+   #9  0x00273415 in TI::Interpreter::execute(TI::FunctionExecutable*, TI::TiExcState*, TI::TiFunction*, TI::TiObject*, TI::ArgList const&, TI::ScopeChainNode*, TI::TiValue*) at /Users/stiv/src/appcelerator/tijscore/TiCore/jit/JITCode.h:84
+   #10 0x002c4bed in TI::TiFunction::call(TI::TiExcState*, TI::TiValue, TI::ArgList const&) ()
+   #11 0x0023c30b in TI::call(TI::TiExcState*, TI::TiValue, TI::CallType, TI::CallData const&, TI::TiValue, TI::ArgList const&) ()
+   #12 0x002d7816 in TiObjectCallAsFunction ()
+   #13 0x00056d53 in -[KrollObject triggerEvent:withObject:thisObject:] ()
+   #14 0x000492a1 in -[KrollEvent invoke:] ()
+   #15 0x0004800d in -[KrollContext invoke:] ()
+   #16 0x00046bee in -[KrollContext main] ()
+   #17 0x0067acf4 in -[NSThread main] ()
+   </pre></code>
+   
+   See [Q&A thread](<a href="http://developer.appcelerator.com/question/123951/crash-updating-window-from-focus-event-while-querying-database--ios-43--sdk-172)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/123951/crash-updating-window-from-focus-event-while-querying-database--ios-43--sdk-172)</a></li>
+<li>João Silva 2011-09-07
+
+   I confirm that the code from ticket TC-195 posted above crashes in the same way, and with the same crash log as the code posted in this ticket.</li>
+<li>Sabil Rahim 2011-09-13
+
+   Tested both codes on simulator 4.3 and iPhone 4 v 4.3.4 with Titanium SDK Build: 1.8.0.0c3b052 (09/13/11 14:44) and cannot replicate any crash. Please update with a better test case.</li>
+<li>João Silva 2011-09-14
+
+   I don't understand, I can reproduce it every time. You can download my project from <a href="http://www.megaupload.com/?d=CORMUDY2" rel="nofollow" target="_blank">http://www.megaupload.com/?d=CORMUDY2</a></li>
+<li>João Silva 2011-09-14
+
+    EDIT: It seems to be fixed in the CI build 1.8.0.v20110912131752. It does crash with the 1.7.x builds.</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as I am unable to reproduce the issue using the following environment; 
+    iPhone 7 (10.2) 
+    MacOS 10.11.6 (15G31) 
+    Studio 4.8.1.201612050850 
+    Ti SDK 6.0.3 GA 
+    Appc NPM 4.2.8 
+    Appc CLI 6.1.0 
+    Ti CLI 5.0.11 
+    Alloy 1.9.5 
+    Arrow 1.10.1 
+    Xcode 8.2 (8C38) 
+    Node v4.6.0 
+    Java 1.7.0_80</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5196.json">JSON Source</a></p>

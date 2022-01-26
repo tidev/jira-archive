@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-8048] Android: removeEventListener does not work for the CI Builds"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-13T01:24:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.0, Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-08</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, module_tabgroup, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Devang Gandhi</td></tr>
+<tr><th>Assignee</th><td>Opie Cyrus</td></tr>
+<tr><th>Created</th><td>2012-03-15T19:40:44.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-23T18:07:57.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+removeEventListener does not work on android, when used to remove and eventlistener on 'focus' event.
+
+
+Run the code below. Do the following:
+
+open app
+alert comes up - clear it
+click on Win 2's tab
+click on Win 1's tab
+Observed behavior: alert comes up again (the event listener wasn't removed during the call to onFocus ()).
+
+Expected behavior: the second alert should not come up (the event listener should have been removed during the call to onFocus())
+
+Thinking that maybe it was because I was calling removeEventListener() from within the event listener function, I also added a button that should remove the event listener from the window. It doesn't work either.
+
+<code><pre>
+var tabGroup = Ti.UI.createTabGroup();
+
+var win1 = Ti.UI.createWindow({ backgroundColor: '#fff', title: 'Win 1' });
+tabGroup.addTab(Ti.UI.createTab({
+    window: win1,
+    title: win1.title
+}));
+
+var win2 = Ti.UI.createWindow({ backgroundColor: '#666', title: 'Win 2' });
+tabGroup.addTab(Ti.UI.createTab({
+    window: win2,
+    title: win2.title
+}));
+
+var onFocus = function ()
+{
+    alert('[focus] size: ' + win1.size.width + ', ' + win1.size.height);    
+    win1.removeEventListener ('focus', onFocus);
+}
+
+win1.addEventListener('focus', onFocus);
+
+var btn1 = Titanium.UI.createButton({
+    width: 200,
+    height: 50,
+    title: 'Click me',
+});
+
+btn1.addEventListener('click', function(e) {
+    win1.removeEventListener ('focus', onFocus);
+});
+win1.add(btn1);
+
+
+tabGroup.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hieu Pham 2012-04-10
+
+   Debugged this for a while, it seems that this could be a tab issue, and/or context related. Removing listeners work fine, but it seems we may be storing multiple copies of it via events.js. This bug does NOT affect custom events. For example, if you run this code:
+   <code><pre>
+   var tabGroup = Ti.UI.createTabGroup();
+    
+   var win1 = Ti.UI.createWindow({ backgroundColor: '#fff', title: 'Win 1' });
+   tabGroup.addTab(Ti.UI.createTab({
+       window: win1,
+       title: win1.title
+   }));
+    
+   var win2 = Ti.UI.createWindow({ backgroundColor: '#666', title: 'Win 2' });
+   tabGroup.addTab(Ti.UI.createTab({
+       window: win2,
+       title: win2.title
+   }));
+    
+   var onFocus = function ()
+   {
+       alert('[focus] size: ' + win1.size.width + ', ' + win1.size.height);    
+       //win1.removeEventListener ('a', function(){});
+   }
+    
+   win1.addEventListener('a', onFocus);
+    
+   var btn1 = Titanium.UI.createButton({
+       width: 200,
+       height: 50,
+       title: 'Remove listener',
+   });
+   var btn2 = Titanium.UI.createButton({
+       top: 100,
+       width: 200,
+       height: 50,
+       title: 'Fire event',
+   });
+    
+   btn1.addEventListener('click', function(e) {
+       win1.removeEventListener ('a', onFocus);
+       //win1.addEventListener('focus', function(){});
+       //win1.fireEvent('focus');
+   });
+   btn2.addEventListener('click', function(e) {
+       win1.fireEvent('a');
+   });
+   win1.add(btn1);
+   win1.add(btn2);
+   
+   //win1.open();
+    
+   tabGroup.open();
+   </pre></code>
+   
+   1. Click Fire Event, you should see an alert
+   2. Click Remove Event, then Fire Event, you SHOULD NOT see an alert</li>
+<li>Opie Cyrus 2012-04-17
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/2026" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2026</a> opened</li>
+<li>Smitha Guduru 2012-06-23
+
+   The second alert is not coming up even after switching from "Win 2" tab to "Win 1" tab.
+   
+   Verified on
+   Titanium Studio, build: 2.2.0.201206222035
+   Titanium SDK: 2.1.0.v20120622174154
+   Device:Xoom(4.0.3)</li>
+<li>Shyam Bhadauria 2012-07-13
+
+   Re-opening to edit label</li>
+<li>Shameer Jan 2013-12-10
+
+   Anvil testcase PR <a href="https://github.com/appcelerator/titanium_mobile/pull/5074" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5074</a>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8048.json">JSON Source</a></p>

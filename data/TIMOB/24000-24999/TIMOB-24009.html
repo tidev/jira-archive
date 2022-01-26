@@ -1,0 +1,109 @@
+---
+title: "[TIMOB-24009] Hyperloop: iOS - Protocols are not generated properly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-03-03T11:41:21.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Hyperloop 2.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 2.0.1</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2016-10-10T16:41:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-15T15:56:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am currently testing the Facebook iOS SDK with Hyperloop and trying to bridge the <code>presentMessengerDialog</code> method to Hyperloop. Here is the JS-call:
+
+app.js
+<code><pre>
+var fb = require('facebook');
+
+var win = Ti.UI.createWindow({
+  backgroundColor: "#fff"
+});
+
+var btn = Ti.UI.createButton({
+  title: "Open Messenger Dialog"
+});
+
+btn.addEventListener("click", function() {
+    fb.presentMessengerDialog({
+           title: "Appcelerator Titanium rocks!", // The title of the link
+           description: "Shared from my Titanium application", // The description of the link
+           link: "<a href="https://appcelerator.com" rel="nofollow" target="_blank">https://appcelerator.com</a>", // The link you want to share
+           referal: "ti_app", // The referal to be added as a suffix to your link
+           placeID: "my_id", // The ID for a place to tag with this content
+           to: [] // List of IDs for taggable people to tag with this content
+       });
+});
+
+win.add(btn);
+win.open();
+</pre></code>
+and the Hyperloop implementation is:
+
+facebook.js
+<code><pre>
+var FBSDKShareLinkContent = require("FBSDKShareKit/FBSDKShareLinkContent"),
+	FBSDKMessageDialog = require("FBSDKShareKit/FBSDKMessageDialog"),
+	NSURL = require("Foundation/NSURL");
+
+exports.presentMessengerDialog = function(params) {
+   var content = new FBSDKShareLinkContent();
+      
+   content.setContentURL(NSURL.URLWithString(params["link"]));
+   content.setContentDescription(params["description"]);
+   content.setContentTitle(params["title"]);
+   content.setPlaceID(params["placeID"]);
+   content.setRef(params["referal"]);
+   content.setPeopleIDs(params["to"]);
+   
+   FBSDKMessageDialog.showWithContentDelegate(content, null); // TODO: Add delegate
+};
+</pre></code>
+The <code>FBSDKShareLinkContent</code> class is an <code>NSObject</code> and implements the <code>FBSDKSharingContent</code> protocol. The build succeeds, but as soon as we click on the button, the method fails because <code>setContentURL</code> is undefined. A look into the generated metabase confirms that all properties from the <code>FBSDKSharingContent</code> are not generated, the ones from <code>FBSDKShareLinkContent</code> are. 
+
+I am linking the frameworks locally (in /src and appc.js), so it might be something related to locally embedded frameworks only. 
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-10-10
+
+   Assigning to [~jvennemann] as we talked about it already. It is no general protocol problem and happens to both local embedded frameworks and cocoapods deps. Jan suggested that the metabase forwards the delegates incorrectly for the properties, which makes sense. Scheduling to 2.0.1 for now.</li>
+<li>Hans Knöchel 2017-02-02
+
+   [~jvennemann] Could this be a duplicate of TIMOB-24198?</li>
+<li>Jan Vennemann 2017-02-07
+
+   Actually this is a bug were the properties and methods from a protocol weren't merged into a class. To avoid unnecessary merging a function would check if a protocol was already implemented by a parent class. It could happen that this function would check against the base class instead of it's parent and then falsely assume a parent already implemented the protocol, thus skipping the merge process.
+   
+   PR (master): <a href="https://github.com/appcelerator/hyperloop.next/pull/121" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/121</a>
+   PR (2_0_X): <a href="https://github.com/appcelerator/hyperloop.next/pull/122" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/122</a></li>
+<li>Harry Bryant 2017-03-15
+
+   Verified as fixed, with Hyperloop 2.0.1, ShareLinkContent now shares correctly.
+   
+   Tested On:
+   iPhone 7 10.2 Device
+   Mac OS Sierra (10.12.2)
+   Ti SDK: 6.0.2.GA
+   Hyperloop Module (2.0.1)
+   CocoaPods (1.2.0)
+   Appc NPM: 4.2.9-1
+   App CLI: 6.1.0
+   Xcode 8.2.1
+   Node v4.6.0
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24009.json">JSON Source</a></p>

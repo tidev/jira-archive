@@ -1,0 +1,195 @@
+---
+title: "[TIMOB-10328] Android: Add support for accessing and manipulating TableViewSections from a TableView"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-08-27T13:06:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-17 API, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>api, parity, qe-port</td></tr>
+<tr><th>Reporter</th><td>Bryan Hughes</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-08-06T11:31:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-01-14T02:26:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Accessing table view sections from a table view is currently limited to the data property which resets the entire table. This makes it extremely expensive to, say, add a new section to an already existing table. It has also given rise to poorly thought out API designs such as the 'header' property of TableViewRows.
+
+We need to add methods for accessing and manipulating TableViewSections in a TableView akin to how we can access TableViewRows from a TableView.
+
+We also need to document and deprecate the previously undocumented 'header' property.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ivan Skugor 2012-08-11
+
+   Hello. :)
+   
+   
+   (I'm a bit late, but ...) In my experience, manipulating TableViewSections is not extremely expensive operation. I using technique described in this Gist: <a href="https://gist.github.com/2775243" rel="nofollow" target="_blank">https://gist.github.com/2775243</a> (the trick is in resetting TableView's "data" property). Works very fast.
+   But - it's not elegant at all. I actually suggested that instead of using "setData" property, "add" method could be used. That way, sections could be added at any time. The only issue here is missing "insertAt" method.
+   
+   
+   So ... IMHO, true solution would be implementation of similar API for all UI components (TIMOB-7671) that would enable developers to do anything - at any time. I'm not fan of component specific names like "insertSectionBefore". That kind of naming convention is confusing and hard to remember (where "add" goes, where "addRow", is it "addSection" or just "add", etc.).
+   
+   
+   P.S. I don't like my TableView API that I suggested in TIMOB-7671. In library that I wrote (that is - in Titanium object wrappers) I am using two types of TableView (SimpleTableView and TableView) and two types of TableViewRow (SimpleTableViewRow and TableViewRow). SimpleTableView is TableView that has no sections (not even default) and TableView is TableView with TableViewSections. On the other hand SimpleTableViewRow is TableViewRow that does not contain other components (it can have "title" property, but does not have "add" method), while TableViewRow is TableViewRow that can contain other components.
+   That way, API is more cleaner and less confusing (row's index is particularly painful topic when everything is mixed together).</li>
+<li>Bryan Hughes 2012-08-13
+
+   Your method isn't fast if you have a large TableView (hundreds if not thousands of rows).
+   
+   What to do with the add() method is tricky...there is a lot of historical baggage surrounding it and we need to take into account all of the existing apps, plus sometimes add doesn't actually make sense given underlying components. It's something we've been thinking about though, because, as you said, it is confusing.
+   </li>
+<li>Ivan Skugor 2012-08-14
+
+   Hm, could be, didn't test on large tables ... I thought that, in theory, it shouldn't be slow (because all sections and rows are already created).
+   
+   
+   
+   OK, I understand. Thanks for the answer.</li>
+<li>Ping Wang 2012-08-21
+
+   For functional test:
+   1. Run the test case below.
+   2. Click "append sections" to see the table view sections.
+   3. Click other buttons to manipulate table view sections.
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor: "white",
+   	layout: "vertical"
+   });
+   
+   var index = 0;
+   var view = Ti.UI.createView({
+   	backgroundColor: "white",
+   	height: 100
+   });
+   var label = Ti.UI.createLabel({
+   	text: "section index: i=" + index,
+   	color: "black",
+   	font: {fontSize: 24, fontWeight: "bold"},
+   	left: 50
+   });
+   var b1 = Ti.UI.createButton({
+   	title: "i++",
+   	left: 300
+   });
+   b1.addEventListener("click", function() {
+   	index ++;
+   	label.text = "section index: i=" + index
+   });
+   var b2 = Ti.UI.createButton({
+   	title: "i--",
+   	left: 400
+   });
+   b2.addEventListener("click", function() {
+   	index --;
+   	label.text = "section index: i=" + index
+   });
+   view.add(label);
+   view.add(b1);
+   view.add(b2);
+   
+   var appendButton = Ti.UI.createButton({
+   	title: "append sections"
+   });
+   
+   var count = 0;
+   appendButton.addEventListener("click", function() {
+   	count++;
+   	
+   	var section = Ti.UI.createTableViewSection({
+   		headerTitle: "Appended Section " + count,
+   		footerTitle: "Footer " + count
+   	});
+   	table.appendSection(section);
+       
+       var sections = [{headerTitle: "Appended Sections " + count, footerTitle: "Footer " + count},
+       				{headerTitle: "Appended Sections " + count, footerTitle: "Footer " + count}];
+   	table.appendSection(sections);
+   	alert("sectionCount = " + table.sectionCount);
+   });
+   
+   var deleteButton = Ti.UI.createButton({
+   	title: "delete section at index i"
+   });
+   
+   deleteButton.addEventListener("click", function() {
+   	table.deleteSection(index);
+   	alert("sectionCount = " + table.sectionCount);
+   });
+   
+   var updateButton = Ti.UI.createButton({
+   	title: "update section at index i"
+   });
+   
+   updateButton.addEventListener("click", function() {
+   	var section = Ti.UI.createTableViewSection({
+   		headerTitle: "Updated Section " + index,
+   		footerTitle: "Footer " + index
+   	});
+   	section.add(Ti.UI.createTableViewRow({ title: 'Updated Section - Row' }));
+   	table.updateSection(index, section);
+   });
+   
+   var insertBeforeButton = Ti.UI.createButton({
+   	title: "insert section before index i"
+   });
+   
+   insertBeforeButton.addEventListener("click", function() {
+   	var section = Ti.UI.createTableViewSection({
+   		headerTitle: "Insert Section Before " + index,
+   		footerTitle: "Footer " + index
+   	});
+   	section.add(Ti.UI.createTableViewRow({ title: 'Insert Section Before - Row' }));
+   	table.insertSectionBefore(index, section);
+   	alert("sectionCount = " + table.sectionCount);
+   });
+   
+   var insertAfterButton = Ti.UI.createButton({
+   	title: "insert section after index i"
+   });
+   
+   insertAfterButton.addEventListener("click", function() {
+   	var section = Ti.UI.createTableViewSection({
+   		headerTitle: "Insert Section After " + index,
+   		footerTitle: "Footer " + index
+   	});
+   	section.add(Ti.UI.createTableViewRow({ title: 'Insert Section After - Row' }));
+   	table.insertSectionAfter(index, section);
+   	alert("sectionCount = " + table.sectionCount);
+   });
+   
+   var table = Ti.UI.createTableView({});
+   
+   win.add(view);
+   win.add(appendButton);
+   win.add(deleteButton);
+   win.add(updateButton);
+   win.add(insertAfterButton);
+   win.add(insertBeforeButton);
+   win.add(table);
+   win.open();
+   </pre></code></li>
+<li>Ping Wang 2012-08-21
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/2792" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2792</a></li>
+<li>Anshu Mittal 2013-01-14
+
+   Tested with:
+   SDK: 3.0.0GA
+   Studio: 3.0.1.201212181159
+   
+   Works as expected</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10328.json">JSON Source</a></p>

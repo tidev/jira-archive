@@ -1,0 +1,80 @@
+---
+title: "[TIMOB-28278] Android: localized date/time format should default to numeric"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 9.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.3.1</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Intl, android, date, datetime, localization, parity</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2020-12-09T08:57:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-12-18T19:31:31.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Run the following code on your web-browser, iOS and Android:
+<code><pre>
+new Date(2020, 11, 9).toLocaleDateString('en');
+</pre></code>
+The results are:
+* Web: 12/9/2020
+* iOS: 12/9/2020
+* Android: 12/9/{color:red}20{color} <-- YY instead of YYYY
+
+It seems like Android uses the wrong year format.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-12-09
+
+   This is not a bug.
+   
+   It's using the default pattern coming from the current locale. This just means the current locale is set up to use a 2 digit year. I've seen different locales provide 4 digit years on my devices as well. A great example of this is a Japanese "ja-JP" locale which does an ISO format of "yyyy/mm/dd" and requires a 4 digit year. Basically it's supposed to use the pattern the system is configured for.
+   <a href="https://stackoverflow.com/questions/22719346/tolocaledatestring-is-not-returning-dd-mm-yyyy-format" rel="nofollow" target="_blank">https://stackoverflow.com/questions/22719346/tolocaledatestring-is-not-returning-dd-mm-yyyy-format</a>
+   
+   If you want a consistent format, then you will need to do this...
+   <code><pre>
+   new Date(2020, 11, 9).toLocaleDateString(Ti.Locale.currentLocale, {
+   	month: 'numeric',   // Will be 1-2 digits.
+   	day: 'numeric',     // Will be 1-2 digits.
+   	year: 'numeric',    // Will always be 4 digits.
+   });
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2020-12-09
+
+   I don't understand. We do pass the locale to the <code>toLocaleDateString</code> function and all other platforms return the format correctly - on the same environment / locale.</li>
+<li>Joshua Quick 2020-12-09
+
+   Currently, the <code>toLocaleDateString()</code> and <code>toLocaleTimeString()</code> methods use the "short" date/time patterns defined by the system.
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/master/common/Resources/ti.internal/extensions/js/Date.js" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/common/Resources/ti.internal/extensions/js/Date.js</a>
+   
+   But after having a look at Mozilla's docs [here](<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleDateString)" rel="nofollow" target="_blank">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleDateString)</a>, the date/time components are supposed to be set to "numeric" if undefined. I can't find where this is documented in the ECMA spec (they say it's "implementation defined"), but I can see now this appears to be the expected behavior. Here's the quote from Mozilla's docs...
+   bq. The default value for each date-time component property is undefined, but if the weekday, year, month, day properties are all undefined, then year, month, and day are assumed to be "numeric".
+   
+   So, you're right. We should change it to default to "numeric".</li>
+<li>Hans Knöchel 2020-12-09
+
+   Thanks for the insight, Josh! Also, thanks for the workaround -  we will patch the SDK and are ready to go then :-)</li>
+<li>Joshua Quick 2020-12-10
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12332" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12332</a></li>
+<li>Satyam Sekhri 2020-12-16
+
+   FR Passed.
+   Waiting for Jenkins build.</li>
+<li>Christopher Williams 2020-12-18
+
+   merged to master, backport PR merged to 9_3_X for 9.3.1 target</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28278.json">JSON Source</a></p>

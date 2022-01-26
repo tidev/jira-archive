@@ -1,0 +1,89 @@
+---
+title: "[TIMOB-10218] iOS: Simulator sometimes launches twice"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-15T07:46:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-16 Core, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>core, module_build, qe-port, qe-testadded, tooling</td></tr>
+<tr><th>Reporter</th><td>Mike Morearty</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2012-07-27T14:30:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-15T07:46:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+When you run a Titanium app in the iPhone Simulator -- either from Titanium Studio or from the command-line "builder.py run myproj" -- it sometimes launches two instances of the iPhone Simulator instead of one.  Then, one of them displays an error message complaining that the iPhone Simulator is already running.
+
+Expected behavior: Only one instance of iPhone Simulator launches.
+
+Note, this bug is intermittent -- it only happens once in a while.
+
+<h4>Test case</h4>
+
+1. Create app for iPhone
+2. Run it in iPhone Simulator
+3. If only one iPhone Simulator opens, run it again.  Keep repeating; eventually, two simulators will open.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mike Morearty 2012-07-27
+
+   Pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/2650" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2650</a>
+   
+   It looks like you guys have been going back and forth on this a bit already: <a href="https://github.com/appcelerator/titanium_mobile" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile</a> includes several commits over time that go back and forth on the implementation of how to bring the iPhone Simulator to the foreground, including commit c8d81b8 by Jeff Haynie and commits 46aa65d and b947aea by Blain Hamon.
+   
+   This bug is caused by a race condition: First, iphone/builder.py launches the iPhone Simulator with a call to subprocess.Popen(); and then, it executes some AppleScript to bring the iPhone Simulator to the foreground -- but sometimes, the simulator that is being started by Popen() has not yet fully launched (the process has probably started, but AppleScript doesn't "know" that yet), so when AppleScript is told to bring it to the foreground, it launches another instance of it.
+   
+   My fix is to change the AppleScript so that it first waits (up to several seconds) for the iPhone Simulator to finish launching, and *then* tell it to come to the foreground.</li>
+<li>Mike Morearty 2012-07-29
+
+   By the way, in my pull request, I followed the pattern that this project has followed so far with AppleScript: The AppleScript file I added is a "compiled" script, instead of plain text.  But I would suggest that it might be nice to use plain text for all short AppleScript files, because if the files are short, then storing them as plain text has essentially no impact on their speed, and offers a few small advantages:
+   
+   * it means you can do "diff"s on them, e.g. with git.
+   * it means you can view their contents with any editor, not just the "AppleScript Editor" application.</li>
+<li>Max Stepanov 2012-08-08
+
+   PR merged <a href="https://github.com/appcelerator/titanium_mobile/pull/2650" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2650</a></li>
+<li>Olga Romero 2012-08-13
+
+   erified fix with:
+   Titanium Studio, build: 2.1.1.201207271312
+   Titanium SDK: 2.2.0.v20120810194112
+   
+   Mac osx 10.8 Mountain Lion
+   iOS Simulator 5.1</li>
+<li>Priya Agarwal 2013-07-15
+
+   Reopening just to update label.</li>
+<li>Priya Agarwal 2013-07-15
+
+   Updated Label and Verified with:
+   
+   Titanium Studio:3.1.2.201307091843
+   Titanium SDK: 3.1.2.v20130710144553
+   acs:1.0.3
+   alloy:1.1.3
+   npm:1.2.14
+   titanium:3.1.1
+   itanium-code-processor:1.0.1
+   OS: OSX 10.8
+   Device:iPhone simulator(v 6.0)
+   Xcode: 4.5.1
+   
+   Only one instance of iphone simulator launches.
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10218.json">JSON Source</a></p>

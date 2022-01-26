@@ -1,0 +1,95 @@
+---
+title: "[TIMOB-25768] Use rollup to avoid circular references with ES6 imports in JavascriptCore"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-06-30T14:40:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS, Windows</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Gary Mathews</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2018-02-09T22:55:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-06-30T14:40:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+- JavascriptCore does not have full ES6 module support, circular references with <code>import</code> will cause a stack overflow
+
+*TEST CASE*
+<code><pre>
+// TODO
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2018-02-12
+
+   master: <a href="https://github.com/appcelerator/node-titanium-sdk/pull/24" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/24</a></li>
+<li>Christopher Williams 2018-02-26
+
+   Note that right now if users use ES6 they have to have transpilation turned on, which will currently convert imports to require calls under the hood (at least from my experience)
+   
+   So I'm not sure if we're yet at the point where this is a priority...</li>
+<li>Christopher Williams 2018-05-23
+
+   Pushing to 7.4.0 for now, babel will transpile imports to require under the hood for now.
+   
+   We need to figure out how to hook rollup into our build lifecycle to support this properly as it needs to run first and will only work when the app has *only* import/exports.</li>
+<li>Joshua Quick 2018-06-22
+
+   After talking to [~cbarber], we may want to use "rollup" for performance reasons as well. Particularly for large alloy apps which may have a lot of generated JS files to require-in.
+   
+   I did some benchmarks for how long a <code>require()</code> call takes using the below...
+   
+   *app.js*
+   <code><pre>
+   var startTime = new Date();
+   require('Test');
+   Ti.API.info('@@@ require() duration: ' + (new Date() - startTime));
+   </pre></code>
+   
+   *Test.js*
+   <code><pre>
+   // I'm an empty file.
+   </pre></code>
+   
+   Below are my benchmarks:
+   <code><pre>
+   iOS 10 Simulator:     3 ms
+   Android 4.1 Emulator: 1 ms
+   Amazon Fire HD 8:     3 ms
+   Galaxy Nexus:         5 ms
+   Pixel XL:             2 ms
+   </pre></code>
+   
+   The above numbers are not huge, but it can add up quickly for apps that have a lot of JS files. I'm sure we can do other things to reduce the <code>require()</code> overhead internally (except for JS decryption; we have to keep that), but I think it's worth benchmarking the performance gain with "rollup" to see if it helps.
+   </li>
+<li>Hans Knöchel 2018-06-22
+
+   For iOS, we are caching require-statements already, not sue how Android works there.</li>
+<li>Joshua Quick 2018-06-22
+
+   The above benchmarks are for the initial require when doing a cold start of the app.
+   
+   Android is definitely caching previously required files as well, but there is extra overhead on the Android side where each JS file gets their own copy of our core Titanium libraries which isn't great. They're not being loaded into the global namespace for some reason. (That's a whole different discussion.)
+   
+   The only thing I don't like about "rollup" of all the scripts is if the code count is large, then the startup time is going to be worse versus lazy loading. "rollup" might be a good idea for our core JS code and generated alloy code from a performance perspective, but it doesn't solve the recursive import issue Gary is trying to resolve. Hmm...</li>
+<li>Christopher Williams 2018-06-26
+
+   Some notes:
+   - I believe Gary was trying to address a circular dependency issue with raw <code>import</code> calls. As mentioned above, we don't really support using import unless you transpile, and right now Babel transpiles <code>import</code> to actually be <code>require</code> calls. This situation would only really occur when using import/export syntax and *not* turning on transpilation. (Which given that we're likely to move to transpile by default would become even less likely).
+   - I do think that rollup is a possible packaging option we could provide in the future to help shrink app size, reduce performance issues around a large codebase, etc. The complicating factor here is that we don't really have all the pieces set up to enable it. The codebase, including any JS code in the core/modules it needs, *has* to use import/export instead of require to get the benefits. And it would have to run on the codebase *before* transpilation (since transpiling transforms imports). We haven't really addressed how to handle that in the build hook lifecycle/pipeline, and we don't generate import/export style code in hyperloop/Alloy to make use of this.</li>
+<li>Hans Knöchel 2018-11-02
+
+   We are currently running into this on iOS when importing different managers (api, login, request) into each other. A timely workaround or fix would be appreciated!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25768.json">JSON Source</a></p>

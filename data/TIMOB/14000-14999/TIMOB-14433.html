@@ -1,0 +1,174 @@
+---
+title: "[TIMOB-14433] iOS: Facebook login broken after password change"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-27T14:52:08.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>facebook, ios, mobilesdk, module</td></tr>
+<tr><th>Reporter</th><td>Mark Mokryn</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2013-06-17T07:36:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-04-27T14:52:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Including sample app code below. Steps to reproduce:
+<h4>Create a Facebook app at developers.facebook.com. I used the app default settings, just make sure "Native iOS App" is clicked, match the Bundle ID to what is in tiapp.xml, and that Facebook login is enabled for the app. I also turned off sandbox mode on Facebook.</h4>
+<h4>Use the code included below, make sure to change your FB app ID. Log in and out - all works fine. Do this on the device, not simulator.</h4>
+<h4>In your browser, go to <a href="https://www.facebook.com/settings" rel="nofollow" target="_blank">https://www.facebook.com/settings</a> and change your password. Select the option to logout of devices, as the user is likely to do.</h4>
+<h4>Go to your Ti app on the phone, logout and try to login again - will fail as expected.</h4>
+<h4>in iOS, go to Settings -> Facebook -> Your Name, and update your password to match the one you entered in the browser a bit earlier.</h4>
+<h4>Go into Facebook app on phone, which will ask you to log in again due to the expired session, caused by the password change.</h4>
+<h4>Now go to the Ti app, try to log in - STILL FAILS!!!! Definitely not the expected behavior, and not sure how to instruct the user.</h4>
+<h4>The only way I successfully got out of this conundrum was to toggle the Ti app's Facebook permission under "Allow These Apps to Use Your Account" at iOS Settings -> Facebook, but even this is unreliable.</h4>
+<h4>What makes this even worse, is that I have seen cases where Facebook claims the user changed the password (seen this by using the token debug tool) - when the user (me!) has not changed his password. </h4>
+
+Code to reproduce:
+
+index.js
+<code><pre>
+var loggedIn = undefined;
+var fb = require('facebook');
+fb.appid = 'YOUR_APP_ID';
+fb.permissions = ['email'];
+fb.forceDialogAuth = false;
+
+function doLogin(e) {
+	fb.authorize();
+}
+
+function doLogout(e){
+	fb.logout();
+}  
+
+function loggedInState() {
+	$.initLabel.visible = false;
+	$.logoutBtn.visible = true;
+	$.loginBtn.visible = false;	
+	Ti.API.info('Access token in case we need to debug: ' + fb.accessToken);	
+}
+
+function loggedOutState() {
+	$.initLabel.visible = false;
+	$.logoutBtn.visible = false;
+	$.loginBtn.visible = true;	
+}
+
+fb.addEventListener('logout', function() {
+	loggedOutState();
+});
+
+fb.addEventListener('login', function(e) {
+	Ti.API.info('Facebook login event, data:' + JSON.stringify(e.data) + ' cancelled: ' + e.cancelled + 
+		' error: ' + e.error + ' type: ' + e.type + ' uid: ' + e.uid + ' success: ' + e.success);
+	if (e.success) {
+		loggedInState();
+		alert('Login success, see console logs for user data');
+	} else if (e.error) {
+		alert ('Login error: ' + e.error);
+		loggedOutState();
+	} else if (e.cancelled) { // do nothing
+		alert('Login cancelled');
+		loggedOutState();
+	} else {
+		alert('no success, no error, and not cancelled... assume loggedOutState');
+		loggedOutState();
+	}
+});
+
+loggedIn = fb.getLoggedIn();
+Ti.API.info('logged in: ' + loggedIn); 
+if (loggedIn) {
+	loggedInState();
+}
+
+if (loggedIn === false) {
+	loggedOutState();
+}
+
+$.index.open();
+</pre></code> 
+
+index.xml
+<code><pre> 
+<Alloy>
+	<Window class="container">
+		<Label id="initLabel">This appears only when login state is undefined</Label>
+		<Button id="loginBtn" onClick="doLogin">Facebook Login</Button>
+		<Button id="logoutBtn" onClick="doLogout">Facebook Logout</Button>
+	</Window>
+</Alloy>
+</pre></code> 
+
+index.tss
+<code><pre>
+".container": {
+	backgroundColor:"white"
+},
+"#initLabel": {
+	width: Ti.UI.SIZE,
+	height: Ti.UI.SIZE,
+	color: "#000",
+	visible: true
+} ,
+"#loginBtn": {
+	visible: false
+},
+"#logoutBtn": {
+visible: false
+}
+</pre></code>
+
+bits from tiapp.xml
+<code><pre>
+<id>com.test.ti</id> <!-- make sure this matches your Facebook app config -->
+<property name="ti.facebook.appid">YOUR_APP_ID</property>
+...
+    <modules>
+    	<!-- Add the appropriate line(s) to your modules section -->
+    	<module platform="android">facebook</module>
+    	<module platform="iphone">facebook</module>
+    </modules>
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mark Mokryn 2013-06-17
+
+   Another note: on occasion, while playing with this scenario, the app is not at all affected by the per-app Facebook permissions in the iOS settings, and the Titanium Facebook module claims that we are logged in even when the app is not permitted. There must be a mechanism where the login state can be flushed from the module, otherwise it gets into this crazy loop where the user cannot log in or log out. Sometimes toggling the permissions helps - but not always. Sometimes reinstalling the app helps - but not always. 
+   Note: after playing quite a lot with this, it seems that toggling the app's Facebook permissions in the Settings screen does usually help. This suggests that a "flush Facebook status" API in the module may indeed help.</li>
+<li>Mark Mokryn 2013-06-24
+
+   Looking through the Facebook module code - it doesn't seem that it's following Facebook's error handling conventions, and at the end of the day there is not enough info for the user to correct the problem. See <a href="https://developers.facebook.com/docs/technical-guides/iossdk/errors/#auth" rel="nofollow" target="_blank">https://developers.facebook.com/docs/technical-guides/iossdk/errors/#auth</a>
+   It may be easiest to just update to the latest Facebook iOS SDK rev, and implement what is done in the sample Scrumptious app. </li>
+<li>Mark Mokryn 2013-06-25
+
+   Related community discussion - poor error handling by iOS Facebook module:
+   <a href="http://developer.appcelerator.com/question/153427/facebook-ios6-built-in-module---login-fail#answer-264785" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/153427/facebook-ios6-built-in-module---login-fail#answer-264785</a></li>
+<li>Mark Mokryn 2013-07-01
+
+   </li>
+<li>Ygor Lemos 2015-02-05
+
+   Guys, this is still happening on 3.5.0.GA, is there a prevision for an updated FB SDK for Ti?</li>
+<li>Hans Knöchel 2016-04-17
+
+   Hey there! We updated the Facebook SDK version in ti.facebook 5.0.0+, can you test the latest ti.facebook version?</li>
+<li>Caio Perdona 2016-04-27
+
+   Tested with Facebook test user and it worked fine. Wasn't able to reproduce the bug.</li>
+<li>Hans Knöchel 2016-04-27
+
+   Thanks, closing for now!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14433.json">JSON Source</a></p>

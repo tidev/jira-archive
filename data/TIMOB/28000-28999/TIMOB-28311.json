@@ -1,0 +1,149 @@
+{
+	"id": "175930",
+	"key": "TIMOB-28311",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2020-12-23T15:48:32.000+0000",
+		"priority": null,
+		"labels": [
+			"file",
+			"httpclient",
+			"ram",
+			"upload",
+			"usage"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "amukherjee",
+			"key": "amukherjee",
+			"displayName": "Abir Mukherjee",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2021-08-28T19:15:38.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "When doing a file upload using Titanium on iOS the file will be placed into ram when the upload starts and then removed from ram when finished. This works well for a single or small file. \r\n\r\nBut when you have a large file or multiple file uploads happening at once can be an issue as it is very possible to use more than 1 GB of ram with just a few uploads of files that are not that big. \r\n\r\nWhen a upload is started with a 35Mb file for example when it is placed into ram it is not 35Mb of ram usage it seems to be 2x or 3x higher. So doing multiple uploads of a file will hit the devices ram hard. This can cause the app to crash or other apps be closed by the OS that should not be closed because you choose to upload a large video or a few files. \r\n\r\nWe need the option to upload from disk not from ram. It seems we can use \"NSInputStream\" to upload the file from the disk not placing it into ram. \r\n\r\nMore discussed here on how to do this:\r\n\r\nhttps://stackoverflow.com/questions/12626748/what-is-the-correct-way-of-sending-large-file-through-http-post-without-loading/12627138#12627138\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: File uploads high ram usage",
+		"creator": {
+			"name": "dlewis23",
+			"key": "dlewis23",
+			"displayName": "Donovan Lewis",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "dlewis23",
+			"key": "dlewis23",
+			"displayName": "Donovan Lewis",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "457992",
+					"author": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Moved to TIMOB to investigate on this.",
+					"updateAuthor": {
+						"name": "vijaysingh",
+						"key": "vijaysingh",
+						"displayName": "Vijay Singh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2021-01-09T00:48:48.000+0000",
+					"updated": "2021-01-09T00:48:48.000+0000"
+				},
+				{
+					"id": "458287",
+					"author": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Here is a sample code, If you use this code with a 100 MB file to upload, one steam will use over 400 MB of ram while the upload is running. If you run multiple steams of the upload it is very easy to exhaust the devices entire amount of ram. Using a smaller file say 10MB and having multiple uploads at once it will use many hundreds or even a gigabyte of ram. This causes apps in the background to close. \r\n\r\nWe need a way to not have the file being uploaded placed into ram.\r\n\r\n{code:java}\r\nvar xhr = null;\r\n \r\nvar win = Ti.UI.createWindow({\r\n  backgroundColor: '#fff',\r\n  fullscreen: false, navBarHidden: true, exitOnClose: true, theme: \"Theme.materialTheme\", orientationModes: [Titanium.UI.PORTRAIT]\r\n});\r\n \r\nvar runTime = Ti.UI.createLabel({\r\n  text: 'Run Time...',\r\n  top: 50,\r\n  left: 10,\r\n  color: '#000'\r\n});\r\n \r\nvar uploadSpeed = Ti.UI.createLabel({\r\n  text: '0.00 Mbps',\r\n  top: 90,\r\n  left: 10,\r\n  color: '#000'\r\n});\r\n \r\nvar buttonStart = Ti.UI.createButton({ title: \"START\", width: 100, height: 40, top: '45%', left: '10%' });\r\nvar buttonStop = Ti.UI.createButton({ title: \"STOP\", width: 100, height: 40, top: '45%', right: '10%' });\r\n \r\nvar uploadfile = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory(), \"100MB.bin\").read();\r\n \r\nbuttonStart.addEventListener(\"click\", function() {\r\n \r\n  console.log('Starting Upload');\r\n \r\n  var startTime = new Date().getTime();\r\n  var totalPercent = 0;\r\n \r\n  xhr = Titanium.Network.createHTTPClient();\r\n  xhr.onsendstream = function(e){ \r\n      console.log(e.progress);\r\n \r\n      totalPercent = (e.progress).toFixed(2);\r\n      var currentTime = new Date().getTime();\r\n      var timeDiff = ((currentTime-startTime)/1000).toFixed(2);\r\n      var totalDownloaded = (102400 * totalPercent);\r\n      var currentKBPS = (((((totalDownloaded * 1024) * 8.192) / timeDiff) / 1024 / 1024)).toFixed(2);\r\n \r\n      runTime.text = timeDiff;\r\n      uploadSpeed.text = currentKBPS + ' Mbps';\r\n  };\r\n \r\n  xhr.onload = function(e) {\r\n \r\n  };\r\n  xhr.open('POST','http://sfo.veeapps.com/upload.php');\r\n  xhr.send({media: uploadfile });\r\n  \r\n});\r\n \r\n \r\nbuttonStop.addEventListener(\"click\", function() {\r\n  xhr.abort();\r\n  xhr = null;\r\n});\r\n \r\nwin.add(runTime);\r\nwin.add(uploadSpeed);\r\nwin.add(buttonStart);\r\nwin.add(buttonStop);\r\nwin.open();\r\n{code}\r\n",
+					"updateAuthor": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2021-02-21T15:32:52.000+0000",
+					"updated": "2021-02-21T15:32:52.000+0000"
+				},
+				{
+					"id": "459017",
+					"author": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Has anyone else been able to take a look at this?",
+					"updateAuthor": {
+						"name": "dlewis23",
+						"key": "dlewis23",
+						"displayName": "Donovan Lewis",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2021-08-28T19:15:38.000+0000",
+					"updated": "2021-08-28T19:15:38.000+0000"
+				}
+			],
+			"maxResults": 3,
+			"total": 3,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,228 @@
+{
+	"id": "106822",
+	"key": "ALOY-438",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "14770",
+				"description": "Alloy 0.3.4",
+				"name": "Alloy 0.3.4",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2012-12-14"
+			},
+			{
+				"id": "14790",
+				"description": "2012 Sprint 26",
+				"name": "2012 Sprint 26",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-12-31"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2014-08-06T20:41:27.000+0000",
+		"created": "2012-12-19T23:54:10.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"qe-automatedtest",
+			"qe-manualtest"
+		],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "23798",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "106888",
+					"key": "ALOY-441",
+					"fields": {
+						"summary": "Markup event handlers defined as function expressions can't manually be triggered til after controller code is executed",
+						"status": {
+							"description": "The issue is open and ready for the assignee to start work on it.",
+							"name": "Open",
+							"id": "1",
+							"statusCategory": {
+								"id": 2,
+								"key": "new",
+								"colorName": "blue-gray",
+								"name": "To Do"
+							}
+						},
+						"priority": {
+							"name": "Medium",
+							"id": "3"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2014-08-06T20:41:27.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "12329",
+				"name": "Runtime",
+				"description": "Generic bucket for uncategorized runtime issues"
+			}
+		],
+		"description": "In ALOY-370, a fix was put in place so that developers would be able to define functions for markup event handlers with either function declarations or expressions. \r\n\r\n{code:javascript}\r\n// function declaration\r\nfunction doClick() {}\r\n\r\n// function expression\r\nvar doClick = function() {}\r\n{code}\r\n\r\nExpressions did not work before ALOY-370 as the event handlers were created before the function assignment, causing the event handler callback function to be undefined. To get around this, the reference to the event handler function was deferred inside of an anonymous caller. So:\r\n\r\n{code:javascript}\r\n$.someProxy.on('click', myFunction);\r\n\r\n// became\r\n\r\n$.someProxy.on('click', function() {\r\n    myFunction.apply(this, Array.prototype.slice.apply(arguments));\r\n});\r\n{code}\r\n\r\nIn this way, it didn't matter how the event handler function was defined or where, it would be in scope and defined by the time the event handler was actually fired. The problem is that now when you attempt to remove the event handler from the above code, it doesn't work because the functions won't match. The developer will be passing 'myFunction', but the eventing system has the anonymous function as its callback.\r\n\r\n{code:javascript}\r\n// won't work since we wrapped myFunction in an anonymous function\r\n$.someProxy.off('click', myFunction);\r\n{code}\r\n\r\nSo the problem is how do we maintain the ability to reference both function declarations and expressions, but still be able to have developers simply remove these functions without having to worry about an anonymous wrapper?\r\n\r\nh3. possible options\r\n\r\n# We go back to not supporting function expressions. This might not be so bad as all alloy examples use function declarations, and it remained like that up til version 0.3.2 before 1 person mentioned it. A small bit of documentation in the guides would make this easy to convey.\r\n# We move the event handler declaration code after the controller code. This seems like a logical, simple solution, but there is a distinct drawback. A developer will not be able to manually trigger these events if they want from the controller during its initial execution. For example:\r\n{code:javascript}\r\n// this would still work\r\n$.win.on('open', function() {\r\n    $.someProxy.trigger('click');\r\n});\r\n\r\n// but this would not, but it also wouldn't throw an exception. It just wouldn't fire\r\n// any event since the event handler would not have been defined yet.\r\n$.someProxy.trigger('click');\r\n{code}\r\nThis may not be a very common use case with UI components, but it is with <Model> and <Collection> elements, which use the same method for tying markup eventing to code. For example, devs often call model.fetch() in their controllers, which wouldn't fire any event handlers if we push the event handler code to the end.\r\n# Use AST manipulation to either move the function expressions to the top of the code, or convert them to function expressions. I always prefer to make AST manipulation for this sort of thing a last resort. This would likely also be shot to hell if the developer employs any kind of inheritance in their controller, as the function I'm looking for may reside in another file.\r\n# Something I haven't thought of yet.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Proxy off() function from Backbone is not working",
+		"creator": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "232106",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Brain dump before I go to bed. A possible solution to cover all bases would be using minimal runtime logic to determine whether or not the setting of an event handler should be done before the controller code, or deferred until after the controller code (if function expressions are used). Here's a rough idea of how it would go:\r\n\r\n{code:javascript}\r\n// \"defer\" represent some flag or variable that would indicate\r\n// whether or not an event handler needs to be deferred until\r\n// after the controller code. If implemented, there would \r\n// obviously be a collection of some sort to manage which \r\n// event handlers need to be deferred and which don't.\r\nvar defer = true;\r\n\r\n// UI code\r\nvar win = Ti.UI.createWindow({\r\n\tbackgroundColor: \"#fff\"\r\n});\r\n\r\n// new event generation code, which defers the setting of \r\n// the event handler if the function is not yet defined, like\r\n// in the case of a function expression.\r\nif (myFunc) {\r\n\twin.addEventListener(\"click\", myFunc);\r\n\tdefer = false;\t\r\n} \r\n\r\n// controller code\r\nvar myFunc = function(e) {\r\n\talert(e.source);\t\r\n}\r\nwin.open();\r\n\r\n// new auto-code, afte controller code, for handling \r\n// deferred events\r\nif(defer) win.addEventListener(\"click\", myFunc);\r\n{code}\r\n\r\nI tested this with plain old titanium development, hence the use of addEventListener for testing, rather than the Backbone on() and off().",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-12-20T04:36:57.000+0000",
+					"updated": "2012-12-20T04:39:44.000+0000"
+				},
+				{
+					"id": "232219",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Additional revision for final implementation, showing how this will be handled for an arbitrary number of handlers:\r\n\r\n{code:javascript}\r\n// \"defer\" represent some flag or variable that would indicate\r\n// whether or not an event handler needs to be deferred until\r\n// after the controller code. If implemented, there would \r\n// obviously be a collection of some sort to manage which \r\n// event handlers need to be deferred and which don't.\r\nvar __defers = {};\r\n\r\n// UI code\r\nvar win = Ti.UI.createWindow({\r\n\tbackgroundColor: \"#fff\"\r\n});\r\n\r\n// new event generation code, which defers the setting of \r\n// the event handler if the function is not yet defined, like\r\n// in the case of a function expression.\r\nmyFunc ? win.addEventListener(\"click\", myFunc) : \r\n         (__defers[\"win!click!myFunc\"] = true);\r\n\r\n// controller code\r\nfunction myFunc(e) {\r\n\talert(e.source);\t\r\n\te.source.removeEventListener(\"click\", myFunc);\r\n}\r\nwin.open();\r\n\r\n// new auto-code, afte controller code, for handling \r\n// deferred events\r\n__defers[\"win!click!myFunc\"] && win.addEventListener(\"click\", myFunc);\r\n{code}",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-12-20T21:17:57.000+0000",
+					"updated": "2012-12-20T21:18:45.000+0000"
+				},
+				{
+					"id": "232257",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The bulk of this issue has been resolved and off() now works again. There is a specific scenario in which a small bit of functionality might not work, and this is covered in ALOY-441.",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-12-20T22:39:56.000+0000",
+					"updated": "2012-12-20T22:39:56.000+0000"
+				},
+				{
+					"id": "236375",
+					"author": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Proxy off() function sample is present in test/apps/basics/controller_events\r\n\r\nVerified fixed on 1_0_X master branch\r\nandroid device: 4.2\r\niPhone devices: iPhone 6 and iPad 4.3.5\r\nTiSDK: 3.0.2.v20130128161704\r\nCLI: 3.0.23\r\n\r\nClosing.",
+					"updateAuthor": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-01-29T02:52:03.000+0000",
+					"updated": "2013-01-29T02:52:03.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

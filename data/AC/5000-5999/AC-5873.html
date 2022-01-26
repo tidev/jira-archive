@@ -1,0 +1,132 @@
+---
+title: "[AC-5873] Android: Camera and PhotoGallery rotate the selected media Image"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2018-10-24T20:16:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ahmed Mohamed</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2018-09-03T11:01:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-03-11T17:14:16.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If take a photo from camera or select one from photoGallery the selected image will be rotated
+
+<code><pre>
+const window = Ti.UI.createWindow();
+
+	const imageView = Ti.UI.createImageView({
+		top : 0
+	});
+
+	const cameraButton = Ti.UI.createButton({
+		title : "Camera",
+		backgroundColor : "teal",
+		color : "white",
+		width : "49%",
+		left : 0,
+		bottom : 0
+	});
+
+	cameraButton.addEventListener('click', function(e) {
+		Ti.Media.showCamera({
+			mediaTypes : [Titanium.Media.MEDIA_TYPE_PHOTO],
+			success : function(event) {
+				imageView.image = event.media;
+			}
+		});
+	});
+
+	const galleryButton = Ti.UI.createButton({
+		title : "Gallery",
+		backgroundColor : "cyan",
+		color : "white",
+		width : "49%",
+		right : 0,
+		bottom : 0
+	});
+
+	galleryButton.addEventListener('click', function(e) {
+		if (!Ti.Android.hasPermission("android.permission.READ_EXTERNAL_STORAGE")) {
+			Ti.Android.requestPermissions("android.permission.READ_EXTERNAL_STORAGE", function(p) {
+				if (p.success) {
+					Titanium.Media.openPhotoGallery({
+						success : function(event) {
+							imageView.image = event.media;
+						}
+					});
+				}
+			});
+		} else {
+			Titanium.Media.openPhotoGallery({
+				success : function(event) {
+					imageView.image = event.media;
+				}
+			});
+		}
+	});
+	
+	window.add(imageView);
+	window.add(cameraButton);
+	window.add(galleryButton);
+	window.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2018-09-04
+
+   Hello ,
+   
+   Thanks for sharing with us. In which device you are experiencing this? Please share your environment details and a screenshot which displays the issue.</li>
+<li>Joshua Quick 2018-09-04
+
+   You need to set the <code>ImageView.autorotate</code> property to <code>true</code>. The will allow the <code>ImageView</code> to read the JPEG's EXIF info to see if it needs to be rotated.
+   <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.UI.ImageView-property-autorotate
+   
+   For example...
+   <code><pre>
+   const imageView = Ti.UI.createImageView({
+   	top : 0,
+   	autorotate : true,  // <- Add this.
+   });
+   </pre></code>
+   </li>
+<li>Ahmed Mohamed 2018-09-04
+
+   Hey Joshua, I want to upload the selected photo to server. So I want to fix the rotation before uploading.
+   Or just know the rotation degree to rotate it with ti.imagefactory module.</li>
+<li>Ahmed Mohamed 2018-09-04
+
+   Also your solution doesn't work if I take the photo from camera. it worked if I select the photo from Gallery.</li>
+<li>Joshua Quick 2018-09-04
+
+   Let me help explain what's going on.
+   
+   When you take a photo with a camera, it'll take a picture relative to the camera's physical mounted orientation. The camera app, using sensors, will then detect what upright orientation you are holding the device at and will then either do one of the following:
+   <h4>Save the photo at the camera's mounted orientation and set the JPEG's EXIF orientation to what upright orientation you were holding the camera at.</h4>
+   <h4>Save to JPEG already rotated to the orientation you held the camera at, in which case, the JPEG's EXIF orientation will always set to a zero rotation setting.</h4>
+   
+   I find that this is device dependent. Some cameras will pre-rotate the photo before saving it to JPEG, some will not and set the EXIF orientation instead and expect the app to rotate it. You cannot control this. In fact, this is normal for actual cameras (not smart phones).
+   
+   I've tested <code>ImageView.autorotate</code> with a device that does not pre-rotate the JPEG. It definitely rotates the image onscreen. But note that we're not changing the JPEG. We're rotating the image onscreen, which is exactly how it works in iOS and Windows apps.
+   
+   We don't have an API that'll create a new JPEG with upright orientation. I suppose what you can do instead is display the photo in an <code>ImageView</code> and then take a screenshot of it view <code>ImageView.toImage()</code>, but the major downside to this is that you cannot retain the original resolution of the photo. In order to take a screenshot reliably, you have to shrink the image to fit within the bounds of the screen before saving a new JPEG and odds are it's going to be much smaller than the original.</li>
+<li>Ahmed Mohamed 2019-03-11
+
+   Hey @Joshua today i submit PR to ti.imagefactory for fixing this issue
+   PR <a href="https://github.com/appcelerator-modules/ti.imagefactory/pull/32" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.imagefactory/pull/32</a></li>
+</ol>
+
+
+<p><a href="/AC/AC-5873.json">JSON Source</a></p>

@@ -1,0 +1,239 @@
+---
+title: "[TIMOB-4538] iOS: WebView does not receive 'pause' event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-03-29T01:00:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-03, Release 2.0.0, Release 1.8.2, Sprint 2012-06</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_webview, parity, qe-3.2.1, qe-testadded, webview</td></tr>
+<tr><th>Reporter</th><td>tom quas</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-06-03T23:22:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-03-29T01:00:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+first try:
+
+x.js
+<code><pre>
+Ti.UI.createWebView({ url:'y.html' });
+</pre></code>
+
+y.html:
+<code><pre>
+Ti.App.addEventListener('pause', function() { Ti.API.log('you won't see this message'); });
+</pre></code>
+
+upon pausing the app, the handler does not get invoked. i then tried another alternative:
+
+x.js
+<code><pre>
+Ti.UI.createWebView({ url:'y.html' });
+Ti.App.addEventListener('pause', function() { Ti.API.log('ok, fire'); Ti.App.fireEvent('app.pause'); });
+</pre></code>
+
+y.html:
+<code><pre>
+Ti.App.addEventListener('app.pause', function() { Ti.API.log('you won't see this message either'); });
+</pre></code>
+
+this time the pause event gets caught, 'app.pause' gets fired, but still the webview stays silent. somehow this leads me to the conclusion that webviews won't receive events after an app entered the 'pause' state, because other event handlers work just fine while the app is in running mode.
+
+A complete usecase supplied by Rick Blalock:
+
+<code><pre>
+var webview = Ti.UI.createWebView({
+    url: "test.html"
+})
+
+var win = Ti.UI.createWindow();
+
+win.add(webview);
+win.open();
+
+Ti.App.addEventListener("pause", function() {
+    Ti.API.info("Pause event received");
+    Ti.App.fireEvent("appPaused");
+});
+
+Ti.App.addEventListener("appPaused", function() {
+    Ti.API.info("App.js received appPaused event");
+});
+</pre></code>
+
+<code><pre>
+<html>
+<head>
+<title></title>
+<script type="text/javascript">
+	Ti.App.addEventListener("appPaused", function(_event) {
+		Ti.API.info("WebView received appPaused event");
+	});
+</script>
+</head>
+<body>
+</body>
+</html>
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4538_21151/app.js">app.js</td></td><td>2011-06-14T07:55:46.000+0000</td><td>346</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4538_21152/test.html">test.html</td></td><td>2011-06-14T07:55:46.000+0000</td><td>215</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>tom quas 2011-06-09
+
+   tried to rearrange code, but even a webview.evalJS() as the first in the pause handler won't be executed. looks like a webview gets unresponsive right away upon pause events?</li>
+<li>Paul Dowsett 2011-06-13
+
+   Tom
+   
+   In order for us to progress this issue, please edit your ticket to include a proper [Use-case](<a href="http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-CreatingGoodUsecases)." rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-CreatingGoodUsecases).</a>
+   
+   Also, please do the following:
+   
+   * use the wiki markup provided, to format the ticket correctly
+   * include the Titanium SDK version + build date + build hash
+   * include the iOS version tested
+   
+   Thank you</li>
+<li>Matthew Congrove 2011-06-14
+
+   Attaching repro code as per customer request, outlining customer's method.
+   
+   Tested using 1.7.0, iOS 4.3 on June 14.</li>
+<li>tom quas 2011-06-23
+
+   Paul, can you reproduce the issue using Matthew's code? Is there anything else I can provide?</li>
+<li>Paul Dowsett 2011-06-23
+
+   Tom
+   
+   Once you have gone through the three points I have listed above, and also moved the environment information to the environment field, I will be happy to transfer this ticket to the relevant project.
+   
+   Note that, for such a small usecase, it would be better to have the code in the ticket, properly formatted, than in attachments.
+   
+   Thanks</li>
+<li>tom quas 2011-06-23
+
+   Paul,
+   
+   this issue has been tagged ios, 4.3, webview; env has been declared 1.6.2, your colleague from pro support attached the code necessary to reproduce the problem, he mentioned that he can reproduce the issue w/ Ti 1.7, too.
+   
+   at this point i do not know what else to provide.
+   thx</li>
+<li>Rick Blalock 2011-06-30
+
+   Better?
+   
+   <code><pre>
+   var webview = Ti.UI.createWebView({
+       url: "test.html"
+   })
+   
+   var win = Ti.UI.createWindow();
+   
+   win.add(webview);
+   win.open();
+   
+   Ti.App.addEventListener("pause", function() {
+       Ti.API.info("Pause event received");
+       Ti.App.fireEvent("appPaused");
+   });
+   
+   Ti.App.addEventListener("appPaused", function() {
+       Ti.API.info("App.js received appPaused event");
+   });
+   </pre></code>
+   
+   <code><pre>
+   <html>
+   <head>
+   <title></title>
+   <script type="text/javascript">
+   	Ti.App.addEventListener("appPaused", function(_event) {
+   		Ti.API.info("WebView received appPaused event");
+   	});
+   </script>
+   </head>
+   <body>
+   </body>
+   </html>
+   </pre></code></li>
+<li>Blain Hamon 2011-09-22
+
+   Aha. What's going on is that when the pause event's underlying notification fires, the main run loop is stopped. So any performSelectorOnMainThread won't happen until resume.</li>
+<li>Blain Hamon 2012-02-02
+
+   Interesting. This may prove nontrivial for web views. Even with running things on the main thread with our own override, the web view fails to process commands.
+   
+   When we try to jury-rig things by calling [[NSRunLoop mainRunLoop] runUntilDate:deadline] during the application shutdown sequence, it ends up calling the app shutdown sequence again, leading to an ugly infinite loop.</li>
+<li>Dustin Hyde 2012-02-10
+
+    Closing as Fixed.
+    SDK: 1.9.0.v20120210100134
+    Studio: 1.0.8.201201262211
+    OS: Lion
+    Devices Tested: iPhone Simulator 5.0, iPod 4.3.3, iPad2 4.3.5, iPhone4 5.0.1</li>
+<li>Stephen Tramer 2012-03-12
+
+    Reopening as part of PR #1597 (<a href="https://github.com/appcelerator/titanium_mobile/pull/1597)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/1597)</a> omnibus.</li>
+<li>Blain Hamon 2012-03-13
+
+    Combined pull #1597 + #1645</li>
+<li>Wilson Luu 2012-03-14
+
+    Closing bug. Verified fix on:
+    
+    SDK build: 2.0.0.v20120314090311
+    Titanium Studio, build: 2.0.0.201203132050
+    xcode: 4.2
+    Device: iphone 4s (5.0.1)</li>
+<li>Priya Agarwal 2013-08-14
+
+    Reopening since pause event not being fired on Android.
+    Works well on ios. Checked with ipad mini(v6.0).
+    Reopened this bug,as does not specify any specific platform.
+    
+    
+    Not a regression.
+    
+    Verified with:
+    
+    Studio: 3.1.2.201308091728
+    SDK: 3.1.2.v20130813151607
+    acs:1.0.5
+    alloy:1.2.0-alpha6
+    titanium:3.1.2-alpha
+    titanium-code-processor:1.0.2-alpha
+    OS: OSX 10.8.4
+    Device: Nexus 7(v4.2.1)
+    Xcode:4.6.3
+    
+    </li>
+<li>Federico Casali 2014-03-29
+
+    <a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.App-event-pause
+    
+    Ti.App.addEventListener("pause",function()) is only supported for iOS, not Android.
+    Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4538.json">JSON Source</a></p>

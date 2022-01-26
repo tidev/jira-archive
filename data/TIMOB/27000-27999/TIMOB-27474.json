@@ -1,0 +1,98 @@
+{
+	"id": "174262",
+	"key": "TIMOB-27474",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2019-10-16T14:15:05.000+0000",
+		"priority": {
+			"name": "None",
+			"id": "6"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "20827",
+				"name": "Release 8.2.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-09-19"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2019-10-16T16:03:16.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			},
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "With the introduction of [NavigationWindow|https://docs.appcelerator.com/platform/latest/#!/api/Titanium.UI.NavigationWindow] as a cross platform component in 8.0.0 we now have some parity issues when it comes to configuring the native ActionBar/NavigationBar.\r\n\r\nh2. iOS\r\nOn iOS the underlying NavigationBar can easily be configured with a bunch of properties directly in the containing {{Window}}. Namely these are:\r\n- leftNavButton\r\n- leftNavButtons\r\n- rightNavButton\r\n- rightNavButtons\r\n- hideBackButton\r\n- titleControl\r\n\r\n*Example*\r\n{code}\r\n<Alloy>\r\n    <TabGroup>\r\n        <Tab>\r\n            <Window class=\"container\">\r\n                <LeftNavButton platform=ios>\r\n                    <Button title=\"Back\" onClick=\"closeWindow\" />\r\n                </LeftNavButton>\r\n            </Window>\r\n        </Tab>\r\n    </TabGroup>\r\n</Alloy>\r\n{code}\r\n\r\nh2. Android\r\nAndroid offers similar customization, but requires a completely different API. Users need to manually grab a window's {{activity}} and then configure the {{actionBar}} property. In addition the {{activity}} also offers {{onCreateOptionsMenu}} to create a dropdown menu that can be opened from the ActionBar. Alloy already provides some convenient elements to configure these two properties directly from within a {{Window}}.\r\n\r\n*Example*\r\n{code:xml}\r\n<Alloy>\r\n    <Window title=\"My Test App\">\r\n        <ActionBar id=\"actionbar\" title=\"My XML Menu\" onHomeIconItemSelected=\"doMenuClick\" />\r\n        <Menu>\r\n            <MenuItem id=\"item1\" title=\"Settings\" onClick=\"openSettings\" />\r\n            <MenuItem id=\"item2\" title=\"Search\" onClick=\"doSearch\" />\r\n        </Menu>\r\n        <Label id=\"label\">Welcome!</Label>\r\n    </Window>\r\n</Alloy>\r\n{code}\r\n\r\nh2. Proposed solution\r\nWe need a common abstraction of the native ActionBar/NavigationBar that allows for easy configuration on both platforms.\r\n\r\nAlloy already has some custom behavior that differs from our classic API, although it is specific to the Android ActionBar. This proposal builds upon a similar approach but with cross-platform parity in mind.\r\n\r\nh3. ActionBar\r\n\r\nIntroduce a new {{actionBar}} property that transparently handles the ActionBar/NavigationBar setup behind the scenes using our existing API. We should do this via our bootstrapping mechanism for a JS only solution that won't require any changes to our native core.\r\n\r\nh4. API proposal\r\n\r\n{code}\r\ninterface ActionBar {\r\n  title?: string\r\n  titleView?: Ti.UI.View\r\n  navigationButton?: NavigationButton\r\n  items?: ActionItem[],\r\n  icon?: string // Android only\r\n}\r\n\r\ninterface NavigationButton {\r\n  title?: string // iOS only\r\n  icon?: string // Android only\r\n  click?: (e: Event): void // Android only\r\n}\r\n\r\ninterface ActionItem {\r\n  android?: ActionItemOptions<ActionItemPositionAndroid>\r\n  ios?: ActionItemOptions<ActionItemPositionIos>\r\n  click: (e: Event): void\r\n  hidden: bool\r\n}\r\n\r\nenum ActionItemPositionAndroid {\r\n  ActionBar = \"actionBar\" // Ti.Android.SHOW_AS_ACTION_ALWAYS\r\n  ActionBarIfRoom = \"actionBarIfRoom\" // Ti.Android.SHOW_AS_ACTION_IF_ROOM\r\n  ActionBarWithText = \"actionBarWithText\" // Ti.Android.SHOW_AS_ACTION_WITH_TEXT\r\n  Popup = \"popup\" // Ti.Android.SHOW_AS_ACTION_NEVER\r\n  CollapseActionView = \"collapseActionView\" // Titanium.Android.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW\r\n}\r\n\r\nenum ActionItemPositionIos {\r\n  Left = \"left\"\r\n  Right = \"right\"\r\n}\r\n\r\ninterface ActionItemOptions<T> {\r\n  position: T\r\n  icon: string | number\r\n  title: string\r\n  actionView: Ti.UI.View // Android only\r\n}\r\n\r\nTi.UI.Window.actionBar: ActionBar;\r\n{code}\r\n\r\nAll of the properties on {{ActionBar}} are optional. If not set, our current default behavior is used.\r\n\r\nh4. Title text and view\r\n\r\n{code:js}\r\nconst win = Ti.UI.createWindow();\r\nwin.actionBar.title = 'Test' // instead of win.title\r\n{code}\r\n\r\nIn addition to setting a simple text as in the example above, users can set a custom view.\r\n\r\n{code:js}\r\nconst titleView = Ti.UI.createView({ layout: 'horizontal' });\r\nconst imageView = Ti.UI.createImageView({ image: '/logo.png' });\r\nconst titleLabel = Ti.UI.createLabel({ text: 'My App', left: 5 });\r\ntitleView.add(imageView);\r\ntitleView.add(titleLabel);\r\nwin.actionBar.titleView = titleView;\r\n{code}\r\n\r\nh4. Navigation button\r\n\r\nThe {{navigationButton}} represents the default back navigation button to the left.\r\n\r\n{code:js}\r\nwin.actionBar.navigationButton.title = 'Prev';\r\n{code}\r\n\r\nh5. Android Specifics / Limitations\r\n\r\nOn Android you *cannot* set the title. However you *can* set an icon.\r\n\r\nh5. iOS Specifics / Limitations\r\n\r\nOn iOS you can *only* change the title of the button.\r\n\r\nh4. Action items\r\n\r\nThe available buttons / menu of the native ActionBar/Navigation can be controlled with action items.\r\n\r\n{code:js}\r\nconst onSave = () => { console.log('Saved') };\r\nconst onCancel = () => { console.log('Canceled') };\r\nwin.actionBar.items = [\r\n  {\r\n    click: onSave,\r\n    android: {\r\n      title: 'Save',\r\n      icon: 'item1.png'\r\n      position: 'actionBar'\r\n    },\r\n    ios: {\r\n      icon: Titanium.UI.iOS.SystemButton.SAVE\r\n      position: 'right'\r\n    }\r\n  },\r\n  {\r\n    click: onCancel,\r\n    android: {\r\n      title: 'Cancel',\r\n      icon: 'item2.png'\r\n      position: 'actionBar'\r\n    },\r\n    ios: {\r\n      icon: Titanium.UI.iOS.SystemButton.CANCEL\r\n      position: 'left'\r\n    }\r\n  }\r\n]\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "NavigationBar/ActionBar parity between Android and iOS",
+		"creator": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jvennemann",
+			"key": "jvennemann",
+			"displayName": "Jan Vennemann",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [],
+			"maxResults": 0,
+			"total": 0,
+			"startAt": 0
+		}
+	}
+}

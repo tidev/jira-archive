@@ -1,0 +1,211 @@
+---
+title: "[TIMOB-24214] Android: VideoMaximumDuration and VideoQuality are not working using Android 6"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2018-07-27T17:38:53.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Created</th><td>2016-12-12T22:40:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-07-27T17:38:53.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+h2 Issue Description
+
+Trying to increase the limit size and quality of videos it's capturing is not working using:
+<code><pre>
+function showCamera_Android(e) {
+    Ti.Media.showCamera({
+		success : onMediaSuccess,
+		cancel 	: onMediaCancel,
+		error 	: onMediaError,	
+		saveToPhotoGallery 	: true,
+		allowEditing 	: true,
+		videoMaximumDuration : 5000,
+		videoQuality	: Ti.Media.QUALITY_MEDIUM,
+		mediaTypes 	: [Ti.Media.MEDIA_TYPE_VIDEO]
+});
+</pre></code>
+works on iOS and Android 5, but not using 6. 
+
+Creating Intents is also not working:
+<code><pre>
+function showCamera_Android()
+{
+	var intent = Titanium.Android.createIntent({ action: 'android.media.action.VIDEO_CAPTURE' });
+
+
+	/*
+	 * THESE INTENTS ARE NOT WORKING
+	 * 
+	 */
+
+	intent.putExtra("android.provider.MediaStore.EXTRA_VIDEO_QUALITY",0);
+    intent.putExtra("android.provider.MediaStore.EXTRA_DURATION_LIMIT",3);
+
+	/*
+	 * THESE INTENTS ARE NOT WORKING EITHER
+	 * 
+	 */
+	// intent.putExtra("android.intent.extra.durationLimit", 3);
+	// intent.putExtra("android.intent.extra.videoQuality", 0); 
+
+    $.winMain.getActivity().startActivityForResult(intent, function(e) {
+        
+        
+        if (e.error) 
+        {
+        } 
+        else 
+        {
+        	if (e.resultCode === Titanium.Android.RESULT_OK) {
+        		
+	        	var videoUri 	= e.intent.data;
+	            var source 		= Ti.Filesystem.getFile(videoUri);
+			    var movieFile 	= Ti.Filesystem.getFile('appdata://sample.3gp');
+			
+				if (movieFile.exists()) 
+					movieFile.deleteFile();
+				
+				movieFile 	= Ti.Filesystem.getFile('appdata://sample.3gp');
+				
+			    source.copy(movieFile.nativePath);
+			    videoBlob = movieFile;
+				
+				var buffer = Ti.createBuffer({ value: "test"});
+				imgBlob = buffer.toBlob();
+				
+				$.vidPlayer.url = videoUri;
+	        	$.vidPlayer.play();	
+	        	
+	        }
+        }
+        
+    });
+}
+</pre></code>
+
+<h4>Steps to reproduce</h4>
+<h4>Download the attached zip <a href="https://drive.google.com/open?id=0BwTWo-c2a0b9UlJVdTRvQkI3VUU" rel="nofollow" target="_blank">https://drive.google.com/open?id=0BwTWo-c2a0b9UlJVdTRvQkI3VUU</a></h4>
+<h4>Run for android6 </h4>
+<h4>Record video </h4>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Frankie Merzadyan 2016-12-13
+
+   Seems like a permission error. For 23+ API (Android 6), you need to explicitly ask for permissions for use of features. So for video recording it would be:
+   
+   In <code>AndroidManifest.xml</code>
+   <code><pre>
+   <uses-permission android:name="android.permission.CAMERA"/>
+   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+   <uses-feature android:name="android.hardware.camera2" android:required="true"/>
+   </pre></code>
+   
+   Please use that workaround for now while I fix this. :)
+   </li>
+<li>Frankie Merzadyan 2017-01-09
+
+   You need to add permissions in <code>tiapp.xml</code> #android #manifest tag. When the android app is generated, those will be inserted into #manifest tag in <code>AndroidManifest.xml</code>. No permission will be granted on Android if it's not in the AndroidManifest.xml. After that the user needs to enable simply permissions. [~rramirez].</li>
+<li>Rob Trueman 2017-02-02
+
+   The problem isn't with access to the camera, but in the maximum video duration and quality. My initial app permissions include:
+   
+   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+   <uses-permission android:name="android.permission.INTERNET"/>
+   <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+   <uses-permission android:name="android.permission.BLUETOOTH"/>
+   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+   <uses-permission android:name="android.permission.GET_TASKS"/>
+   <uses-permission android:name="android.permission.CAMERA"/>
+   
+   I also added: 
+   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+   <uses-feature android:name="android.hardware.camera2" android:required="true"/>
+   
+   after finding this ticket, but it didn't help. Are you able to limit the video length? </li>
+<li>Frankie Merzadyan 2017-03-15
+
+   [~rtrueman], you can limit video length by changing the videoMaximumDuration value which is uses ms as a measurement unit. I still could not reproduce error using Samsung Galaxy S6 and latest Titanium SDK version (master). Here is the app code:
+   
+   <code><pre>
+   var win;
+   function fireCamera() {
+   	if (Ti.Platform.osname === 'android' || Ti.Platform.osname == "iphone" || Ti.Platform.osname == 'ipad') {
+   		win.removeEventListener('focus', fireCamera);
+   	}
+   	Titanium.Media.showCamera({
+   
+   		success: function (event) {
+   			var cropRect = event.cropRect;
+   			var image = event.media;
+   
+   			if (event.mediaType == Ti.Media.MEDIA_TYPE_PHOTO) {
+   				var imageView = Ti.UI.createImageView({
+   					width: win.width,
+   					height: win.height,
+   					image: event.media
+   				});
+   				win.add(imageView);
+   			}
+   		},
+   		cancel: function () {
+   
+   		},
+   		error: function (error) {
+   			if (error.code == Titanium.Media.NO_CAMERA) {
+   				console.log("", "device has no camera", error)
+   			}
+   			else {
+   				console.log(error.code, "unexpected error", error);
+   			}
+   		},
+   		saveToPhotoGallery: true,
+   		allowEditing: true,
+   		videoMaximumDuration: 2000,
+   		videoQuality: Ti.Media.QUALITY_MEDIUM,
+   		mediaTypes: [Ti.Media.MEDIA_TYPE_VIDEO]
+   	});
+   }
+   win = Titanium.UI.createWindow({
+   	title: "classic_app"
+   });
+   win.open();
+   if (Ti.Platform.osname === 'android' || Ti.Platform.osname == "iphone" || Ti.Platform.osname == 'ipad') {
+   	win.addEventListener('focus', fireCamera);
+   } else {
+   	fireCamera();
+   }
+   </pre></code>
+   </li>
+<li>Lokesh Choudhary 2017-05-23
+
+   Tried to reproduce the issue using both the attached app & the code by [~fmerzadyan] & what I see is the video does not auto stop recording after the <code>VideoMaximumDuration</code> is elapsed or restricts the recording to the given duration. Also, the for me the <code>VideoQuality</code> always comes out to be the highest.
+   
+   Studio Ver:     4.9.0.201705180402
+   SDK Ver:        6.0.4.GA
+   OS Ver:         10.12.3
+   Xcode Ver:      Xcode 8.3.2
+   Appc NPM:       4.2.9
+   Appc CLI:       6.2.1
+   Ti CLI Ver:     5.0.13
+   Alloy Ver:      1.9.11
+   Node Ver:       6.10.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ oneplus A0001 --- Android 6.0.1
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24214.json">JSON Source</a></p>

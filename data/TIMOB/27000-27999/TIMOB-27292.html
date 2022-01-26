@@ -1,0 +1,169 @@
+---
+title: "[TIMOB-27292] iOS: App crashes on startup on iOS 9"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-09-02T11:05:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>engSchedule, regression</td></tr>
+<tr><th>Reporter</th><td>Ewan Harris</td></tr>
+<tr><th>Assignee</th><td>Ewan Harris</td></tr>
+<tr><th>Created</th><td>2019-07-29T15:08:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-11-18T20:38:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+
+When building to an iOS 9 simulator/device the app crashes on startup with the below, I believe this is due to the ios version change in [this commit](<a href="https://github.com/appcelerator/titanium_mobile/commit/8cac1f88cb226c36a4b9be6e4dee0beffda9b4ce#diff-09cce02f0aa7063f10a4c555dc65a141R23)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/8cac1f88cb226c36a4b9be6e4dee0beffda9b4ce#diff-09cce02f0aa7063f10a4c555dc65a141R23)</a>, as this is used to pass in the min iOS version to babel [here](<a href="https://github.com/appcelerator/titanium_mobile/blob/a48d707984e88e92f05287dcd3c2588025c9c9f2/build/lib/packager.js#L88)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/a48d707984e88e92f05287dcd3c2588025c9c9f2/build/lib/packager.js#L88)</a> which means we're probably dropping some polyfills that are required. I'm not too sure why we have <code>minIosVersion</code> and a supported ios version range.
+
+<code><pre>
+[ERROR] Script Error {
+[ERROR]     line = 769;
+[ERROR]     sourceURL = "file:///Users/eharris/Library/Developer/CoreSimulator/Devices/2A296A6B-E602-4231-9396-E35DDEBA2BB9/data/Containers/Bundle/Application/77BAC47A-6617-4AE4-B2C5-AE54D7C2C443/darkmodetesting.app/ti.main.js";
+</pre></code>
+
+<h4>Steps to reproduce</h4>
+
+1. Create a basic app, classic or alloy
+2. Build the app to an iOS 9 simulator or device
+
+<h4>Actual</h4>
+
+App crashes on startup
+
+<h4>Expected</h4>
+
+App should not crash
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2019-07-29
+
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/11091" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11091</a></li>
+<li>Chris Barber 2019-07-29
+
+   The problem is in the packager:
+   
+   <code><pre>
+   const minSupportedIosSdk = version.parseMin(require(path.join(ROOT_DIR, 'iphone/package.json')).vendorDependencies['ios sdk']);
+   </pre></code>
+   
+   In the Titanium iOS <code>package.json</code>, there are <code>vendorDependencies.xcode</code> and <code>vendorDependencies\['ios sdk'\]</code> as well as <code>minIosVersion</code>.
+   
+   The <code>xcode</code> property is the supported range of Xcode versions. This aligns with the <code>"ios sdk"</code> version range.
+   
+   The <code>"ios sdk"</code> version range is the supported range of iOS SDKs used to COMPILE the app, not run the app. The minimum <code>"ios sdk"</code> version is not the actual minimum version that the app will run on.
+   
+   The <code>minIosVersion</code> is the minimum iOS version the app will run on and is the default for the <code>IPHONEOS_DEPLOYMENT_TARGET</code> Xcode project setting. This is the version that Babel should be transpiling down to.
+   
+   So, the fix should be in the packager and the above line should be:
+   
+   <code><pre>
+   const minSupportedIosSdk = require(path.join(ROOT_DIR, 'iphone/package.json')).minIosVersion;
+   </pre></code></li>
+<li>Ewan Harris 2019-07-29
+
+   That was my understanding but tbh I just assumed we had some duplication :)
+   
+   I'll update my PR to update that code and the scons-xcode-project-build file that also incorrectly references that, but surely the point still stands that if that's a minimum for compiling then we cant bump that outside of a major version otherwise we'd be introducing a breaking change?</li>
+<li>Chris Barber 2019-07-29
+
+   [~eharris] Correct, we cannot bump the <code>minIosVersion</code> or the Xcode and iOS SDK range minimum versions until 9.0.</li>
+<li>Satyam Sekhri 2019-08-19
+
+   FR Passed.
+   App builds and launches successfully on iOS 9 simulator</li>
+<li>Samir Mohammed 2019-09-02
+
+   *Closing ticket*, fix verified in SDK version <code>8.2.0.v20190829124255</code>. Also tested on an iOS 9 device and everything seems to run fine. 
+   
+   Note* Improvement will be merged into 8_3_X at a later date. 
+   
+   Test and other information can be found at:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/11091" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/11091</a></li>
+<li>nicolomonili 2019-10-21
+
+   
+   There are still problems with *iOS 9*
+   
+   Test with  *SDK8.3.0.v20191016161716 *
+   
+   <code><pre>
+   /**
+    * Create a new <code>Ti.UI.TabGroup</code>.
+    */
+   var tabGroup = Ti.UI.createTabGroup();
+   
+   /**
+    * Add the two created tabs to the tabGroup object.
+    */
+   tabGroup.addTab(createTab("Tab 1", "I am Window 1", "assets/images/tab1.png"));
+   tabGroup.addTab(createTab("Tab 2", "I am Window 2", "assets/images/tab2.png"));
+   
+   /**
+    * Open the tabGroup
+    */
+   tabGroup.open();
+   
+   /**
+    * Creates a new Tab and configures it.
+    *
+    * @param  {String} title The title used in the <code>Ti.UI.Tab</code> and it's included <code>Ti.UI.Window</code>
+    * @param  {String} message The title displayed in the <code>Ti.UI.Label</code>
+    * @return {String} icon The icon used in the <code>Ti.UI.Tab</code>
+    */
+   function createTab(title, message, icon) {
+       var win = Ti.UI.createWindow({
+           title: title,
+           backgroundColor: '#fff'
+       });
+   
+       var label = Ti.UI.createLabel({
+           text: message,
+           color: "#333",
+           font: {
+               fontSize: 20
+           }
+       });
+   
+       win.add(label);
+   
+       var tab = Ti.UI.createTab({
+           title: title,
+           icon: icon,
+           window: win
+       });
+   
+       return tab;
+   }
+   </pre></code>
+   
+   Error:
+   {quote}[ERROR] :  Script Error {
+   [ERROR] :      column = 119;
+   [ERROR] :      line = 5633;
+   [ERROR] :      message = "undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(TypedArrayPrototype, Symbol.toStringTag).get')";
+   [ERROR] :      sourceURL = "file:///var/containers/Bundle/Application/97D6BC75-49AF-46CC-A4C0-E6E25289FEBA/Test%20iOS%209.app/ti.main.js";
+   [ERROR] :      stack = "    at global code@file:///var/containers/Bundle/Application/97D6BC75-49AF-46CC-A4C0-E6E25289FEBA/Test%20iOS%209.app/ti.main.js:5633:119)";
+   [ERROR] :  }{quote}</li>
+<li>Abir Mukherjee 2019-10-21
+
+   [~smohammed] I noticed per your comment that the fix wasn't merged to 8.3.X right away. Do you know whether this has been merged yet to 8.3.X? If so, is the build that he's using, SDK8.3.0.v20191016161716, before the merge? cc:[~eharris]</li>
+<li>Abir Mukherjee 2019-10-21
+
+   [~ahutton] can you please triage with the latest test case from Nicolo? We may have to reopen the ticket.</li>
+<li>Ewan Harris 2019-10-21
+
+    [~amukherjee], Nicolo's comment is a separate issue to this ticket only present on 8.3.0, I opened TIMOB-27484 for that and am working on the fix.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-27292.json">JSON Source</a></p>

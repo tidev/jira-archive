@@ -1,0 +1,192 @@
+---
+title: "[ALOY-743] Alloy: Add proper dynamic loading of namespace objects"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-18T17:39:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Alloy 1.2.0, 2013 Sprint 15</td></tr>
+<tr><th>Components</th><td>Runtime, XML</td></tr>
+<tr><th>Labels</th><td>alloy, compile, namespace, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-07-14T17:24:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-22T23:21:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The Alloy <code>ns</code> attribute can be used in a creative manner to load a CommonJS or native module to call the <code>createTagName</code> method upon, since:
+
+<code><pre>
+<MyComponent ns="require('my.module')" id="myId" />
+</pre></code>
+
+Will compile to:
+
+<code><pre>
+$.__views.myId = require('my.module').createMyComponent({ .. });
+</pre></code>
+
+This works fine, but still feels hacky. I would propose to make a change to <code>/Alloy/commands/compile/parsers/default.js</code> so that whenever a namespace is given like this:
+
+<code><pre>
+<MyComponent ns="my.module" id="myId" />
+</pre></code>
+
+The generated code would be:
+
+<code><pre>
+if (typeof my.module === 'undefined') var myModule = require('my.module');
+$.__views.myId = myModule.createMyComponent({ .. });
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-743_40918/Screen Shot 2013-07-18 at 1.09.50 PM.png">Screen Shot 2013-07-18 at 1.09.50 PM.png</td></td><td>2013-07-19T13:28:53.000+0000</td><td>16558</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2013-07-14
+
+   Here is the PR: <a href="https://github.com/appcelerator/alloy/pull/178" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/178</a></li>
+<li>Tony Lukasavage 2013-07-15
+
+   I'm not sure I want to do that right away. For one thing, how could you possibly make a distinction between a globally accessible namespace for creating components and a require()'ed module like you are accounting for? For example, what if this existed in the "app/alloy.js"?
+   
+   <code><pre>
+   var my = {
+     module: {
+       createView: function() {
+         /* ... */
+       }
+     }
+   }
+   </pre></code>
+   
+   I mention this condition because I've heard of people wanting to wrap Titanium functions and namespaces in their own calls and still leverage them through XML. I get that it feels "hacky", but there may need to be a more explicit way to do it. Perhaps bringing the "module" attribute over from the <Module> tag in Alloy 1.2.0? Not sure yet, need to think about this one. </li>
+<li>Fokke Zandbergen 2013-07-15
+
+   I thought global scope access from CommonJS modules was deprecated?
+   
+   Don't really get your example. The only way to get an object in the controller scope is by requiring a CommonJS module right?</li>
+<li>Fokke Zandbergen 2013-07-15
+
+   BTW, first line of last code snippet needs to be:
+   
+   <code><pre>
+   if (typeof myModule === 'undefined') var myModule = require('my.module');
+   </pre></code>
+   
+   In the PR I also added support for doing <code>require('dir/my.module')</code>.</li>
+<li>Tony Lukasavage 2013-07-15
+
+   No, its not deprecated. In fact, it's now supported on all platforms. That's why you can access the <code>Alloy</code> namespace in your lib commonjs modules without explicitly requiring it. In any case, I don't like the idea of strings behaving differently based on whether or not we've defined special handling under the hood. It's not terribly intuitive. 
+   
+   If feel like this would be much more intuitive:
+   
+   <code><pre>
+   <MyComponent module="my.module" id="myId" />
+   </pre></code></li>
+<li>Fokke Zandbergen 2013-07-15
+
+   Well I guess if you can access the global scope, all this is at most a nice 'service', but not required. One could just add this in <code>alloy.js</code> and then use <code>ns="myNamespace"</code> wherever they want?
+   
+   <code><pre>
+   var myNamespace = require('namespace');
+   </pre></code>
+   
+   But of course this pollutes the global scope (that's why I thought access to global vars was deprecated anyway).</li>
+<li>Fokke Zandbergen 2013-07-16
+
+   </li>
+<li>Tony Lukasavage 2013-07-17
+
+   You could do it without polluting the global scope though via Alloy.Globals, but that's not ideal either. But back to the core issue here...
+   
+   I don't like the idea of generating more code where the generated JS is basically guessing whether or not you are using a module. I'd prefer a clear, explicit syntax. And for the <Module>, or <Require type="module"> element one already exists. Take a look at how a native module is included:
+   
+   <a href="https://github.com/appcelerator/alloy/blob/master/test/apps/advanced/native_modules/views/index.xml" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/blob/master/test/apps/advanced/native_modules/views/index.xml</a>
+   
+   It's a specialized <Require>. I'm betting with very little effort "module" and "method" can be ported to arbitrary view XML elements to give the same functionality you are looking for while still be roughly along the lines of this issue and ALOY-747. The expectation would still be that the resulting UI object implements add()/remove(), but the create function could be modified as it is already for native modules. Thoughts?</li>
+<li>Fokke Zandbergen 2013-07-18
+
+   I think you're right and <code>Module</code> can do the job. I just want to ask for a small change that doesn't alter any of the current behavior of the test.
+   
+   I think this PR speaks for it self:
+   <a href="https://github.com/appcelerator/alloy/pull/186" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/186</a>
+   
+   It fixes the <code>Alloy.Module.js</code> parser currently not being used at all and as a result of fixing this and just a small change in the <code>default.js</code> parser now:
+   
+   <code><pre>
+   <MyView module="my.module" />
+   <!-- equals: -->
+   <Module module="my.module" method="createMyView" />
+   </pre></code>
+   
+   Just another small note. Why do we even need the <code><Module /></code> tag? I think we can live with just the <code>module</code> and <code>method</code> attributes, since already:
+   
+   <code><pre>
+   <Module module="my.module" />
+   <!-- equals: -->
+   <View module="my.module" />
+   </pre></code></li>
+<li>Tony Lukasavage 2013-07-18
+
+    [~fokke] there's a couple reasons for <Module>
+    
+    <h4>It's expressive. It's very clear ata glance that a developer is referencing a native/commonjs module.</h4>
+    <h4>It changes the node name to "View". In the underlying native module system, the default function for creating an instance of a module is "createView". If you leave your instance creation as the default, then you don't need to specify a "method" attribute in the <Module> tag.</h4>
+    
+    So it's just shorthand for common use cases. And as you stated, after all this dialog, this is probably doable already using the "module" and "method" functions. In fact, I'm going to put an example in the 1.2.0 repo that shows exactly how to do this. Will update when it's done.</li>
+<li>Tony Lukasavage 2013-07-18
+
+    No code has been changed in Alloy as a result of this ticket, but I am able to (cleanly) add arbitrary UI components from commonjs modules via XML. These modules can make full use of TSS, inline styles, and XML eventing. To make it very clear how one should do this, I've added the following example app to the repo:
+    
+    PR: <a href="https://github.com/appcelerator/alloy/pull/187" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/187</a>
+    example: <a href="https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/commonjs_xml" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/commonjs_xml</a>
+    
+    I think that answers pretty much all concerns we had to this point. Now for the sake of keeping the whole conversation tied together, I'm going to take a look at your latest PR [~fokke] and see what contained in it still needs to be addressed, if anything.
+    
+    PR:  <a href="https://github.com/appcelerator/alloy/pull/186" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/186</a></li>
+<li>Tony Lukasavage 2013-07-18
+
+    Note: this PR and test is the result of discussion and aggregation of the aforementioned PRs.
+    
+    PR: <a href="https://github.com/appcelerator/alloy/pull/188" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/188</a>
+    example app: <a href="https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/commonjs_xml" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/tree/master/test/apps/advanced/commonjs_xml</a>
+    
+    Functional testing should be confirmed on all supported platforms with the following steps:
+    
+    <h4>Run the example app</h4>
+    <h4>Assert that all views presented in the XML are present in the app. It should look roughly like the attached screenshot</h4>
+    <h4>Click the views with the "click me" labels and ensure that they open an alert dialog</h4></li>
+<li>Federico Casali 2013-07-22
+
+    Verified as working as expected.
+    
+    Environment:
+    
+    Titanium SDK 3.1.2.v20130718094558
+    Appcelerator Studio 3.1.2.201307191853
+    Alloy 1.2.0
+    LiveView 0.1.28 (from Beta stream)
+    
+    Android device 4.2.2 - iPhone 5 6.1.4
+    
+    Closing.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-743.json">JSON Source</a></p>

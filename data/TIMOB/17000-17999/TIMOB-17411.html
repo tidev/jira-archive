@@ -1,0 +1,205 @@
+---
+title: "[TIMOB-17411] CLI: Windows 7 hangs on build during "Powershell" detection"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-04-20T21:27:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>CLI</td></tr>
+<tr><th>Labels</th><td>3.3.0.GA, android, defect, hang, module_CLI, nodejs, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Gianluca Arcidiacono</td></tr>
+<tr><th>Assignee</th><td>Tim Poulsen</td></tr>
+<tr><th>Created</th><td>2014-07-27T21:06:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-31T22:20:58.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When you try to perform a "ti build", the process 'node.exe' hangs (0% of CPU) forever. After hours of debugging (with 'node-inspector'), I discover an issue in the 'windows.js' module. Basically the 'spawn' executed (line 385) to detect the powershell, for odd reasons, never emits the 'close' event and so the process hangs. Skipping this detection, the build continue normally. I have described in more details the problem in the following post: <a href="http://developer.appcelerator.com/question/176303/titanium-studio-doesnt-works-anymore-after-330-release#answer-281192." rel="nofollow" target="_blank">http://developer.appcelerator.com/question/176303/titanium-studio-doesnt-works-anymore-after-330-release#answer-281192.</a>
+
+Not sure why this happens, but I'm not the only one with this issue.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2014-07-28
+
+   Suggested workaround:
+   
+   On this line: <a href="https://github.com/appcelerator/titanium_mobile/blob/3_3_X/node_modules/titanium-sdk/lib/windows.js#L377" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/3_3_X/node_modules/titanium-sdk/lib/windows.js#L377</a>
+   
+   (likely in C:\ProgramData\Titanium\mobilesdk\win32\3.3.0.GA\node_modules\titanium-sdk\lib\windows.js)
+   
+   Replace:
+   
+   <code><pre>
+   if (!selectedVisualStudio) return next();
+   </pre></code>
+   
+   with:
+   
+   <code><pre>
+   return next();
+   </pre></code>
+   </li>
+<li>Gianluca Arcidiacono 2014-07-28
+
+   The spawn that never receive a close is:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/blob/3_3_X/node_modules/titanium-sdk/lib/windows.js#L385" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/3_3_X/node_modules/titanium-sdk/lib/windows.js#L385</a></li>
+<li>Ingo Muschenetz 2014-07-28
+
+   Thanks. Edited.</li>
+<li>Ingo Muschenetz 2014-08-14
+
+   3.4.0 is moved forward, and 3.5.0 is taking its place in the calendar.</li>
+<li>Chris Barber 2014-08-21
+
+   I have fixed the issue with PowerShell hanging when running "ti info". I have further concluded that we cannot support "winstore" apps on Windows 7 and I have added an error when trying to build on Windows 7 saying you need Windows 8 or newer. This makes sense because "winstore" apps were introduced in Windows 8.
+   
+   master pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5978" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5978</a></li>
+<li>Chris Barber 2014-08-21
+
+   To test, run the following on a Windows 7 and Windows 8.x machine:
+   
+   The following should work on both Win 7 & 8
+   <code><pre>
+   ti info
+   </pre></code>
+   
+   The following should error on Win 7 and build successfully on Win 8
+   <code><pre>
+   ti build -p mobileweb -T winstore
+   </pre></code></li>
+<li>Gianluca Arcidiacono 2014-08-21
+
+   I'll try this fix on my machine, where the old script hangs.</li>
+<li>Priya Agarwal 2014-09-15
+
+   Have verified the above test case by executing:
+   ti build -p mobileweb -T winstore 
+   It gives no error but says as invalid target.
+   
+   But as per test Steps mentioned in <a href="http://appcelerator.testlodge.com/projects/1317/test_suites/8230" rel="nofollow" target="_blank">http://appcelerator.testlodge.com/projects/1317/test_suites/8230</a>
+   We need to configure Window 8 SDK and appropriate Visual Studio to get the development environment information specific to Windows. </li>
+<li>Ewan Harris 2014-09-15
+
+   Verified fix on:
+   
+   Windows 8.1, 7
+   Titanium SDK build: 3.4.0.v20140915105910 
+   Titanium CLI, build: 3.4.0-rc3
+   Alloy: 1.5.0-beta2
+   
+   Ran the ti info command on both machines and it ran successfully on both. Ran the build command on both machines and on the Windows 8.1 machine the app built and opened and on the Windows 7 machine the build failed with the error that Winstore apps can only be built on Windows 8 or later.
+   
+   Closing ticket.</li>
+<li>Matthias Kroeger 2014-10-20
+
+    Is this bug  fixed in 3.4.0GA?
+    
+    It doesn't look like as this error still appears [3.4.0 GA longjohn TypeError: Bad Argument](<a href="http://developer.appcelerator.com/question/178575/340-ga-longjohn-typeerror-bad-argument#comment-220243)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/178575/340-ga-longjohn-typeerror-bad-argument#comment-220243)</a>
+    
+    Greetings,
+    Matthias</li>
+<li>Chris Barber 2014-10-20
+
+    [~mkroeger] Yes, it is fixed in 3.4.0.GA.</li>
+<li>Ingo Muschenetz 2014-10-20
+
+    The fix for this is definitely in 3.4.0:
+    
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/688a6596755f8c2698f32f1add1946e98a7fd604" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/688a6596755f8c2698f32f1add1946e98a7fd604</a>
+    
+    Perhaps it's another use case?
+    </li>
+<li>Matthias Kroeger 2014-10-20
+
+    Thank you Chris and Ingo.
+    
+    </li>
+<li>Matthias Kroeger 2014-10-20
+
+    I am not sure if it is a different use case, because the workaround Ingo suggested still works.
+    
+    Inside windows.js
+    
+    Replace:
+    if (!selectedVisualStudio) return next();
+    with:
+    return next();
+    </li>
+<li>Marco Cota 2015-02-06
+
+    We have seen this happen again with SDK 3.5.0 during a call with customer, using the workaround proposed by Ingo the issue is solved, also we found in QA another report of this still happening <a href="https://developer.appcelerator.com/question/180218/unable-to-launch-android-emulator" rel="nofollow" target="_blank">https://developer.appcelerator.com/question/180218/unable-to-launch-android-emulator</a> during the last month.</li>
+<li>Bert Grantges 2015-02-06
+
+    Lets get this fixed asap - this is a major blocker for our customers using windows.</li>
+<li>Ingo Muschenetz 2015-02-06
+
+    [~bgrantges@appcelerator.com] can you reproduce it? Can we reproduce it in-house?</li>
+<li>Tim Poulsen 2015-02-06
+
+    I'm looking into setting up a Windows 7 VM. In the meantime, testing with Windows 8.1, CLI 3.4.1, SDK 3.5.0.GA, Android SDK tools 24.0.2, Android Build tools, 21.1.2, Android SDK Platform-tools 21:
+    
+    <code>ti info</code> works as expected
+    
+    <code>ti build -p mobileweb -T winstore</code> works, except that I don't have a valid publishing certificate so it ends up failing with a "cert expired" message.
+    
+    <code>ti build -p android</code> works as expected (built to GNex emulator, API 19)</li>
+<li>Tim Poulsen 2015-02-06
+
+    I got my Win7 VM set up; CLI 3.4.1, SDK 3.5.0.GA, Android SDK tools 24.0.2, Android Build tools, 21.1.2, Android SDK Platform-tools 21
+    
+    <code>ti info</code> and <code>ti build -p android</code> work as expected. I don't have the Windows Phone environment configured yet on this VM. </li>
+<li>Ewan Harris 2015-02-27
+
+    I am unable to reproduce the issue using:
+    
+    Windows 7 64 bit
+    Titanium SDK build: 3.4.0.GA, 3.4.1.GA 3.5.0.GA
+    Titanium CLI, build: 3.4.1
+    Alloy: 1.5.1
+    Visual Studio 2013 Community
+    
+    Ran the following commands, ti info returns the expected results and does not hang, ti build -p android builds to android and ti build -p mobileweb -T winstore errors out with Windows 8 only.</li>
+<li>Ingo Muschenetz 2015-04-10
+
+    Hi All, Is this still happening? We are unable to reproduce.</li>
+<li>Gazihan Alankus 2015-04-18
+
+    I just had this right after uninstalling Visual Studio 2013. I can't build my projects anymore in Titanium Studio. I'm using: 
+    
+    Windows 8
+    Titanium SDK 3.5.1.GA
+    Titanium CLI 3.4.2
+    Genymotion Android emulator
+    
+    Here is the error I get when I try to build:
+    
+    d:\Users\gazihan\AppData\Roaming\npm\node_modules\titanium\node_modules\longjohn\dist\longjohn.js:185
+            throw e;
+                  ^
+    ChildProcess.emit (events.js:110:17),maybeClose (child_process.js:1008:16),Socket.<anonymous> (child_process.js:1176:11),Socket.emit (events.js:107:17),Pipe.close (net.js:476:12)
+    [ERROR] Application Installer abnormal process termination. Process exit value was 1
+    
+    
+    Edit: I can build again after following this suggestion here:
+    <a href="http://developer.appcelerator.com/question/178195/projects-dont-start---exception-in-longjohnjs-occurs#answer-282923" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/178195/projects-dont-start---exception-in-longjohnjs-occurs#answer-282923</a></li>
+<li>Chris Barber 2015-04-20
+
+    [~gazialankus] I believe this has been fixed already in Titanium SDK 4.0.0. I just tested a similar scenario with 4.0.0 and everything worked as expected.</li>
+<li>Ingo Muschenetz 2015-04-20
+
+    Re-resolving.</li>
+<li>Lee Morris 2017-03-31
+
+    Closing ticket as fixed, if there are any problems, please file a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17411.json">JSON Source</a></p>

@@ -1,0 +1,209 @@
+---
+title: "[TIMOB-19851] Android: Permissions (Camera) crash and other bugs"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-05T02:52:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0, Release 5.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>permissions</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2015-11-03T10:44:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-01-26T17:38:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The following sample will always call back with <code>success:false</code> without showing the dialog:
+
+<code><pre>
+if (Ti.Media.hasCameraPermissions()) {
+	return alert('You already have permission.');
+}
+
+Ti.Media.requestCameraPermissions(function(e) {
+	if (e.success) {
+		alert('You were granted permission.');
+	} else {
+		alert('ou were denied permission for now, forever or the dialog did not show at all because it was denied forever before.');
+	}
+});
+</pre></code>
+
+To make it work you need to declare the permission in <code>tiapp.xml</code>, which is not documented in either the [Ti.Media Reference](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Media) nor [Camera and Photo Gallery APIs Guide](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/Camera_and_Photo_Gallery_APIs) or [tiapp.xml Common Requirements](<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/tiapp.xml_and_timodule.xml_Reference-section-29004921_tiapp.xmlandtimodule.xmlReference-CommonRequirements).
+
+<code><pre>
+  <android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+    <manifest>
+        <uses-permission android:name="android.permission.CAMERA" />
+    </manifest>
+  </android>
+</pre></code>
+
+If you do so Android 6+ will prompt for two permissions:
+
+!android_20151103-113339.png|thumbnail!
+
+The first time after each new install I deny either one of two the callback will receive <code>success:true</code> but the next call to <code>Ti.Media.hasCameraPermissions()</code> will still return <code>false</code> and <code>Ti.Media.requestCameraPermissions()</code> will again prompt for both permissions, including the one I already granted.
+
+After the first time I deny only one of two permissions, every next time I do the exact same thing the app crashes with the attached log as soon as I deny the first or second permission.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19851_57239/android_20151103-113339.png">android_20151103-113339.png</td></td><td>2015-11-03T10:37:53.000+0000</td><td>92223</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19851_57238/crash.log">crash.log</td></td><td>2015-11-03T10:38:19.000+0000</td><td>10747</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2015-11-03
+
+   Updated tiapp.xml guide</li>
+<li>Fokke Zandbergen 2015-11-03
+
+   PR for API reference:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/7386" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7386</a></li>
+<li>Fokke Zandbergen 2015-11-03
+
+   Ti 5.1.0 sample app for testing:
+   <a href="https://github.com/appcelerator-developer-relations/appc-sample-ti510/blob/master/app/controllers/permissions.js" rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-ti510/blob/master/app/controllers/permissions.js</a></li>
+<li>Hieu Pham 2015-11-04
+
+   master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7394" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7394</a>
+   backport PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7402" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7402</a>
+   Logic changes include:
+   1. If one or more permissions are denied, we will not return success
+   2. We will not re-ask for granted permission(s).</li>
+<li>Lokesh Choudhary 2015-11-04
+
+   I was able to reproduce the first three issues what fokke is seeing on android 6.0:
+   I used snippet in the description.
+   * Without the permissions in the tiapp.xml the callback always returned false with the alert even if both the permissions were allowed.
+   * Adding the permission for camera in the tiapp.xml the callback returned success.
+   * Denying one permission after each install returns success but again launching the app asks for permission for both.
+   * Tried to reproduce the crash but was not able to.
+   * Used : Ti SDK :  5.1.0.v20151028190028 & Nexus 6 : android 6.0</li>
+<li>Ashraf Abu 2015-11-05
+
+   Both Master and Backport 5_1_X pr merged. No longer crashing.</li>
+<li>Lokesh Choudhary 2015-11-10
+
+   Verified the fix. 
+   * Camera permissions need to be added to tiapp.xml for it to work.
+   * Denying one permission after each install returns failure, again launching the app asks for permission for the one which was denied & not both.
+   * No app crash seen.
+   
+   Closing.
+   
+   Environment:
+   Appc Studio : 4.4.0.201511040454
+   Ti SDK :  5.2.0.v20151109145129, 5.1.0.v20151104190037
+   Ti CLI : 5.0.5
+   Alloy : 1.7.24
+   MAC Yosemite : 10.10.5
+   Appc NPM : 4.2.1
+   Appc CLI : 5.1.0-44
+   Node: v0.10.37
+   Nexus 5 - Android 6.0</li>
+<li>Fokke Zandbergen 2015-11-11
+
+   I was wrong... the permissions *will* be added, but only if <code>Ti.Media.showCamera()</code> is used. I'll create a separate ticket to request the new permission methods to trigger the related permissions to be added as well.</li>
+<li>Fokke Zandbergen 2015-11-12
+
+   Reverted tiapp.xml guide common requirements and closed PR
+   <a href="https://wiki.appcelerator.org/display/guides2/tiapp.xml+and+timodule.xml+Reference#tiapp.xmlandtimodule.xmlReference-CommonRequirements" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides2/tiapp.xml+and+timodule.xml+Reference#tiapp.xmlandtimodule.xmlReference-CommonRequirements</a></li>
+<li>carlo 2016-01-26
+
+    there's a big problem in the actual (5.1.2) API...
+    
+    *requestCameraPermissions is also the only way to get an external_write permission on Android 6+*, but:
+    * requestCameraPermissions asks for code-needed permission
+    * hasCameraPermissions & requestCameraPermissions returns true if camera + external_write permission are granted
+    
+    so if you only need to write a file it will asks for only an external_write permission, but the actual only way to check if user grant the permission is to try to create a file, since hasCameraPermissions and requestCameraPermissions will return false
+    
+    other way is to manually add camera permission to tiapp.xml, but I don't want to ask the user the camera permission for a writing need
+    
+    *we need a requestStoragePermissions & hasStoragePermissions asap* :)
+    
+    test app: <a href="https://www.dropbox.com/s/qz18sl1p2oap7d4/Externalwrite.apk?dl=1" rel="nofollow" target="_blank">https://www.dropbox.com/s/qz18sl1p2oap7d4/Externalwrite.apk?dl=1</a>
+    
+    test code:
+    <code><pre>
+    
+    function writeFile(){
+    	var filenameBase = new Date().getTime();
+    	var file = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory + filenameBase);
+    	file.write("a");
+    	return file.exists();
+    }
+    
+    
+    var win = Titanium.UI.createWindow({layout:'vertical', height:Titanium.UI.FILL, backgroundColor:"#FFF"});
+    
+    
+    var button1 = Titanium.UI.createButton({top:50,title:"Test external write"});
+    button1.addEventListener('click', function(){
+    	alert("File created: " + writeFile());
+    });
+    win.add(button1);
+    
+    var button2 = Titanium.UI.createButton({top:50,title:"Ti.Media.hasCameraPermissions"});
+    button2.addEventListener('click', function(){
+    	alert("Ti.Media.hasCameraPermissions: "+Ti.Media.hasCameraPermissions());
+    });
+    win.add(button2);
+    
+    var button3 = Titanium.UI.createButton({top:50,title:"Ti.Media.requestCameraPermissions"});
+    button3.addEventListener('click', function(){
+    	Ti.Media.requestCameraPermissions(function(e) {
+            alert("Ti.Media.requestCameraPermissions: "+e.success);
+       });
+    });
+    win.add(button3);
+    
+    
+    var button4 = Titanium.UI.createButton({top:50,title:"Workaround"});
+    button4.addEventListener('click', function(){
+    	
+    	if(Ti.Media.hasCameraPermissions()){//for older device returns true (can't use requestCameraPermissions because callback is not called)
+    		if(writeFile()){
+    			alert('OK');
+    		}
+    		else alert('Write error');
+    	} 
+    	else{
+    		Ti.Media.requestCameraPermissions(function(e) {//aways request, beacause we can't check if already granteed
+    			//don't check e.success because it's always false
+    			if(writeFile()){
+    				alert('OK');
+    			}
+    			else alert('Permission not granted or other write error');
+    		});
+    	}
+    });
+    win.add(button4);
+    
+    
+    win.open();
+    
+    </pre></code>
+    </li>
+<li>Ashraf Abu 2016-01-26
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19851.json">JSON Source</a></p>

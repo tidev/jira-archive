@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-10601] ButtonBar:  The keyboard's Toolbar does not remain static, it redraws itself on each click event."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-08-29T14:36:39.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.2</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-18 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, qe-ios082012</td></tr>
+<tr><th>Reporter</th><td>Olga Romero</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-08-24T13:16:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-17T23:52:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Description:
+ButtonBar does not remain static, it redraws itself on each click event.
+
+It is not a regression, it occurs on 2.1.1 as well.
+
+Test steps:
+1. Run this code from TIMOB-6463
+<code><pre>
+Titanium.UI.setBackgroundColor('#000');
+var datasource=[],textFieldArray=[],table,rowId=1,textFieldId= 0;
+var win1 = Titanium.UI.createWindow({
+    title:'Window',
+    barColor:'#808080',
+ 
+});
+ 
+var scrollView = Ti.UI.createScrollView({
+    top:0,
+    bottom:0,
+    right:0,
+    left:0,
+    contentWidth:320,
+    contentHeight:'auto',
+    layout:'vertical',
+    backgroundColor:'#fff'
+});
+ 
+for (i = 0; i <=12; i++) {
+    var row = createRows(rowId);
+    scrollView.add(row);
+    rowId++;
+}
+ 
+win1.add(scrollView);
+ 
+function createRows(_rowId) {
+ 
+    var flexSpace = Titanium.UI.createButton({
+        systemButton:Titanium.UI.iPhone.SystemButton.FLEXIBLE_SPACE
+    });
+ 
+    var navButtons = Titanium.UI.createButtonBar({
+        labels:['Previous','Next'],
+        backgroundColor:'#000',
+        top:100,
+        style:Titanium.UI.iPhone.SystemButtonStyle.BAR,
+        height:25,
+        width:'auto'
+    });
+    var done = Titanium.UI.createButton({
+        systemButton:Titanium.UI.iPhone.SystemButton.DONE
+    });
+    var inputTextField = Titanium.UI.createTextField({
+        color : '#ff7c00',
+        top : 5,
+        height : 50,
+        textAlign : 'right',
+        width : '25%',
+        hintText : '',
+        left : '65%',
+        right : '8%',
+        keyboardToolbar : [navButtons,flexSpace,done],
+        keyboardToolbarColor : '#898989',
+        returnKeyType : Titanium.UI.RETURNKEY_DEFAULT,
+        borderStyle : Titanium.UI.INPUT_BORDERSTYLE_ROUNDED,
+        keyboardType : Titanium.UI.KEYBOARD_NUMBER_PAD,
+        font : {
+            fontSize : 20,
+            fontColor : '#ff7c00',
+            fontWeight : 'bold',
+            fontFamily : 'Helvetica Neue'
+        }
+    });
+    inputTextField.rowId=_rowId;
+    textFieldId = textFieldId + 1;
+    inputTextField.id = textFieldId;
+    textFieldArray.push(inputTextField);
+    //prevent inputTextField from being GCed due to a bug.
+    // inputTextField.addEventListener(
+    // 'blur', function(e) {
+    // });
+    navButtons.addEventListener('click', function(e) {
+        max = textFieldArray.length;
+ 
+        if(e.index ===0) { /*Prev Tab*/
+ 
+            if( inputTextField.id ===1) {
+                done.fireEvent('click');
+            } else {
+                var rowIndex=inputTextField.rowId-1;
+                Ti.API.info("change focus of row: "+ rowIndex );
+                changeFocus(rowIndex,0,textFieldArray);
+            }
+        } else { /*Next Tab*/
+            if(inputTextField.id === max) {
+                done.fireEvent('click');
+            } else {
+                var rowIndex=inputTextField.rowId + 1;
+                Ti.API.info("change focus of row: "+ rowIndex );
+                changeFocus(rowIndex,1,textFieldArray) ;
+            }
+        }
+ 
+    });
+    done.addEventListener('click', function() {
+        for(i=0,j=textFieldArray.length;i<j;i++) {
+            var textField =  textFieldArray[i];
+            textField.blur();
+        }
+    });
+     
+    return inputTextField;
+     
+ 
+}
+ 
+function changeFocus(_rowIndex,_flag,textFieldArray) {
+ 
+    //table.scrollToIndex(_rowIndex);
+    Ti.API.info("Focus id is: " + _rowIndex);
+    textFieldArray[_rowIndex-1].focus();
+ 
+};
+ 
+win1.open();
+</pre></code>
+2. Touch the first row textfield 
+3. Press "next" button on the keyboard's Toolbar
+
+Actual result:
+The Toolbar is redrawing itself
+
+Expected result:
+The Toolbar should remain static
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sabil Rahim 2012-08-29
+
+   Toolbar is set for each TextField and not for all TextField together. Hence as each textfield looses focus, its toolbar is taken out and the next fields toolbar slides into view. This is the expected behavior. If you need to have a static toolbar for the entire field, you should be using [Ti.UI.iOS.Toolbar](<a href="http://docs.appcelerator.com/titanium/2.1/index.html#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/2.1/index.html#</a>!/api/Titanium.UI.iOS.Toolbar) instead. 
+   
+   Sample code rewritten using this logic is available [here](<a href="https://raw.github.com/gist/93e97d8bbccd4971d42a/eb85cdb104e4ded8eeafab8f0b249e63de1db19f/app.js)." rel="nofollow" target="_blank">https://raw.github.com/gist/93e97d8bbccd4971d42a/eb85cdb104e4ded8eeafab8f0b249e63de1db19f/app.js).</a> This test case might have scrolling issues where the textfield might be below the toolbar and such. But this sample shows how a toolbar can be used for multiple textfields.
+   
+   
+   Marking ticket as invalid.</li>
+<li>Olga Romero 2014-06-17
+
+   closing as invalid per [~srahim] comment</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-10601.json">JSON Source</a></p>

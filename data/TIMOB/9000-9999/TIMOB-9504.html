@@ -1,0 +1,181 @@
+---
+title: "[TIMOB-9504] Android: Android builder.py script fails with Ti 2.1 SDK"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-13T15:38:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 Core, Release 2.1.1, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core</td></tr>
+<tr><th>Reporter</th><td>Varun Joshi</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-06-12T13:53:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-07-25T16:51:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+
+The Android builder.py script in the 2.1 SDK fails when it calls the zipalign tool in the Android SDK, with the error "Unable to open <apk file> as zip archive."
+
+<h4>From the customer:</h4>
+
+The error seems to be caused by a change to builder.py in 2.1. When it calls out to the Android jarsigner tool, the 2.1 script uses two additional parameters, "-sigalg MD5withRSA" and "-digestalg SHA1". The 2.0.X builder.py script does not have these two extra arguments. The script calls zipalign right after that, which fails. When the two arguments from the 2.1 builder.py are removed it runs successfully, and if those are added to the 2.0 builder.py, it fails with the same error.
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-9504_28329/build_log.txt">build_log.txt</td></td><td>2012-06-13T12:00:56.000+0000</td><td>262360</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Stepanov 2012-06-12
+
+   A regression caused by <a href="https://github.com/appcelerator/titanium_mobile/commit/618602ab92306727105efa304d58bde1b73138d9" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/618602ab92306727105efa304d58bde1b73138d9</a> with regard to TIMOB-8800</li>
+<li>Bill Dawson 2012-06-12
+
+   Desktop OS?  Version of Android SDK?  Java version?</li>
+<li>Bill Dawson 2012-06-12
+
+   And the complete build log</li>
+<li>Stephen Tramer 2012-06-13
+
+   Unable to duplicate by building in studio. Manually invoking the build command line in a manner where:
+   
+   * Project name does not match directory name
+   * AVD ID (arg 10) is left out
+   
+   Does not even run. The build command in the log does not work without the AVD ID, although this argument is not strictly necessary. The fix for this issue will deprecate the AVD ID, but this issue is NOT reproducible.</li>
+<li>Stephen Tramer 2012-06-13
+
+   We need the following information as part of the bug report:
+   
+   * Output of <code>ls -lah /Users/chris/Development/titanium/MB-Next-Gen-Phone/build/Android/com.mfoundry.mbanking.nextgen.phone.apk</code> AFTER the build fails
+   * Output of <code>ls -lah /Users/chris/Development/titanium/MB-Next-Gen-Phone/build/android/bin/app-unsigned.apk</code> AFTER the build fails
+   * Output of <code>ls -lah /Users/chris/Development/titanium/MB-Next-Gen-Phone/build</code> AFTER the build fails
+   * Output of <code>ls -lah /Users/chris/Development/titanium/MB-Next-Gen-Phone/build/android</code> AFTER the build fails
+   * Output of <code>umask</code>
+   
+   This will indicate if there is a permissions issue.</li>
+<li>Stephen Tramer 2012-06-18
+
+   One more question:
+   
+   * After the build fails, does running the command
+   <code><pre>
+   chmod -R 0766 /Users/chris/Development/titanium/MB-Next-Gen-Phone/build
+   </pre></code>
+   And then attempting a rebuild (WITHOUT any kind of clean) fix this issue?
+   
+   Note that this may actually be a python bug in the version that ships with 10.6.8: Python 2.6.1 apparently has numerous permissions issues which we may not be able to easily resolve. The recommended action is to upgrade to 10.7 Lion (or bump the python version to 2.7.x - please install [homebrew](<a href="http://mxcl.github.com/homebrew/)" rel="nofollow" target="_blank">http://mxcl.github.com/homebrew/)</a> and then <code>brew install python</code>) where this build script does NOT fail.</li>
+<li>Stephen Tramer 2012-06-19
+
+   Fixed the AVD issue but nobody can reproduce the dexing problem. That will not be resolved and is likely a local configuration issue for the reporter.</li>
+<li>Stephen Tramer 2012-06-19
+
+   Cannot reproduce; however PR [2435](<a href="https://github.com/appcelerator/titanium_mobile/pull/2435)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2435)</a> was submitted to solve the AVD requirement problem.</li>
+<li>Max Stepanov 2012-06-25
+
+   For reference, <a href="http://developer.android.com/tools/publishing/app-signing.html" rel="nofollow" target="_blank">http://developer.android.com/tools/publishing/app-signing.html</a></li>
+<li>Chris Barrett 2012-06-27
+
+    Complete build log:  <a href="https://gist.github.com/e316d1fc28302b9eb863" rel="nofollow" target="_blank">https://gist.github.com/e316d1fc28302b9eb863</a></li>
+<li>Chris Barrett 2012-06-28
+
+    After looking at this some more, I think the error is specifically caused by the -sigalg parameter when calling jarsigner. MD5withRSA is not compatible with the keystore we are using because it contains a SHA1withDSA key.
+    
+    jarsigner can use two signature algorithms, MD5withRSA and SHA1withDSA. The signature algorithm has to match the private key in the keystore. If the -sigalg parameter is omitted, jarsigner will automatically detect which algorithm to use by looking at the private key. source: <a href="http://docs.oracle.com/javase/6/docs/technotes/tools/solaris/jarsigner.html" rel="nofollow" target="_blank">http://docs.oracle.com/javase/6/docs/technotes/tools/solaris/jarsigner.html</a>
+    
+    If I run jarsigner manually after the build fails, I can see this error: "jarsigner error: java.security.SignatureException: private key algorithm is not compatible with signature algorithm".  I didn't see this message before because builder.py suppresses it.
+    
+    I tried building with builder.py again, but using the keystore that Titanium Studio uses to sign builds (the one with alias "tidev" and password "tirocks"). That was successful because that keystore has an MD5withRSA key. If I edit builder.py and change "MD5withRSA" to "SHA1withDSA", it succeeds with mFoundry's keystore and fails with the Titanium Studio keystore.
+    
+    I think the fix for this issue is just to omit the -sigalg parameter when calling jarsigner. jarsigner can detect which algorithm it should use.</li>
+<li>Stephen Tramer 2012-07-02
+
+    Chris -
+    
+    Thank you for looking into this. I'll make sure a patch is submitted today.</li>
+<li>Chris Barrett 2012-07-11
+
+    I tested again with the CI build 2.2.0.v20120710234110 and still get the jarsigner error. Looking at builder.py, it appears this fix has not been applied yet: <a href="https://github.com/appcelerator/titanium_mobile/blob/master/support/android/builder.py" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/support/android/builder.py</a></li>
+<li>Stephen Tramer 2012-07-12
+
+    This was fixed, but for some reason the fix was never committed.</li>
+<li>Bill Dawson 2012-07-12
+
+    We can't really do the suggested fix, as it will break builder.py when JDK 7 instead of 6 is being used.  We really need to support JDK 7 (in addition to 6) going forward.
+    
+    In JDK 7, the default became DSA.  Our tidev alias, which is used for everything except when you build with your own certificate for packaging for a store, uses RSA.  Many of you out there probably have RSA, since it was the default prior to JDK 7.
+    
+    If you build an app using the proposed changes, and your key is using RSA like ours is, and you're using JDK *7*, then the resulting APK will not be able to be installed on emulator/device.  <code>adb install</code> will say INSTALL_PARSE_FAILED_NO_CERTIFICATES.
+    
+    It's my inclination to "force" you to use RSA, but I'm open to suggestions (comments here in this ticket.)  Here are my arguments in favor of forcing you to use RSA:
+    
+    a) Android's [Signing your Applications](<a href="http://developer.android.com/tools/publishing/app-signing.html)" rel="nofollow" target="_blank">http://developer.android.com/tools/publishing/app-signing.html)</a> document explicitly says "Use the value MD5withRSA" in the "3. Sign your application with your private key" section.
+    
+    b) They also explicitly say, "Caution: As of JDK 7, the default signing algorithim has changed, *requiring you to specify the signature and digest algorithims* (-sigalg and -digestalg) when you sign an APK."  Of course, it wouldn't be required if you were using DSA, since that's the JDK 7 default.  The fact that they say it's required means they're assuming you want to use RSA.  The point here is that, thanks to this switch from JDK6 to JDK7, we really do need to specify those arguments.  And we want to specify them as RSA.
+    
+    c) (Countering myself here.)  Unfortunately they muddy the waters a bit in that document by stating "Both DSA and RSA are supported" for the <code>-keyalg</code> argument for <code>keytool</code>.  However that is the only mention of DSA in the whole document, whereas RSA receives more attention.
+    
+    d) The only alternative would be yet another setting somewhere in your Titanium project, and yet another argument passed to builder.py to specify RSA or DSA.  We sure would like to avoid that.</li>
+<li>Stephen Tramer 2012-07-12
+
+    Went ahead and got JDK 7u5 for OS X to test with. I'm not sure if it can cohabitate with the existing JDK 6 install or not, so there may need to be some more extensive testing here.</li>
+<li>Bill Dawson 2012-07-12
+
+    It can cohabitate with JDK 6.  I have them both and I can switch between them using the Applications -> Utilities -> Java Preferences application.  (We already had a ticket for Java 7 support, which is where these two arguments (-sigalg and -digestalg), and I tested extensively on all three desktop platforms.)
+    
+    So I have a new and happier idea to solve this ticket.  The verbose output option for <code>keytool -list</code> will show the signature algorithm name (DSA v RSA).  Since builder.py is given the password for the store, we can actually call out to keytool and get that info.  Example from the command line:
+    
+    <code><pre>
+    
+    $ keytool -list -keystore ./android.keystore -v -alias pocky -storepass my_secret_password
+    Alias name: pocky
+    Creation date: Jul 12, 2012
+    Entry type: PrivateKeyEntry
+    Certificate chain length: 1
+    Certificate[1]:
+    Owner: CN=Bill Dawson, OU=Platform Engineering, O=Appcelerator Inc, L=Vienna, ST=Vienna, C=AT
+    Issuer: CN=Bill Dawson, OU=Platform Engineering, O=Appcelerator Inc, L=Vienna, ST=Vienna, C=AT
+    Serial number: 1d8a1ad1
+    Valid from: Thu Jul 12 22:35:51 CEST 2012 until: Wed Apr 08 22:35:51 CEST 2015
+    Certificate fingerprints:
+    	 MD5:  F5:F2:2A:F4:83:F8:94:DD:AF:2E:7B:94:02:05:C9:81
+    	 SHA1: 26:55:93:44:EF:CF:31:5B:40:D7:D0:F8:F7:4E:6C:C6:2A:44:0D:31
+    	 SHA256: EA:62:21:47:60:3E:E2:91:9A:48:CB:9F:3D:7B:7E:86:46:3A:8D:2B:B2:2D:96:6C:11:D6:1E:E4:01:F4:D1:60
+    	 Signature algorithm name: SHA1withDSA
+    
+    </pre></code>
+    
+    Note the last line there.  If we parse that we can then pass the result to the -sigalg argument to jarsigner.
+    
+    My change of heart comes from learning that you can successfully sign and use Android applications using DSA signatures using Android's eclipse and command-line tools, so we should support it too. :)
+    
+    @Stephen, do you want to do this?  Or you can reassign to me, whichever you prefer.  If I were doing it I'd try to use <code>run.run</code> (our little wrapper function for Python Popen) because I think it can pass back stdout to the caller. Else I would just use Popen stuff directly in case our wrapper doesn't pass stdout back. </li>
+<li>Chris Barrett 2012-07-12
+
+    Thanks Bill, glad to hear that you have a fix in progress. This is an important issue for mFoundry; we cannot switch to another key, so we would need either this fix or another parameter to builder.py to specify the signing algorithm.</li>
+<li>Stephen Tramer 2012-07-13
+
+    @Bill I can take this. It'll be something for me to finish this afternoon and I need more experience working with the Java toolchain anyway.</li>
+<li>Bill Dawson 2012-07-13
+
+    Merged to master (2.2.0).  2.1.1 coming up shortly.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9504.json">JSON Source</a></p>

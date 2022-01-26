@@ -1,0 +1,279 @@
+---
+title: "[TIMOB-2590] Android: OrientationChange doesn't work"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:59:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0, Sprint 2011-10</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, defect, release-1.7.0, reported-1.5.1, reported-1.6.0, rplist</td></tr>
+<tr><th>Reporter</th><td>StinkyPickle</td></tr>
+<tr><th>Assignee</th><td>Don Thorp</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:23:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-05-17T11:01:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>I've been working on this for hours now.</p>
+<p>I have a simple event listener:</p>
+<pre>
+<code class="javascript">
+Titanium.Gesture.addEventListener('orientationchange', function(e){
+    var orient = e.orientation;
+    if(orient == 1 || orient == 2) {
+        portWin.height = screenHeight;
+        portWin.width = screenWidth;
+        portWeb.height = screenHeight;
+        portWeb.width = screenWidth;
+        portWeb.evalJS('portRotate("port")');
+    }
+    else {
+        portWin.height = screenWidth;
+        portWin.width = screenHeight;
+        portWeb.height = screenWidth;
+        portWeb.width = screenHeight;
+        portWeb.evalJS('portRotate("land")');
+    }
+});</code>
+</pre>
+<p>... which works fine on thee iPhone emulator, but I can't get it
+to work at all on my Android phone. I've stripped it down to just
+producing an alert on the event occuring and still nothing.</p>
+<p>I've looked around and saw something about putting the event
+listener in a separate .js file, but that doesn't work. I've
+installed the KitchenSink app to my phone and the orientationchange
+example works fine. I honestly don't know what I'm doing different
+for it to not work.</p>
+<p>Any suggestions please?</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dawson Toth 2011-04-15
+
+   <div><p>Several pro clients are experiencing this as well. I can confirm
+   that this is true in the latest builds.</p>
+   <h1>Problem</h1>
+   <p>On Android, Ti.Gesture.addEventListener 'orientationchange'
+   never fires.</p>
+   <h1>Expected Behavior</h1>
+   <p>Whenever the simulator or real device is rotated, this event
+   should fire.</p>
+   <h1>Tested On</h1>
+   <p>All tests done on Titanium Mobile 1.6.0 pulled January 8th,
+   2011<br>
+   BROKEN on Android Simulator, 2.2<br>
+   BROKEN on Android Device, Epic 4G 2.2<br>
+   WORKS on iPhone Simulator, 4.2</p>
+   <h1>Sample Code</h1>
+   <pre>
+   <code class="javascript">/**
+   * This app displays a label with the current orientation. It will work on iPhone and update
+   * as you rotate the simulator or device, but it will NOT update on Android; it will display
+   * the initial orientation, but will not update for future orientation changes.
+   */
+   var win = Titanium.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   win.orientationModes = [
+       Titanium.UI.PORTRAIT,
+       Titanium.UI.UPSIDE_PORTRAIT,
+       Titanium.UI.LANDSCAPE_LEFT,
+       Titanium.UI.LANDSCAPE_RIGHT
+   ];
+   var label = Titanium.UI.createLabel({
+       color: '#999',
+       text: 'I am Window 1',
+       font: { fontSize: 20, fontFamily: 'Helvetica Neue' },
+       textAlign: 'center',
+       width: 'auto'
+   });
+   win.add(label);
+   win.open();
+   
+   function getOrientation(o) {
+       switch (o) {
+           case Titanium.UI.PORTRAIT:
+               return 'portrait';
+           case Titanium.UI.UPSIDE_PORTRAIT:
+               return 'upside portrait';
+           case Titanium.UI.LANDSCAPE_LEFT:
+               return 'landscape left';
+           case Titanium.UI.LANDSCAPE_RIGHT:
+               return 'landscape right';
+           default:
+               return '';
+       }
+   }
+   
+   label.text = getOrientation(Titanium.Gesture.orientation);
+   Ti.Gesture.addEventListener('orientationchange', function (e) {
+       label.text = getOrientation(e.orientation);
+   });</code>
+   </pre>
+   <h2>Associated Helpdesk Ticket</h2>
+   <p><a href=
+   "<a href="http://developer.appcelerator.com/helpdesk/view/62991" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/62991</a>"><a href="http://developer.appcelerator.com/helpdesk/view/62991" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/62991</a></a></p></div></li>
+<li>Dawson Toth 2011-04-15
+
+   <div><h1>Workaround</h1>
+   <p>The orientationchange event will fire in a heavyweight window
+   (an activity). Setting both url: 'child.js' and one of
+   navBarHidden: true, modal: true, or fullscreen:true allows you to
+   work around this limitation in app.js.</p>
+   <p>For example, your app.js may look like this:</p>
+   <pre>
+   <code class="javascript">var win = Ti.UI.createWindow({
+     url: 'child.js',
+     navBarHidden: true,
+     backgroundColor: '#fff'
+   });
+   win.open();</code>
+   </pre>
+   <p>And child.js would contain the following:</p>
+   <pre>
+   <code class="javascript">var win = Ti.UI.currentWindow;
+   win.orientationModes = [
+   Titanium.UI.PORTRAIT,
+   Titanium.UI.UPSIDE_PORTRAIT,
+   Titanium.UI.LANDSCAPE_LEFT,
+   Titanium.UI.LANDSCAPE_RIGHT,
+   Titanium.UI.FACE_UP,
+   Titanium.UI.FACE_DOWN
+   ];
+   var label = Titanium.UI.createLabel({
+       color: '#999',
+       text: 'I am Window 1',
+       font: { fontSize: 20, fontFamily: 'Helvetica Neue' },
+       textAlign: 'center',
+       width: 'auto'
+   });
+   win.add(label);
+   
+   function getOrientation(o) {
+       switch (o) {
+           case Titanium.UI.PORTRAIT:
+               return 'portrait';
+           case Titanium.UI.UPSIDE_PORTRAIT:
+               return 'upside portrait';
+           case Titanium.UI.LANDSCAPE_LEFT:
+               return 'landscape left';
+           case Titanium.UI.LANDSCAPE_RIGHT:
+               return 'landscape right';
+           case Titanium.UI.FACE_UP:
+               return 'face up';
+           case Titanium.UI.FACE_DOWN:
+               return 'face down';
+           case Titanium.UI.UNKNOWN:
+               return 'unknown';
+           default:
+               return 'constant not recognized';
+       }
+   }
+   
+   label.text = getOrientation(Titanium.Gesture.orientation);
+   Ti.Gesture.addEventListener('orientationchange', function (e) {
+       label.text = getOrientation(e.orientation);
+   });</code>
+   </pre>
+   <p>This code will work on both iPhone and Android.</p></div></li>
+<li>jimwilliams 2011-04-15
+
+   <div><p>The workaround does work on android, but then has the undesired
+   side effect that when pressing the android previous button to go
+   back from the child, the app is left at a blank app screen. In the
+   code, I can see that the window associated with child.js closes
+   (added an eventListener which fires as expected). So now the app is
+   left with a zombie window in the hierarchy. Pressing previous again
+   will exit out to the home screen (or whatever was previous in the
+   window list, I assume). But this added zombie window kind of ruins
+   the utility of the workaround.<br></p>
+   <p>Is there a way to force the zombie window to close when I
+   receive the close event from the child.js window? I'd like to shoot
+   it in the head, as is the customary practice to effectively deal
+   with zombies.</p></div></li>
+<li>Mark Ruys 2011-04-15
+
+   <div><p>@jimwilliams: Does 'exitOnClose' help you? See <a href=
+   "<a href="http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window-object" rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI.Window-object</a>">
+   <a href="http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI...." rel="nofollow" target="_blank">http://developer.appcelerator.com/apidoc/mobile/latest/Titanium.UI....</a></a>.</p></div></li>
+<li>jimwilliams 2011-04-15
+
+   <div><p>It so totally does the trick.<br></p>
+   <p>I am still not up to speed on all the Android-only stuff in
+   Titanium these days; up until 1.5.0, I tried to stay away from
+   Android-specific things to make my life easier when supporting the
+   iPhone (and that went both ways, of course). But since this code is
+   a hack to work around Android-specific issues in the first place,
+   having an Android-specific feature used to tune the
+   Android-required hack is not so distasteful.<br></p>
+   <p>Thanks so much for the pointer.</p></div></li>
+<li>KC 2011-04-15
+
+   <div><p>This seems to work if you are creating a new window from an
+   existing window. I tried using the code above and also the example
+   from the KitchenSink orientation.js by it's self in my app.js and
+   it still displays the error described above.</p>
+   <p><a href=
+   "<a href="https://github.com/appcelerator/KitchenSink/blob/master/KitchenSink/Resources/examples/orientation.js" rel="nofollow" target="_blank">https://github.com/appcelerator/KitchenSink/blob/master/KitchenSink/Resources/examples/orientation.js</a>">
+   <a href="https://github.com/appcelerator/KitchenSink/blob/master/KitchenSink..." rel="nofollow" target="_blank">https://github.com/appcelerator/KitchenSink/blob/master/KitchenSink...</a></a></p></div></li>
+<li>Alan Leard 2011-04-15
+
+   <div><p>Related HD ticket: <a href=
+   "<a href="http://developer.appcelerator.com/helpdesk/view/74931" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/74931</a>"><a href="http://developer.appcelerator.com/helpdesk/view/74931" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/74931</a></a></p></div></li>
+<li>Marshall Culpepper 2011-04-15
+
+   <div><p>We've pushed a lot of orientation changes / updates recently for
+   1.6.0, Can you guys verify if these pushes have fixed your problem,
+   and mark as resolved?</p></div></li>
+<li>Dawson Toth 2011-04-15
+
+   <div><p>@Marshall: Just verified that my original code sample now works
+   on my device.</p>
+   <p>Titanium SDK version: 1.7.0 (03/03/11 10:45 87a2113...)<br>
+   WORKS on Android Device Epic 4G 2.2</p></div></li>
+<li>Don Thorp 2011-04-15
+
+    <div><p>Marking resolved per conversation with Dawson.</p></div></li>
+<li>Shannon Hicks 2011-04-26
+
+    I just tested this with a 1.7.0 build from 4/25, and it still doesn't work. To reproduce, put this code at the top of an app.js of a brand new project:
+    
+    <code><pre>		Titanium.Gesture.addEventListener('orientationchange',function(e){
+    			alert('width: '+Titanium.Platform.displayCaps.platformWidth+' height:'+Titanium.Platform.displayCaps.platformHeight);
+    		});
+    </pre></code>
+    
+    Ran in both the emulator (2.3) and on a Droid X (2.2)</li>
+<li>Dawson Toth 2011-05-17
+
+    @Shannon the platformWidth and height not accurately reflecting the current orientation would be a separate issue. This issue is about the orientationchange event not firing.
+    
+    @Don I do have another use case where the orientationchange does not fire. If your app.js opens a tab group, then Ti.Gesture.addEventListener('orientationchange', ...) won't fire. If I had to hazard a guess, the orientation change event is only fired on the front most activity (ie whichever window is active in the tab group), and Ti.Gesture binds itself to the app.js activity. Check out the sample code below...
+    
+    <code><pre>
+    var tabGroup = Ti.UI.createTabGroup();
+    tabGroup.addTab(Ti.UI.createTab({ title: 'Tab 1', window: Ti.UI.createWindow({ backgroundColor: 'red' }) }));
+    tabGroup.addTab(Ti.UI.createTab({ title: 'Tab 2', window: Ti.UI.createWindow({ backgroundColor: 'blue' }) }));
+    tabGroup.open();
+    
+    /* Ti.UI.createWindow({ backgroundColor: 'green' }).open(); */
+    
+    Ti.Gesture.addEventListener('orientationchange', function(e) {
+        Ti.UI.createAlertDialog({
+            message: e.orientation
+        }).show();
+    });
+    </pre></code></li>
+<li>Dawson Toth 2011-05-17
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-2590.json">JSON Source</a></p>

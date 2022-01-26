@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-14105] Android: toImage() does not work if applied to ImageView"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-01T21:10:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 13 API, 2013 Sprint 13</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, regression</td></tr>
+<tr><th>Reporter</th><td>Davide Cassenti</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2013-06-04T18:49:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-30T21:03:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+The method toImage() does not work if applied to an ImageView. This is also true if the ImageView is child of another view.
+
+<h4>Steps to reproduce</h4>
+Use the following code to reproduce the issue:
+
+<code><pre>
+var win = Ti.UI.createWindow({backgroundColor: 'white'});
+  
+var img = Ti.UI.createImageView({
+    image: 'KS_nav_views.png',
+    backgroundColor: 'transparent',
+    width: 100,
+    height: 100
+});
+ 
+var tmpImage = img.toImage();
+tmpImage.backgroundColor = 'transparent';
+ 
+var imageView = Titanium.UI.createImageView({
+    width: 100,
+    height: 100,
+    image: tmpImage,
+    top: 10,
+    backgroundColor: "transparent"
+});
+  
+win.add(imageView);
+win.open();
+</pre></code>
+
+<h4>Additional notes</h4>
+The same code works with SDK 3.0.0.
+If the ImageView is child of another view, and the toImage() is applied to the parent, the ImageView will not be visible as well.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ping Wang 2013-06-04
+
+   Ran the test case on 3.0.0.GA and 2.1.4.GA. On 3.0.0.GA, no image showed on the screen. On 2.1.4.GA, a black square showed on the screen. Seems the test case never worked.</li>
+<li>Davide Cassenti 2013-06-05
+
+   @Ping I've updated the test code, now I can replicate. The first image was missing width and height.</li>
+<li>Ping Wang 2013-06-05
+
+   There is a behavior change in imageview in 3.0.2. Before 3.0.2, if the image is local, it will be loaded synchronously; if the image is remote, it will be loaded asynchronously. After 3.0.2, all the images are loaded asynchronously no matter local images or remote images. The toImage() method is to give a snapshot of the view. Therefore, if the image is loaded asynchronously, the snapshot will be empty because the image is not ready yet.
+   The above test case works in 3.0.0 because it uses a local image. If we modify Line 4 to
+   <code><pre>
+   image: "<a href="https://raw.github.com/appcelerator/titanium_mobile/master/android/templates/app/default/Resources/android/appicon.png" rel="nofollow" target="_blank">https://raw.github.com/appcelerator/titanium_mobile/master/android/templates/app/default/Resources/android/appicon.png</a>",
+   </pre></code>
+   it will not work even in 3.0.0.</li>
+<li>Ping Wang 2013-06-06
+
+   Here are two workarounds for this issue:
+   1. Set the "backgroundImage" or "defaultImage" property to the imageview.
+   Sample code:
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor: 'white'});
+      
+   var img = Ti.UI.createImageView({
+       image: 'KS_nav_views.png',
+       //backgroundImage: 'KS_nav_views.png',
+       defaultImage: 'KS_nav_views.png',
+       backgroundColor: 'transparent',
+       width: 100,
+       height: 100
+   });
+     
+   var tmpImage = img.toImage();
+   tmpImage.backgroundColor = 'transparent';
+     
+   var imageView = Titanium.UI.createImageView({
+       width: 100,
+       height: 100,
+       image: tmpImage,
+       top: 10,
+       backgroundColor: "transparent"
+   });
+      
+   win.add(imageView);
+   win.open();
+   </pre></code>
+   2. Add listener to the ["load"](<a href="http://docs.appcelerator.com/titanium/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/titanium/latest/#</a>!/api/Titanium.UI.ImageView-event-load) event. In this case we are sure that the toImage() method is called after the image finishes loading. *Note:* in order to fire the "load" event, the imageview must be added to the window.
+   Sample code:
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor: 'white'});
+   
+   var img = Ti.UI.createImageView({
+       image: 'KS_nav_views.png',
+       backgroundColor: 'transparent',
+       width: 100,
+       height: 100,
+       bottom: 10
+   });
+   
+   
+   img.addEventListener("load", function() {
+   	var tmpImage = img.toImage();
+   	tmpImage.backgroundColor = 'transparent';
+   
+   	var imageView = Titanium.UI.createImageView({
+   		width : 100,
+   		height : 100,
+   		image : tmpImage,
+   		top : 10,
+   		backgroundColor : "transparent"
+   	});
+   
+   	win.add(imageView);
+   }); 
+   
+   win.add(img);
+   win.open();
+   </pre></code></li>
+<li>Alex Bernier 2013-07-02
+
+   People are watching this ticket. Closing an issue people are interested in a resolution of as Resolved/Won't Fix without comment leaves people hanging and deteriorates hope in the platform. Could you provide a short explanation of why this won't be fixed? At the very least the documentation should be updated to explain the asynchronous nature of the "image" property and the available workarounds.</li>
+<li>Lee Morris 2017-03-30
+
+   Closing ticket as "Won't Fix". There has been no update for quite a while. If there is any problem, please open a new ticket.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14105.json">JSON Source</a></p>

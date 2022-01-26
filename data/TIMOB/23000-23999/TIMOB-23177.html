@@ -1,0 +1,171 @@
+---
+title: "[TIMOB-23177] VideoPlayer.setCurrentTime() does not actually set current time"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2019-10-02T22:41:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Jason Vertucio</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2016-04-08T13:49:33.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-02T22:41:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+While trying to create frame-advance functionality, found that setting current time on iOS does not work as expected.
+
+To reproduce, try the following:
+*Alloy*
+<code><pre>
+<Alloy>
+  <Window title="Player" id="vidPlayerWindow">
+    <View class="container" id="view">
+      <VideoPlayer id="theVideoPlayer" autoplay="true" url="[insert URL of your video here]" />
+      <View id="controlPanel">
+        <Button id="btnPlayPause" />
+        <Button id="btnFrameAdvance" />
+      </View>
+    </View>
+  </Window>
+</Alloy>
+</pre></code>
+
+Titanium Controller
+<code><pre>
+var frameRate = 240.0; // frames per second - Also try 30 and 24 and 15, 
+var msPerFrame = 1000.00 / frameRate; // how many MS per frame
+
+Ti.API.debug ("Frame advance will advance by " + msPerFrame + "ms");
+
+$.btnPlayPause.addEventListener('click',function(e){
+  //Pseudocode
+  // if $.theVideoPlayer.isPlaying, $.theVideoPlayer.pause();
+  // Or if not, .play()
+});
+
+$.btnFrameAdvance.addEventListener('click',function(e){
+    var currentTime = $.theVideoPlayer.getCurrentPlaybackTime();
+    var newTime = currentTime + (msPerFrame);
+    Ti.API.debug('current Time ' + currentTime + 'ms to new time ' + newTime + 'ms');
+    $.theVideoPlayer.setCurrentPlaybackTime(newTime);
+});
+</pre></code>
+
+And finally output log:
+{noformat}
+[DEBUG] Frame should advance by 4.166666666666667ms each press
+{noformat}
+
+I open video player and then about a second later hit pause. Then I hit the advance button.
+
+{noformat}
+[DEBUG] current Time 1181.8333333333333ms to new time 1186ms
+[DEBUG] current Time 1061.6666666666667ms to new time 1065.8333333333335ms
+[DEBUG] current Time 1065ms to new time 1069.1666666666667ms
+[DEBUG] current Time 1061.6666666666667ms to new time 1065.8333333333335ms
+[DEBUG] current Time 1065ms to new time 1069.1666666666667ms
+[DEBUG] current Time 1061.6666666666667ms to new time 1065.8333333333335ms
+{noformat}
+
+<h3>Comments</h3>
+
+<ol>
+<li>Angel Petkov 2016-07-26
+
+   [~jvngd] Hello I've tested the method using a classic app and it all seems to work as expected. Could you please try this using 5.4.0, you can download the sdk using the [build server](<a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html#5_4_X)" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html#5_4_X)</a> . Thanks.
+   
+   Demo Code:
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       title : 'Video View Demo',
+       backgroundColor : '#fff'
+   });
+   var previouseQuator = 0;
+   
+   var videoPlayer = Titanium.Media.createVideoPlayer({
+       top : 2,
+       autoplay : true,
+       backgroundColor : 'blue',
+       height : 300,
+       width : 300,
+       mediaControlStyle : Titanium.Media.VIDEO_CONTROL_DEFAULT,
+       scalingMode : Titanium.Media.VIDEO_SCALING_ASPECT_FIT
+   });
+   
+   var begining = Titanium.UI.createButton({
+      title: 'Jump to begining',
+      bottom: 10,
+      width: 100,
+      font: {fontSize: 12},
+      left:10,
+      height: 50
+   });
+   
+   var middle = Titanium.UI.createButton({
+      title: 'Jump to middle',
+      bottom: 10,
+      width: 100,
+      font: {fontSize: 12},
+      middle:-10,
+      height: 50
+   });
+   
+   var end = Titanium.UI.createButton({
+      title: 'Jump to End',
+      bottom: 10,
+      width: 100,
+      font: {fontSize: 12},
+      right:10,
+      height: 50
+   });
+   
+   begining.addEventListener('click',function(e)
+   {
+      videoPlayer.setCurrentPlaybackTime(0.0);
+   });
+   
+   
+   middle.addEventListener('click',function(e)
+   {
+      var duration = videoPlayer.duration/2;
+      videoPlayer.setCurrentPlaybackTime(duration);
+   });
+   
+   
+   end.addEventListener('click',function(e)
+   {
+      var duration = videoPlayer.duration;
+      videoPlayer.setCurrentPlaybackTime(duration);
+   });
+   
+   
+   
+   videoPlayer.url = '<a href="http://clips.vorwaerts-gmbh.de/VfE_html5.mp4" rel="nofollow" target="_blank">http://clips.vorwaerts-gmbh.de/VfE_html5.mp4</a>';
+   win.add(videoPlayer);
+   win.add(begining);
+   win.add(middle);
+   win.add(end);
+   win.open();
+   </pre></code></li>
+<li>Alan Hutton 2019-10-02
+
+   Unable to reproduce Axway Appcelerator Studio, build: 5.1.4.201909061933 
+   macOS : 10.14.6
+   Node.js Version : 8.9.1
+   npm Version : 5.5.1
+   Appcelerator CLI : 7.1.1
+   Titanium CLI
+   CLI Version : 5.2.1
+   node-appc Version : 0.2.49
+   Titanium SDKs : 8.2.0.GA</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23177.json">JSON Source</a></p>

@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-4367] Android: Table View Row Memory Leak"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-06T14:48:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0, Release 1.8.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>module_tableviewrow, qe-and012312, qe-nfc, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Dawson Toth</td></tr>
+<tr><th>Assignee</th><td>Hieu Pham</td></tr>
+<tr><th>Created</th><td>2011-06-13T09:04:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T22:07:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+Table view rows that you create are never released.
+
+<h4>Reproduction</h4>
+1. Drop the following in an app.js
+2. Load up DDMS and watch the Allocations or Sysinfo / Memory usage.
+3. Touch the "Create big table view" button in the app; a table view with 1500 rows will be created.
+4. Refresh the sysinfo and see how the memory footprint has grown.
+5. Hit the "Back" button in the app; the window is closed and the variables nullified.
+6. Refresh the sysinfo and see that the memory footprint hasn't changed.
+7. Repeat steps 3-7 and the memory footprint will only continue to grow.
+
+<code><pre>
+var win = Ti.UI.createWindow({ backgroundColor:'#fff' });
+
+var btn = Ti.UI.createButton({
+    color: 'black', layout:'center',
+    title: 'Create big table view'
+});
+win.add(btn);
+win.open();
+btn.addEventListener('click', function() {
+    var newWin = Ti.UI.createWindow({
+        backgroundColor: '#fff',
+        layout:'vertical'
+    });
+    var back = Ti.UI.createButton({
+        color: 'black', top: 10,
+        title: 'Back'
+    });
+    newWin.add(back);
+
+    var tv = createBigTableView();
+    newWin.add(tv);
+    newWin.open();
+
+    function clickListener() {
+        back.removeEventListener('click', clickListener);
+        newWin.close();
+        tv.data = null;
+        tv = null;
+        newWin = null;
+        back = null;
+    }
+
+    back.addEventListener('click', clickListener);
+});
+
+function createBigTableView() {
+    var data = [];
+    for (i = 1; i <= 1500; i++) {
+        data.push(createCustomTableViewRow('RowsNMore', i));
+    }
+    return Ti.UI.createTableView({
+        top:0, bottom:0, left:0, right:0,
+        separatorColor: 'white',
+        data: data
+    });
+}
+
+function createCustomTableViewRow(label1text, label2text) {
+    var row = Ti.UI.createTableViewRow({ className: 'customTVRow' });
+    var vw = Ti.UI.createView({layout: 'vertical'});
+    row.add(vw);
+    vw.add(Ti.UI.createLabel({
+        text: label1text, color: 'black',
+        font: {fontSize: '9pt', fontWeight: 'bold'}
+    }));
+    vw.add(Ti.UI.createLabel({
+        text: label2text, color: 'gray',
+        font: {fontSize: '7pt', fontWeight: 'normal'}
+    }));
+    return row;
+}
+</pre></code>
+
+<h4>Associated Helpdesk Ticket</h4>
+<a href="http://appc.me/c/APP-321721" rel="nofollow" target="_blank">http://appc.me/c/APP-321721</a>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4367_25349/amaze 2.3.4 v8 1.8.1.png">amaze 2.3.4 v8 1.8.1.png</td></td><td>2012-01-26T13:57:14.000+0000</td><td>46335</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-4367_25350/amaze 2.3.4 v8 1.8.1.txt">amaze 2.3.4 v8 1.8.1.txt</td></td><td>2012-01-26T13:57:14.000+0000</td><td>53227</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Bill Dawson 2011-10-03
+
+   Pull request:
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/522" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/522</a></li>
+<li>Alan Vaghti 2011-11-22
+
+   Verified fix on a Nexus One running 2.2.2 and an HTC Evo 4G running 2.3.3 with SDK 1.8.0.1.v20111122105459. Memory usage increases when rows are created and decreases when the back button is pressed.</li>
+<li>Dustin Hyde 2012-01-26
+
+   Reopening as Valid.
+   SDK: 1.8.1.v20120125154634
+   Android: V8
+   Studio: 1.0.8.201201210622
+   OS: Lion
+   Devices Tested: Nexus One 2.2.2, Amaze 2.3.4, Galaxy Tab 10.1 3.1
+   
+   This test-case causes the app to crash after about 2-4 runs, depending on the device. The memory footprint continues to grow in DDMS. This code cannot be tested in 1.8.0.1 due to TIMOB-6809. There is no crash nor significant memory allocation in 1.7.5, though the fix was supposed to be in 1.8.0.
+   
+   Device Results:
+   
+   Nexus One: Crash.
+   Amaze: Runtime error, freeze, then crash.
+   Galaxy Tab 10.1: Freeze, then crash.</li>
+<li>Dustin Hyde 2012-01-26
+
+   This but cannot be tested in 1.8.0.1 due to TIMOB-6809.</li>
+<li>Dustin Hyde 2012-01-26
+
+   Attached screenshot and crash log for Amaze 2.3.4 V8 1.8.1 crash.</li>
+<li>Hieu Pham 2012-02-06
+
+   1500 rows is a bit much for tableview. I tested with 500 rows and GC is cleaning up- this is done rather slowly at times but GC is collecting the table. It'd be best if QE can run customer app against latest CI build to see if memory is still an issue.</li>
+<li>Hieu Pham 2012-02-06
+
+   Duplicate of 7409</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as duplicate and links to the related ticket have been provided above.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4367.json">JSON Source</a></p>

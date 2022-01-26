@@ -1,0 +1,281 @@
+---
+title: "[TIMOB-19410] iOS: ListView not rendered"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2015-09-10T23:24:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ListView</td></tr>
+<tr><th>Reporter</th><td>Claus Stilborg</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-08-24T09:16:55.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T21:59:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When population a ListView, the ListView sometimes seem to not be rendered at all.
+This occurs at random and does not throw any errors.
+The two attached screenshots show the same screen. When restarting the app it sometimes renders the ListView, and sometimes not.
+
+Here is the Alloy xml of the ListView:
+
+<code><pre>
+		<ListView id="lvProducts" defaultItemTemplate="template" backgroundColor="#000" onPull="doPull" onItemclick="doItemClick" onPullend="doPullend" pullBackgroundColor="#000">
+			<SearchBar backgroundColor="#000" barColor="#000" pullBackgroundColor="#000" />
+			<Templates>
+				<ItemTemplate name="template" height="80" backgroundColor="#000" selectionStyle="Titanium.UI.iPhone.ListViewCellSelectionStyle.NONE" >
+					<View height="Ti.UI.SIZE" width="96%" backgroundColor="#000">
+						<View layout="horizontal" left="2" right="2" top="1" bottom="1" backgroundColor="#000" height="Ti.UI.SIZE" width="100%" bindId="rowView">
+							<View top="2" bottom="2" width="76%" height="Ti.UI.SIZE" left="2" >
+								<Label bindId="productname" height="Ti.UI.SIZE" id="productname" left="0" width="100%" />	
+							</View>
+							<View width="20%" top="2" right="2">
+								<TextField bindId="productcount" width="100%" right="0" maxLength="5" onFocus="doTextFieldFocus" onBlur="doTextFieldBlur" onChange="limitInputToNumbers" keyboardType="Titanium.UI.KEYBOARD_NUMBER_PAD"/>
+							</View>
+						</View>
+					</View>
+				</ItemTemplate>
+			</Templates>
+			<ListSection/>
+			<PullView pullBackgroundColor="#000">
+				<View height="80" layout="vertical" pullBackgroundColor="#000" backgroundColor="#E83643">
+					<Label>Slip for at hente katalog fra serveren</Label>
+					<Label id="lblCatalogueDate">Sidst hentet:</Label>
+				</View>
+			</PullView>
+		</ListView>
+</pre></code>
+
+
+
+And this is the code that updates the ListItems:
+<code><pre>
+function updateUI(){
+	if(!loading){
+		Ti.API.info("UI pass start");
+		var dataSet = [];
+		_.each(catalogue.get(), function(product){
+			dataSet.push({ 
+				properties:{
+					itemId: product.id,
+					template: "template",
+					searchableText: product.name,
+					accessoryType: "Titanium.UI.LIST_ACCESSORY_TYPE_DETAIL"
+				},
+	    		        productname: {text: product.name},
+	    		        productcount: {productid: product.id}
+	                });
+		});
+		Ti.API.info("UI pass, dataset: " + dataSet.length);
+		$.lvProducts.sections[0].setItems(dataSet);
+		Ti.API.info("UI pass, complete");
+	}else{
+		Ti.API.error("UI not updated");
+	}   	
+}
+</pre></code>
+
+The output from the console is:
+[INFO] :   UI pass start
+[INFO] :   UI pass, dataset: 48
+[INFO] :   UI pass, complete
+
+The output is +the same+ when the ListView is rendered and when it is not.
+
+Anyone has any ideas?
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19410_56495/IMG_0700.jpg">IMG_0700.jpg</td></td><td>2015-08-24T08:44:12.000+0000</td><td>39244</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19410_56494/IMG_0701.jpg">IMG_0701.jpg</td></td><td>2015-08-24T08:44:21.000+0000</td><td>109734</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19410_56661/index.js">index.js</td></td><td>2015-09-09T00:32:55.000+0000</td><td>539</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19410_56660/index.xml">index.xml</td></td><td>2015-09-09T00:32:55.000+0000</td><td>1359</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Claus Stilborg 2015-09-03
+
+   I am seeing the same issue with standard databound ListViews as well: Some times they simply do not render anything...
+   And it takes a restart or sometimes multiple restarts of the app to get it to render.
+   
+   Reventing to TableView on select projects, as TableView seems to work fine, but this is hurting my business as I use ListViews all over and now have to go back and rework projects in the pipeline.
+   
+   Anyone else seeing this? </li>
+<li>Samuel East 2015-09-08
+
+   Exactly the same problem as above really critical sometime the listview renders sometime it simply does nothing i am using the map function.
+   
+   <code><pre>
+   var items = datesModelCollection.map(function(element) {
+       return {
+           "datesTitle": {
+               text: element.get("title")
+           },
+           properties: {
+               date_id: element.get("date_id"),
+               canEdit: true,
+               editActions: [{
+                   style: (OS_IOS) ? Ti.UI.iOS.ROW_ACTION_STYLE_DESTRUCTIVE : "",
+                   title: "Delete"
+               }]
+           },
+           "template": "dates"
+       };
+   });
+   $.calendarTable.sections[0].setItems(items);
+   </pre></code>
+   
+   Please fix this</li>
+<li>Hans Knöchel 2015-09-08
+
+   [~Claus Stilborg] Can you please provide a full project containing your sample code? Thank you!</li>
+<li>Claus Stilborg 2015-09-08
+
+   Hans Knoechel I have shared the bit bucket repo with you, the project is not finished but it is runnable, the problem occurs randomly in the basket controller. It was also present in the cat controller but I have switched that to use TableView which does not have the same problem.</li>
+<li>Hans Knöchel 2015-09-08
+
+   [~Claus Stilborg] I meant a runnable project (just) containing the demo code above. Can provide that? Otherwise I create one on my own.</li>
+<li>Claus Stilborg 2015-09-08
+
+   OK Hans, I can put something together tomorrow. This problem is in every project where I use ListView, from the simplest data bound boilerplate stuff to loading through a custom list.</li>
+<li>Hans Knöchel 2015-09-09
+
+   [~Claus Stilborg] I've created an alloy project containing your xml and js (attached to this ticket). Can you copy/paste the files and confirm that the error still appears? I'm not 100 % sure, if you maybe called the listView population at the wrong place. Thanks!</li>
+<li>Samuel East 2015-09-09
+
+   Hi Both,
+   
+   Just to pitch in here is what i am doing if you can see anything that maybe causing issues.
+   
+   <code><pre>
+   <ListView id="reminderList" onRowAction="onRowAction" defaultItemTemplate="reminder">
+   				<Templates>
+   					<ItemTemplate name="reminder" height="30dp" backgroundColor="#f5f5f5">
+   						<View left="10dp" right="10dp" layout="horizontal">
+   							<Label class="startReminder" bindId="start"/> 
+   							<Label class="titleReminder" bindId="label" left="10dp" color="#6f6f6f"/>
+   						</View>
+   						<Label class="freqReminder" bindId="frequency"/>
+   					</ItemTemplate>
+   				</Templates>
+   				<ListSection/>
+   			</ListView>
+   </pre></code>
+   
+   
+   <code><pre>
+   var goalsCollection = Alloy.Collections.remindersModel;
+   	goalsCollection.fetch();
+   
+   	var items = goalsCollection.map(function(element) {
+   		return {
+   			"label" : {
+   				text : element.get("title")
+   			},
+   			"frequency" : {
+   				text : element.get("frequency")
+   			},
+   			properties : {
+   				event_id : element.get("event_id"),
+   				canEdit : true,
+   				editActions : [{
+   					style : (OS_IOS) ? Ti.UI.iOS.ROW_ACTION_STYLE_DESTRUCTIVE : "",
+   					title : "Delete"
+   				}]
+   			}
+   		};
+   	});
+   
+   	$.reminderList.sections[0].setItems(items, {
+   		animated : "true"
+   	});
+   </pre></code>
+   
+   Thanks</li>
+<li>Claus Stilborg 2015-09-09
+
+   Thx Hans I will test this later today and get back to you</li>
+<li>Claus Stilborg 2015-09-09
+
+    OK @Hans Knoechel , I am testing with a fresh project and the index files you made, so fare it works every time. I will run it multiple times and report the result. And I will implement the onOpen approach in one of the problem projects. If this fixes my problem, beer will most definitely be on me, if we ever meet (*y)</li>
+<li>Hans Knöchel 2015-09-09
+
+    [~samueleast]: Please try not to have collection dependencies in your demo code.
+    [~Claus Stilborg]: Thank you. But I think you will experience the issue there, too. But: Have you used unique itemId's for your cells? That could be the problem. It is still very hard to reproduce and will take a bit.</li>
+<li>Claus Stilborg 2015-09-09
+
+    OK, it still fails :(
+    When I continue to shut down the app on the simulator and restart it, it randomly fails
+    I have a screen grabbed video of it, if you want to see...</li>
+<li>Claus Stilborg 2015-09-09
+
+    Yes, the itemId's are unique, and if that was the problem I would think it should fail every time? Or at least throw an error?</li>
+<li>Hans Knöchel 2015-09-09
+
+    Thats what I thought. If possible in any way, can you provide the sample code in one app.js file so I can test it the latest KitchenSink build.</li>
+<li>Claus Stilborg 2015-09-09
+
+    The sample code is the index files you provided, I just cut and pasted the content into a fresh alloy standard project with no changes at all.</li>
+<li>Hans Knöchel 2015-09-09
+
+    Yeah, but for KitchenSink, we don' test alloy but the "pure" Titanium Code. I will migrate it and update the issue here.</li>
+<li>Samuel East 2015-09-09
+
+    Here is a video of whats happen for me.
+    
+    [Error Video](<a href="https://s3.amazonaws.com/Loop.Sam/error.mp4?Signature=4TwOwxGxOE9cArzgTKZVYM%2BmI4U%3D&AWSAccessKeyId=AKIAIDVCDVR32H7DCSNA&Expires=1441836430)" rel="nofollow" target="_blank">https://s3.amazonaws.com/Loop.Sam/error.mp4?Signature=4TwOwxGxOE9cArzgTKZVYM%2BmI4U%3D&AWSAccessKeyId=AKIAIDVCDVR32H7DCSNA&Expires=1441836430)</a></li>
+<li>Claus Stilborg 2015-09-09
+
+    Yup, same for me Samuel</li>
+<li>Hans Knöchel 2015-09-09
+
+    Hey guys, 
+    
+    may this be related to TIMOB-19209? We just released the 4.1.1.GA which includes this fix. 
+    
+    Please try it out, thanks!</li>
+<li>Claus Stilborg 2015-09-10
+
+    lol, upgrading the CLI broke Studio... This is going to be another long day...</li>
+<li>Samuel East 2015-09-10
+
+    This now seems to have been resolved i will keep checking tho and report back if i see this again.
+    
+    Thanks</li>
+<li>Claus Stilborg 2015-09-10
+
+    YES, it seems to work, I can't provoke it to not render!
+    
+    The CLI upgrade issue was threatening to ruin my day, but updating npm as suggested in this thead and not updating the CLI: <a href="https://community.appcelerator.com/topic/3262/unable-to-update-appcelerator-cli-core-v-4-1-3" rel="nofollow" target="_blank">https://community.appcelerator.com/topic/3262/unable-to-update-appcelerator-cli-core-v-4-1-3</a> 
+    seems to work.
+    
+    Thanks guys</li>
+<li>Hans Knöchel 2015-09-10
+
+    Please let me know if it resolved the issue after running your test apps a couple of times.</li>
+<li>Claus Stilborg 2015-09-10
+
+    It did, I have done intensive testing today and I have not seen the issue since the update </li>
+<li>Hans Knöchel 2015-09-10
+
+    Perfect! I tested around 20 app starts and did not experience it as well. Closing this issue for now, if it happens again please let us know!</li>
+<li>Lee Morris 2017-03-22
+
+    Closing ticket as duplicate and links to the related ticket has been provided above.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19410.json">JSON Source</a></p>

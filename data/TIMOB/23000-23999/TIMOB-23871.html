@@ -1,0 +1,78 @@
+---
+title: "[TIMOB-23871] iOS: Safari/WebInspector Debugger crashes app when hitting breakpoint"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-07T03:22:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-6.0.0</td></tr>
+<tr><th>Reporter</th><td>Christopher Williams</td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-09-06T14:39:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-09-28T11:46:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When attempting to hit a breakpoint in a callback function (i.e. inside a setInterval function callback, or on a click event callback for a label), the Safari WebInspector debugger crashes the Titanium app.
+
+Note you need to set the <use-jscore-framework> value to try in your tiapp.xml to test.
+
+This uses the "provided" JSCore engine for Titanium apps. As such, we should be able to use standard iOS tooling to debug the app, like Safari's debugger. However, the way we set up on particular object in the JS world, our code doesn't handle it. Specifically e hang a "Kroll" object off the global and ave it wrap a single instance of our KrollContext class in Obj-C. But all our code for handling wrapped JS objects assume it _always_ a KrollObject inside. In tis case, it's a KrollContext. So our Kroll*Property functions in KrollObject need to check for and handle this special object.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Christopher Williams 2016-09-06
+
+   Here's the error causing the crash:
+   <code><pre>
+   Sep  2 16:21:09 ChrisWilliamsMBP example[66933]: -[KrollContext objectForTiString:context:]: unrecognized selector sent to instance 0x7b393810
+   Sep  2 16:21:09 ChrisWilliamsMBP com.apple.CoreSimulator.SimDevice.DBBD80F0-74C7-422D-8366-6FA5A343413A.launchd_sim[64739] (UIKitApplication:dsg.sdfg[0xa317][66933]): Service exited due to Segmentation fault: 11
+   </pre></code>
+   
+   To reproduce: 
+   * launch a Titanium app with use-jscore-framework set to true and run-on-main-thread. (I used the standard template and just added a click listener for the label on each tab's content)
+   * Open Safari > Develop > Simulator > JSContext. 
+   * Set a breakpoint in a callback function (i.e. on the label click event handler or a setInterval callback). 
+   * When it hits the breakpoint, it crashes.</li>
+<li>Chee Kiat Ng 2016-09-07
+
+   <h4>Steps to test</h4>
+   1. appc new --classic
+   2. include <use-jscore-framework>true</use-jscore-framework> in <ios> in tiapp.xml
+   3. in app.js, add an 'click' event listener to label.  
+   4. appc run -p ios
+   5. Open Safari > Develop > Simulator > JSContext.
+   6. *inside* the opened Webinspector->Resources select app.js and add a breakpoint in the event listener added earlier
+   7. click on label
+   
+   <h4>Expected Result</h4>
+   App will not crash and breakpoint works correctly.
+   
+   PRs reviewed and merged.</li>
+<li>Harry Bryant 2016-09-20
+
+   Verified as fixed, Following the above test steps provided and using the latest 6.0.X SDK build, the app no longer crashes when hitting a breakpoint using the Safari/WebInspector Debugger, and the breakpoint works correctly.
+   
+   Tested On:
+   iPhone 7 10.0 Simulator
+   iPhone 6S 9.3 Simulator
+   Mac OSX El Capitan 10.11.6
+   Ti SDK:  6.0.0.v20160919141738
+   Appc Studio: 4.8.0.201609101003
+   Appc NPM: 4.2.8-6	
+   App CLI: 6.0.0-45
+   Xcode 8.0 
+   Node v4.4.7
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23871.json">JSON Source</a></p>

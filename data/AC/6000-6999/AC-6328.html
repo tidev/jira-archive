@@ -1,0 +1,86 @@
+---
+title: "[AC-6328] Cannot set required false to uses-feature in SDK 8"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2019-08-23T16:43:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, manifest, permissions</td></tr>
+<tr><th>Reporter</th><td>Pietro Granati</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2019-08-01T07:37:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-08-23T16:43:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi guys, I have setted "<uses-feature android:name="android.hardware.nfc" android:required="false"/>" in the manifest but after uptate to SDK 8.0.2 (again this madness) Google Play store return that is required anyone have experienced the same problem?
+
+Another guy on slack got the same problem:
+I’m having the same problem since 8.0.2.GA as well - with quite a few hardware features (including android.hardware.touchscreen, android.hardware.bluetooth, android.hardware.nfc, android.hardware.screen.portrait, …). I’ve forced all to false in TiApp.xml, I’ve tried creating a custom AndroidMainfest.xml, I’ve tried several things but they all are forced to required=“true” which eliminates about 95% of devices from compatibility when I try to upload to the Play store. If I go back to a pre-8.0 SDK then all is fine again…
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2019-08-01
+
+   Hi! Have you checked all <code>timodule.xml</code> files in all modules to verify there isn't a <code>required="true"</code> setting there?
+   
+   I tried to reproduce and I can only reproduce if I don't touch timodule. All <code>timodule.xml</code> files override any setting in tiapp.xml.
+   
+   I've used SDK 8.0.2.GA and the latest RC release of the CLI (7.1.0-24)</li>
+<li>Pietro Granati 2019-08-01
+
+   No, because in SDK 7.5.1 all works fine so it makes no sense to me</li>
+<li>Rene Pot 2019-08-01
+
+   Can you check them? The ti.nfc module overrides it on its own for certain (I just confirmed that) so perhaps logic changed or the file was reset somehow. </li>
+<li>Joshua Quick 2019-08-02
+
+   How Titanium was merging the module's and your app's <code><uses-feature/></code> XML setting before was wrong and what it is doing now is correct. (One man's bug is another man's feature apparently.)
+   
+   Have a look at Google's docs on how the "AndroidManifest.xml" file are supposed to be merged below.
+   <a href="https://developer.android.com/studio/build/manifest-merge" rel="nofollow" target="_blank">https://developer.android.com/studio/build/manifest-merge</a>
+   
+   Here is a quick copy-and-paste from the above link for your convenience...
+   bq. The android:required attribute in the <uses-feature> and <uses-library> elements use an OR merge, such that if there is a conflict, "true" is applied and the feature or library required by one manifest is always included.
+   
+   The issue is that the "ti.nfc" module set "required" to <code>true</code>, which means its setting wins.
+   <a href="https://github.com/appcelerator-modules/ti.nfc/blob/master/android/timodule.xml" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.nfc/blob/master/android/timodule.xml</a>
+   
+   Personally, I don't think the "ti.nfc" module should be setting this <code><uses-feature/></code> at all and its the module that needs to be changed. In your case, I recommend that you change the installed "ti.nfc" module's "timodule.xml" mentioned above and remove its <code><uses-feature/></code>. On Mac, this module will be installed under the following directory by default...
+   <code><pre>
+   ~/Library/Application Support/Titanium/modules/android/ti.nfc
+   </pre></code>
+   
+   I hope this helps.</li>
+<li>Pietro Granati 2019-08-02
+
+   Thank you all and yeah "One man's bug is another man's feature apparently".
+   I'm finishing another project now but next week I'll give it a try, but on google forums I read another thing that with a string you can override the uses-feature:
+   <uses-feature android:name="android.hardware.nfc" android:required="false" tools:replace="required" />
+   but it didn't work</li>
+<li>Joshua Quick 2019-08-02
+
+   Unfortunately, Titanium's build tool does not support the "tools:*" attributes in "tiapp.xml" or "timodule.xml" since we generate the "AndroidManifest.xml" ourselves from those files. But that is definitely something we should consider supporting in the future. Thanks for bringing this up.</li>
+<li>Joshua Quick 2019-08-03
+
+   I think the <code><uses-feature/></code> merge can be further improved. Setting it to <code>true</code> in "tiapp.xml" is not overriding a library's <code>false</code> setting, which is not good. And I agree that having <code>tools:replace="android:require"</code> support would be helpful.
+   
+   I've written up new ticket [TIMOB-27304] to do the above. You may want to keep watch on it. We'll see about doing this in Titanium 8.1.1.
+   
+   In the meantime, deleting the "timodule.xml" file's <code><uses-feature/></code> is the way to go for now. Doing that means your "tiapp.xml" settings will always win.</li>
+<li>Pietro Granati 2019-08-05
+
+   Hi guys, I've tested what Joshua said and it works.
+   Now I've lost only 200 devices but it's for the API version not supported and it's normal
+   Thank you</li>
+</ol>
+
+
+<p><a href="/AC/AC-6328.json">JSON Source</a></p>

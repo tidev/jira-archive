@@ -1,0 +1,130 @@
+---
+title: "[AC-2842] Facebook Login event doesn't fire for Android devices."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-05-25T16:31:07.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>android, defect</td></tr>
+<tr><th>Reporter</th><td>Miles Lyon</td></tr>
+<tr><th>Assignee</th><td>Shak Hossain</td></tr>
+<tr><th>Created</th><td>2012-04-30T10:17:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When calling Ti.Facebook.authorize(); the login event no longer fires for successful logins on android emulator or devices.  IOS still allows handlers to attach to the event.
+
+Currently I am using a setTimeout loop as a workaround for android devices and I test against the accessToken until I get it.  Obviously this is not a desirable solution.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nikhil Sharma 2012-04-30
+
+   Could you please provide me a sample test case?</li>
+<li>Miles Lyon 2012-05-01
+
+   //Set's values we have stored (we're using 'email' for permissions)
+   Ti.Facebook.appid = ef.facebookData.appid;
+   	Ti.Facebook.permissions = ef.facebookData.permissions;
+   	
+   	Ti.Facebook.addEventListener('login',function(e){
+   	    if (e.success) {
+   			var loadingSpinner = loadingJS.loadView(ef, winLogin, L('loggingIn'));
+   			loadingSpinner.show();
+   			facebookLoginLogic.run(ef, false, winLogin, loadingSpinner,Ti.Facebook.accessToken);
+   	    } else if (e.error) {
+   	        alert(e.error);
+   	    } else if (e.cancelled) {
+   	        return;
+   	    }	 
+   	});
+   
+   //Button provider returns a more or less standard button with our custom colors and styling built in.
+   var btnFacebook = buttonProvider.createButton(ef,{
+   		title: L('facebookLogin'),
+   		clickHandler: function(){
+   			Ti.Facebook.authorize();
+   		}
+   	});
+   	viewContainer.add(btnFacebook.Button);</li>
+<li>Miles Lyon 2012-05-01
+
+   In this sample you could remove our code from the login event listener.  The important thing is that it doesn't fire after authorize on android.  Even reducing this to a very simple test case.  I tried various iterations (using facebook button, different SDKs, etc...) and it just doesn't work.</li>
+<li>Miles Lyon 2012-05-01
+
+   Actually another bug which I am encountering is that the username and password are somehow cached on android only so if I log out using the facebook object the next time I log in I can't enter a different username and password (the window immediately closes and just logs in).  This doesn't happen on iphone.
+   
+   Should I enter this as a separate bug or can it be addressed here?  Is there a way to clear out the user information from within my app code in addition to logging out?</li>
+<li>Miles Lyon 2012-05-02
+
+   An update on this:
+   
+   Another developer here did some work to post a more comprehensive code sample in regards to this issue.  What he found was that neither issue presented itself in the simple test case he created.
+   
+   He then gradually tried emulating our application and login page more and more to see what specifically caused the issue to occur.  We're part of the way there.
+   
+   So far we know that if we transplant tiapp.xml over it has no bearing on the issue and that the facebook login works correctly when added to the loading screen in our main app.  It is something about the screen itself that is linked to the bug.  It does contain a scroll view and has some orientation changing code.  We'll try to pair it down even more closely and we might be able to identify a more clear bug for you for instance 'Placing a facebook login on a screen with a scroll view breaks on android'.  However we're not there yet.</li>
+<li>Nikhil Sharma 2012-05-04
+
+   I'm sending a code snippet    
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor:'red'
+   });
+   var login = Titanium.Facebook.createLoginButton({
+   	top: 10, style:'wide'
+   });
+   win.add(login);
+   Titanium.Facebook.appid = "134793934930";
+   Titanium.Facebook.permissions = ['publish_stream', 'read_stream'];
+   Ti.Facebook.addEventListener('login', function(e) {
+       if (e.success) {
+           alert('Logged In');
+       } else if (e.error) {
+           alert(e.error);
+       } else if (e.cancelled) {
+           alert("Canceled");
+       }
+   });
+   Ti.Facebook.authorize();
+   win.open();
+   </pre></code>
+   Please try to run the above code in your app.js and you'll get an alert('Logged In') after authorize on android. Also refer the kitchen Sink application click Mashups tab to get to facebook.</li>
+<li>Miles Lyon 2012-05-07
+
+   Paul, our other Appcelerator developer here, found some more information on this issue through some thoughtful trial and error.
+   
+   Specifically, the facebook login will not work on Android when the window it is run on has the exitOnClose property set to true.  We're using a variant of NavigationController.js and currently our 'root' windows (which login happens to be) have this property set to true by default.
+   
+   We're going to try to alter our code to work around this issue now that we know what it is, but I wanted to make sure I accurately reported the link we are seeing.
+   
+   To be clear, we've tried variations of the code you pasted above.  It's not a matter of exactly replicating the facebook login examples.  It seems that it simply won't work correctly if you have exitOnClose set to true on the window you are running the facebook login code off of and it will if you don't.
+   
+   I hope that provides helpful info into looking into this further!
+   
+   </li>
+<li>Miles Lyon 2012-05-07
+
+   A small correction on the above summary of the issue.
+   
+   It's actually specifically when a window with this property (exitOnClose) set to true is closed, but the app continues running for whatever reason.  From that point forward the facebook login will always fail on Android.
+   
+   It's probable we are/were doing something a little wacky with our code to have that property set.  We'll fix it, but just wanted to get the facts straight in case someone else is having a similar problem.</li>
+<li>Nikhil Sharma 2012-05-25
+
+   Couldn't reproduce it.</li>
+<li>Shak Hossain 2013-12-31
+
+    Checked on Android. FB login works fine with the latest build of the TISDK. Not a bug. Therefore, closing it.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2842.json">JSON Source</a></p>

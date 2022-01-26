@@ -1,0 +1,147 @@
+---
+title: "[TIMOB-13758] Android: ListView propertyChanged method missed super.propertyChanged"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-05-15T22:58:02.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 10 API, 2013 Sprint 10, Release 3.1.1, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.1.1, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Sergey Nosenko</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2013-04-19T11:08:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:42:53.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem description*
+ListView properties are unable to be changed at runtime due to missing super.propertyChanged (see solution below).
+
+*Steps to reproduce*
+1. Run test case on Android
+2. Tap the button at the bottom
+3. Verify that the top has not visually changed, however the value has
+
+If you set the top property to 0 in global scope, the table will be visually updated on launch as expected.
+
+*Test case*
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor : "#FFF"
+})
+var section = Ti.UI.createListSection();
+var table = Ti.UI.createListView({
+	sections : [section],
+	top : 48
+});
+win.add(table);
+var items = [];
+for (var i = 0; i < 10; i++) {
+	items.push({
+		properties : {
+			title : "Test " + i
+		}
+	});
+}
+section.setItems(items);
+
+var button = Ti.UI.createButton({
+	text : "Test",
+	width : 100,
+	height : 44,
+	bottom : 0
+});
+win.add(button);
+
+button.addEventListener("click", function() {
+	Ti.API.info("Table Top Value Before Set: " + table.top);
+	table.top = 0;
+	Ti.API.info("Table Top Value After Set: " + table.top);
+});
+
+win.open();
+</pre></code>
+
+*Solution*
+Issue is in code of propertyChanged function 
+<code><pre>
+public void propertyChanged(String key, Object oldValue, Object newValue, KrollProxy proxy) {
+
+		if (key.equals(TiC.PROPERTY_HEADER_TITLE)) {
+			setHeaderTitle(TiConvert.toString(newValue));
+		} else if (key.equals(TiC.PROPERTY_FOOTER_TITLE)) {
+			setFooterTitle(TiConvert.toString(newValue));
+		} else if (key.equals(TiC.PROPERTY_SECTIONS) && newValue instanceof Object[] ) {
+			processSections((Object[])newValue);
+			if (adapter != null) {
+				adapter.notifyDataSetChanged();
+			}
+		} else if (key.equals(TiC.PROPERTY_SHOW_VERTICAL_SCROLL_INDICATOR) && newValue != null) {
+			listView.setVerticalScrollBarEnabled(TiConvert.toBoolean(newValue));
+		} else if (key.equals(TiC.PROPERTY_DEFAULT_ITEM_TEMPLATE) && newValue != null) {
+			defaultTemplateBinding = TiConvert.toString(newValue);
+			refreshItems();
+		} 
+	}
+</pre></code>
+
+Which is missing the following at the bottom:
+<code><pre>
+else {
+            super.propertyChanged(key, oldValue, newValue, proxy);
+        }
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Daniel Sefton 2013-04-19
+
+   Cannot reproduce with Android emulator 4.1.2, Ti SDK 3.1 GA.
+   
+   Please try the test case I added. The "Table Top Value" always logs 0 for me, and always has an effect on the top padding of the table.</li>
+<li>Sergey Nosenko 2013-04-20
+
+   Sorry for bad test case I thought that situation is obvious. Try to add button and change top  after proxy already created.
+   
+   <code><pre>
+   var button = Ti.UI.createButton({text: "Test". height: 44, bottom: 0});
+   win.add(button);
+   
+   button.addEventListener("click", function(){
+   table.top = 100;
+   }
+   </pre></code></li>
+<li>Daniel Sefton 2013-05-03
+
+   Thanks, I can confirm it with that. I've updated the test case.
+   
+   Tested and confirmed with Android emulator 4.1.2, Ti SDK 3.1 GA and 3.2 CI.</li>
+<li>Sunila 2013-05-12
+
+   Added the missing super.propertyChanged
+   
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4253" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4253</a>
+   </li>
+<li>Hieu Pham 2013-05-15
+
+   Backport PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/4273" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4273</a></li>
+<li>Federico Casali 2013-05-30
+
+   Verified as fixed and working as expected on Android Samsung Galaxy 4.2.2
+   
+   Appcelerator Studio 3.1.1.201305292130
+   Titanium SDK 3.1.1.v20130529114554
+   Alloy 1.1.3-alpha
+   Titanium-Code-Processor 1.1.3-alpha3
+   
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13758.json">JSON Source</a></p>

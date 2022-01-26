@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-9673] Android - Map View HYBRID_TYPE does not include satellite imagery"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-09T21:59:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>parity, supportTeam</td></tr>
+<tr><th>Reporter</th><td>Arthur Evans</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2012-06-20T16:24:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-09T21:59:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This is a clone of Pedro's original bug, which got turned into a doc bug. We are fixing the doc for 2.1, but this is an actual code bug which should be addressed in the future. 
+
+According to the doc, Ti.Map.HYBRID_TYPE is defined as a map with satellite imagery with roads and road names, and Ti.Map.SATELLITE_TYPE is defined as a map with satellite imagery with _no_ roads or names.
+
+On Android, specifying SATELLITE_TYPE brings up the map with satellite imagery and road names, i.e., a hybrid map. Google's Android Map APIs don't support a pure satellite map, so this is probably as good as we can do.
+
+However, on Android, HYBRID_TYPE for a map actually brings up a road map with _no_ satellite imagery.
+
+Here's why:
+
+<a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/map/src/java/ti/modules/titanium/map/TiMapView.java#L750" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/modules/map/src/java/ti/modules/titanium/map/TiMapView.java#L750</a>
+<code><pre>
+	case MAP_VIEW_HYBRID :
+		view.setSatellite(false);
+		view.setTraffic(false);
+		view.setStreetView(true);
+		break;
+</pre></code>
+
+Expected behavior: HYBRID_TYPE on Android should match HYBRID_TYPE on iOS and Mobile Web. SATELLITE_TYPE should come as close as it can--which in this case is matching HYBRID_TYPE.
+
+If we want to turn on traffic or street view, IMO that should be a separate switch.
+
+Test Code:
+<code><pre>
+Ti.UI.backgroundColor = "white";
+var win = Ti.UI.createWindow({
+  exitOnClose: true
+});
+var mapTypes = [ Ti.Map.STANDARD_TYPE, Ti.Map.HYBRID_TYPE, Ti.Map.SATELLITE_TYPE];
+var mapTypeNames = [ "Standard", "Hybrid", "Satellite"];
+var currentType = 0;
+var mapview = Ti.Map.createView({
+  mapType: Ti.Map.STANDARD_TYPE,
+  region:{latitude:33.74511, longitude:-84.38993, latitudeDelta:0.5, longitudeDelta:2.5},
+  animate:true,
+  regionFit:true,
+  userLocation:true,
+  height: '80%',
+  width: Ti.UI.FILL,
+  top: 0
+});
+win.add(mapview);
+var label = Ti.UI.createLabel({
+	text: 'Standard',
+	width: Ti.UI.FILL,
+	height: '20%',
+	textAlign: Ti.UI.TEXT_ALIGNMENT_CENTER,
+	color: '#55f',
+	bottom: 0
+});
+win.add(label);
+win.open();
+win.addEventListener('click', function(e) {
+	currentType = (currentType + 1) % mapTypes.length;
+	Ti.API.info("Setting map type to: " + currentType);
+	label.text = mapTypeNames[currentType];
+	mapview.mapType = mapTypes[currentType];
+});
+</pre></code>
+
+Label displays the current map type. Click the label to change map types.
+
+Expected behavior: 
+
+Hybrid view should show satellite image with roads and names overlaid.
+
+Actual behavior:
+
+Hybrid view shows road map, not satellite image.
+
+From the original bug:
+In Android:
+- Titanium.Map.SATELLITE_TYPE -> hybrid map
+- Titanium.Map.HYBRID_TYPE -> nothing happens.
+
+To test open KS:
+Base UI -> Views -> Map View -> Menu Button -> Hyb and Sat
+
+Tested in Android Emulator APIs 2.2
+and Droid Device running 2.2.2
+
+Helpdesk Ticket: <a href="http://support.appcelerator.com/tickets/KTM-16476-116/homepage" rel="nofollow" target="_blank">http://support.appcelerator.com/tickets/KTM-16476-116/homepage</a>
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-9673.json">JSON Source</a></p>

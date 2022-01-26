@@ -1,0 +1,91 @@
+---
+title: "[TIMOB-28252] Android: Modules built before 9.3.0 will return empty string instead of null"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2020-12-03T01:09:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 9.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, build, module, regression, v8</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2020-11-22T22:00:16.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-12-03T01:09:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Noticed during the SDK 9.3.0 migration: If you call a module getter and the value is null, thee app now crashes, because a <code>Symbol</code> type is returned instead of a bare <code>null</code> value. This works fine on iOS and used to work fine on Android as well (comparing to 9.2.2.GA).
+
+It's easy to replicate:
+1. Create a native module and add the following code:
+<code><pre>
+@Kroll.getProperty
+public String fcmToken()
+{
+	return null;
+}
+</pre></code>
+2. Add the module to your tiapp.xml with an 9.3.0 SDK included and call the getter:
+<code><pre>
+console.warn(require('ti.test').fcmToken));
+</pre></code>
+3. Notice the error
+4. Change the SDK version back to 9.2.2.GA and run the same app again
+5. Notice that it's behaving correctly and returning <code>null</code>.
+
+I guess it's a regression from some kind of V8 change (see the full 9.2.2 <-- master diff [here](<a href="https://github.com/appcelerator/titanium_mobile/compare/9_2_X...9_3_X))." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/compare/9_2_X...9_3_X)).</a> Also see the ti.test module for quick reproduction attached to this ticket.
+
+*EDIT*: Found a possible regression candidate [this commit](<a href="https://github.com/appcelerator/titanium_mobile/commit/33964f2e8a2d8afa6549e9e99d66612b907b7bff#diff-d5344920be4f1fff291a2472f2046fed4f37659c8de7227cb483aeb4cc167484R220)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/33964f2e8a2d8afa6549e9e99d66612b907b7bff#diff-d5344920be4f1fff291a2472f2046fed4f37659c8de7227cb483aeb4cc167484R220)</a> (as part of TIMOB-27787).
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28252_67728/ti.java.1.0.0.zip">ti.java.1.0.0.zip</td></td><td>2020-11-24T17:58:02.000+0000</td><td>126360</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28252_67726/ti.test-android-1.0.0.zip">ti.test-android-1.0.0.zip</td></td><td>2020-11-22T21:59:52.000+0000</td><td>115241</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2020-11-23
+
+   I'm not seeing a crash.
+   However, it is returning an empty string when it should be returning null. That is definitely a regression.
+   
+   And it's only happening with older modules running on 9.3.0 like you said. It doesn't happen with 9.3.0 built modules.</li>
+<li>Joshua Quick 2020-11-23
+
+   Reverting the V8 library below restores the old behavior.
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/12186" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12186</a>
+   
+   It's happening because the inlined V8 constant values have changed between versions causing V8 to index the wrong type (ie: string instead of void, boolean instead of void, etc.).
+   
+   We'll either revert the V8 library or patch the new V8.</li>
+<li>Hans Knöchel 2020-11-24
+
+   It does not return a string for us but a <code>Symbol</code> type, causing the crash once we access it, e.g. in a log or comparison.</li>
+<li>Gary Mathews 2020-11-24
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/12293" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12293</a></li>
+<li>Lokesh Choudhary 2020-11-24
+
+   FR Passed.
+   <code>null</code> is returned as expected.
+   SDK: 9.3.0.v20201124093449</li>
+<li>Joshua Quick 2020-11-25
+
+   The following PR adds unit tests for verifying module backward compatibility on Android and iOS.
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/12311" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12311</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28252.json">JSON Source</a></p>

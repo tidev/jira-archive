@@ -1,0 +1,113 @@
+---
+title: "[AC-2610]  Removing the child window from parent window does not kill the child window"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-01-25T23:37:12.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>core, feature</td></tr>
+<tr><th>Reporter</th><td>Anand Kumar Singh</td></tr>
+<tr><th>Assignee</th><td>Alan Leard</td></tr>
+<tr><th>Created</th><td>2013-01-25T09:14:52.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We have a simple code in which we create a Parent window(in ApplicationWindow.js file attached) and then create a child window. In child window we add a Webview and then add the child window to the parent window. We then register a setTimeout function that removes the child window from the parent.
+
+The webview opens an html page which has a setInterval function that prints 'alive' continuously . So here lies the issue:
+
+Removing the child window from the parent window and setting the child window object to null does not remove or destroy the child object. The child object still exist and the proof of it is the 'alive' statement being printed continuously.  
+
+Apart from the code snippet attached we have added the following code in the setTimeout function. Just to verify and confirm that the children are added and removed . Here was the code added to confirm the same
+~~~
+	//this is the webView in FirstView
+	parent.children.length; //Returns 1 The firstView is the child
+				
+	((parent.children[0]).children).length; // Returns 1 . The webview 'self' in FirstView.js is the  child
+				
+	//Removing the WebView the making it null
+			   parent.children[0].remove(((parent.children[0]).children[0]));
+	((parent.children[0]).children[0]) = null;
+				
+				
+    ((parent.children[0]).children).length; // Returns 0 now as the child webview was removed. Ideally the 'alive' print should have stopped
+				
+				//Removing the child- FirstView from the parent 
+   parent.remove(parent.children[0]);
+				parent.children = null;
+				//Ideally the 'alive' print from webview should have stopped but it doesnt
+				
+				//child.close();
+				parent.children.length; // Return 0
+				
+				//Parent Close called. But still doesnt kill the alive printed on console
+				parent.close();
+
+Why is this code not killing the child window?
+Without changing the way we are adding and removing child window from parent, how can we kill the child window and the webview? the proof of which would be the the 'alive' is not printed anymore.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/AC/AC-2610_35113/webViewExample.zip">webViewExample.zip</td></td><td>2013-01-25T09:14:52.000+0000</td><td>3721408</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Alan Leard 2013-01-25
+
+   Anand,
+   There are a number of issues with your code.  First, you are calling child.close(); which is a function that doesn't exist as "child" is a view not a window.  Second, you are creating an anonymous interval that cannot be cleared.  Using setInterval can be very dangerous so you need to be sure to use it carefully and be sure to name it so you can later remove it.  So, the similest fix in your code would be to call parent.close(); on line 39 instead of child.close().  The other option would be to clear the interval before removing the webview which will allow the webview to be released.  You could do this by calling a Ti.App.fireEvent() to stop the interval before closing removing and nulling the webview.  In this case your code in ex.html would look like this: 
+   <code><pre>
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="utf-8">
+   	<title>example</title>
+   	
+   </head>
+   <body>
+   	<script>
+   		
+   		var interval = setInterval(function(){ Ti.API.error("alive")},300);
+   		
+   		Ti.App.addEventListener('closeWindow', function(){
+   			clearInterval(interval);
+   		})
+   	</script>
+   </body>
+   </pre></code>
+   Then your setTimeout could look like this:
+   <code><pre>
+   		setTimeout(function()
+   			{ 
+   				Ti.API.info("closing webview window");
+   				Ti.App.fireEvent('closeWindow');
+   				
+   				parent.remove(child);
+   				child = null;
+   				
+   				//or
+   				//parent.close();
+   				
+   			}, 10000);
+   </pre></code>
+   
+   Hope this helps!</li>
+</ol>
+
+
+<p><a href="/AC/AC-2610.json">JSON Source</a></p>

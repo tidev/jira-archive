@@ -1,0 +1,115 @@
+---
+title: "[TIMOB-4489] iOS: Including 'scheduleLocalnotification' inside a function results in application crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-06-29T10:08:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-26, Release 1.7.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Anirudh Nagesh</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-06-23T13:59:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-07-06T16:42:53.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This is a testcase to run a background service and creating a local notification. The background service and local notification in the kitchensink example runs fine. But if we include the 'scheduleLocalnotification'(in bg.js) inside a function, the application crashes.
+
+
+Step 1: Copy the following code to app.js
+<code><pre>
+var win1 = Titanium.UI.createWindow({  
+    title:'Tab 1',
+    backgroundColor:'#fff'
+});
+win1.open();
+
+if (Titanium.Platform.name == 'iPhone OS')
+{
+// register a background service. this JS will run when the app is backgrounded
+	var service = Ti.App.iOS.registerBackgroundService({url:'bg.js'});
+	
+	Ti.API.info("registered background service = "+service);
+
+	// listen for a local notification event
+	Ti.App.iOS.addEventListener('notification',function(e)
+	{
+		Ti.API.info("local notification received: "+JSON.stringify(e));
+	});
+
+	// fired when an app resumes for suspension
+	Ti.App.addEventListener('resume',function(e){
+		Ti.API.info("app is resuming from the background");
+	});
+	Ti.App.addEventListener('resumed',function(e){
+		Ti.API.info("app has resumed from the background");
+	});
+
+	Ti.App.addEventListener('pause',function(e){
+		Ti.API.info("app was paused from the foreground");
+	});
+		
+}
+</pre></code>
+Step 2: Copy the following code in bg.js ( bg.js and app.js under resources folder)
+<code><pre>
+Ti.API.info("hello from a background service");
+
+function notify(){
+var notification = Ti.App.iOS.scheduleLocalNotification({
+	alertBody:"Application was put in background",
+	alertAction:"Re-Launch!",
+	userInfo:{"hello":"world"},
+	sound:"pop.caf",
+	date:new Date(new Date().getTime() + 3000) // 3 seconds after backgrounding
+});
+}
+
+Ti.App.iOS.addEventListener('notification',function(){
+	//Ti.API.info('background event received = '+notification);
+	Ti.App.currentService.unregister();
+});
+
+Ti.App.currentService.addEventListener('stop',function()
+{
+	Ti.API.info("background service is stopped");
+});
+
+notify();
+
+Ti.App.currentService.stop();
+</pre></code>
+
+Step3: Run the app.
+Step4: Pause the app using the menu button.
+Step5: A notification will be displayed.
+Step6: Resume the app by clicking 'Resume' on notification alert.
+Step7: Application crashes.
+
+<h4>Tested On</h4>
+iOS 4.3, TiSDK 1.7.1
+
+Works fine on 1.6.2
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-06-29
+
+   Code reviewed, functional test, merged master and 1.7.x</li>
+<li>Eric Merriman  2011-07-06
+
+   Fixed with iOS simulator and iPhone 4 verizon (4.2.8), iPhone 4 (4.3.3), iPod 3rd Gen (4.0.2). SDK 1.7.x r177ece80</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-4489.json">JSON Source</a></p>

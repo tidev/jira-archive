@@ -1,0 +1,261 @@
+---
+title: "[AC-2738] addEventListener on supperposed elements fired twice on iOS, and once on andrdoid"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2011-12-19T16:24:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>1.8.0, eventlistener, ios</td></tr>
+<tr><th>Reporter</th><td>edouard omont</td></tr>
+<tr><th>Assignee</th><td>Paul Dowsett</td></tr>
+<tr><th>Created</th><td>2011-11-10T08:26:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:47:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In the sample code below, there is a view under a label. An addEventListener has been added to the view. The view and the label are different sized.
+
+The behaviour is different between Android and iOS: The log message is displayed twice on iOS log for one click on the view while it is only displayed once on android.
+
+<code><pre>
+var element=Titanium.UI.createView({
+        top:20,
+        height:150,
+        left:0,
+        width:200,
+        backgroundColor:'blue',
+        //backgroundImage:Titanium.Filesystem.resourcesDirectory+imageFond,
+    });
+ 
+    var lblTxt1=Titanium.UI.createLabel({
+        text:'mon label',
+        color:'#FFF',
+        font : {
+            fontSize : 22,
+            fontFamily : 'Helvetica Neue',
+        },
+        top:5,
+        height:75,
+        left:15,
+        width:100,
+        backgroundColor:'red',
+    });
+    element.add(lblTxt1);
+ 
+    element.addEventListener('click', function(e){
+        Titanium.API.info('addEventListener click sur element:'+e)
+    });
+ 
+    win.add(element);
+</pre></code>
+This behaviour is unpleasant because all the code in the eventListener is executed twice....
+
+<h3>Comments</h3>
+
+<ol>
+<li>Marco Schierhorn 2011-12-15
+
+   I have the same problem but on Android. I tried it with 1.8.0.1 RC, nighty build 1.8.0.1 and 1.9.0. An view inside a row. And one click fires it 3 times. Strange.
+   In the example below the click event handler (topStoryThumb.addEventListener('click'...) is executed 3 times. Am I missing something?
+   
+   <code><pre> 
+   function clickOnTopStory(e)
+   {
+     if (typeof(Titanium.UI.currentWindow.subWin)=='undefined' || (typeof(Titanium.UI.currentWindow.subWin)!='undefined' && Titanium.UI.currentWindow.subWin.visible == false))
+     {
+       Titanium.App.fireEvent('show_indicator');
+       Ti.API.error('topStory | clickOnTopStory clicked');
+       Titanium.UI.currentWindow.subWin = window.createNewsEntry(e.source.link);
+     }
+     else
+     {
+       Ti.API.info('clickOnTopStory clicked !!');
+     }
+   }
+   
+   function createTopStoryContent(homeNewsOverviewContent)
+   {
+     var topStoryData    = [];
+     var imageCollection = [];
+     var topStoryClick   = [];
+   
+     for ( var i = 0; i < homeNewsOverviewContent.length; i++)
+     {
+       if (!!homeNewsOverviewContent[i].artikel || !!homeNewsOverviewContent[i].serie)
+       {
+         topContent          = (!!homeNewsOverviewContent[i].serie) ? homeNewsOverviewContent[i].serie[0].artikel : homeNewsOverviewContent[i].artikel[0];
+   
+         Ti.API.error('topContent.headline  = ' + topContent.headline);
+   
+         var topStoryView = Ti.UI.createView(
+         {
+           width : 320,
+           height : 210,
+           top : 11,
+           left : 0,
+           right : 0,
+           backgroundColor : '#000',
+           layout : 'vertical'
+         });
+   
+         var topStoryThumb = Titanium.UI.createImageView(
+         {
+           left : 0,
+           right : 0,
+           top : 0,
+           bottom : 0,
+           link : topContent.link_nonactive,
+           id : topContent.id,
+           image: getBigTeaserImage(topContent.teaserimage),
+           height: 160,
+           width: 320,
+           canScale: true,
+           enableZoomControls: false
+         });
+   
+         topStoryView.add(topStoryThumb);
+   
+         if (!!topContent.headline)
+         {
+           var topStoryLabelView = Ti.UI.createView(
+           {
+             height : 50,
+             width : 320,
+             right : 0,
+             left : 0,
+             backgroundColor : '#CD2F26'
+           });
+   
+           var topStoryTextLabel = Titanium.UI.createLabel(
+           {
+             text : processHtml(topContent.headline),
+             font :
+             {
+               fontSize : 16,
+               fontFamily : 'Arial',
+               fontWeight : 'bold'
+             },
+             textAlign : 'center',
+             color : '#FFFFFF',
+             height :30,
+             left: 2,
+             right: 2,
+             top: 0,
+             bottom: 0,
+             width : 'auto'
+           });
+   
+           if (Titanium.Platform.osname == 'android')
+           {
+             topStoryTextLabel.font.fontSize = 14;
+           }
+   
+           topStoryLabelView.add(topStoryTextLabel);
+           topStoryView.add(topStoryLabelView);
+         }
+   
+         topStoryClick[i] = topStoryThumb.addEventListener('click', function() {
+           Titanium.App.fireEvent('show_indicator');
+           Ti.API.error('topStory | clickOnTopStory clicked');
+           window.createNewsEntry(topContent.link_nonactive);
+         });
+   
+         topStoryData.push(topStoryView);
+       }
+     }
+   
+     var topStoryViewScroll = Titanium.UI.createScrollableView(
+     {
+       views : topStoryData,
+       showPagingControl : true,
+       pagingControlHeight : 2,
+       maxZoomScale : 1.0,
+       currentPage : 0,
+       width : 320,
+       height: 210,
+       left : 0,
+       right:0,
+       top : 0
+     });
+   
+     // Push into the main rows
+     var topStoryContent = Titanium.UI.createTableViewRow(
+     {
+       hasChild : false,
+       height : 210,
+       width : 320,
+       left: 1,
+       right: 1,
+       className : 'topStoryContent',
+       backgroundColor : '#000',
+       borderColor: '#000',
+       borderWidth: 0,
+       backgroundSelectedColor: '#000'
+   
+     });
+   
+     var viewIndex = 0;
+     var activeView = topStoryData[0];
+   
+     topStoryContent.add(topStoryViewScroll);
+     return topStoryContent;
+   }
+   </pre></code> </li>
+<li>Dan Tamas 2011-12-15
+
+   add the event to the table and check 
+   <code><pre>
+   if ( e.source.is_topStoryThumb ) { //blah blah }
+   </pre></code>
+   
+   if course, set to topStoryThumb something like 
+   <code><pre>
+   topStoryThumb.is_topStoryThumb =  true;
+   </pre></code></li>
+<li>Marco Schierhorn 2011-12-16
+
+   I have used a kind of a global variable (Titanium.App.top_story_news_opening). 
+   I ask for it in the click event function. If it's undefined or == false I open the window. 
+   Inside the window I set Titanium.App.top_story_news_opening = false, when every view is built and visible. 
+   Seems to work too ;)
+   
+   Because the problem is that the click event doesn't get fired from the table.
+   
+   <code><pre> 
+   function clickOnTopStory(e)
+   {
+     if (typeof(Titanium.App.top_story_news_opening)=='undefined' || (typeof(Titanium.App.top_story_news_opening)!='undefined' && Titanium.App.top_story_news_opening == false))
+     {
+       Titanium.App.top_story_news_opening = true;
+       Titanium.App.fireEvent('show_indicator');
+       Ti.API.error('topStory | clickOnTopStory clicked');
+       Titanium.UI.currentWindow.subWin = window.createNewsEntry(e.source.link);
+     }
+   }
+   </pre></code></li>
+<li>Paul Dowsett 2011-12-19
+
+   Thank you for raising this ticket.
+   
+   If you are able to provide all the information described in the [JIRA Ticket Checklist](<a href="http://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)" rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)</a> guidelines, *in the correct fields and using the right format*, I will be able to escalate it to the core team. Please click *edit* to amend the body of the ticket, rather than adding a comment.
+   
+   Also, your test case needs to run without modification when pasted into a blank app.js.
+   
+   I will mark this resolved for now. Please reopen when the ticket is complete.
+   
+   Thanks in advance.</li>
+<li>Paul Dowsett 2012-02-17
+
+   Closing due to inactivity. If this issue still exists, please raise a new ticket, including all the information in the [JIRA Ticket Checklist](<a href="https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist)</a> to ensure that we can escalate it quickly. Read [How to Submit a Bug Report](<a href="https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report)" rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report)</a> if you have not read it before, and always start a ticket using the [JIRA Ticket Template](<a href="https://wiki.appcelerator.org/display/guides/JIRA+Ticket+Template)." rel="nofollow" target="_blank">https://wiki.appcelerator.org/display/guides/JIRA+Ticket+Template).</a>
+   
+   Thanks in advance</li>
+</ol>
+
+
+<p><a href="/AC/AC-2738.json">JSON Source</a></p>

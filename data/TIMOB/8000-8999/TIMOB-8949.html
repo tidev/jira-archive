@@ -1,0 +1,163 @@
+---
+title: "[TIMOB-8949] iOS: Window layout alignment issue on rotating to landscape"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-07-19T14:58:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 Core, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, module_window, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Junaid Younus</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-05-02T10:40:22.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-26T08:56:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Code*
+<code><pre>
+var NUMBER_OF_OBJECTS = 60; // number of views to create
+ 
+var createRandomView = function()
+{
+    var height = returnRandomNumber(90);
+    var width = returnRandomNumber(90);
+    var x = returnRandomNumber(99 - width);
+    var y = returnRandomNumber(99 - height);
+    var color = returnRandomColor();
+     
+    var view = Ti.UI.createView({
+        width: width + '%',
+        height: height + '%',
+        left: x + '%',
+        top: y + '%',
+        backgroundColor: color,
+        mySize: (width + height) // should be * instead of +, but randomness is a nice thing, in this case :)
+    });
+     
+    return view;
+}
+ 
+var returnRandomNumber = function(_max)
+{
+    // create a random number between 1 and _max
+    var num = Math.floor((Math.random() * _max) + 1);
+    Ti.API.info('==> max: ' + _max + ' | random: ' + num);
+     
+    return num;
+}
+ 
+var returnRandomColor = function()
+{
+    // create a random color value string
+    var letters = '0123456789ABCDEF'.split('');
+    var color = '#';
+    for (var i = 0; i < 6; i++) 
+        color += letters[Math.round(Math.random() * 15)];
+     
+    return color;
+}
+ 
+var sortArrayBackToFront = function(_array)
+{
+    // sort the array depending on the mySize property
+    var compare = function(a, b) 
+    {
+        if(a.mySize < b.mySize)
+            return 1;
+ 
+        if(a.mySize > b.mySize)
+            return -1;
+ 
+        return 0;
+    }
+ 
+    _array.sort(compare); 
+}
+ 
+// create window
+var win = Ti.UI.createWindow({
+    backgroundColor: 'white',
+    orientationModes: [Ti.UI.PORTRAIT, Ti.UI.LANDSCAPE_LEFT, Ti.UI.LANDSCAPE_RIGHT]
+});
+ 
+var views = [];
+ 
+// create random views
+for (var i = 0; i < NUMBER_OF_OBJECTS; i++)
+{
+    var view = createRandomView();
+    views.push(view);
+}
+ 
+// sort array depending on the size of each view
+sortArrayBackToFront(views);
+ 
+//add all views to the window
+for (var i = 0; i < views.length; i++) 
+    win.add(views[i]);
+ 
+win.open();
+</pre></code>
+
+*Expected behavior*
+When changing the orientation of the device, it should reposition/resize controls nice and smoothly, like in 1.8.2.
+
+*Actual behavior*
+Right now, the controls resize/reposition after the window has changed orientation, it's not smooth, there is a lag noticeable in 2.0 and above.
+
+*Notes*
+-Works fine in 1.8.2 and below, this issue occurs after 2.0.
+-Tested on an iPhone 3GS running iOS 5.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2012-05-04
+
+   Hello, 
+   
+   any ETA on the fix or either the comment? Customer is waiting for us on this.
+   
+   Best,
+   
+   Mauro </li>
+<li>Vishal Duggal 2012-05-04
+
+   @Mauro @Junaid
+   Please reduce it to a test case. Given that this is a behavior change from 1.8.x to 2.1.0 it would also be helpful to know what they changed in the actual layout parameters between the two versions</li>
+<li>Junaid Younus 2012-05-04
+
+   I'm working on a smaller test case now.</li>
+<li>Junaid Younus 2012-05-04
+
+   Vishal, this is the closes I could get. It doesn't *exactly* replicate the same issue as the original attachment, however there is a delay noticeable, especially on my device (iPhone 3GS). You might have to play around with the constant at the top, if you are using a newer device.
+   
+   Using the 1.8.2 SDK, I can see that it nicely and smoothly animates the views to resize, every time you change the orientation.
+   
+   Using 2.0.1GA2, it kind of 'flickers' and suddenly just jumps to the new size/orientation. It doesn't smoothly animate the views as the older SDK. It's noticeable if you look very closely, you might have to rotate the device a few times to see what I mean. 
+   
+   
+   *EDIT: Code is now in the original ticket description.*</li>
+<li>Junaid Younus 2012-05-07
+
+   Just as an update, I just tried the above code on an iPad 1 running iOS 5.0.1 and the issue there is easily viewable. I'm editing this ticket to add regression label, it works nice and smoothly on 1.8.2 but it flickers/jumps/snaps on 2.0.1GA2.</li>
+<li>Stephen Tramer 2012-07-06
+
+   Unable to see this issue at 60 views (test value) with release 2.1.0.GA on iPod 3GT, iPhone 3GS, iPhone 4. Resizing issues begin to appear at about 200 views. Tested with 60 views on current 1.8.3 CI on 3GT (slowest device) demonstrates slower rotation redraws at this number of views although they are still rendered correctly. At 200 views 1.8.3 demonstrates the same issues as 2.1.0.GA.
+   
+   Going to mark this ticket invalid without further evidence of customer's app behaving inappropriately on latest 2.1.0.GA and source code distributed *PRIVATELY* to developers along with explicit reproduction steps. A response before the end of Sprint 14 (7/13/12) is required. The ticket will be marked INVALID on that date.
+   
+   A ticket for improving view redraw on rotation can be submitted instead and will be treated as a feature, not a regression.</li>
+<li>Max Stepanov 2012-07-19
+
+   reopen to add fix version</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8949.json">JSON Source</a></p>

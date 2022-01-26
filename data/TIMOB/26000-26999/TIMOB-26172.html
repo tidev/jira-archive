@@ -1,0 +1,129 @@
+---
+title: "[TIMOB-26172] Android: "focus" and "blur" events bubbles to parent views when it shouldn't"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-07-03T12:07:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, blur, bubble, focus, parity</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-06-30T02:49:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-07-03T21:57:06.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+A view's <code>focus</code> and <code>blur</code> events are not supposed to bubble up to the view's parents according to our documentation here...
+<a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/guide/Event_Handling-section-src-29004896_EventHandling-Bubblingandnon-bubblingevents
+
+On Android, they do bubble up. This can cause confusion since these events will bubble up to the window which use the <code>focus</code> and <code>blur</code> events to indicate if the window is active, not if it has gained/received input focus.
+
+This is not an issue on iOS.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>If the TextField has the focus, then tap on the "Remove Focus" button.</h4>
+<h4>Clear the Android log.</h4>
+<h4>Tap on the "Set Focus" button.</h4>
+<h4>In the log, notice that the TextField focus event's "bubbles" property is set true. This is wrong.</h4>
+<h4>In the log, notice the Window received a focus event after the TextField did. This is wrong.</h4>
+<h4>Tap on the "Remove Focus" button.</h4>
+<h4>In the log, notice that the TextField blur event's "bubbles" property is set true. This is wrong.</h4>
+<h4>In the log, notice the Window received a blur event after the TextField did. This is wrong.</h4>
+
+<code><pre>
+var window = Ti.UI.createWindow({
+	layout: "vertical",
+	fullscreen: true,
+});
+var textField = Ti.UI.createTextField({
+	value: "Focus Test",
+	width: Ti.UI.FILL,
+	height: Ti.UI.SIZE,
+});
+textField.addEventListener("focus", function(e) {
+	Ti.API.info("@@@ TextField 'focus' event received. bubbles: " + e.bubbles);
+});
+textField.addEventListener("blur", function(e) {
+	Ti.API.info("@@@ TextField 'blur' event received. bubbles: " + e.bubbles);
+});
+window.add(textField);
+var focusButton = Ti.UI.createButton({ title: "Set Focus" });
+focusButton.addEventListener("click", function(e) {
+	textField.focus();
+});
+window.add(focusButton);
+var blurButton = Ti.UI.createButton({ title: "Remove Focus" });
+blurButton.addEventListener("click", function(e) {
+	textField.blur();
+});
+window.add(blurButton);
+window.addEventListener("focus", function(e) {
+	Ti.API.info("@@@ Window 'focus' event received.");
+});
+window.addEventListener("blur", function(e) {
+	Ti.API.info("@@@ Window 'blur' event received.");
+});
+window.open();
+</pre></code>
+
+*Expected Result:*
+The <code>focus</code> and <code>blur</code> events should not not bubble. Their <code>bubbles</code> property should be <code>false</code> and the parent window should not have received the TextField's events.
+
+*Work-Around:*
+Set the <code>focus</code> and <code>blur</code> event's <code>cancelBubble</code> property to <code>true</code> to prevent the event from propagating up the view hierarchy.
+<code><pre>
+var textField = Ti.UI.createTextField();
+textField.addEventListener("focus", function(e) {
+	e.cancelBubble = true;
+});
+textField.addEventListener("blur", function(e) {
+	e.cancelBubble = true;
+});
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-06-30
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10145" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10145</a></li>
+<li>Joshua Quick 2018-07-02
+
+   PR (7.3.x): <a href="https://github.com/appcelerator/titanium_mobile/pull/10149" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10149</a></li>
+<li>Kota Iguchi 2018-07-02
+
+   I'm suspecting this would happens on Windows too. I'll clone this ticket after checking on Windows.</li>
+<li>Lokesh Choudhary 2018-07-03
+
+   Verified the fix in SDK 7.3.0.v20180703051211.
+   Closing.
+   
+   Studio Ver:     5.1.0.201806291005
+   SDK Ver:        7.3.0.v20180703051211
+   OS Ver:         4.2.13
+   Xcode Ver:      7.0.4
+   Appc NPM:       1.1.3
+   Appc CLI:       10.13.5
+   Daemon Ver:     Xcode 9.4.1
+   Ti CLI Ver:     5.1.1
+   Alloy Ver:      1.12.0
+   Node Ver:       8.9.1
+   NPM Ver:        5.5.1
+   Java Ver:       10.0.1
+   Devices:        ⇨ google Nexus 5 --- Android 6.0.1
+                   ⇨ google Nexus 6P --- Android 8.1.0
+   Emulator:       ⇨ Android 4.1.2
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26172.json">JSON Source</a></p>

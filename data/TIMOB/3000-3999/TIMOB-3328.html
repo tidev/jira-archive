@@ -1,0 +1,100 @@
+---
+title: "[TIMOB-3328] xhr photo upload broken on device"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-05T22:57:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>image, photo, upload</td></tr>
+<tr><th>Reporter</th><td>Brian</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:42:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-05T22:57:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Uploading a photo works maybe 1 out of 10 times. A perfect
+example is to load the Kitchen Sink app onto your iPhone and goto
+XHR -&gt; file upload.</p>
+<p>Our app uses this same approach and we get the same unfortunate
+failures. Our server throws the following error:</p>
+<p>Status: 500 Internal Server Error bad content body</p>
+<pre>
+<code>/usr/local/lib/ruby/gems/1.8/gems/rack-1.1.0/lib/rack/utils.rb:467:in `parse_multipart'</code>
+</pre>
+<p>Please advise because this is extremely important to us and it
+seems to have been an issue for a few months because here is a post
+from someone experiencing a similar issue:</p>
+<p><a href=
+"<a href="http://developer.appcelerator.com/question/95661/image-upload-image-files-null-over-3g-works-fine-over-wifi" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/95661/image-upload-image-files-null-over-3g-works-fine-over-wifi</a>">
+<a href="http://developer.appcelerator.com/question/95661/image-upload-image..." rel="nofollow" target="_blank">http://developer.appcelerator.com/question/95661/image-upload-image...</a></a></p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brian 2011-04-15
+
+   <div><p>I just found that this issue is not just isolated to the
+   device...it fails on the simulator too, just not as often.</p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>I discovered that uploading to a server on your local computer
+   from the simulator always works, so it seems to be only be an issue
+   when uploading to a remote server.</p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>Here is another post from Q&amp;A that is experiencing the same
+   issues:</p>
+   <p><a href=
+   "<a href="http://developer.appcelerator.com/question/109191/file-upload-fail" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/109191/file-upload-fail</a>">
+   <a href="http://developer.appcelerator.com/question/109191/file-upload-fail" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/109191/file-upload-fail</a></a></p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>I discovered if you comment out these lines of code (201 - 203)
+   in ASIFormDataRequest.m everything works just fine:</p>
+   <p>// if ([[self fileData] count] &gt; 0) { // [self
+   setShouldStreamPostDataFromDisk:YES]; // }</p>
+   <p>This seems to be related to a rack 1.1.0 parsing issue with
+   rails 2.3.x that is supposed to be fixed in rails 3.x with rack
+   1.2.x, but if anyone is running rails 2.3.x they will encounter
+   these problems and have to comment out the 3 lines of code
+   above.</p>
+   <p>Also you may want to test this with Engine Yard since you are
+   partnering with them.</p>
+   <p>Best,</p>
+   <p>Brian</p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>I looked into the ASI framework some more and found that they
+   recommend you set shouldAttemptPersistentConnection to NO. This
+   seems to do the trick even better. So instead of commenting out
+   lines (201 - 203) in ASIFormDataRequest.m, all you have to do is
+   update the TiNetworkHTTPClientProxy.m on line 346 to [request
+   setShouldAttemptPersistentConnection:NO];</p></div></li>
+<li>Brian 2011-04-15
+
+   <div><p>Wow...just found the undocumented setting, "enableKeepAlive" for
+   createHTTPClient. Doing the following fixes the issue:</p>
+   <p>xhr = Titanium.Network.createHTTPClient({<br></p>
+   <pre>
+   <code>    enableKeepAlive:false
+   });</code>
+   </pre>
+   <p>Please update the docs and let people know that when uploading
+   images to set enableKeepAlive to false.</p></div></li>
+<li>tom quas 2011-05-06
+
+   Confirmed, we're having these kind of issues w/ Google App Engine's Images API with weak cell signal / EDGE networks.</li>
+<li>Lee Morris 2017-06-05
+
+   This version of Kitchen Sink is no longer supported.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3328.json">JSON Source</a></p>

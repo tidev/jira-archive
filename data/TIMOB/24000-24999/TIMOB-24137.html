@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-24137] iOS 10 Camera Overlay is not fullscreen "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2016-11-11T12:41:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.5.0, Release 5.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-11-10T21:27:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:57:13.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue description</h4>
+Prior to iOS 10 when Ti.Media.showCamera was called with showControls set to false the camera would show as full screen. As of iOS 10 there is a large black bar at the bottom 
+
+If you run the app in iOS 8 or 9 you will see the camera goes full screen when the controls are hidden. On iOS 10 there will be a black bar at the bottom of the screen.
+
+<h4>Steps to Reproduce</h4>
+<h4>Download the app testcase</h4>
+<h4>Run </h4>
+<h4>Click on the custom overlay camera button</h4>
+<h4>The camera is not fullscreen</h4>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24137_60677/IMG_8357.PNG">IMG_8357.PNG</td></td><td>2016-11-10T21:26:38.000+0000</td><td>2212539</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-24137_60676/ios-10-camera-bug.zip">ios-10-camera-bug.zip</td></td><td>2016-11-10T21:27:18.000+0000</td><td>10161090</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-11-11
+
+   Basically, it's a behavior change in iOS 10 causing transformations not being able to be applied before the camera is visible. This was discussed in TIMOB-23910 already. So previous to iOS 10, the native scale was automatically transformed to fit the bounds of the screen and Apple possibly changed this so the controls are primary placed in the below area (which is not the best solution for many use-cases). 
+   
+   We could try to apply a custom transformation after the camera is opened, but that would still flicker like experienced in the [Stackoverflow](<a href="http://stackoverflow.com/a/39534542/5537752)" rel="nofollow" target="_blank">http://stackoverflow.com/a/39534542/5537752)</a> thread.
+   
+   *EDIT*: Let me correct the above comment, it looks more like an issue related to the overlay itself then the camera. We are currently working on a fix regarding overlay sizing in TIMOB-23936 which will now also be tested against this test-case. If possible, please extract the test-case from the Alloy project so it can be tested within a single app.js to ease the debugging. Thanks!
+   
+   *EDIT2*: I checked your demo-code and noticed you must talk about the camera, not the overlay, so the title is very misleading. But anyway, as described above, this is an iOS 10 behavior that is documented in many open radar reports, e.g. [this one](<a href="http://www.openradar.me/28232651)" rel="nofollow" target="_blank">http://www.openradar.me/28232651)</a>, so it is no Titanium-specific but a native issue.
+   
+   *EDIT3*: Crazy! I just tested using my iOS 10.2 Beta 2 and it seems to be fixed from Apple!
+   
+   I used the below (app.js'd) code:
+   <code><pre>
+   // -- General UI -- //
+   var win = Ti.UI.createWindow({
+       backgroundColor: "#fff",
+       layout: "vertical"
+   });
+   
+   var props = {
+       top: 30,
+       width: Ti.UI.SIZE,
+       height: 60,
+       font: {
+           fontSize: 18
+       },
+       color: "#000",
+       backgroundColor: "#faa",
+   };
+   
+   var label1 = Ti.UI.createLabel({
+       text: "Default Camera"
+   });
+   
+   var label2 = Ti.UI.createLabel({
+       text: "Custom Overlay Camera"
+   });
+   
+   label1.applyProperties(props);
+   label2.applyProperties(props);
+   
+   label1.addEventListener("click", defaultCameraClick);
+   label2.addEventListener("click", overlayCameraClick);
+   
+   win.add(label1);
+   win.add(label2);
+   win.open();
+   
+   function defaultCameraClick() {
+       Ti.Media.showCamera({
+           mediaTypes: [Ti.Media.MEDIA_TYPE_PHOTO],
+           success: success,
+           cancel: cancel,
+       });
+   }
+   
+   function overlayCameraClick() {
+       var overlayContainer = Ti.UI.createView({
+           height: Ti.UI.FILL,
+           width: Ti.UI.FILL,
+       });
+   
+       var overlayCloseButton = Ti.UI.createLabel({
+           height: Ti.UI.SIZE,
+           width: Ti.UI.SIZE,
+           backgroundColor: "red",
+           text: "CLOSE",
+       });
+   
+       overlayCloseButton.addEventListener('click', function() {
+           Ti.Media.hideCamera();
+       });
+   
+       overlayContainer.add(overlayCloseButton);
+   
+       Ti.Media.showCamera({
+           overlay: overlayContainer,
+           mediaTypes: [Ti.Media.MEDIA_TYPE_PHOTO],
+           showControls: false,
+           success: success,
+           cancel: cancel,
+       });
+   }
+   
+   function success() {
+       Ti.API.info("SUCCESS");
+   }
+   
+   function cancel() {
+       Ti.API.info("CANCEL");
+   }
+   </pre></code></li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24137.json">JSON Source</a></p>

@@ -1,0 +1,123 @@
+---
+title: "[TIMOB-8620] iOS: Ti.UI.View is a live reference, not copy"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-04-30T16:45:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.5, Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-09 Core</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>SupportTeam, core, module_view, qe-port</td></tr>
+<tr><th>Reporter</th><td>Suresh Sharma</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2012-04-05T03:00:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-06-23T15:33:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>BUG</h4>
+----
+
+Currently, when <code>Ti.UI.View.children</code> is queried, the live copy of children is returned, meaning that if it is modified in-place during a loop (which might be a common operation) there are some issues. Even worse, it follows copy semantics before a view is put into the full hierarchy, and reference semantics after.
+
+<h4>INITIAL DESCRIPTION</h4>
+----
+<h4>Feature description</h4>
+Provide an easy way to clean the contents of a view/window, like a magic "remove all children" that will remove them in the right order. 
+
+<h4>Current behavior</h4>
+
+Customer is trying to do this:
+
+<code><pre>
+for(var i=0;i<parent.children.length;i++)
+{
+   parent.remove(parent.children[i]);
+}
+</pre></code>
+
+which causes a crash in the app because they are removing stuff without any order. Maybe we should provide a tree with all the dependencies in the view, so they can be properly removed. 
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ivan Skugor 2012-04-09
+
+   Here is my solution: <a href="https://gist.github.com/1779850" rel="nofollow" target="_blank">https://gist.github.com/1779850</a> (and explanation why it does not work with "customer's way")</li>
+<li>Stephen Tramer 2012-04-27
+
+   <h4>Testing</h4>
+   ----
+   
+   * Run the following code sample - no interactions necessary. Note that the long delays are necessary due to inefficiencies in the rendering system.
+   
+   Also note that there may be occasional errors as the system tries to remove the same view more than once - this is because <code>remove()</code> is asynchronous. This is not a fatal error.
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   function construct() {
+   	for (var i=0; i < 30; i++) {
+   		for (var j=0; j < 30; j++) {
+   			var bgcolor;
+   			switch (i % 3) {
+   				case 0:
+   					bgcolor = 'red';
+   					break;
+   				case 1:
+   					bgcolor = 'blue';
+   					break;
+   				case 2:
+   					bgcolor = 'green';
+   					break;
+   			}
+   			var view = Ti.UI.createView({
+   				top:(j*10),
+   				left:(i*10),
+   				width:10,
+   				height:10,
+   				backgroundColor:bgcolor
+   			});
+   			win.add(view);
+   			Ti.API.info(win.children.length);
+   		}
+   	}
+   	setTimeout(destruct, 3000);
+   }
+   
+   function destruct() {
+   	while (win.children != null && 
+   			win.children != undefined && 
+   			win.children.length > 0) 
+   	{
+   		Ti.API.info(win.children.length);
+   		win.remove(win.children[0]);
+   	}
+   	setTimeout(construct, 3000);
+   }
+   
+   win.open();
+   construct();
+   </pre></code>
+   
+   There is a separate issue with <code>Ti.UI.View.children</code> being <code>undefined</code> when the view does not have children. This may be a problem on Android as well, and we are investigating the parity problem.</li>
+<li>Michael Pettiford 2012-06-23
+
+   Closing issue
+   
+   Tested with Ti Studio build 2.1.0.201206211609
+   Ti Mobile SDK 2.1.0.v20120622174154 hash rdc9dfbe5
+   OSX Lion 10.7.3
+   iPhone 4S OS 5.1
+   
+   Verified expected behavior is shown</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8620.json">JSON Source</a></p>

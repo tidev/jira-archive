@@ -1,0 +1,319 @@
+---
+title: "[TIMOB-5334] iOS: Write remote images to disk fails!"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-10T00:30:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Mads Moller</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2011-08-08T10:04:56.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-02-10T00:30:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When download an image gallery and save it to the phones filesystem, problems occur. 
+It works great with 30-50 images at the time. But a large amount of images resolves in some of the images are not saved to disk. The skipped images are random each time I test this. Sometimes it is only a few that are left out, other times its 20 images out of 150.  
+Its the same behaviour on iOS and Android. 
+
+Here is my json loader of the remote images:
+<code><pre> 
+xhr.onload = function() {
+    try {
+        var items = eval('('+this.responseText+')');
+        for (var c=1;c<items.length;c++)
+        {           
+            var id = items[c].id;
+            var imageLarge = items[c].imageLarge;
+            var imageSmall = items[c].imageSmall;
+            var imageMedium = items[c].imageMedium; 
+ 
+            //image related content
+            var imageArr = [imageLarge, imageSmall, imageMedium];
+            var imageNameArr = ['imageLarge_', 'thumb_', 'thumb_'];
+            var imageNativePath = [];
+ 
+            for (var i=0; i < imageArr.length; i++) {
+                var filename = xtractFile(imageArr[i]);
+                var imageName = '' + imageNameArr[i] + id + filename.extension;
+ 
+                //SAVE REMOTE FILE NOW !
+                //get_remote_file( filename, url, debug, progress, override)
+                getRemoteFile('gallery/'+imageName, imageArr[i], function(fileobj){ Ti.API.info(fileobj) }, null, true );
+            };
+ 
+        //all done 
+        showContent();
+    }
+        catch(e) {
+            //something goes wrong - showcontent
+            trace("CATCH ERROR: " + e);
+        }
+    };
+    xhr.onerror = function() {
+        trace("ONERROR: " + e);
+    };
+    xhr.open("GET",rssFeed);
+    xhr.send(); 
+};
+</pre></code> 
+
+The below is my save to disk function. It works great when the app is handling 50 images at the time, but once its higher, some of the images are not stored, even though this below function is called. 
+
+<code><pre> 
+function getRemoteFile(filename, url, fn_end, fn_progress, override ) {
+    var file_obj = {file:filename, url:url, path: null};
+    var file = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory,filename);
+ 
+    if ( file.exists() ) {
+        file_obj.path = Titanium.Filesystem.applicationDataDirectory+Titanium.Filesystem.separator;
+        if(override) {
+            file.deleteFile();
+        } else {
+            return;
+        }     
+    }
+    if ( Titanium.Network.online ) {
+        var c = Titanium.Network.createHTTPClient();
+        c.setTimeout(10000);
+        c.onload = function()
+        {
+            if (c.status == 200 ) {
+                var f = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory,filename);
+ 
+                //write file to disk
+                f.write(this.responseData);
+ 
+                if(f.size == 0) {
+                    //size 0 - start over
+                    trace("ERROR: image write, try again");
+                    getRemoteFile(filename, url, fn_end, fn_progress, override )
+                }
+ 
+                file_obj.path = Titanium.Filesystem.applicationDataDirectory+Titanium.Filesystem.separator;
+            } else {
+                file_obj.error = 'file not found'; // to set some errors codes
+            }
+        };
+        c.ondatastream = function(e)
+        {
+            if ( fn_progress ) fn_progress(e.progress);
+        };
+        c.error = function(e)
+        {
+ 
+            file_obj.error = e.error;
+            fn_end(file_obj);
+            trace("error: " + e);
+        };
+        c.open('GET',url);
+        c.send();           
+    } else {
+        file_obj.error = 'no internet';
+        fn_end(file_obj);
+    }  
+};
+</pre></code>
+
+For JSON see [here](<a href="http://cph.napp.dk/index.php?option=com_phocagallery&view=napp&format=json)" rel="nofollow" target="_blank">http://cph.napp.dk/index.php?option=com_phocagallery&view=napp&format=json)</a>
+
+There are no errors or exceptions I can paste in, due to the fact that Titanium does not make "errors" it just skips a lot of files. 
+
+Yes, it has nothing to do with the server. I have tried without the "write remote to disk functionality" and the gallery works great.
+
+Q&A Thread at [save 100+ remote images to disk](<a href="http://developer.appcelerator.com/question/123769/save-100-remote-images-to-disk)" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/123769/save-100-remote-images-to-disk)</a>
+
+
+
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5334_24560/consoleLog.txt">consoleLog.txt</td></td><td>2011-12-10T15:19:53.000+0000</td><td>13730</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5334_22967/TestImageApp.zip">TestImageApp.zip</td></td><td>2011-09-18T02:02:38.000+0000</td><td>2330453</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Paul Dowsett 2011-08-08
+
+   Mads
+   
+   Thank you for raising this ticket. In order to progress it, please add the missing information in the format and places requested in the guidelines at [Jira Ticket Checklist](<a href="http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-Summary%3AJiraTicketChecklist)." rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-Summary%3AJiraTicketChecklist).</a>
+   
+   For instance, in the environment field:
+    
+   * *Titanium SDK version:* number, build date and build hash, copied and pasted from the console at application launch
+   * *Platform & version:* iOS x.x, Android x.x, Blackberry x.x, OSX x.x, Windows x, Ubuntu x.x
+   * *Device Details:* iOS simulator, Android emulator or physical device model
+   * *Host Operating System:* OSX x.x, Windows x, Ubuntu x.x
+   * *Titanium Studio version:* copied and pasted from Help / About
+   
+   In the description:
+   
+   * *logs:* the console output of any exceptions, placed within a \{code\} wiki markup block
+   
+   Ideally your usecase would also be simpler, but it's essential that it runs without any modification.
+   
+   Have you tried checking the server logs, network traffic and HTTP response codes to try to determine whether something other than Titanium is causing the problem?
+   
+   Many thanks in advance</li>
+<li>Mads Moller 2011-08-09
+
+   I have updated the ticket as requested. </li>
+<li>Mads Moller 2011-08-09
+
+   *Severity: Blocker*  (my app is in production, so its quite an issue I got here )
+   Q&A link: [<a href="http://developer.appcelerator.com/question/123769/save-100-remote-images-to-disk" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/123769/save-100-remote-images-to-disk</a>] 
+   
+   </li>
+<li>Paul Dowsett 2011-08-10
+
+   Mads
+   
+   So this is simple to reproduce, would you please include the json file, preferably with URLs of files that exist on a remote server?
+   
+   Cheers</li>
+<li>Mads Moller 2011-08-11
+
+   json feed: <a href="http://cph.napp.dk/index.php?option=com_phocagallery&view=napp&format=json" rel="nofollow" target="_blank">http://cph.napp.dk/index.php?option=com_phocagallery&view=napp&format=json</a></li>
+<li>Mads Moller 2011-08-15
+
+   Hi Paul, 
+   Do you need anything from me?
+   any solution? </li>
+<li>Paul Dowsett 2011-09-07
+
+   Mads
+   
+   Are you saying that the *exact same* problem exists on Android and iOS, with *exactly the same* results? If so, this is quite unusual. However, if this is indeed correct, you will need to raise a ticket for each platform.
+   
+   Would you confirm that your code can reproduce the issue, just by pasting it into an app.js file and launching the app?
+   
+   Once these corrections have been made, I can move the ticket across to the relevant project.
+   
+   Cheers</li>
+<li>Paul Dowsett 2011-09-17
+
+   Have you resolved this, Mads?
+   
+   If not, would you respond to my previous comment?
+   
+   Also, do you think that downloading so many images at once is a good idea for users of mobile devices?  Bear in mind that many have monthly download limits.
+   
+   Can you tell us the average size of the images, in terms of resolution and filesize.
+   
+   Cheer</li>
+<li>Mads Moller 2011-09-18
+
+   Hi Paul, 
+   No, its still a big problem for me. 
+   
+   its because in Denmark we have free download on payment plans. nice, right :)
+   anyway, the average image is 640x960 and jpg quality 80, so its about 80kb - 150kb each. 
+   
+   I know its a lot of images, but I do not if appcelerator is capable of using the lazyload technique instead. So I only load what is displayed? Is that possible?
+   </li>
+<li>Mads Moller 2011-09-18
+
+    Here is an working app example, where the problem occurs..</li>
+<li>Paul Dowsett 2011-09-18
+
+    Mads, did you see my question about android vs ios?  Does another ticket need to  be raised?
+    </li>
+<li>Mads Moller 2011-09-18
+
+    Hi Paul.
+    
+    Its not exactly the same result on each platform, due to its ramdom which images the are saved to the filesystem each time I test the script. 
+    Ive uploaded an test app so you can see the end result on iphone and android. </li>
+<li>Paul Dowsett 2011-09-18
+
+    OK, Mads
+    
+    Please would you raise a new ticket for the other platform, and then explain the behavior you observe in the respective tickets. We will then link the two.
+    
+    Thanks a lot</li>
+<li>Mads Moller 2011-09-18
+
+    </li>
+<li>Paul Dowsett 2011-09-21
+
+    Sorry, Mads, I thought I had already moved this over with the other ticket. It's done now. Thanks for the time you spent on it.</li>
+<li>Stephen Tramer 2011-09-23
+
+    At least on iOS Titanium, we provide remote image caching for you. It isn't necessary to store images to disk yourself, unless you need them to persist for long periods of time across application sessions (or need to manually force updates of the local cache whenever an image changes remotely).</li>
+<li>Mads Moller 2011-09-30
+
+    Resolved.. does that mean that in 1.8 this is fixed?
+    can I download a nighly build and get this fix also?</li>
+<li>Mads Moller 2011-10-06
+
+    I CRITICAL NEED THIS INFO: Can I get this Android Fix in the continuous builds? </li>
+<li>Wilson Luu 2011-12-10
+
+    Reopening bug.
+    
+    Do not see 60 images being downloaded to the app. Only see 1 image downloaded. See attachment for console log.
+    
+    Tested on:
+    OS: Mac OS X Lion
+    SDK build: 1.8.0.1.v20111209204243
+    Titanium Studio, build: 1.0.7.201112080131
+    Device: iphone 4S (5.0.1)
+    </li>
+<li>Stephen Tramer 2011-12-10
+
+    We do support downloading data retrieved via an HTTP request directly to a file, via setting the <code>file</code> property on the <code>Tititanium.HTTPClient</code> object. The documentation reads:
+    
+    bq. File to download contents to.  Can only be set after calling open.
+    
+    This, combined with local image caching, should be able to provide a less complicated solution which may not trigger this bug.</li>
+<li>Mads Moller 2011-12-11
+
+    Hi Stephen.
+    
+    I use the file method for iOS, but thats not possible for Android. So the same disk writing error occurs on Android.  </li>
+<li>Stephen Tramer 2011-12-12
+
+    Mads -
+    
+    Android supports this as well, but I believe under a different feature name. I would have to check with their team to make sure. Does this bug only affect Android then, or both Android and iOS?</li>
+<li>Mads Moller 2011-12-12
+
+    </li>
+<li>Stephen Tramer 2011-12-13
+
+    Mads -
+    
+    I checked with the Android team - they don't allow specific download to file from what I'm able to understand. This property is iOS-only for the time being.</li>
+<li>Mads Moller 2011-12-14
+
+    That was also my impression. 
+    How do I solve this issue on Android then? 
+    I can only fix this issue on iOS with the file porperty, not with the code provided in this ticket. </li>
+<li>Dustin Hyde 2012-01-06
+
+    The TestImageApp sample project appears to save image files to disk in the iphone simulator application data folder, and in android (SDK 1.8.0.1, quick pass).
+    The images do not display due to code problems.
+    If someone could make a simple, functional sample case, we could test this further.</li>
+<li>Michael Pettiford 2012-02-01
+
+    Closing issue as per invalid status</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5334.json">JSON Source</a></p>

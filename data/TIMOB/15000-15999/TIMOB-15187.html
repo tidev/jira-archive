@@ -1,0 +1,204 @@
+---
+title: "[TIMOB-15187] iOS7: focus event not triggered in window opened in a tab if another non-fullscreen window is overlaid on the tabgroup"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-09-16T17:59:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 19, 2013 Sprint 19 API, Release 3.1.3, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios7, qe-closed-3.1.3, regression</td></tr>
+<tr><th>Reporter</th><td>Olivier Morandi</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-13T14:17:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-09-17T17:35:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Steps to reproduce:
+
+<h4>run the attached app.js </h4>
+<h4>click on the "open new window" button</h4>
+
+Expected:
+
+* The "focus" event should be triggered on the newly opened window (new_window)
+
+Actual:
+
+* The "focus" event is not fired
+
+
+Additional notes:
+* The focus event is fired on win1 the first time the tabgroup is presented, but not when closing new_window
+* the same example works as expected when built with Ti SDK 3.1.2.GA
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-15187_42464/app.js">app.js</td></td><td>2013-09-13T14:17:01.000+0000</td><td>889</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>tom quas 2013-09-13
+
+   am seeing this one, too</li>
+<li>Olivier Morandi 2013-09-16
+
+   I'd like to add that if the tab-group has multiple tabs, switching between tabs correctly triggers the focus event on the window associated to the target tab.
+   Moreover, after switching tabs at least once, returning to the scenario reported in this ticket (i.e. calling <code>tab1.open(new_win);</code>) will make the focus event to get fired on the newly opened window.</li>
+<li>Vishal Duggal 2013-09-16
+
+   Current behavior is partially correct. The tabGroup should never fire focus on any of its tabs if it itself does not have focus.
+   Fixing that bug. The bug reported here is invalid.
+   
+   Test Code
+   <code><pre>
+   Titanium.UI.setBackgroundColor('#000');
+   
+   var tabGroup = Titanium.UI.createTabGroup();
+   
+   var win1 = Titanium.UI.createWindow({  
+       title:'Tab 1',
+       backgroundColor:'#fff'
+   });
+   
+   win1.addEventListener('focus', function() {
+       Ti.API.info('win1 got focus');
+   });
+   
+   var tab1 = Titanium.UI.createTab({  
+       title:'Tab 1',
+       window:win1
+   });
+   
+   var button = Titanium.UI.createButton({
+       title:'open new window',
+       width: 200,
+       height: 440
+   });
+   
+   win1.add(button);
+   
+   
+   button.addEventListener('click', function() {
+       var new_win = Ti.UI.createWindow({
+           title: 'new window',
+           backgroundColor: '#fff'
+       });
+       
+       
+       new_win.addEventListener('focus', function() {
+           Ti.API.log('new_win got focus');
+       });
+       tab1.open(new_win, {animated: true});
+   });
+   
+   
+   var win2 = Titanium.UI.createWindow({  
+       title:'Tab 2',
+       backgroundColor:'#fff'
+   });
+   
+   win2.addEventListener('focus', function() {
+       Ti.API.info('win2 got focus');
+   });
+   
+   var tab2 = Titanium.UI.createTab({  
+       title:'Tab 2',
+       window:win2
+   });
+   
+   
+   tabGroup.addTab(tab1);  
+   tabGroup.addTab(tab2);  
+   
+   
+   var overlay = Ti.UI.createWindow({
+       top: 68,
+       backgroundColor: 'blue',
+       width: 200,
+       height: 44
+   });
+   
+   overlay.addEventListener('click',function(){
+       overlay.close();
+   })
+   
+   
+   tabGroup.open();
+   
+   overlay.open();
+   </pre></code></li>
+<li>Vishal Duggal 2013-09-16
+
+   Pull pending
+   master - <a href="https://github.com/appcelerator/titanium_mobile/pull/4690" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4690</a>
+   3_1_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/4691" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4691</a></li>
+<li>Olivier Morandi 2013-09-16
+
+   Hi Vishal,
+   thanks.
+   I checked out your pull request, and if I understand well, you are implying that the former tabgroup behavior was wrong.
+   However, in the example I attached, I'd say that both the tabgroup and the overlaid window should have focus, since the overlay is not entirely covering the tabgroup: in this case, both elements can receive user input.
+   
+   </li>
+<li>Federico Casali 2013-09-16
+
+   Verified that the current behavior is that switching between tabs does not trigger events if the tabGroup does not have focus. 
+   
+   Titanium SDK 3.1.3.v20130916110056
+   Alloy 1.2.2-cr
+   Appcelerator Studio 3.1.3.201309132456
+   CLI 3.1.2.GA
+   Node 0.10.13
+   
+   Leaving the JIRA open for further comments if needed.</li>
+<li>Anshu Mittal 2013-09-17
+
+   Verified fix for Vishal's code with the following environment:
+   
+   SDK: 3.1.3.v20130916153052
+   Appcelertaor Studio: 3.1.3.201309132456
+   OS: OSX 10.8.4
+   Device: iPod touch2(iOS7)
+   Xcode: 5.0 GM seed
+   alloy@1.2.2-cr
+   CLI version : 3.1.2
+   
+   Focus event is being fired successfully in new window</li>
+<li>Vishal Duggal 2013-09-17
+
+   [~omorandi]
+   I understand you point but you have to see it from a SDK point of View. If this app was accessibility enabled, the accessibility elements in the tabGroup and contained windows would not be usable (since we specifically set them to be hidden in resignFocus).
+   
+   We should ideally set touch enabled to false when a window resigns focus (which we should fix in 3.2.0)
+   
+   The sample attached here is actually using the WindowProxy as a View Proxy. You could just have created a View Proxy and added it as a child of the Tab Group to achieve the same behavior. </li>
+<li>Olga Romero 2013-09-17
+
+   Tested Vishal's code and verified focus event fired after overlay window closed.
+   Appcelerator Studio: 3.1.3.201309132456
+   Titanium SDK, build: 3.1.3.v20130916153052
+   Mac osx  10.8.4 Mountain Lion
+   Xcode5
+   alloy@1.2.2-cr
+   CLI version : 3.1.2
+   Devices: 
+   iPad(iOS7 GM seed)
+   iPhone5 iOS7(11A465)
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15187.json">JSON Source</a></p>

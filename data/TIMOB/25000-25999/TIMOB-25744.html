@@ -1,0 +1,215 @@
+---
+title: "[TIMOB-25744] iOS: Uploaded file persists in memory when using JSCore"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-25T08:37:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.0, Release 7.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, ipad, iphone, javascriptcore</td></tr>
+<tr><th>Reporter</th><td>Donovan Lewis</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2018-01-25T20:59:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-10T20:55:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Doing a file upload with the createHTTPClient on iOS in TI SDK 7.x.x causes the file to stay in ram after the upload is completed or aborted. It does not get removed from ram as it should. When doing a large upload or multiple uploads this is a rather big problem because it can cause the app to crash or have a large ram usage as you can see from the screen shot. 
+
+Example code is below, using a 100MB file will cause 400 + Mb of ram usage for 1 upload, this will then stay in ram, doing 3 uploads will cause the app to crash on a iPhone X. 
+
+The file should be removed from ram when the upload is completed or aborted, it use to do this in previous version of TI. 
+
+<code><pre>
+var xhr = null;
+
+var win = Ti.UI.createWindow({
+  backgroundColor: '#fff',
+  fullscreen: false, navBarHidden: true, exitOnClose: true, theme: "Theme.materialTheme", orientationModes: [Titanium.UI.PORTRAIT]
+});
+ 
+var runTime = Ti.UI.createLabel({
+  text: 'Run Time...',
+  top: 50,
+  left: 10,
+  color: '#000'
+});
+
+var uploadSpeed = Ti.UI.createLabel({
+  text: '0.00 Mbps',
+  top: 90,
+  left: 10,
+  color: '#000'
+});
+
+ 
+var buttonStart = Ti.UI.createButton({ title: "START", width: 100, height: 40, top: '45%', left: '10%' });
+var buttonStop = Ti.UI.createButton({ title: "STOP", width: 100, height: 40, top: '45%', right: '10%' });
+
+var uploadfile = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory(), "100MB.bin").read();
+
+buttonStart.addEventListener("click", function() {
+
+  console.log('Starting Upload');
+
+  var startTime = new Date().getTime();
+  var totalPercent = 0;
+
+  xhr = Titanium.Network.createHTTPClient();
+  xhr.onsendstream = function(e){ 
+      console.log(e.progress);
+
+      totalPercent = (e.progress).toFixed(2);
+      var currentTime = new Date().getTime();
+      var timeDiff = ((currentTime-startTime)/1000).toFixed(2);
+      var totalDownloaded = (102400 * totalPercent);
+      var currentKBPS = (((((totalDownloaded * 1024) * 8.192) / timeDiff) / 1024 / 1024)).toFixed(2);
+
+      runTime.text = timeDiff;
+      uploadSpeed.text = currentKBPS + ' Mbps';
+  };
+
+  xhr.onload = function(e) {
+
+  };
+  xhr.open('POST','<a href="http://sfo.veeapps.com/upload.php" rel="nofollow" target="_blank">http://sfo.veeapps.com/upload.php</a>');
+  xhr.send({media: uploadfile });
+  
+});
+
+
+buttonStop.addEventListener("click", function() {
+  xhr.abort();
+  xhr = null;
+});
+
+
+win.add(runTime);
+win.add(uploadSpeed);
+win.add(buttonStart);
+win.add(buttonStop);
+win.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25744_64797/http-client-jscore-fixed.png">http-client-jscore-fixed.png</td></td><td>2018-02-03T18:42:56.000+0000</td><td>6017</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-02-03
+
+   Hey [~dlewis23], thanks for the ticket! Looking at the 7.0.0 changes, the only thing that might have affected this is that we moved from the custim TiJSCore to the built-in JavaScriptCore engine by default and from the custom kroll thread to the main-thread (for UI-operations) by default. So you can try to revert that change locally by doing the following in the tiapp.xml:
+   <code><pre>
+   <!-- In the top-level of the tiapp.xml -->
+   <property name="run-on-main-thread" type="bool">false</property>
+   <!-- In the <ios> section of the tiapp.xml -->
+   <use-jscore-framework>false</use-jscore-framework>
+   </pre></code>
+   I suspect it's rather the JSCore change, but let us know!
+   
+   --- Update ---
+   [~dlewis23] Update: Can you please try to replace [this files](<a href="https://www.dropbox.com/s/710zy2gtfo8h54p/libAPSHTTPClient-fixed.zip?dl=1)" rel="nofollow" target="_blank">https://www.dropbox.com/s/710zy2gtfo8h54p/libAPSHTTPClient-fixed.zip?dl=1)</a> in:
+   <code><pre>
+   ~/Library/Application Support/Titanium/mobilesdk/osx/7.0.1.GA/iphone/Classes/APSHTTPClient
+   </pre></code>
+   and observe the memory with Instruments? I added a few enhancements that ensure that all post data is cleared after a request either completes or fails / aborts. While the memory will decline by half of the size after the abort immediately, the other half is GC'd ~ 10-20sec afterwards, as our APSHTTPClient runs on ARC and the memory is handled by iOS internally. 
+   
+   Some visual context (an Instruments screenshot) is also attached to the ticket. If you can confirm that it works for you, we'll schedule it for 7.1.0 and I'll push the changes. Thanks for reporting this on our blog and keep up the feedback!</li>
+<li>Donovan Lewis 2018-02-03
+
+   Hans, I just tried your updated files and it defiantly makes a difference. It's much better but still possible to get a high amount of ram usage but at the same time I can see it being much more active in removing the data from ram and was able to get it to clear what I think was all or almost all of the post data by using the app or doing more upload tests. So I would say thats a decent fix. I will keep testing it and update again shortly. But I would say its 90% good with those updated files. 
+   
+   That being said adding "<use-jscore-framework>false</use-jscore-framework>" to my tiapp.xml fixes the problem 100% on iOS 11. With that added to my tiapp.xml within 10 seconds or so of a upload being finished or aborted in my app the ram gets cleared fully. 
+   
+   I will update again shortly if I notice anything else, it does seem like you did make a good fix tho, I really appreciate the work you did because downloading/uploading files is the core point of my app. 
+   </li>
+<li>Hans Knöchel 2018-02-03
+
+   Thanks [~dlewis23]! So you still see a bit leaking? That was not the case during my tests. Please let me know if you can provide an Instruments trace log in case it's still leaking.</li>
+<li>Hans Knöchel 2018-02-05
+
+   Btw, cool app :-) Would love to see that showcased somewhen.</li>
+<li>Donovan Lewis 2018-02-06
+
+   Hans, I don't know if I would say its still leaking but some data defiantly still sticks around in ram for a while after but its nothing like what it was before trying with your updated ASPHTTPClient files. Currently I am running 8, 10MB uploads at once and when continuing to use the app it never goes to crazy high ram usage anymore with your updated files. 
+   
+   It seems to clear about half the ram after the upload finishes or is aborted and the important part for me at least is when I do a few tests in a row it will eventually clear it all or the majority of the ram use and I will be back to around 100 MB of ram usage for a running app. I think we should go with your fix as is and see if anything else changes unless you have any more ideas on improving it. 
+   
+   Here is an instruments.trace if you still want to see, the app I as testing in this was Simple Speed: <a href="http://speedsmart.net/downloads/Instruments.trace.zip" rel="nofollow" target="_blank">http://speedsmart.net/downloads/Instruments.trace.zip</a>
+   
+   
+   
+   </li>
+<li>Donovan Lewis 2018-02-06
+
+   And thank you, The app was showcased a long time ago when it was under a different name. But always like showing it off in as many places as I can. :D</li>
+<li>Anthony Chung 2018-02-16
+
+   [~hknoechel] will we be able to keep doing the following in the next version of titanium. or will this no longer be an option with the changes to jscore?
+   
+   <code><pre>
+   <!-- In the top-level of the tiapp.xml -->
+   <property name="run-on-main-thread" type="bool">false</property>
+   <!-- In the <ios> section of the tiapp.xml -->
+   <use-jscore-framework>false</use-jscore-framework>
+   </pre></code>
+   
+   </li>
+<li>Hans Knöchel 2018-02-16
+
+   [~threethirds] It will be removed in SDK 8.0.0 (~ 6-7 months). But we won't remove it before every related issue isn't fixed. So if you see any other issues, please report them! :-)
+   
+   This one will be fixed in 7.2.0 and the PR is coming next week, but you guys can already use the patched library for now.</li>
+<li>Anthony Chung 2018-02-18
+
+   hi [~hknoechel] 
+   
+   with 8.0.0 can we still do run-on-main-thread==false?
+   even if we use jscore true.
+   
+   Or will run-on-main-thread also be a requirement?
+   
+   Thanks,
+   Anthony
+   
+   </li>
+<li>Hans Knöchel 2018-03-06
+
+    [~threethirds] It is planned to only use those two and remove the deprecated legacy API's. That's why it's very important to get feedback now, so any possible issues can be addressed.</li>
+<li>Vijay Singh 2018-03-08
+
+    PR (APSHTTPClient) : <a href="https://github.com/appcelerator/APSHTTPClient/pull/43" rel="nofollow" target="_blank">https://github.com/appcelerator/APSHTTPClient/pull/43</a></li>
+<li>Vijay Singh 2018-05-04
+
+    [~hknoechel] Please create  PR for titanium sdk using updated library of APSHTTPClient. Thanks!</li>
+<li>Hans Knöchel 2018-05-04
+
+    PR (titanium_mobile/master): <a href="https://github.com/appcelerator/titanium_mobile/pull/10027" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10027</a></li>
+<li>Donovan Lewis 2018-06-07
+
+    I'm back on this, I missed most of these responses some how. But I have to tell you this is not fixed I'm testing with the current build os 7.3.0 and while better then it was before its not even close to how it is with jscore-framework set to false. Its still very easy to get 400MB + ram usage with a few uploads. In my app I am doing 8, 10MB uploads and I can get 400MB+ ram usage with out it really clearly with this fix. But if I use jscore-framework set to false it performs much better and clears the upload ram after each time. 
+    
+    I'm not quite sure how to make a test app to recreate this or what info to give you to show the issue. But in the app that is doing 8 uploads after running it 4 times I currently have 486MB of ram used. On a 7 Plus iPhone thats not an issue but the smaller or older phones with 2GB or 1GB of ram this is a problem. Deprecating jscore-framework would be an issue as it is right now. </li>
+<li>Hans Knöchel 2018-07-19
+
+    [~dlewis23] Sorry for the late response. We have tested this internally a few times and did not see any issues. While some portion of the data stays in RAM for bit, the remaining portion gets GC'd after a few seconds, so it should not crash in any case anymore. This is because prior to the native JSCore, we manually flushed the GC every few seconds, which was noticeable via Instruments but also was a huge performance hit in other places. We are planning to go with this fix in 7.3.0 and are in the progress of more fine-tuning before SDK 8 arrives.</li>
+<li>Eric Wieber 2018-08-10
+
+    Closing as we are unable to reproduce the issue using SDK 7.3.0.v20180809095942</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25744.json">JSON Source</a></p>

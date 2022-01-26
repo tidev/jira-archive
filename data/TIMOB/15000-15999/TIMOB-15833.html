@@ -1,0 +1,199 @@
+---
+title: "[TIMOB-15833] iOS: Weak link MapKit"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-27T17:58:18.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 24, Release 3.2.0, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Jon Alter</td></tr>
+<tr><th>Assignee</th><td>Jon Alter</td></tr>
+<tr><th>Created</th><td>2013-11-26T17:11:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-03T18:27:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When the Map module was removed from the SDK, the linking to the Map framework was also removed MOD-1514. This has caused issues with other modules that are using the MapKit, but are assuming that it will already be linked because it was in the SDK.
+
+To resolve this issue we need to weak link to MapKit in the SDK.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jon Alter 2013-11-26
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5027" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5027</a>
+   3_2_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5028" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5028</a></li>
+<li>Wilson Luu 2013-11-27
+
+   Closing ticket as fixed. Verified I can build Alloy and Classic project to iOS without any build errors and was able to build with ti.urbanairship module; verified both APPTS-3418 and TIMODOPEN-350.
+   
+   Appcelerator Studio, build: 3.2.0.201311252112
+   SDK build: 3.2.0.v20131126144841
+   CLI: 3.2.0-alpha3
+   Alloy: 1.3.0-alpha6
+   Xcode: 5.0.2
+   Device: iphone 5 (7.0.2), iphone simulator (7.0.3)</li>
+<li>Ingo Muschenetz 2013-11-27
+
+   Had to update summary and component.</li>
+<li>Fokke Zandbergen 2013-11-27
+
+   Same is true for other links I think. After this merge the Urban Airship module now stops at:
+   
+   <code><pre>
+   [TRACE] Undefined symbols for architecture i386:
+   [TRACE]   "_OBJC_CLASS_$_CTTelephonyNetworkInfo", referenced from:
+   [TRACE]       objc-class-ref in libti.urbanairship.a(UAEvent.o)
+   [TRACE] ld: symbol(s) not found for architecture i386
+   [TRACE] clang: error: linker command failed with exit code 1 (use -v to see invocation)
+   [ERROR] ** BUILD FAILED **
+   [ERROR] The following build commands failed:
+   [ERROR]         Ld build/Debug-iphonesimulator/House\ Battle.app/House\ Battle normal i386
+   [ERROR] (1 failure)
+   </pre></code></li>
+<li>Ingo Muschenetz 2013-11-27
+
+   [~fokke] I don't believe we saw that particular error. Is there something special about your project? Say you used it in a new application. Would it fail there as well?</li>
+<li>Jon Alter 2013-11-27
+
+   [~fokke] The symbol that you can't find "CTTelephonyNetworkInfo" is part of the CoreTelephony framework which is included by the module from module.xcconfig.  My guess is that you changed the module.xcconfig file in the UA module and forgot to put it back the way it was. 
+   
+   Make sure you have this line in your module.xcconfig
+   <code><pre>
+   OTHER_LDFLAGS=$(inherited) -ObjC -framework security -framework CoreTelephony
+   </pre></code>
+   
+   Also make sure you do a clean build before testing this.</li>
+<li>Fokke Zandbergen 2013-11-27
+
+   [~jalter] I didn't take that line out, only added the weak link for MapKit:
+   
+   <code><pre>
+   //
+   // PLACE ANY BUILD DEFINITIONS IN THIS FILE AND THEY WILL BE 
+   // PICKED UP DURING THE APP BUILD FOR YOUR MODULE
+   //
+   // see the following webpage for instructions on the settings
+   // for this file:
+   // <a href="http://developer.apple.com/mac/library/documentation/DeveloperTools/Conceptual/XcodeBuildSystem/400-Build_Configurations/build_configs.html" rel="nofollow" target="_blank">http://developer.apple.com/mac/library/documentation/DeveloperTools/Conceptual/XcodeBuildSystem/400-Build_Configurations/build_configs.html</a>
+   // 
+   
+   //
+   // How to add a Framework (example)
+   //
+   OTHER_LDFLAGS=$(inherited) -ObjC -framework security -framework CoreTelephony
+   // Adding a framework for a specific version(s) of iPhone:
+   //
+   // OTHER_LDFLAGS[sdk=iphoneos4*]=$(inherited) -framework Foo
+   // OTHER_LDFLAGS[sdk=iphonesimulator4*]=$(inherited) -framework Foo
+   //
+   //
+   // How to add a compiler define:
+   //
+   // OTHER_CFLAGS=$(inherited) -DFOO=1
+   //
+   //
+   // IMPORTANT NOTE: always use $(inherited) in your overrides
+   // 
+   OTHER_LDFLAGS=$(inherited) -weak_framework MapKit
+   </pre></code>
+   
+   But even after downloading the latest distribution (1.3.2) of the module again, I still get the following after first running <code>ti clean</code> and then <code>ti build -p ios</code>:
+   
+   <code><pre>
+   [TRACE]     /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ -arch i386 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator7.0.sdk -L/Users/zandbergen/dev/apps/HouseBattle/build/iphone/build/Debug-iphonesimulator -L/Users/zandbergen/dev/apps/HouseBattle/build/iphone/lib -L/Users/zandbergen/Library/Application\ Support/Titanium/modules/iphone/ti.imagefactory/1.1.1 -L/Users/zandbergen/Library/Application\ Support/Titanium/modules/iphone/dk.napp.testflight/2.0 -L/Users/zandbergen/Library/Application\ Support/Titanium/modules/iphone/ti.urbanairship/_1.3.2 -L/Users/zandbergen/Library/Application\ Support/Titanium/modules/iphone/ti.storekit/2.1.2 -L/Users/zandbergen/Library/Application\ Support/Titanium/modules/iphone/facebook/3.1.1 -F/Users/zandbergen/dev/apps/HouseBattle/build/iphone/build/Debug-iphonesimulator -filelist /Users/zandbergen/dev/apps/HouseBattle/build/iphone/build/House\ Battle.build/Debug-iphonesimulator/House\ Battle.build/Objects-normal/i386/House\ Battle.LinkFileList -Xlinker -objc_abi_version -Xlinker 2 -ObjC -weak_framework AdSupport -weak_framework Accounts -weak_framework Social -weak_framework AdSupport -weak_framework Accounts -weak_framework Social -framework StoreKit -framework Security -framework StoreKit -framework Security -weak_framework MapKit -weak_framework MapKit -weak_framework iAd -weak_framework iAd -fobjc-link-runtime -Xlinker -no_implicit_dylibs -stdlib=libstdc++ -mios-simulator-version-min=6.0 -weak_framework CoreText -framework EventKit -framework EventKitUI -weak_framework Security -licucore -framework Foundation -weak_framework UIKit -framework CoreGraphics -weak_framework AddressBook -framework AddressBookUI -framework CFNetwork -framework CoreLocation -weak_framework MapKit -framework MessageUI -framework MobileCoreServices -framework OpenGLES -framework QuartzCore -framework SystemConfiguration -lsqlite3 -lz -framework AudioToolbox -weak_framework MediaPlayer -framework AVFoundation -lxml2 -framework StoreKit -lTiCore -lti.imagefactory -ldk.napp.testflight -lti.urbanairship -lti.storekit -lfacebook -framework ExternalAccessory -ltiverify -lti_ios_debugger -lti_ios_profiler -Xlinker -dependency_info -Xlinker /Users/zandbergen/dev/apps/HouseBattle/build/iphone/build/House\ Battle.build/Debug-iphonesimulator/House\ Battle.build/Objects-normal/i386/House\ Battle_dependency_info.dat -o /Users/zandbergen/dev/apps/HouseBattle/build/iphone/build/Debug-iphonesimulator/House\ Battle.app/House\ Battle
+   [TRACE] Undefined symbols for architecture i386:
+   [TRACE]   "_OBJC_CLASS_$_CTTelephonyNetworkInfo", referenced from:
+   [TRACE]       objc-class-ref in libti.urbanairship.a(UAEvent.o)
+   [TRACE] ld: symbol(s) not found for architecture i386
+   [TRACE] clang: error: linker command failed with exit code 1 (use -v to see invocation)
+   [ERROR] ** BUILD FAILED **
+   [ERROR] The following build commands failed:
+   [ERROR]         Ld build/Debug-iphonesimulator/House\ Battle.app/House\ Battle normal i386
+   [ERROR] (1 failure)
+   </pre></code></li>
+<li>Jon Alter 2013-11-27
+
+   Hey [~fokke], thanks for the feedback.
+   - What TiSDK build are you running against?
+   - Is there an TiSDK build that you can run against that doesn't result in this error?
+   - What version of Xcode are you using?
+   - Can you try making a new project, use the UrbanAirship example, and see if you get the same results?</li>
+<li>Fokke Zandbergen 2013-11-28
+
+   I build against:
+   
+   * CLI 3.2.0-beta
+   * SDK 3.2.0.v20131122172908
+   * Xcode 5.0.2 (build 5A3005)
+   * iOS SDK 7.0.3
+   
+   Steps
+   1. Create: <code>ti create -p ios -n ua --id test.ua -d .</code>
+   2. Add: <code><module platform="iphone">ti.urbanairship</module></code>
+   3. Run:: <code>ti build -p ios</code></li>
+<li>Fokke Zandbergen 2013-11-28
+
+    I also tried the latest SDK: 3.2.0.v20131126144841</li>
+<li>Jon Alter 2013-12-02
+
+    Thanks for the info [~fokke]. Unfortunately we haven't been able to reproduce your issue on this end. If you build with a version of the SDK before the above PR was merged, does it build successfully? </li>
+<li>Fokke Zandbergen 2013-12-02
+
+    Actually, I also get it with the same CLI and stuff, but then using the 3.1.3.GA SDK?</li>
+<li>Jon Alter 2013-12-02
+
+    Interesting. Try this:
+    1. Try to build your project once
+    2. Go to the build folder of your project and open the Xcode project in Xcode
+    3. Look under frameworks and see if CoreTelephony.framework is there
+    4. If not, Click on the project in Xcode > on the right click "Build Phases" > Expand "Link Binary With Libraries" > Click the + and add the CoreTelephony.framework
+    5. Still in Xcode, go to "Product" > "Clean" and clean your project
+    6. Try to run your project from Xcode.
+    
+    Please be sure to let me know how it goes and if CoreTelephony.framework is in frameworks or if you had to add it.</li>
+<li>Fokke Zandbergen 2013-12-03
+
+    The <code>CoreTelephony.framework</code> was not in the list. After adding it like instructed I could run the project. I guess because <code>ti build</code> didn't finish the app shows the red-screen-of-death telling me <code>app.js</code> does not exist.
+    
+    If you want we could set up a teamview (or other) session so you can test on my system? ;)</li>
+<li>Jon Alter 2013-12-03
+
+    Ok great! It am getting that there is something wrong with the module on your system. Lets try a few more things here.
+    
+    1. Re-download the latest UrbanAirship module.
+    2. Go to where your modules are installed and go to the ti.urbanairship folder. Probably something like: 
+    
+    {noformat}/Users/jalter/Library/Application Support/Titanium/modules/iphone/ti.urbanairship{noformat}
+    
+    3. Delete the folder that is named the version of the module that you downloaded from the folder in step #2 (eg. 1.3.2).
+    4. Install the new module that you just downloaded.
+    5. You should see that folder <code>1.3.2</code> show up in the ti.urbanairship folder.
+    6. In your tiapp.xml include the module like this (below) so we can be sure we are using the version that we just installed.
+    
+    {noformat} <module platform="iphone" version="1.3.2">ti.urbanairship</module> {noformat}
+    
+    6. Be sure to do a "ti clean" before you build.
+    7. Build the project using the 3.1.3.GA SDK so we are sure to be working with something stable.
+    
+    Thank you for your patience.</li>
+<li>Fokke Zandbergen 2013-12-03
+
+    Thanks for helping me trace this down:
+    
+    1. I removed the module and ran <code>ti clean && ti build -p ios</code> to make sure the module reported missing.
+    2. I [downloaded](<a href="https://github.com/appcelerator/titanium_modules/blob/master/urbanairship/mobile/ios/ti.urbanairship-iphone-1.3.2.zip?raw=true)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_modules/blob/master/urbanairship/mobile/ios/ti.urbanairship-iphone-1.3.2.zip?raw=true)</a> and installed the module
+    3. Again ran <code>ti clean && ti build -p ios</code> and... it worked?!
+    
+    Like I described in the original description of this issue I tried re-installing the module before without success. I guess something changed since then? Anyway... looks resolved. Thx a lot [~jalter]!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15833.json">JSON Source</a></p>

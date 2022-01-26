@@ -1,0 +1,190 @@
+---
+title: "[TIMOB-5455] iOS: View loses focus during touchmove event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2012-08-27T14:27:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0, Release 2.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>core</td></tr>
+<tr><th>Reporter</th><td>Alan Leard</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-10-05T21:45:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-22T20:37:45.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In this drag and drop example, when you click and drag the blue box, the parentView(scrollView) gains focus and the touchmove event in the middle of the childView(view) touchmove event.  It only happens when dragging left and right, not up and down.  
+
+Repro:
+1. run app
+2. click and drag blue box to the right
+3. watch as scrollView takes focus and starts to scroll
+
+<code><pre>
+var mainWin = Titanium.UI.createWindow({ backgroundColor:'#fff' });
+
+var parentView = Ti.UI.createScrollView({ top:100, left:10, width:200, height:100, borderColor:'black', borderWidth:3 });
+
+parentView.contentWidth = 400;
+
+var reference = Ti.UI.createLabel({text:'reference reference reference', top:0, left:0, width:400, height:20});
+parentView.add(reference);
+
+var childView = Ti.UI.createView({ center:{x:0, y:0}, width:50, height:50, backgroundColor:'blue' });
+
+parentView.add(childView);
+mainWin.add(parentView);
+
+var touchHandler = function(e) {
+	var x, y;
+	switch (e.type) {
+		case 'touchstart':
+			Ti.API.info('Start moving.');
+			parentView.fireEvent('scrollEnd', {});
+			parentView.touchEnabled = false;
+			childView.center = e.globalPoint;
+			mainWin.add(childView);
+			childView.moving = true;			
+			break;
+		case 'touchmove':
+			if (childView.moving) {
+				childView.center = e.globalPoint;
+				Ti.API.info('Moving to ('+childView.center.x+','+childView.center.y+').');
+			}
+			break;
+		case 'touchend':
+		case 'touchcancel':
+			if (childView.moving) {
+				if (e.type === 'touchcancel') {
+					Ti.API.info('Ignoring touchcancel.');
+					return;
+				}
+				parentView.add(childView);
+				x = childView.center.x - parentView.left - childView.width/2;
+				y = childView.center.y - parentView.top - childView.height/2;
+				if (x<0) { x = 0; }
+				if (y<0) { y = 0; }
+				if (x>parentView.width) { x = parentView.width; }
+				if (y>parentView.height) { y = parentView.height; }
+				childView.center = {
+					x: x,
+					y: y
+				}
+				Ti.API.info('Completing move at ('+childView.center.x+','+childView.center.y+').');
+				childView.moving = false;
+				parentView.touchEnabled = true;
+			} else {
+				Ti.API.info('Move canceled.');
+			}
+			break;
+	}
+};
+
+var touchListeners = {
+	'touchcancel': touchHandler,
+	'touchend': touchHandler,
+	'touchmove': touchHandler,
+	'touchstart': touchHandler
+};
+
+for(var e in touchListeners) {
+	childView.addEventListener(e, touchListeners[e]);
+}
+mainWin.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2012-08-27
+
+   This may be due to scrollEnabled not being set (That is, the test code may need fixing and finding the bug invalid.) Note to self: Verify that scrollEnabled does the job.</li>
+<li>Blain Hamon 2012-08-27
+
+   <code><pre>
+   
+   var mainWin = Titanium.UI.createWindow({ backgroundColor:'#fff' });
+    
+   var parentView = Ti.UI.createScrollView({ top:100, left:10, width:200, height:100, borderColor:'black', borderWidth:3 });
+    
+   parentView.contentWidth = 400;
+    
+   var reference = Ti.UI.createLabel({text:'reference reference reference', top:0, left:0, width:400, height:20});
+   parentView.add(reference);
+    
+   var childView = Ti.UI.createView({ center:{x:0, y:0}, width:50, height:50, backgroundColor:'blue' });
+    
+   parentView.add(childView);
+   mainWin.add(parentView);
+    
+   var touchHandler = function(e) {
+       var x, y;
+       switch (e.type) {
+           case 'touchstart':
+               Ti.API.info('Start moving.');
+               parentView.scrollingEnabled = false;
+               childView.center = e.globalPoint;
+               mainWin.add(childView);
+               childView.moving = true;            
+               break;
+           case 'touchmove':
+               if (childView.moving) {
+                   childView.center = e.globalPoint;
+                   Ti.API.info('Moving to ('+childView.center.x+','+childView.center.y+').');
+               }
+               break;
+           case 'touchend':
+           case 'touchcancel':
+               if (childView.moving) {
+                   if (e.type === 'touchcancel') {
+                       Ti.API.info('Ignoring touchcancel.');
+                       return;
+                   }
+                   parentView.add(childView);
+                   x = childView.center.x - parentView.left - childView.width/2;
+                   y = childView.center.y - parentView.top - childView.height/2;
+                   if (x<0) { x = 0; }
+                   if (y<0) { y = 0; }
+                   if (x>parentView.width) { x = parentView.width; }
+                   if (y>parentView.height) { y = parentView.height; }
+                   childView.center = {
+                       x: x,
+                       y: y
+                   }
+                   Ti.API.info('Completing move at ('+childView.center.x+','+childView.center.y+').');
+                   childView.moving = false;
+                   parentView.scrollingEnabled = true;
+               } else {
+                   Ti.API.info('Move canceled.');
+               }
+               break;
+       }
+   };
+    
+   var touchListeners = {
+       'touchcancel': touchHandler,
+       'touchend': touchHandler,
+       'touchmove': touchHandler,
+       'touchstart': touchHandler
+   };
+    
+   for(var e in touchListeners) {
+       childView.addEventListener(e, touchListeners[e]);
+   }
+   mainWin.open();
+   </pre></code>
+   
+   Okay, if you use the scrollingEnabled boolean, all is well. Marking as dupe of the bug where scrollingEnabled was implemented. This is for 2.2 and is already fixed.</li>
+<li>Lee Morris 2017-03-22
+
+   Closing ticket as duplicate of the ticket that is mentioned above and has since been closed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5455.json">JSON Source</a></p>

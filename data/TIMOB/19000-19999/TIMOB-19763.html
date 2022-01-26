@@ -1,0 +1,254 @@
+---
+title: "[TIMOB-19763] iOS: Support item-specific peek for previewContext on ListView"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-11-04T19:04:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.1.0, Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-10-22T14:38:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-11-06T20:08:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Our current implementation of [Ti.UI.iOS.PreviewContext.preview](<a href="https://appcelerator.github.io/appc-docs/latest/#" rel="nofollow" target="_blank">https://appcelerator.github.io/appc-docs/latest/#</a>!/api/Titanium.UI.iOS.PreviewContext-property-preview) does not allow you to render a specific preview for a list item / row when used with [ListView.previewContext](<a href="https://appcelerator.github.io/appc-docs/latest/#" rel="nofollow" target="_blank">https://appcelerator.github.io/appc-docs/latest/#</a>!/api/Titanium.UI.ListView-property-previewContext) or the same property for TableView. This is because the view must be created when you create the previewContext object.
+
+The wrapped [UIPreviewAction](<a href="https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIPreviewAction_Class/index.html#//apple_ref/occ/instp/UIPreviewAction/handler)" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIPreviewAction_Class/index.html#//apple_ref/occ/instp/UIPreviewAction/handler)</a> has a handler handler to construct the view when it is actually required. It seems like we should make our <code>preview</code> property a callback as well that receives the section and item index/id and either returns a view directly or via another callback passed to it.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2015-10-22
+
+   This is a known issue. Our architecture currently does not allow us to have a callback as parameter, that returns something. It is related to threading, because the value would be returned in a different thread then we can access it. As soon as that is solved, I will replace <code>preview</code> as a <code>Ti.UI.View</code> with something like:
+   
+   <code><pre>
+   preview: function(e) {
+     var item = list.getItemAt(e.sectionIndex, e.itemIndex);
+     var imageView = Ti.UI.createImageView({image: item.data.image});
+   
+     return imageView;
+   }
+   </pre></code>
+   
+   [~fokkezb] If you know of any function, that already behaves the same, let me know!</li>
+<li>Fokke Zandbergen 2015-10-22
+
+   Nope, don't think we have such a thing. I guess once we default to running JS on the main thread we could do this.</li>
+<li>Jan van Kampen 2015-11-02
+
+   Nasty, nasty hack to display row specific data right now:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: "white"
+   });
+   
+   // The view to be previewed while popping.
+   var previewView = Ti.UI.createView({
+       backgroundColor: "blue"
+   });
+   var lbl = Ti.UI.createLabel({
+   	text:'a',
+   	color:'#ffffff'
+   });
+   previewView.add(lbl);
+   
+   // The window to be opened after popping the preview.
+   var detailWindow = Ti.UI.createWindow({
+       backgroundColor: "yellow"
+   });
+   
+   detailWindow.add(Ti.UI.createLabel({
+       text: "You made it!"
+   }));
+   
+   
+   // Create the preview context
+   var context = Ti.UI.iOS.createPreviewContext({
+       preview: previewView,
+       contentHeight: 300, // When unspecified, we use the available height
+       pop: function(e) { // Called after popping the preview
+           //Something
+       }
+   });
+   
+   // Assign the preview context
+   var table = Ti.UI.createTableView({
+       previewContext: context, // Will be ignored on unsupported devices
+   });
+   
+   //MAGIC
+   table.addEventListener("touchstart", function(e) {
+   	lbl.text = e.row.title;
+   });
+   
+   
+   var items = [];
+   
+   for(var i = 1; i <= 5; i++) {
+       items.push(
+           Ti.UI.createTableViewRow({
+           	title:i+"a"
+           })
+       );
+   }
+   
+   
+   table.data = items;
+   
+   win.add(table);
+   win.open();
+   </pre></code></li>
+<li>Fokke Zandbergen 2015-11-02
+
+   Thanks [~janvankampen] - still needs to be fixed soon though ;)</li>
+<li>Hans Knöchel 2015-11-03
+
+   We removed the <code>pop</code> callback and introduced <code>peek</code> and <code>pop</code> events that are fired before displaying the preview and before "popping" the view. Also added the <code>itemId</code> to identifier a <code>Ti.UI.ListItem</code> directly. This should solve the above problem pretty well.
+   
+   *PR master*: <a href="https://github.com/appcelerator/titanium_mobile/pull/7388" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7388</a>
+   *PR 5_1_X*: <a href="https://github.com/appcelerator/titanium_mobile/pull/7397" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7397</a>
+   
+   *Demo*:
+   <code><pre>
+   var actions = [];
+   var win = Ti.UI.createWindow({
+       backgroundColor: "white"
+   });
+   
+   // The view to be previewed while popping.
+   var previewView = Ti.UI.createView({
+       backgroundColor: "blue"
+   });
+   
+   // The window to be opened after popping the preview.
+   var detailWindow = Ti.UI.createWindow({
+       backgroundColor: "yellow"
+   });
+   
+   detailWindow.add(Ti.UI.createLabel({
+       text: "You made it!"
+   }));
+   
+   // The actions to be added to the preview context.
+   var action = Ti.UI.iOS.createPreviewAction({
+       title: "Preview Action",
+       style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   action.addEventListener("click", function(e) {
+     Ti.API.warn(e);
+       alert(
+           "Title: " + e.title +
+           "\nStyle: " + e.style +
+           "\nIndex: " + e.index +
+           "\nSectionIndex: " + e.sectionIndex +
+           "\nItemIndex: " + e.itemIndex
+       );
+   });
+   
+   actions.push(action);
+   
+   // Create the preview context
+   var context = Ti.UI.iOS.createPreviewContext({
+       preview: previewView,
+       actions: actions, // Can have both Ti.UI.iOS.PreviewAction + Ti.UI.iOS.PreviewActionGroup
+       contentHeight: 300 // When unspecified, we use the available height
+   });
+   
+   context.addEventListener("peek", function(e) {
+     Ti.API.warn("Peek");
+     Ti.API.warn(e);
+   });
+   
+   context.addEventListener("pop", function(e) {
+     Ti.API.warn("Pop");
+     Ti.API.warn(e);
+   });
+   
+   // Assign the preview context
+   var listView = Ti.UI.createListView({
+       previewContext: context, // Will be ignored on unsupported devices
+   });
+   
+   var sections = [];
+   
+   for(var i = 1; i <= 2; i++) {
+     var items = [];
+     var section = Ti.UI.createListSection({
+         headerTitle: "Section " + i
+     });
+     for(var j = 1; j <= 5; j++) {
+         items.push({
+             properties: {
+                 itemId: "test" + i + j,
+                 title: "Cell #" + j
+             }
+         });
+     }
+     section.setItems(items);
+     sections.push(section);
+   }
+   listView.setSections(sections);
+   
+   win.add(listView);
+   win.open();
+   </pre></code></li>
+<li>Fokke Zandbergen 2015-11-04
+
+   [~hansknoechel] Added some comments on the PR here:
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/7397" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7397</a>
+   
+   I've also created an RC version of the 3D Touch sample app (stil have to update the README):
+   <a href="https://github.com/appcelerator-developer-relations/appc-sample-3dtouch/tree/RC" rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-3dtouch/tree/RC</a>
+   
+   It works, but with some notes:
+   
+   * You can't set the <code>preview</code> property in the <code>peek</code> event. You *can* set it after creation so it's not creation-only but we do need to point this out in the API reference.
+   * If you change the preview view in the <code>peek</code> event more often then not I can see the previous state of the view before I see my changes. This causes an unpleasant flickering :(</li>
+<li>Hans Knöchel 2015-11-04
+
+   [~fokkezb] Will adjust the <code>creation-only</code> key anyway, since it changed and now can be adjusted. The flickering is because the <code>peek</code> event is fired directly before the preview is shown, so the user might think of a way to animate / handle this right.
+   
+   EDIT: The property is not marked as <code>creation-only</code>, but I added some notes to use this preview.</li>
+<li>Sebastian Klaus 2015-11-06
+
+   Works great as always. I have a short questions. When will I get into the "pop" event?
+   
+   In the example code, I don't do ever.</li>
+<li>Fokke Zandbergen 2015-11-06
+
+   When you press even harder after seeing the peek</li>
+<li>Sebastian Klaus 2015-11-06
+
+    aaahhh.... clear. thanks</li>
+<li>Harry Bryant 2015-11-06
+
+    Verified as fixed, Tested that the implemented features work correctly, using 6S & 6S Plus devices. However I discovered a bug where the app will immediately crash if attempting to use 3D touch on images within the native gallery <code>App > Add Picture</code>. I have created a separate ticket regarding this issue: 
+    
+    TIMOB-19888 .
+    
+    Mac OSX El Capitan 10.11 (15A284) 
+    Ti SDK: 5.1.0.v20151104190037 
+    Appc NPM: 4.2.1 
+    Appc CLI: 5.1.0-42 
+    Ti CLI: 5.0.4 
+    Alloy: 1.7.23 
+    Xcode 7.1(7B91b) 
+    Node v0.12.7 
+    production
+    
+    *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19763.json">JSON Source</a></p>

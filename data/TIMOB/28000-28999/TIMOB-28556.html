@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-28556] iOS: Drag-and-dropped text into TextArea will crash on iOS 15 if it exceeds maxLength"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-10-19T12:42:10.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.1.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>TextArea, drag, drop, ios, ios-15, maxLength, paste</td></tr>
+<tr><th>Reporter</th><td>Jonas Funk Johannessen</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-10-12T07:08:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-11-17T11:12:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Steps to reproduce:*
+<h4>Build and run the below on iOS 15.</h4>
+<h4>Tap and hold the top TextArea's text.</h4>
+<h4>Tap on "Select All" in the context menu.</h4>
+<h4>Tap and hold selected text until it becomes draggable.</h4>
+<h4>Drag text into bottom TextArea.</h4>
+<h4>Notice that the app crashes.</h4>
+
+<code><pre>
+const window = Ti.UI.createWindow({
+	layout: "vertical",
+	backgroundColor: "white",
+});
+window.add(Ti.UI.createTextArea({
+	value: "Hello World! This is a test.",
+	borderWidth: 1,
+	top: 100,
+	width: "80%",
+	height: 80,
+}));
+window.add(Ti.UI.createTextArea({
+	value: "Paste text here.",
+	maxLength: 20,
+	borderWidth: 1,
+	top: 20,
+	width: "80%",
+	height: 80,
+}));
+window.open();
+</pre></code>
+
+*Original Post:*
+Our users have started to report that pasting text into a Ti.UI.TextArea, will crash the app. The crash has started to happen recently and only on iOS 15. Below is attached a crash report from Crashlytics. 
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28556_68003/ios15-paste-crash.txt">ios15-paste-crash.txt</td></td><td>2021-10-12T07:07:29.000+0000</td><td>1972</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2021-10-14
+
+   I've tried to check this out but pasting into a TextArea (including normal text, special characters, and attributed strings) seems to work ok for me.
+   
+   I did manage to track down [this post](<a href="https://qiita.com/Yaruki00/items/219902185610b52a7a0d)" rel="nofollow" target="_blank">https://qiita.com/Yaruki00/items/219902185610b52a7a0d)</a> that looks to be similar and is caused by the new drag and drop copy/paste action. Maybe this isn't playing nicely with one of the existing properties like editable/enableCopy</li>
+<li>Ewan Harris 2021-10-14
+
+   Yes looks to be drag and drop paste + maxLength. Highlight the first text then drag and drop in the second textArea and it will crash
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	layout: 'vertical'
+   });
+   var textArea = Ti.UI.createTextArea({
+   	top: 100,
+   	value: 'I am a textarea',
+   });
+   win.add(textArea);
+   var textArea2 = Ti.UI.createTextArea({
+   	width: 300, height : 70,
+   	borderColor: 'black',
+   	maxLength: 2
+   });
+   win.add(textArea2);
+   win.open();
+   </pre></code></li>
+<li>Jonas Funk Johannessen 2021-10-14
+
+   I was able to reproduce this issue once. Some of our users say that it happens every time they try to paste something into the texarea. I've talked to one person who sent some text to himself via Facebook Messenger, copied that text, and inserted into the app leading to crash. I wondered if could be something with formatting, so I asked him to try to select some text from web > share > copy and paste. [This trick should remove formatting](<a href="https://apple.stackexchange.com/questions/354992/how-to-copy-and-paste-as-plain-text-on-ios/377691)." rel="nofollow" target="_blank">https://apple.stackexchange.com/questions/354992/how-to-copy-and-paste-as-plain-text-on-ios/377691).</a> Still crash. </li>
+<li>Ewan Harris 2021-10-14
+
+   Are they just using the normal copy/paste dialog? I can reproduce the stack you have only with the drag and drop copy paste + maxLength
+   
+   <code><pre>
+   2021-10-14 15:32:49.183066+0100 Titanium[7956:678901] *** Assertion failure in -[_UITextKitTextPosition compare:], UITextKitTextViewEditingSupport.m:43
+   2021-10-14 15:32:49.198140+0100 Titanium[7956:678901] *** Terminating app due to uncaught exception 'NSInternalInconsistencyException', reason: 'Invalid parameter not satisfying: pos'
+   *** First throw call stack:
+   (
+   	0   CoreFoundation                      0x00007fff203fbbb4 __exceptionPreprocess + 242
+   	1   libobjc.A.dylib                     0x00007fff2019ebe7 objc_exception_throw + 48
+   	2   Foundation                          0x00007fff20750c12 _userInfoForFileAndLine + 0
+   	3   UIKitCore                           0x00007fff253b5b68 -[_UITextKitTextPosition compare:] + 235
+   	4   UIKitCore                           0x00007fff253a8e77 -[UITextInputController comparePosition:toPosition:] + 85
+   	5   UIKitCore                           0x00007fff253ca315 -[UITextView comparePosition:toPosition:] + 85
+   	6   UIKitCore                           0x00007fff2536fc4d -[UITextPasteController _clampRange:] + 634
+   	7   UIKitCore                           0x00007fff253703c0 __87-[UITextPasteController _performPasteOfAttributedString:toRange:forSession:completion:]_block_invoke + 40
+   	8   UIKitCore                           0x00007fff253705c8 __87-[UITextPasteController _performPasteOfAttributedString:toRange:forSession:completion:]_block_invoke.174 + 184
+   	9   UIKitCore                           0x00007fff253b1cec -[UITextInputController _pasteAttributedString:toRange:completion:] + 471
+   	10  UIKitCore                           0x00007fff25370326 -[UITextPasteController _performPasteOfAttributedString:toRange:forSession:completion:] + 726
+   	11  UIKitCore                           0x00007fff2536f603 __49-[UITextPasteController _executePasteForSession:]_block_invoke + 299
+   	12  libdispatch.dylib                   0x0000000102e67a28 _dispatch_call_block_and_release + 12
+   	13  libdispatch.dylib                   0x0000000102e68c0c _dispatch_client_callout + 8
+   	14  libdispatch.dylib                   0x0000000102e77376 _dispatch_main_queue_callback_4CF + 1195
+   	15  CoreFoundation                      0x00007fff2036985d __CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 9
+   	16  CoreFoundation                      0x00007fff203640ba __CFRunLoopRun + 2772
+   	17  CoreFoundation                      0x00007fff20363103 CFRunLoopRunSpecific + 567
+   	18  GraphicsServices                    0x00007fff2c851cd3 GSEventRunModal + 139
+   	19  UIKitCore                           0x00007fff24ffbe63 -[UIApplication _run] + 928
+   	20  UIKitCore                           0x00007fff25000a53 UIApplicationMain + 101
+   	21  Titanium                            0x00000001028c12c6 main + 806
+   	22  dyld                                0x0000000102ce5e1e start_sim + 10
+   	23  ???                                 0x0000000000000001 0x0 + 1
+   	24  ???                                 0x0000000000000001 0x0 + 1
+   )
+   </pre></code></li>
+<li>Jonas Funk Johannessen 2021-10-14
+
+   Yes, it's just normal copy/pasting without dragging. </li>
+<li>Joshua Quick 2021-10-15
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/13123" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13123</a></li>
+<li>Ewan Harris 2021-11-17
+
+   Backport PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/13187" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13187</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28556.json">JSON Source</a></p>

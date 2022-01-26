@@ -1,0 +1,201 @@
+---
+title: "[TIMOB-19339] iOS: iPad SplitWindow - Hiding master view breaks Navigation Window"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2018-08-02T08:41:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>Regression, SplitWindow, TCSupportTriage, iOS8, iPad</td></tr>
+<tr><th>Reporter</th><td>Beau Gibson</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2014-10-01T04:43:05.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T08:41:35.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+After updating Titanium to 3.4.0 and Xcode to 6.0.1, hiding the MasterView of an iPad SplitWindow in portrait mode running iOS 8 causes the second level of a navigationWindow in the master view not to display.
+
+To Recreate: Create a basic template app in Studio. Replace the app.js with the attached file, build for iPad running iOS8 and run.
+Navigate to one of the subMenu's then back.
+Press the menu button to collapse MasterView, then press again to re-open MasterView.
+Select a subMenu again.
+
+Expected Outcome: The sublist is displayed.
+
+Actual Outcome: The sublist does not appear
+
+NOTE: This works correctly in iOS7, and works correctly on apps that were built before Xcode6 + Studio 3.4.0 and installed on an iOS7 device which has since been upgraded to iOS8
+
+EDIT: uploaded a more concise app.js
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19339_51748/app.js">app.js</td></td><td>2014-10-01T05:26:07.000+0000</td><td>2680</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Beau Gibson 2014-10-01
+
+   It seems like changing Ti.UI.iPad.splitWindow.showMasterInPortrait after creation is breaking the Navigation window</li>
+<li>Beau Gibson 2014-10-07
+
+   </li>
+<li>Beau Gibson 2014-10-24
+
+   Any help/information would be appreciated. Critical error that did not exist before update!</li>
+<li>Beau Gibson 2014-10-29
+
+   Also note that this works as expected with the following configuration:
+   Mac OSX10.9.4, Titanium Studio 3.4.0.201409261227, Titanium CLI 3.4.0 Titanium SDK version 3.3.0.GA, Xcode 5.1.1, Tested on iOS Simulator and iPad Mini</li>
+<li>Ingo Muschenetz 2015-02-13
+
+   [~mrahman] can you please retest on 3.5.0 and master?</li>
+<li>Radamantis Torres-Lechuga 2015-03-12
+
+   [~mrahman] please retest with 3.5.0 and master
+   </li>
+<li>Diego Ogniben 2015-03-12
+
+   I'm having the same issue on:
+   Mac OSX10.9.5, Titanium Studio 3.4.1.201410281727, Titanium SDK version 3.5.1.GA, Xcode 6.1.1, Tested on iOS Simulator and iPad 2
+   </li>
+<li>simbu-anubavam 2015-08-04
+
+   Hi All,
+   
+   I am also facing an issue in the different manner,
+   I used Ti.UI.iPad.splitWin.showMasterInPortrait = true to show the content on FULL width and height,
+   Which is fine, But at that time the height of the element(ex TableView) of  SplitWindow is changed to Window size.
+   
+   And then changing the orientation of app to Landscape not showing the Content of the window fully, The bottom elements are hided and its is not visible.
+   
+   Again changing to PORTRAIT is showing the content correctly.
+   
+   But Landscape is not showing correctly, 
+   
+   Please suggest
+    </li>
+<li>Vijay Singh 2018-08-02
+
+   This problem do not exist now. This ticket can be closed.
+   There is a bit change in splitView creating in API. Previously it was created using Ti.UI.iPad.createSplitWindow(). But now Ti.UI.iOS.createSplitWindow().
+   So the updated test case from attached app.js -
+   
+   <code><pre>
+   var masterOpen = true;
+   
+   var HomeView = Ti.UI.createWindow({
+   	backgroundColor : 'brown'
+   });
+   
+   //Master Navigation Window for Split View
+   var masterView = Ti.UI.createWindow({
+   	title : "Testing",
+   });
+   var masterTable = Ti.UI.createTableView();
+   for (var x = 0; x < 5; x++) {
+   	//Creates a tableView for child table
+   	var subTable = Ti.UI.createTableView();
+   	for (var i = 0; i < 3; i++) {
+   		//Adds rows to the sub table
+   		subTable.appendRow(Ti.UI.createTableViewRow({
+   			title : "subRow" + i,
+   		}));
+   	}
+   	//creates a window to contain the sub table
+   	var subView = Ti.UI.createWindow({
+   		title : "subTable" + x,
+   	});
+   	subView.add(subTable);
+   
+   	//appends the row to the masterView table
+   	masterTable.appendRow({
+   		title : "row" + x,
+   		childTable : subView,
+   		hasChild : true,
+   	});
+   }
+   masterView.add(masterTable);
+   
+   //Creates navigation Window with master table
+   var masterNavWindow = Ti.UI.iOS.createNavigationWindow({
+   	window : masterView,
+   });
+   
+   //Event Listener for click event. If row has child, open child
+   masterTable.addEventListener("click", function(c) {
+   	Ti.API.info(JSON.stringify(c));
+   	if (c.row.hasChild) {
+   		Ti.API.info("Opening sub Table");
+   		masterNavWindow.openWindow(c.row.childTable);
+   	} else {
+   		Ti.API.warn("c.row does not have child");
+   	}
+   });
+   
+   //Create detail window
+   var detailWindow = Ti.UI.createWindow({
+   	title : "This is a detail Window",
+   });
+   //Create detail View and add a label
+   var detailView = Ti.UI.createView();
+   detailView.label = Ti.UI.createLabel({
+   	text : "Hello World"
+   });
+   detailView.add(detailView.label);
+   detailWindow.add(detailView);
+   
+   //Create detail Navigation Window
+   var detailNavWindow = Ti.UI.iOS.createNavigationWindow({
+   	window : detailWindow,
+   });
+   
+   
+   var self = Ti.UI.iOS.createSplitWindow({
+   	backgroundColor : "#1B457E",
+   	masterView : masterNavWindow,
+   	detailView : detailNavWindow,
+   	showMasterInPortrait : true
+   });
+   
+   var masterButton = Ti.UI.createButton({
+   	title : "\u2630",
+   });
+   detailWindow.leftNavButton = (detailWindow.orientation == Ti.UI.PORTRAIT || detailWindow.orientation == Ti.UI.UPSIDE_PORTRAIT) ? masterButton : null;
+   
+   //Button is used to hide/show masterView in portrait orientation
+   masterButton.addEventListener("click", function(mastClick) {
+   	self.showMasterInPortrait = !masterOpen;
+   	masterOpen = !masterOpen;
+   });
+   
+   Ti.Gesture.addEventListener('orientationchange', function(e) {
+   	if (e.orientation == Ti.UI.PORTRAIT || e.orientation == Ti.UI.UPSIDE_PORTRAIT) {
+   		detailWindow.leftNavButton = masterButton;
+   		self.showMasterInPortrait = masterOpen;
+   	} else if (e.orientation == Ti.UI.LANDSCAPE_LEFT || e.orientation == Ti.UI.LANDSCAPE_RIGHT) {
+   		detailWindow.leftNavButton = null;
+   		self.showMasterInPortrait = false;
+   	}
+   });
+   
+   self.open();
+   
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19339.json">JSON Source</a></p>

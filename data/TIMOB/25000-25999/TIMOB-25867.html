@@ -1,0 +1,79 @@
+---
+title: "[TIMOB-25867] Android: Running an application through CLI flickers it's main activity at launch."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-07T02:39:35.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0, Release 7.1.0, Release 7.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Yordan Banev</td></tr>
+<tr><th>Assignee</th><td>Yordan Banev</td></tr>
+<tr><th>Created</th><td>2018-03-14T17:06:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-28T22:18:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Starting an Android application with 'appc run' or 'ti build' causes it to flicker at start when the main activity is launched.
+Launching afterwards from the device works just fine.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Yordan Banev 2018-03-14
+
+   PR: <a href="https://github.com/appcelerator/node-titanium-sdk/pull/26" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/26</a></li>
+<li>Yordan Banev 2018-03-16
+
+   titanium-mobile PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/9938" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9938</a></li>
+<li>Joshua Quick 2018-06-05
+
+   [~ybanev], removing the "-n" parameter triggers our "Restart Required" dialog on app startup and it gets stuck in an infinite loop displaying this dialog. This happens to me on a real Pixel XL device. Note that not all devices exhibit this behavior, but it shows that the default intent handling is not the same across all devices and we should be explicit.
+   
+   I think a better solution would be to keep the "-n" parameter (it is needed to specify the package/activity name)... and also provide intent parameters action "MAIN" and category "LAUNCHER" so that we'll correctly simulate an app launch from the app menu.
+   
+   For example:
+   <code><pre>
+   ./adb shell am start -n com.appcelerator.testing/.ClassicapptestActivity -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000
+   </pre></code>
+   
+   I'll write up a PR since what I'm doing solves another problem as well.
+   
+   _Edit: Added "-f 0x10200000" intent flags parameter which sets <code>FLAG_ACTIVITY_NEW_TASK</code> and <code>FLAG_ACTIVITY_RESET_TASK_IF_NEEDED</code>. I've verified that these flags are set when launch from the app menu on the newest Android OS versions. Android 4.1 only sets the <code>FLAG_ACTIVITY_NEW_TASK</code> flag, but adding the 2nd flag is harmless for that version._</li>
+<li>Chris Barber 2018-06-05
+
+   [~jquick] I checked it and it seemed that the <code>-n</code> flag had no effect. Both running the command's help and the docs do not indicate that the <code>-n</code> flag does anything: <a href="https://developer.android.com/studio/command-line/adb#am." rel="nofollow" target="_blank">https://developer.android.com/studio/command-line/adb#am.</a></li>
+<li>Joshua Quick 2018-06-05
+
+   [~cbarber],
+   
+   Just updated my comment. It happens to me on a real Pixel XL device. Not all devices have this behavior though.
+   
+   I'm going to go ahead with my changes since those extra arguments is how Android Studio does it.</li>
+<li>Joshua Quick 2018-06-05
+
+   Also, the <code>-n</code> flag is used to specify the component name for the intent as documented here...
+   <a href="https://developer.android.com/studio/command-line/adb#IntentSpec" rel="nofollow" target="_blank">https://developer.android.com/studio/command-line/adb#IntentSpec</a>
+   
+   I agree that the way Google documents it in the link below doesn't make it clear, but in <code>start [options] intent</code>, the <code>intent</code> part takes the intent arguments in the link above.
+   <a href="https://developer.android.com/studio/command-line/adb#am" rel="nofollow" target="_blank">https://developer.android.com/studio/command-line/adb#am</a>
+   
+   Case-in-point, I can do the following to show our website via the default web browser app...
+   <code><pre>
+   ./adb shell am start -a android.intent.action.VIEW -d <a href="https://www.appcelerator.com" rel="nofollow" target="_blank">https://www.appcelerator.com</a>
+   </pre></code>
+   
+   Developers sometimes do stuff like the above to easily test their app's intent-filter handling, such as with customer URL schemes.</li>
+<li>Lokesh Choudhary 2018-06-28
+
+   Verified the fix in SDK 7.3.0.v20180628132121.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25867.json">JSON Source</a></p>

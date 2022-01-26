@@ -1,0 +1,279 @@
+{
+	"id": "166950",
+	"key": "TIMOB-24558",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "10000",
+			"description": "",
+			"name": "Done"
+		},
+		"resolutiondate": "2018-02-04T16:10:27.000+0000",
+		"created": "2017-04-05T17:51:01.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "19275",
+				"description": "Patch release for 6.0.x regressions or important fixes",
+				"name": "Release 6.0.3",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-03-22"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2018-08-06T17:34:48.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Our builds have suddenly started intermittently failing for iOS due to unit test crashes. Specifically, the XML tests are now crashing. Please find attached a number of crash reports from one of the build nodes.\r\n\r\nAppears that there's some bad GC/dealloc of xml structures.",
+		"attachment": [
+			{
+				"id": "61971",
+				"filename": "CrashReports.zip",
+				"author": {
+					"name": "cwilliams",
+					"key": "cwilliams",
+					"displayName": "Christopher Williams",
+					"active": true,
+					"timeZone": "America/New_York"
+				},
+				"created": "2017-04-05T17:50:59.000+0000",
+				"size": 433568,
+				"mimeType": "application/zip"
+			},
+			{
+				"id": "61991",
+				"filename": "xml-files.zip",
+				"author": {
+					"name": "hknoechel",
+					"key": "hansknoechel",
+					"displayName": "Hans Knöchel",
+					"active": true,
+					"timeZone": "Europe/Berlin"
+				},
+				"created": "2017-04-07T20:17:07.000+0000",
+				"size": 8876,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: XML unit tests crash for iOS intermittently on build machines",
+		"creator": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 990,
+				"state": "closed",
+				"name": "2018 Sprint 02 SDK",
+				"startDate": "2018-01-14T22:48:43.544Z",
+				"endDate": "2018-01-28T22:48:00.000Z",
+				"completeDate": "2018-01-29T16:22:42.911Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "417059",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "The crashs are indeed looking like a race-condition. There are some odd {{OSSpinLockLock}} references that might cause issues. We may need to move those to the GCD pattern, so I'll create a test-case that includes all XML unit-tests to get started.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-04-07T19:58:57.000+0000",
+					"updated": "2017-04-07T19:58:57.000+0000"
+				},
+				{
+					"id": "417061",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Test-case:\r\n{code:js}\r\nvar win = Ti.UI.createWindow({\r\n    backgroundColor: '#fff'\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n    title: 'Trigger'\r\n});\r\n\r\nbtn.addEventListener('click', runXMLTests);\r\n\r\nwin.add(btn);\r\nwin.open();\r\n\r\nfunction runXMLTests() {\r\n    function it(name, cb) {\r\n        Ti.API.info('Test: ' + name);\r\n        cb();\r\n    }\r\n    \r\n    // some common initialization specific to the xml suite\r\n\tfunction countNodes(node, type) {\r\n\t\tvar nodeCount = 0;\r\n\t\ttype = 'undefined' == typeof type ? null : type;\r\n\t\tfor (var i = 0; i < node.childNodes.length; i++) {\r\n\t\t\tvar child = node.childNodes.item(i);\r\n\t\t\tif (null == type || child.nodeType == type) {\r\n\t\t\t\tnodeCount++;\r\n\t\t\t\tnodeCount += countNodes(child, type);\r\n\t\t\t}\r\n\t\t}\r\n\t\treturn nodeCount;\r\n\t}\r\n\r\n\tvar testSource = {};\r\n\tvar invalidSource = {};\r\n\r\n\tvar i = 0;\r\n\tvar testFiles = [ 'soap.xml', 'xpath.xml', 'nodes.xml', 'nodeCount.xml', 'cdata.xml', 'cdataEntities.xml', 'with_dtd.xml', 'with_ns.xml', 'attrs.xml', 'element.xml', 'elementNS.xml' ];\r\n\tvar invalidFiles = [ 'mismatched_tag.xml', 'no_toplevel.xml', 'no_end.xml' ];\r\n\r\n\tfor (i = 0; i < testFiles.length; i++) {\r\n\t\ttestSource[testFiles[i]] = Ti.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, testFiles[i]).read().text;\r\n\t}\r\n\tfor (i = 0; i < invalidFiles.length; i++) {\r\n\t\tinvalidSource[invalidFiles[i]] = Ti.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, invalidFiles[i]).read().text;\r\n\t}\r\n    // \r\n\t// it('parseString', function (finish) {\r\n\t// \tshould(Ti.XML.parseString).be.a.Function;\r\n\t// \tshould(function () {\r\n\t// \t\tvar xml = Ti.XML.parseString('<test>content</test>');\r\n\t// \t\tshould(xml).be.an.Object;\r\n\t// \t}).not.throw();\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('serializeToString', function (finish) {\r\n\t// \tshould(Ti.XML.serializeToString).be.a.Function;\r\n\t// \tshould(function () {\r\n\t// \t\tvar xml = Ti.XML.parseString('<test>content</test>');\r\n\t// \t\tshould(xml).be.an.Object;\r\n\t// \t\tvar str = Ti.XML.serializeToString(xml);\r\n\t// \t\tshould(str).be.a.String;\r\n\t// \t}).not.throw();\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// //TIMOB-9071\r\n\t// it('getOrCreateAttributeNS', function(finish) {\r\n\t// \tvar xmlDoc = Ti.XML.parseString('<html><head></head><body><a href=\"http://appcelerator.com/\" /></body></html>');\r\n\t// \tvar anchor = xmlDoc.getElementsByTagName('a').item(0);\r\n\t// \tshould(function() {\r\n\t// \t\tanchor.getAttributeNS(null, 'href');\r\n\t// \t}).not.throw();\r\n\t// \tshould(function() {\r\n\t// \t\txmlDoc.createAttributeNS(null, 'id');\r\n\t// \t}).not.throw();\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// //TIMOB-8551\r\n\t// it('ownerDocumentproperty', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<?xml version=\"1.0\"?><root><test>data</test></root>');\r\n\t// \tvar e1 = doc.firstChild;\r\n\t// \tvar e2 = doc.createElement('test');\r\n\t// \tif (e1.ownerDocument === e2.ownerDocument) {\r\n\t// \t\tshould(e2.ownerDocument === null).be.eql(false);\r\n\t// \r\n\t// \t}\r\n\t// });\r\n    // \r\n\t// //TIMOB-5112\r\n\t// it('getElementsByTagName', function(finish) {\r\n\t// \tvar xmlString = '<benny/>';\r\n\t// \tvar doc = Ti.XML.parseString(xmlString);\r\n\t// \tvar elem;\r\n\t// \tshould(function() {\r\n\t// \t\telem = doc.getElementsByTagName('mickey').item(0);\r\n\t// \t}).not.throw();\r\n\t// \tfinish();\r\n\t// });\r\n\r\n\t// These 6 tests are adapted from the KitchenSink xml_dom test\r\n\tit('soap', function(finish) {\r\n\t\tvar xml = Ti.XML.parseString(testSource['soap.xml']);\r\n\t\tvar fooBarList = xml.documentElement.getElementsByTagName('FooBar');\r\n\t\tvar item = fooBarList.item(0);\r\n\t});\r\n\r\n\tit('xmlNodeCount', function (finish) {\r\n\t\tvar xml = Ti.XML.parseString(testSource['nodeCount.xml']);\r\n\t\tvar oneList = xml.documentElement.getElementsByTagName('one');\r\n\t\tvar twoList = oneList.item(0).getElementsByTagName('two');\r\n\t\tvar threeList = oneList.item(0).getElementsByTagName('three');\r\n\t\tvar nodes = xml.getElementsByTagName('root');\r\n\t\tvar one = xml.documentElement.getElementsByTagName('one').item(0);\r\n\t\tvar next = one.nextSibling;\r\n\t\tfor (;null != next && next.nodeType != next.ELEMENT_NODE; ) next = next.nextSibling;\r\n\t\tvar nodeCount = countNodes(nodes.item(0), 1);\r\n\t});\r\n\r\n\tit('xmlCDataAndEntities', function(finish) {\r\n\t\tvar xml = Ti.XML.parseString(testSource['cdataEntities.xml']);\r\n\t\tvar dataList = xml.documentElement.getElementsByTagName('data');\r\n\t\tvar subdataList = xml.documentElement.getElementsByTagName('subdata');\r\n\t\tvar nodeCount = countNodes(subdataList.item(0), 1);\r\n\t});\r\n    // \r\n\t// it('xmlSerialize', function(finish) {\r\n\t// \t// Return an array of attribute nodes, sorted by name.\r\n\t// \t// An attribute NamedNodeMap has no canonical ordering,\r\n\t// \t// so to do a comparison we need to ensure we've got the\r\n\t// \t// same order between both.\r\n\t// \tfunction sortAttributeList(attribs) {\r\n\t// \t\tvar names = [];\r\n\t// \t\tvar map = {};\r\n\t// \t\tfor (var i = 0; attribs > i; i++) {\r\n\t// \t\t\tvar a = attribs.item(i);\r\n\t// \t\t\tmap[a.nodeName] = a;\r\n\t// \t\t\tnames.push(a.nodeName);\r\n\t// \t\t}\r\n\t// \t\tnames = names.sort();\r\n\t// \t\tvar list = [];\r\n\t// \t\tfor (var i = 0; i < names.length; i++) list.push(map[names[i]]);\r\n\t// \t\treturn list;\r\n\t// \t}\r\n\t// \tfunction matchXmlTrees(a, b) {\r\n\t// \t\tshould(a.nodeType).eql(b.nodeType);\r\n\t// \t\tshould(a.nodeName).eql(b.nodeName);\r\n\t// \t\tshould(a.nodeValue).eql(b.nodeValue);\r\n\t// \t\tif (1 == a.nodeType) {\r\n\t// \t\t\tvar aAttribs = sortAttributeList(a.attributes);\r\n\t// \t\t\tvar bAttribs = sortAttributeList(b.attributes);\r\n\t// \t\t\tshould(aAttribs.length).eql(bAttribs.length);\r\n\t// \t\t\tfor (var i = 0; i < aAttribs.length; i++) matchXmlTrees(aAttribs[i], bAttribs[i]);\r\n\t// \t\t\tvar aChildren = a.childNodes;\r\n\t// \t\t\tvar bChildren = b.childNodes;\r\n\t// \t\t\tshould(aChildren.length).eql(bChildren.length);\r\n\t// \t\t\tfor (var i = 0; i < aChildren.length; i++) matchXmlTrees(aChildren.item(i), bChildren.item(i));\r\n\t// \t\t}\r\n\t// \t}\r\n\t// \tfor (var sourceName in testSource) {\r\n\t// \t\tvar a = Ti.XML.parseString(testSource[sourceName]);\r\n\t// \t\tvar bstr = Ti.XML.serializeToString(a);\r\n\t// \t\tvar b = Ti.XML.parseString(bstr);\r\n\t// \t\t// Make sure we can round-trip from source to DOM to source and back to DOM...\r\n\t// \t\tmatchXmlTrees(a, b);\r\n\t// \t}\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateCDATASection', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createCDATASection).be.a.Function;\r\n\t// \tvar data = 'This is my CDATA section';\r\n\t// \tvar section = doc.createCDATASection(data);\r\n\t// \tshould(section === null).be.eql(false);\r\n\t// \tshould(section).be.an.Object;\r\n\t// \tshould(section.data).eql(data);\r\n\t// \tshould(section.nodeValue).eql(data);\r\n\t// \tshould(section.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateComment', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createComment).be.a.Function;\r\n\t// \tvar data = 'This is my comment';\r\n\t// \tvar comment = doc.createComment(data);\r\n\t// \tshould(comment === null).be.eql(false);\r\n\t// \tshould(comment).be.an.Object;\r\n\t// \tshould(comment.data).eql(data);\r\n\t// \tshould(comment.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateDocumentFragment', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createDocumentFragment).be.a.Function;\r\n\t// \tvar frag = doc.createDocumentFragment();\r\n\t// \tshould(frag === null).be.eql(false);\r\n\t// \tshould(frag).be.an.Object;\r\n\t// \tshould(frag.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateElement', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createElement).be.a.Function;\r\n\t// \tvar elem = doc.createElement('myelement');\r\n\t// \tshould(elem === null).be.eql(false);\r\n\t// \tshould(elem).be.an.Object;\r\n\t// \tshould(elem.nodeName).eql('myelement');\r\n\t// \tshould(elem.localName === null).eql(true);\r\n\t// \tshould(elem.prefix === null).eql(true);\r\n\t// \tshould(elem.namespaceURI === null).eql(true);\r\n\t// \tshould(elem.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateElementNS', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createElementNS).be.a.Function;\r\n\t// \tvar elem = doc.createElementNS('http://example.com', 'prefix:myelement');\r\n\t// \tshould(elem === null).be.eql(false);\r\n\t// \tshould(elem).be.an.Object;\r\n\t// \tshould(elem.nodeName).eql('prefix:myelement');\r\n\t// \tshould(elem.localName).eql('myelement');\r\n\t// \tshould(elem.prefix).eql('prefix');\r\n\t// \tshould(elem.namespaceURI).eql('http://example.com');\r\n\t// \tshould(elem.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateEntityReference', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createEntityReference).be.a.Function;\r\n\t// \tvar entity = doc.createEntityReference('myentity');\r\n\t// \tshould(entity === null).be.eql(false);\r\n\t// \tshould(entity).be.an.Object;\r\n\t// \tshould(entity.nodeName).eql('myentity');\r\n\t// \tshould(entity.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateProcessingInstruction', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createProcessingInstruction).be.a.Function;\r\n\t// \tvar instruction = doc.createProcessingInstruction('a', 'b');\r\n\t// \tshould(instruction === null).be.eql(false);\r\n\t// \tshould(instruction).be.an.Object;\r\n\t// \tshould(instruction.target).eql('a');\r\n\t// \tshould(instruction.data).eql('b');\r\n\t// \tshould(instruction.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n    // \r\n\t// it('apiXmlDocumentCreateTextNode', function(finish) {\r\n\t// \tvar doc = Ti.XML.parseString('<test/>');\r\n\t// \tshould(doc.createTextNode).be.a.Function;\r\n\t// \tvar value = 'This is some text';\r\n\t// \tvar text = doc.createTextNode(value);\r\n\t// \tshould(text === null).be.eql(false);\r\n\t// \tshould(text).be.an.Object;\r\n\t// \tshould(text.data).eql(value);\r\n\t// \tshould(text.ownerDocument).eql(doc);\r\n\t// \tfinish();\r\n\t// });\r\n\r\n\tit('apiXmlDocumentGetElementById', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar node = doc.getElementById('node 1');\r\n\t\t\tnode = doc.getElementById('no_such_element');\r\n\t});\r\n\r\n\tit('apiXmlDocumentGetElementsByTagName', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar elements = doc.getElementsByTagName('node');\r\n\r\n\t\tfor (var i = 0; i < elements.length; i++) {\r\n\t\t\tvar checkelem = elements.item(i);\r\n\t\t}\r\n\r\n\t\telements = doc.getElementsByTagName('bogus');\r\n\t});\r\n\r\n\tit('apiXmlDocumentGetElementsByTagNameNS', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['with_ns.xml']);\r\n\t\tvar elements = doc.getElementsByTagNameNS('http://example.com', 'cake');\r\n\t\tfor (var i = 0; i < elements.length; i++) {\r\n\t\t\tvar checkelem = elements.item(i);\r\n\t\t}\r\n\t\t// test real namespace and bogus tagname\r\n\t\telements = doc.getElementsByTagNameNS('http://example.com', 'bogus');\r\n\t\telements = doc.getElementsByTagNameNS('http://bogus.com', 'pie');\r\n\t\telements = doc.getElementsByTagNameNS('http://bogus.com', 'bogus');\r\n\t});\r\n\r\n\tit('apiXmlDocumentImportNode', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString('<a/>');\r\n\t\tvar otherDoc = Ti.XML.parseString(testSource['with_ns.xml']);\r\n\t\tvar cakeNodes = otherDoc.documentElement.getElementsByTagNameNS('http://example.com', 'cake');\r\n\t\tvar cakeNode = cakeNodes.item(0);\r\n\t\t// test deep import\r\n\t\tvar importedNode;\r\n\t\timportedNode = doc.importNode(cakeNode, true);\r\n\t\timportedNode = doc.importNode(cakeNode, false);\r\n\t});\r\n\r\n\tit('apiXmlNodeAppendChild', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tvar childNode = doc.createElement('childNode');\r\n\t\tparentNode.appendChild(childNode);\r\n\t});\r\n\r\n\tit('apiXmlNodeHasAttributes', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar node = doc.createElement('node');\r\n\t\tvar node2 = doc.createElement('node2');\r\n\t\tnode2.setAttribute('attr1', 'value1');\r\n\t\tvar results;\r\n\t\tresults = node.hasAttributes();\r\n\t\tresults = node2.hasAttributes();\r\n\t});\r\n\r\n\tit('apiXmlNodeHasChildNodes', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tvar parentNode2 = doc.createElement('parentNode2');\r\n\t\tparentNode2.appendChild(doc.createElement('childNode'));\r\n\t\tvar results;\r\n\t\tresults = parentNode.hasChildNodes();\r\n\t\tresults = parentNode2.hasChildNodes();\r\n\t});\r\n\r\n\tit('apiXmlNodeInsertBefore', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tparentNode.appendChild(doc.createElement('childNode'));\r\n\t\tparentNode.appendChild(doc.createElement('childNode2'));\r\n\t\tvar childNode3 = doc.createElement('childNode3');\r\n\t\tparentNode.insertBefore(childNode3, parentNode.firstChild);\r\n\t});\r\n\r\n\tit('apiXmlNodeNormalize', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tparentNode.appendChild(doc.createTextNode('My '));\r\n\t\tparentNode.appendChild(doc.createTextNode('name '));\r\n\t\tparentNode.appendChild(doc.createTextNode('is '));\r\n\t\tparentNode.appendChild(doc.createTextNode('Opie.'));\r\n\t\tparentNode.normalize();\r\n\t});\r\n\r\n\tit('apiXmlNodeRemoveChild', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tvar childNode = doc.createElement('childNode');\r\n\t\tparentNode.appendChild(childNode);\r\n\t\tvar results = null;\r\n\t\tresults = parentNode.removeChild(childNode);\r\n\t});\r\n\r\n\tit('apiXmlNodeReplaceChild', function(finish) {\r\n\t\tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar parentNode = doc.createElement('parentNode');\r\n\t\tvar childNode = doc.createElement('childNode');\r\n\t\tvar childNode2 = doc.createElement('childNode2');\r\n\t\tparentNode.appendChild(childNode);\r\n\t\tparentNode.appendChild(childNode2);\r\n\t\tvar replacementNode = doc.createElement('replacementNode');\r\n\t\tparentNode.replaceChild(replacementNode, childNode);\r\n\t});\r\n\r\n\tit('xmlNodeListElementsByTagName', function(finish) {\r\n\t\tvar xml = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar nodes = xml.getElementsByTagName('node');\r\n\t\tvar n = nodes.item(0);\r\n\t\tn = nodes.item(1);\r\n\t});\r\n\r\n\tit('xmlNodeListChildren', function(finish) {\r\n\t\tvar xml = Ti.XML.parseString(testSource['nodes.xml']);\r\n\t\tvar e = xml.documentElement;\r\n\t\tvar nodes = e.childNodes;\r\n\t\tvar count = 0;\r\n\t\tfor (var i = 0; i < nodes.length; i++) {\r\n\t\t\tvar node = nodes.item(i);\r\n\t\t\tif (node.nodeType == node.ELEMENT_NODE) count++;\r\n\t\t}\r\n\t});\r\n}\r\n{code}\r\nPlease include the 14 attached zip files to your test project as well. The tests crash in {{xmlNodeListChildren}} as seen before, investigating further next week.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-04-07T20:16:11.000+0000",
+					"updated": "2017-04-07T20:18:14.000+0000"
+				},
+				{
+					"id": "433796",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "It turned out that the previous call to {{normalize}} was causing the issue, leaving the nodes used in the test in an unhandled state. The {{normalize}} method is not available on iOS and wasn't ever supposed to work (see docs [here|docs.appcelerator.com/platform/latest/#!/api/Titanium.XML.Node-method-normalize]). I merged [this commit|https://github.com/appcelerator/titanium-mobile-mocha-suite/commit/e0c43e674ab13c788e85f16e9e76524808032dae] into the test-suite to guard iOS with this change. \r\n\r\nThis can also be reproduced by removing the \"normalize\" test below and run the example again.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-01-29T12:43:43.000+0000",
+					"updated": "2018-01-29T12:43:43.000+0000"
+				},
+				{
+					"id": "433852",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Reopening to investigate a crash Chris still sees after this fix.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-01-30T20:43:13.000+0000",
+					"updated": "2018-01-30T20:43:13.000+0000"
+				},
+				{
+					"id": "433883",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "More test-cases (from our current test suite):\r\n{code:js}\r\n\r\n// Helper UI\r\n\r\nvar win = Ti.UI.createWindow({\r\n  backgroundColor: '#fff'\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n  title: 'Trigger'\r\n});\r\n\r\nbtn.addEventListener('click', trigger);\r\n\r\nwin.add(btn);\r\nwin.open();\r\n\r\n// Test suite mock\r\n\r\nvar testSource = {},\r\n\tinvalidSource = {};\r\n\r\n// some common initialization specific to the xml suite\r\nfunction countNodes(node, type) {\r\n\tvar nodeCount = 0,\r\n\t\ti,\r\n\t\tchild;\r\n\ttype = typeof type === 'undefined' ? null : type;\r\n\tfor (i = 0; i < node.childNodes.length; i++) {\r\n\t\tchild = node.childNodes.item(i);\r\n\t\tif (type == null || child.nodeType == type) { // eslint-disable-line\r\n\t\t\tnodeCount++;\r\n\t\t\tnodeCount += countNodes(child, type);\r\n\t\t}\r\n\t}\r\n\treturn nodeCount;\r\n}\r\n\r\nfunction it(name, cb) {\r\n  before();\r\n  Ti.API.info(name);\r\n  cb();\r\n  after();\r\n}\r\n\r\nfunction before () {\r\n\tvar i = 0,\r\n\t\ttestFiles = [ 'soap.xml', 'xpath.xml', 'nodes.xml', 'nodeCount.xml', 'cdata.xml', 'cdataEntities.xml', 'with_dtd.xml', 'with_ns.xml', 'attrs.xml', 'element.xml', 'elementNS.xml' ],\r\n\t\tinvalidFiles = [ 'mismatched_tag.xml', 'no_toplevel.xml', 'no_end.xml' ];\r\n\r\n\t// wipe last held contents to allow GC to clean up proxies?\r\n\ttestSource = {};\r\n\tinvalidSource = {};\r\n\r\n\tfor (i = 0; i < testFiles.length; i++) {\r\n    Ti.API.info(testFiles[i]);\r\n    var test = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, testFiles[i]).read();\r\n\t\ttestSource[testFiles[i]] = test.text;\r\n\t}\r\n\tfor (i = 0; i < invalidFiles.length; i++) {\r\n\t\tinvalidSource[invalidFiles[i]] = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, invalidFiles[i]).read().text;\r\n\t}\r\n}\r\n\r\nfunction after () {\r\n\t// wipe last held contents to allow GC to clean up proxies?\r\n\ttestSource = {};\r\n\tinvalidSource = {};\r\n}\r\n\r\n// Test suite trigger\r\n\r\nfunction trigger() {\r\n  it('parseString', function () {\r\n  \t\tvar xml = Ti.XML.parseString('<test>content</test>');\r\n  });\r\n\r\n  // TIMOB-9071\r\n  it('getOrCreateAttributeNS', function () {\r\n  \tvar xmlDoc = Ti.XML.parseString('<html><head></head><body><a href=\"http://appcelerator.com/\" /></body></html>');\r\n  \tvar anchor = xmlDoc.getElementsByTagName('a').item(0);\r\n  });\r\n\r\n  // TIMOB-8551\r\n  // FIXME Get working on Android, fails\r\n  it('ownerDocumentProperty', function () {\r\n  \tvar doc = Ti.XML.parseString('<?xml version=\"1.0\"?><root><test>data</test></root>'),\r\n  \t\te1 = doc.firstChild,\r\n  \t\te2 = doc.createElement('test');\r\n  \tif (e1.ownerDocument === e2.ownerDocument) {\r\n  \t}\r\n  });\r\n\r\n  // TIMOB-5112\r\n  it('getElementsByTagName', function () {\r\n  \tvar xmlString = '<benny/>',\r\n  \t\tdoc = Ti.XML.parseString(xmlString);\r\n  });\r\n\r\n  // These 6 tests are adapted from the KitchenSink xml_dom test\r\n  it('soap', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['soap.xml']),\r\n  \t\tfooBarList = xml.documentElement.getElementsByTagName('FooBar'),\r\n  \t\titem;\r\n  \titem = fooBarList.item(0);\r\n  });\r\n\r\n  // SKIP: because XPath is not a part of DOM level2 CORE\r\n  // Windows faisl at call to xml.evaluate. This is not marked as part of our API for Ti.XML.Document!\r\n  it('xpath', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['xpath.xml']),\r\n  \t\tfooBarList = xml.documentElement.getElementsByTagName('FooBar'),\r\n  \t\titem,\r\n  \t\tdocResult,\r\n  \t\telResult;\r\n  \titem = fooBarList.item(0);\r\n  \t// test XPath against Document\r\n  \tdocResult = xml.evaluate('//FooBar/text()');\r\n  \t// test XPath against Element\r\n  \telResult = xml.documentElement.evaluate('//FooBar/text()');\r\n  \t// test XPath against Element\r\n  \telResult = item.evaluate('text()');\r\n  });\r\n\r\n  it('xmlNodeCount', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['nodeCount.xml']),\r\n  \t\toneList = xml.documentElement.getElementsByTagName('one'),\r\n  \t\ttwoList = oneList.item(0).getElementsByTagName('two'),\r\n  \t\tthreeList = oneList.item(0).getElementsByTagName('three'),\r\n  \t\tnodes = xml.getElementsByTagName('root'),\r\n  \t\tone,\r\n  \t\tnext,\r\n  \t\tnodeCount;\r\n  \tone = xml.documentElement.getElementsByTagName('one').item(0);\r\n  \tnext = one.nextSibling;\r\n  \tfor (;next != null && next.nodeType != next.ELEMENT_NODE;) {\r\n  \t\tnext = next.nextSibling;\r\n  \t}\r\n  \tnodeCount = countNodes(nodes.item(0), 1);\r\n  });\r\n\r\n  it('xmlCDataAndEntities', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['cdataEntities.xml']),\r\n  \t\tsubdataList = xml.documentElement.getElementsByTagName('subdata'),\r\n  \t\tnodeCount;\r\n  \t\tnodeCount = countNodes(subdataList.item(0), 1);\r\n  });\r\n\r\n  it('xmlSerialize', function () {\r\n  \tvar sourceName,\r\n  \t\ta,\r\n  \t\tbstr,\r\n  \t\tb;\r\n  \t// Return an array of attribute nodes, sorted by name.\r\n  \t// An attribute NamedNodeMap has no canonical ordering,\r\n  \t// so to do a comparison we need to ensure we've got the\r\n  \t// same order between both.\r\n  \tfunction sortAttributeList(attribs) {\r\n  \t\tvar names = [],\r\n  \t\t\tmap = {},\r\n  \t\t\ti,\r\n  \t\t\ta,\r\n  \t\t\tlist = [];\r\n  \t\tfor (i = 0; attribs > i; i++) {\r\n  \t\t\ta = attribs.item(i);\r\n  \t\t\tmap[a.nodeName] = a;\r\n  \t\t\tnames.push(a.nodeName);\r\n  \t\t}\r\n  \t\tnames = names.sort();\r\n  \t\tlist = [];\r\n  \t\tfor (i = 0; i < names.length; i++) {\r\n  \t\t\tlist.push(map[names[i]]);\r\n  \t\t}\r\n  \t\treturn list;\r\n  \t}\r\n  \tfunction matchXmlTrees(a, b) {\r\n  \t\tvar aAttribs,\r\n  \t\t\tbAttribs,\r\n  \t\t\ti,\r\n  \t\t\taChildren,\r\n  \t\t\tbChildren;\r\n  \t\tif (a.nodeType == 1) {\r\n  \t\t\taAttribs = sortAttributeList(a.attributes);\r\n  \t\t\tbAttribs = sortAttributeList(b.attributes);\r\n  \t\t\tfor (i = 0; i < aAttribs.length; i++) {\r\n  \t\t\t\tmatchXmlTrees(aAttribs[i], bAttribs[i]);\r\n  \t\t\t}\r\n  \t\t\taChildren = a.childNodes;\r\n  \t\t\tbChildren = b.childNodes;\r\n  \t\t\tfor (i = 0; i < aChildren.length; i++) {\r\n  \t\t\t\tmatchXmlTrees(aChildren.item(i), bChildren.item(i));\r\n  \t\t\t}\r\n  \t\t}\r\n  \t}\r\n  \tfor (sourceName in testSource) {\r\n  \t\ta = Ti.XML.parseString(testSource[sourceName]);\r\n  \t\tbstr = Ti.XML.serializeToString(a);\r\n  \t\tb = Ti.XML.parseString(bstr);\r\n  \t\t// Make sure we can round-trip from source to DOM to source and back to DOM...\r\n  \t\tmatchXmlTrees(a, b);\r\n  \t}\r\n  });\r\n\r\n  // FIXME: splitText function should throw exception on out-of-bounds error\r\n  // Windows gives: expected [Function] to throw exception\r\n  it('apiXMLTextSplitText', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tfirstString = 'first part|',\r\n  \t\tsecondString = 'second part',\r\n  \t\tcompleteString = firstString + secondString,\r\n  \t\tparentNode,\r\n  \t\tchildNode,\r\n  \t\tsplitTextResults;\r\n  \tparentNode = doc.createElement('parentNode');\r\n  \tchildNode = doc.createTextNode(completeString);\r\n  \tparentNode.appendChild(childNode);\r\n  \t// Out-of-bounds exceptions are in the spec:\r\n  \tcompleteString = 'New text node';\r\n  \tchildNode = doc.createTextNode(completeString);\r\n  });\r\n\r\n  // SKIP: textContent is not a part of DOM level2 CORE\r\n  // Android gives: expected [Function] not to throw exception (got [TypeError: textNode.getText is not a function])\r\n  // Windows gives: expected [Function] not to throw exception (got [TypeError: textNode.getText is not a function. (In 'textNode.getText()', 'textNode.getText' is undefined)])\r\n  // I don't see getText() in the API docs\r\n  it('apiXMLTextGetText', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\ttextValue = 'this is some test',\r\n  \t\ttextNode,\r\n  \t\tgetTextResults = null,\r\n  \t\tgetTextResults2;\r\n  \ttextNode = doc.createTextNode(textValue);\r\n  });\r\n\r\n  // FIXME: doctype support\r\n  // Android gives: expected true to equal false\r\n  // Windows gives: expected true to equal false\r\n  it('apiXmlDocumentProperties', function () {\r\n  \t// File with DTD\r\n  \tvar doc = Ti.XML.parseString(testSource['with_dtd.xml']);\r\n  \t// Document without DTD, to be sure doc.doctype is null as spec says\r\n  \tdoc = Ti.XML.parseString('<a/>');\r\n  });\r\n\r\n  // FIXME: value property should return empty string according to spec\r\n  // Don't know why Android fails!\r\n  // Windows gives: expected true to equal false\r\n  it('apiXmlDocumentCreateAttribute', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tattr;\r\n  \tattr = doc.createAttribute('myattr');\r\n  \tattr = null;\r\n  \tattr = doc.createAttributeNS('http://example.com', 'prefix:myattr');\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateCDATASection', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tdata = 'This is my CDATA section',\r\n  \t\tsection;\r\n  \tsection = doc.createCDATASection(data);\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateComment', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tdata = 'This is my comment',\r\n  \t\tcomment;\r\n  \tcomment = doc.createComment(data);\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateDocumentFragment', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tfrag;\r\n  \tfrag = doc.createDocumentFragment();\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateElement', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\telem;\r\n  \telem = doc.createElement('myelement');\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateElementNS', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\telem;\r\n  \telem = doc.createElementNS('http://example.com', 'prefix:myelement');\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateEntityReference', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tentity;\r\n  \tentity = doc.createEntityReference('myentity');\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateProcessingInstruction', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tinstruction;\r\n  \tinstruction = doc.createProcessingInstruction('a', 'b');\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentCreateTextNode', function () {\r\n  \tvar doc = Ti.XML.parseString('<test/>'),\r\n  \t\tvalue = 'This is some text',\r\n  \t\ttext;\r\n  \ttext = doc.createTextNode(value);\r\n  });\r\n\r\n  it('apiXmlDocumentGetElementById', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tnode;\r\n  \tnode = doc.getElementById('node 1');\r\n  });\r\n\r\n  it('apiXmlDocumentGetElementsByTagName', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\telements,\r\n  \t\ti,\r\n  \t\tcheckelem;\r\n  \telements = doc.getElementsByTagName('node');\r\n  \tfor (i = 0; i < elements.length; i++) {\r\n  \t\tcheckelem = elements.item(i);\r\n  \t}\r\n  });\r\n\r\n  it('apiXmlDocumentGetElementsByTagNameNS', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['with_ns.xml']),\r\n  \t\telements,\r\n  \t\ti,\r\n  \t\tcheckelem;\r\n  \telements = doc.getElementsByTagNameNS('http://example.com', 'cake');\r\n  \tfor (i = 0; i < elements.length; i++) {\r\n  \t\tcheckelem = elements.item(i);\r\n  \t}\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlDocumentImportNode', function () {\r\n  \tvar doc = Ti.XML.parseString('<a/>'),\r\n  \t\totherDoc = Ti.XML.parseString(testSource['with_ns.xml']),\r\n  \t\tcakeNodes = otherDoc.documentElement.getElementsByTagNameNS('http://example.com', 'cake'),\r\n  \t\tcakeNode,\r\n  \t\timportedNode;\r\n  \tcakeNode = cakeNodes.item(0);\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlNodeAppendChild', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parentNode'),\r\n  \t\tchildNode;\r\n  \tchildNode = doc.createElement('childNode');\r\n  });\r\n\r\n  it('apiXmlNodeCloneNode', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parent'),\r\n  \t\tchildText,\r\n  \t\tchildElement,\r\n  \t\tclonedNode = null,\r\n  \t\tattrs,\r\n  \t\tattr,\r\n  \t\tattrValue;\r\n  \tparentNode.setAttribute('myattr', 'attr value');\r\n\r\n  \tchildText = doc.createTextNode('child text');\r\n  \tchildElement = doc.createElement('childelement');\r\n  \tparentNode.appendChild(childText);\r\n  \tparentNode.appendChild(childElement);\r\n\r\n  \tclonedNode = null;\r\n  \t// Shallow\r\n  \t// Though shallow, attributes should be there.\r\n    clonedNode = parentNode.cloneNode(false);\r\n\r\n  \tattrs = clonedNode.attributes;\r\n  \tattr = attrs.getNamedItem('myattr');\r\n  \t// Fetch a different way\r\n  \tattrValue = clonedNode.getAttribute('myattr');\r\n  \t// Per spec, clone should have no parent and no children\r\n  \t// Deep\r\n  \tattrs = clonedNode.attributes;\r\n  \tattr = attrs.getNamedItem('myattr');\r\n  \tattrValue = clonedNode.getAttribute('myattr');\r\n  });\r\n\r\n  it('apiXmlNodeHasAttributes', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tnode = doc.createElement('node'),\r\n  \t\tnode2 = doc.createElement('node2'),\r\n  \t\tresults;\r\n  \tnode2.setAttribute('attr1', 'value1');\r\n  });\r\n\r\n  it('apiXmlNodeHasChildNodes', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parentNode'),\r\n  \t\tparentNode2 = doc.createElement('parentNode2'),\r\n  \t\tresults;\r\n  \tparentNode2.appendChild(doc.createElement('childNode'));\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlNodeInsertBefore', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parentNode'),\r\n  \t\tchildNode3;\r\n  \tparentNode.appendChild(doc.createElement('childNode'));\r\n  \tparentNode.appendChild(doc.createElement('childNode2'));\r\n  \tchildNode3 = doc.createElement('childNode3');\r\n  });\r\n\r\n  // FIXME: isSupported should not throw exception\r\n  it('apiXmlNodeIsSupported', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tresults;\r\n  });\r\n\r\n  // FIXME Get working on Android, causes crash\r\n  it('apiXmlNodeRemoveChild', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parentNode'),\r\n  \t\tchildNode = doc.createElement('childNode'),\r\n  \t\tresults = null;\r\n  \tparentNode.appendChild(childNode);\r\n  });\r\n\r\n  // FIXME Get working on Android, fails\r\n  it('apiXmlNodeReplaceChild', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tparentNode = doc.createElement('parentNode'),\r\n  \t\tchildNode = doc.createElement('childNode'),\r\n  \t\tchildNode2 = doc.createElement('childNode2'),\r\n  \t\treplacementNode;\r\n  \tparentNode.appendChild(childNode);\r\n  \tparentNode.appendChild(childNode2);\r\n  \treplacementNode = doc.createElement('replacementNode');\r\n  });\r\n\r\n  it('xmlNodeListElementsByTagName', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tnodes,\r\n  \t\tn;\r\n  \tnodes = xml.getElementsByTagName('node');\r\n  \tn = nodes.item(0);\r\n  \tn = nodes.item(1);\r\n  });\r\n\r\n  it('xmlNodeListChildren', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\te,\r\n  \t\tnodes,\r\n  \t\tcount = 0,\r\n  \t\ti,\r\n  \t\tnode;\r\n  \te = xml.documentElement;\r\n  \tnodes = e.childNodes;\r\n\r\n  \tfor (i = 0; i < nodes.length; i++) {\r\n  \t\tnode = nodes.item(i);\r\n  \t\tif (node.nodeType == node.ELEMENT_NODE) {\r\n  \t\t\tcount++;\r\n  \t\t}\r\n  \t}\r\n  });\r\n\r\n  it('xmlNodeListRange', function () {\r\n  \tvar xml = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tnodes;\r\n  \tnodes = xml.getElementsByTagName('node');\r\n  });\r\n\r\n  // Don't know why Android fails!\r\n  // Windows gives: expected undefined to be ''\r\n  it('apiXmlAttr', function () {\r\n  \tvar doc = Ti.XML.parseString(testSource['nodes.xml']),\r\n  \t\tnode = doc.getElementsByTagName('node').item(0),\r\n  \t\taddedAttr,\r\n  \t\tsecondNewAttr,\r\n  \t\treplacedAttr,\r\n  \t\tthirdNewAttr;\r\n    \r\n    var attr = node.attributes.item(0);\r\n    attr = doc.createAttribute('newattr');\r\n\r\n\r\n  \t// First a known attribute\r\n  \t// Per spec, when you set an attribute that doesn't exist yet,\r\n  \t// null is returned.\r\n  \taddedAttr = node.setAttributeNode(attr);\r\n  \t// Per spec, when you set a new attribute of same name as one that\r\n  \t// already exists, it replaces that existing one AND returns that existing one.\r\n  \tsecondNewAttr = doc.createAttribute('newattr');\r\n  \treplacedAttr = node.setAttributeNode(secondNewAttr);\r\n  \t// Per spec, changing the value of an attribute automatically sets\r\n  \t// specified to true.\r\n    attr = doc.createAttribute('newattr');\r\n\r\n  \tattr.value = 'new value';\r\n  \t// Per spec, an attribute with no owner element (i.e., it has just\r\n  \t// been created and not yet put on to an element) will have\r\n  \t// 'true' for specified.\r\n  \tthirdNewAttr = doc.createAttribute('anotherattr');\r\n  });\r\n}\r\n{code}\r\nI am unable to reproduce it, both my jscore/ticore and kroll-thread/main-thread.\r\n\r\n*EDIT*: However, as soon as I add the following test again, it crashes with the exact error that is attached to this ticket and can be seen in our suite:\r\n{code:js}\r\n  it('apiXmlNodeNormalize', function () {\r\n    \tvar doc = Ti.XML.parseString(testSource['nodes.xml']);\r\n    \tvar parentNode = doc.createElement('parentNode');\r\n    \tparentNode.appendChild(doc.createTextNode('My '));\r\n   \t\tparentNode.appendChild(doc.createTextNode('name '));\r\n   \t\tparentNode.appendChild(doc.createTextNode('is '));\r\n   \t\tparentNode.appendChild(doc.createTextNode('Opie.'));\r\n   \t\tparentNode.normalize();\r\n   \t});\r\n{code}\r\nWhich makes me wonder if we really always grab the latest version of our mocha-suite that includes [the patch|https://github.com/appcelerator/titanium-mobile-mocha-suite/commit/e0c43e674ab13c788e85f16e9e76524808032dae].",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-01-31T13:23:11.000+0000",
+					"updated": "2018-01-31T13:29:11.000+0000"
+				},
+				{
+					"id": "434012",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Resolving again, due to no new crashes.",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-02-04T16:10:27.000+0000",
+					"updated": "2018-02-04T16:10:27.000+0000"
+				},
+				{
+					"id": "439845",
+					"author": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closed as completed. If this is in error, please reopen.",
+					"updateAuthor": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-08-06T17:34:48.000+0000",
+					"updated": "2018-08-06T17:34:48.000+0000"
+				}
+			],
+			"maxResults": 7,
+			"total": 7,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,252 @@
+{
+	"id": "160493",
+	"key": "TIMOB-23433",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2019-10-03T17:22:17.000+0000",
+		"created": "2016-05-25T07:02:21.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"Android",
+			"engTriage"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "emerriman",
+			"key": "emerriman",
+			"displayName": "Eric Merriman ",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2019-10-03T17:22:17.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "For a long time we have been using a background service backed up with a alarm manger to implement a reoccurring service that runs some code and talks to a backend. This is a very common thing to do. To develop this feature according to google guide lines the use of a alarm manager is required to avoid having the service die due to different Android SDK limitations in power schemes and standby. Over time (2 years) I have seen Android 4, 5 and now 6 implement harsher and more restricted limitations on services. \r\n\r\nToo make sure a service is kept alive after a shutdown of the app for what ever reason you use the START_STICKY option to make the service restart. This is to make sure the service restarts if the main app (activity) is shut down by the user or by the system. The START_STICKY option makes the service restart regardless of the main app (activity)\r\n\r\nAlong with this setting the Alarm manager will make sure to reenable/ restart the service if for any reason the Android system shut down the service for battery or other standby / doze reasons.\r\n\r\nFor the moment we have a service running as expected when it comes to these settings and issues, however for a long time we have seen that the service that are restarted loses its original inheritance from the main app. For instance if you make an app and a service (see your own docs) the service can access the Alloy.Globals properties as long as the service is not restarted. This is most probably due to the fact that the service (thread) inherits the main apps memory area. This is at least how a Linux system would work. So far all good, but now if the service is restarted from a START_STYCKY setting, making sure that the service stays aline even if the main app (activity) is killed the service can no longer use the Alloy.Globals. \r\n\r\nWe have of course worked around this by require the Alloy framework, however that will not solve the variables to come back, we also have to reinitiate them and set them \"again\" to make sure they are available everytime the service is restarted.\r\n\r\nOver time we have however found a problem we cannot solve without having to patch your SDK every time and at all code lines where you use it.\r\n\r\nIn many many places in your code of the SDK you use something like:\r\n\r\npublic boolean hasLocationPermissions()\r\n\t{\r\n\t\tif (Build.VERSION.SDK_INT < 23) {\r\n\t\t\treturn true;\r\n\t\t}\r\n\t\tActivity currentActivity  = TiApplication.getInstance().getCurrentActivity();\r\n\t\tif (currentActivity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {\r\n\t\t\treturn true;\r\n\t\t} \r\n\t\treturn false;\r\n\t}\r\n\r\nthis is found in the file: and at the latest nightly builds\r\n\r\nandroid/modules/geolocation/src/java/ti/modules/titanium/geolocation/GeolocationModule.java\r\n\r\nAs you can see you are using the : Activity currentActivity  = TiApplication.getInstance().getCurrentActivity();\r\n\r\nthe problem is this is available when the service is still alive and inherited from main context, then the service is restarted the .getCurrentActivity is not available anymore, instead you have to use:\r\n\r\n.getApplicationContext\r\n\r\nSo for every API that you have and use the TiApplication.getInstance().getCurrentActivity(); it means that the service in Android will crash, we have made some initial searches i your SDK and you use the TiApplication.getInstance().getCurrentActivity(); everywhere. \r\n\r\nTo make the service remain working using the common APIs that can be run in a background service like location above you have to change all these lines of code into .getApplicationContext\r\n\r\nNow this is a CRITICAL VERY HIGH PRIO problem as this means (unless we are wrong) that no service in android can remain active when the main app is shut down and using START_STICKY is very common and the right way to use a service in the background, as well as using Alarm manager.\r\n\r\nWe also found the same problem here: ndroid/modules/platform/src/java/ti/modules/titanium/platform/PlatformModule.java\r\nalso an API that is a must in the background service, that one uses : Activity a = getActivity();\r\n\r\nThere are more.\r\n\r\nWe have had to patch EVERY API to have our Service continue service after the more and more common doze and standby along with limitations from the system. This is a none wanted situation and should be quite critical to you too making sure the community and professionals can use the backgrund service continually. \r\n\r\nThe last problem we encountered was that you probably use the same lines of code in your Analytics proprietary module making the Analytics to effectively crash in the service when used after a restart of the service, this also is a BIG problem as you want the analytics to report as well as not crashing the app. Here we havd to go into the SDK and remove the call to the Analytics module.. since we cant patch that code.\r\n\r\nCan we PLEASE have some attention to this serious bug in Android and sort this thing out.\r\n\r\nI do not have the time to make a example app of this right now but may help you later, just make sure to make a background service that uses START_STICKY and then kill the main app in the monitor (DDMS) observe the service restart (you do not have to use Alarm Manager as well) and then make sure you use one API that uses that getCurrentActivity call and you will see the service stop running...",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: Background service loses activity context and properties when restarted",
+		"creator": {
+			"name": "buder",
+			"key": "buder",
+			"displayName": "Jörgen Buder",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "buder",
+			"key": "buder",
+			"displayName": "Jörgen Buder",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "386746",
+					"author": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "We made one more test excluding the alarm manager accessing the geolocation permission call, and we get this result:\r\n\r\n05-25 10:02:26.590   780   789 I art     : Background sticky concurrent mark sweep GC freed 75110(5MB) AllocSpace objects, 182(3MB) LOS objects, 2% free, 316MB/325MB, paused 1.156ms total 145.227ms\r\n05-25 10:02:45.544   780   884 D WifiStateMachine: starting scan for \"GWS_DEVEL\"WPA_PSK with 2437,2462,5220,5180\r\n05-25 10:02:56.296   780   793 I ActivityManager: Start proc 15925:com.purplescout.dev.gws/u0a446 for service com.purplescout.dev.gws/.Background_locationservice_androidService\r\n05-25 10:02:56.299 15925 15925 I art     : Late-enabling -Xcheck:jni\r\n05-25 10:02:56.352 15925 15925 I TiApplication: (main) [0,0] checkpoint, app created.\r\n05-25 10:02:56.398 15925 15931 I art     : Debugger is no longer active\r\n05-25 10:02:56.664 15925 15925 I TiApplication: (main) [312,312] Titanium 1.0.0 (2016/03/10 14:23 HEAD)\r\n05-25 10:02:56.809 15925 15925 I TiApplication: (main) [145,457] Titanium Javascript runtime: v8\r\n05-25 10:02:56.816 15925 15925 D SmsModule: (main) [7,464] inside onAppCreate\r\n05-25 10:02:56.816 15925 15925 D GCMModule: (main) [0,464] onAppCreate com.purplescout.dev.gws.ErvApplication@5db3fef (false)\r\n05-25 10:02:56.816 15925 15925 D ExtendandroidModule: (main) [0,464] inside onAppCreate\r\n05-25 10:02:56.817 15925 15925 D WebviewfragmentModule: (main) [1,465] inside onAppCreate\r\n05-25 10:02:56.962 15925 15944 W V8Object: (KrollRuntimeThread) [144,609] Runtime disposed, cannot set property 'userAgent'\r\n05-25 10:02:57.061 15925 15944 I TiAPI   :  SERVICE: Background Location Service BEGIN\r\n05-25 10:02:57.063 15925 15944 D Module  : Loading module: alloy -> Resources/alloy.js\r\n05-25 10:02:57.073 15925 15944 D Module  : Loading module: alloy/underscore -> Resources/alloy/underscore.js\r\n05-25 10:02:57.116 15925 15944 D Module  : Loading module: alloy/backbone -> Resources/alloy/backbone.js\r\n05-25 10:02:57.138 15925 15944 D Module  : Loading module: alloy/constants -> Resources/alloy/constants.js\r\n05-25 10:02:57.148 15925 15944 D Module  : Loading module: alloy/CFG -> Resources/alloy/CFG.js\r\n05-25 10:02:57.152 15925 15944 D Module  : Loading module: logger -> Resources/logger.js\r\n05-25 10:02:57.154 15925 15944 D Module  : Loading module: gps_service -> Resources/gps_service.js\r\n05-25 10:02:57.158 15925 15944 D Module  : Loading module: api -> Resources/api.js\r\n05-25 10:02:57.169 15925 15944 D Module  : Loading module: utils/GWSCipher -> Resources/utils/GWSCipher.js\r\n05-25 10:02:57.173 15925 15944 D Module  : Loading module: vendor/base64 -> Resources/vendor/base64.js\r\n05-25 10:02:57.177 15925 15944 D Module  : Loading module: vendor/pack -> Resources/vendor/pack.js\r\n05-25 10:02:57.179 15925 15944 D Module  : Loading module: vendor/aes -> Resources/vendor/aes.js\r\n05-25 10:02:57.209 15925 15944 D Module  : Loading module: vendor/q -> Resources/vendor/q.js\r\n05-25 10:02:57.245 15925 15944 I TiAPI   :  SERVICE: Android Background Location Service start\r\n05-25 10:02:57.245 15925 15944 D Module  : Loading module: permissions -> Resources/permissions.js\r\n05-25 10:02:57.248 15925 15944 I TiAPI   :  ==== API : Waiting getReceiverMessagesMD5 ...\r\n05-25 10:02:57.251 15925 15944 I TiAPI   :  SERVICE: Time since last phone status update: 211.31 s\r\n05-25 10:02:57.254 15925 15944 D TipermissionsModule: (KrollRuntimeThread) [293,902] Ti Permissions Module ctor\r\n05-25 10:02:57.255 15925 15944 D TipermissionsModule: (KrollRuntimeThread) [1,903] check for granted permission: android.permission.ACCESS_FINE_LOCATION\r\n05-25 10:02:57.263 15925 15925 D AndroidRuntime: Shutting down VM\r\n05-25 10:02:57.264 15925 15925 E AndroidRuntime: FATAL EXCEPTION: main\r\n05-25 10:02:57.264 15925 15925 E AndroidRuntime: Process: com.purplescout.dev.gws, PID: 15925\r\n05-25 10:02:57.264 15925 15925 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'int android.app.Activity.checkSelfPermission(java.lang.String)' on a null object reference ",
+					"updateAuthor": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-05-25T08:17:44.000+0000",
+					"updated": "2016-05-25T08:17:44.000+0000"
+				},
+				{
+					"id": "386749",
+					"author": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "NOTE this is only one example, this is true for any of these API accesses.\r\n",
+					"updateAuthor": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-05-25T08:33:40.000+0000",
+					"updated": "2016-05-25T08:33:40.000+0000"
+				},
+				{
+					"id": "386860",
+					"author": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"body": "[~buder] Thanks for creating this issue. I notice you mention that you had to patch every API in the SDK. It would save time if you have that changes done as a Pull Request to be reviewed. Would that be possible?",
+					"updateAuthor": {
+						"name": "msamah",
+						"key": "msamah",
+						"displayName": "Ashraf Abu",
+						"active": false,
+						"timeZone": "Asia/Singapore"
+					},
+					"created": "2016-05-26T05:43:32.000+0000",
+					"updated": "2016-05-26T05:43:32.000+0000"
+				},
+				{
+					"id": "438920",
+					"author": {
+						"name": "rislam",
+						"key": "rislam",
+						"displayName": "Riduanul Islam",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Do we have any progress or any workaround, So we can update to the customer?\r\n",
+					"updateAuthor": {
+						"name": "rislam",
+						"key": "rislam",
+						"displayName": "Riduanul Islam",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-07-02T15:10:42.000+0000",
+					"updated": "2018-07-02T15:10:42.000+0000"
+				},
+				{
+					"id": "439810",
+					"author": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Eric, if you need any more info I am watching this, but I have no time to make you examples and such, I think my description is VERY clear and it is quite easy to make a background service like I describe and test this for your self.\r\n\r\nHope you solve this problem this time, it has been around for some time now and limits the use of for instance the analytics module (cannot be used) and so on.\r\n\r\nThanks",
+					"updateAuthor": {
+						"name": "buder",
+						"key": "buder",
+						"displayName": "Jörgen Buder",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-08-06T08:36:12.000+0000",
+					"updated": "2018-08-06T08:36:12.000+0000"
+				},
+				{
+					"id": "451775",
+					"author": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "We have entered this into engTriage for review. [~buder] Thanks for the offer we will reach out if we need further information.",
+					"updateAuthor": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-10-02T18:50:10.000+0000",
+					"updated": "2019-10-02T18:50:10.000+0000"
+				},
+				{
+					"id": "451793",
+					"author": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "jquick",
+						"key": "jquick",
+						"displayName": "Joshua Quick",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-10-03T00:42:40.000+0000",
+					"updated": "2019-10-03T00:42:40.000+0000"
+				},
+				{
+					"id": "451827",
+					"author": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing per developer comments.",
+					"updateAuthor": {
+						"name": "ahutton",
+						"key": "ahutton",
+						"displayName": "Alan Hutton",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-10-03T17:22:17.000+0000",
+					"updated": "2019-10-03T17:22:17.000+0000"
+				}
+			],
+			"maxResults": 22,
+			"total": 22,
+			"startAt": 0
+		}
+	}
+}

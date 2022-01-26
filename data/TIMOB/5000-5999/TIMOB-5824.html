@@ -1,0 +1,192 @@
+---
+title: "[TIMOB-5824] Android: WebView.evalJS Causes Form Input Fields to Lost/Not Retain Focus"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-26T09:53:38.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.0, Release 1.8.1</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-14 Core, Release 2.1.1, Release 3.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>core, module_webview, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Ryan Asleson</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2011-10-14T08:37:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-03T21:47:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem Description</h4>
+I'm using the WebView's evalJS function in a setInterval() to act as a bridge between Titanium and a web app from a remote web server.  However, form fields in the web app on Android do not work -- I can tap into the form field, but the keyboard never comes up, or if it does, it disappears immediately.
+
+<h4>Actual Results</h4>
+The keyboard never comes up, with an error like this:
+
+ERROR: Error: Only the original thread that created a view hierarchy can touch its views.
+
+
+<h4>Expected Results</h4>
+The keyboard working just fine. 
+
+
+<h4>Test Case</h4>
+1. Create new mobile project
+2. Drop the following in app.js and run it on a simulator or actual device.  Tap into the Google search box, and the keyboard may briefly appear before disappearing; either way you won't be able to type into the box.
+<code><pre>
+var window = Titanium.UI.createWindow({
+    title: "WebView.evalJS Focus Problem!"
+});
+
+var webViewOptions = {
+  url: "<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>"
+};
+
+var webView = Ti.UI.createWebView(webViewOptions);
+webView.addEventListener("load", function(e) {
+	setInterval(doSomething, 1000);
+});
+
+window.add(webView);
+window.open();
+
+function doSomething() {
+	try {
+		var result = webView.evalJS("doSomethingOnTheWebView();");
+	}
+	catch(e) {
+		Ti.API.info("\n\n\n\nERROR: " + e);
+	}
+}
+</pre></code>
+
+<h4>Extra info </h4>
+
+I have noticed that removing the try/catch block in the "doSomething" method causes the entire app to crash with a Java error, something about "JavaException: android.view.ViewRoot$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views."  To get around that error, I tried creating the WebView in the doSomething() method so that the WebView was created in the same thread in which it was used.  This seemed to fix the error in the example given above, but in the app I'm building (which I unfortunately can't share in this public setting) the input boxes still lost focus.  
+
+This same problem was reported on the Q&A several months ago, with no apparent resolution:
+
+<a href="http://developer.appcelerator.com/question/119845/using-webviewevaljs-and-lost-focus-android#comment-100385" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/119845/using-webviewevaljs-and-lost-focus-android#comment-100385</a>
+
+I should add that the "lost focus" problem does not appear on the iOS simulator, using the app.js listed here.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Matthew Apperson 2011-10-20
+
+   Thank you for raising this ticket. I am afraid we need all the information listed in the [Jira Ticket Checklist](<a href="http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-Summary%3AJiraTicketChecklist)" rel="nofollow" target="_blank">http://wiki.appcelerator.org/display/guides/Contributing+to+Titanium#ContributingtoTitanium-Summary%3AJiraTicketChecklist)</a> in order to accept a ticket. In this case, we need more detailed environment info.
+   
+   Once this ticket is complete, we can move it to the main project.
+   
+   Thank you</li>
+<li>Matthew Apperson 2011-10-20
+
+   Also, could you test this in 1.7.3 as well?
+   
+   Thanks,
+   Matt</li>
+<li>Ryan Asleson 2011-10-21
+
+   OK, I have updated the environment information so I think it's all complete.  How do I reopen the bug or otherwise notify somebody that it's complete and can be looked at again?</li>
+<li>Max Stepanov 2012-06-26
+
+   Updated test case:
+   
+   app.js:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#ccc'
+   });
+     
+   var webView = Ti.UI.createWebView({ url: "test.html" });
+   
+   webView.addEventListener("load", function() {
+   	Ti.API.info("webView loaded");
+   	setInterval(doSomething, 1000);
+   });
+     
+   win.add(webView);
+       
+   win.open();
+   
+   
+   function doSomething() {
+   	Ti.API.info("interval triggered");
+   	try {
+   		var result = webView.evalJS("getEvents();");
+   		Ti.API.info("RESULT: " + result);
+   	} catch(e) {
+   		Ti.API.info("ERROR: " + e);
+   	}
+   }
+   </pre></code>
+   
+   test.html:
+   <code><pre>
+   <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "<a href="http://www.w3.org/TR/html4/strict.dtd" rel="nofollow" target="_blank">http://www.w3.org/TR/html4/strict.dtd</a>">
+   <html>
+   <head>
+       <title>blubb</title>          
+   </head>
+   <body>
+   <input type="text" value="test" name="testName">
+   <script>
+   getEvents = function(){    
+       return "events";
+   }
+   </script>   
+   </body>
+   </html>
+   </pre></code></li>
+<li>Allen Yeung 2012-07-11
+
+   PR ready: <a href="https://github.com/appcelerator/titanium_mobile/pull/2540" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2540</a></li>
+<li>Max Stepanov 2012-07-13
+
+   Backport PR for 2_1_X merged
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/2558" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/2558</a></li>
+<li>Satyam Sekhri 2012-07-17
+
+   Verified on:
+   Titanium Studio: 2.1.1.201207161421
+   Titanium SDK: 2.1.1.v2012071618060
+   Android Device: LGP970 (V2.2), Samsung Galaxy Note (V2.3.6)
+   Javascript Engine: V8</li>
+<li>Satyam Sekhri 2012-08-07
+
+   Verified on 
+   Titanium SDK: 2.0.3.v20120806151610
+   Android Device: LGP970 (V2.2), Samsung Galaxy Nexus (V4.0.2)
+   Javascript Engine: V8</li>
+<li>Priya Agarwal 2013-07-26
+
+   Reopening just to update label.
+   </li>
+<li>Priya Agarwal 2013-07-26
+
+    Updated label.
+    Closing as Fixed.
+    
+    Verified with:
+    
+    Studio: 3.1.1.201306131423
+    SDK: 3.1.2.v20130725180746
+    acs:1.0.3
+    alloy:1.1.3
+    npm:1.2.14
+    titanium:3.1.1
+    titanium-code-processor:1.0.1
+    OS: OSX 10.8
+    Device: HTC Desire(v4.0.3)
+    
+    Form Input Fields working fine with WebView.evalJS
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5824.json">JSON Source</a></p>

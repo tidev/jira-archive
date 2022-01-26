@@ -1,0 +1,116 @@
+---
+title: "[TIMOB-5815] iOS: Native JS Modules not taken in consideration when running the optimalizer for a release build"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-01-23T16:39:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2, Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2012-01, Release 2.0.0, Release 1.8.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_module, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Martijn Bogaard</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-10-05T07:43:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-02-03T14:59:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a release build (run on iOS device) is done, a set of defines are generated to strip the binairy down to the API parts that are used in the App. When certain API's are only used in a JS module and not in the App, the application will crash since they are missing. Define (pseudo) calls to the API's in the app, and the module works.
+
+In the simulator, all API's are included so everything works as expected.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5815_23778/nl.icept.pull2refresh-iphone-1.0.zip">nl.icept.pull2refresh-iphone-1.0.zip</td></td><td>2011-10-20T12:55:22.000+0000</td><td>60821</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5815_23777/TC-280 Testcase.zip">TC-280 Testcase.zip</td></td><td>2011-10-20T12:55:22.000+0000</td><td>133055</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5815_24928/ti.5815.js">ti.5815.js</td></td><td>2012-01-04T16:00:10.000+0000</td><td>138</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5815_24929/timob-5815-test.tar.gz">timob-5815-test.tar.gz</td></td><td>2012-01-04T16:00:10.000+0000</td><td>1710398</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Matthew Apperson 2011-10-20
+
+   Martijn,
+   
+   Are you talking about a native JS module? or a commonJS module?
+   
+   Best regards,
+   Matt</li>
+<li>Martijn Bogaard 2011-10-20
+
+   Hi Matt,
+   
+   I uploaded a Testcase + a broken module for you. To run it, you need to install version 1.0 of the pull2refresh module.
+   
+   - Run the project in the simulator. It works normally.
+   
+   - Run it on a iOS device. It crash (2 crashes actually, the show of the errorview crash also, but thats probably since the initialization isnt fully done yet) since Ti.UI.iPhone is missing. 
+   
+   The only differences between the 2 cases is defines.h. When you build for the device, he checks wich parts of the API must be included. IMO he should also load the JS of the module and include the used parts. Since the JS is embedded as a hex encoded string in the static archive, it shouldn't be hard to extract it. Or add a new file which contains the API parts the module is using.
+   
+   For now i have a workaround to manually define the required parts in the module xcconfig, but this issue is not documentated and you can easy miss a part of the API you need or the define could be changed in a future release. 
+   
+   Martijn
+   </li>
+<li>Stephen Tramer 2012-01-04
+
+   <h4>TESTING</h4>
+   ----
+   
+   <h4>Remove any existing SDK install for the version you're testing (1.9.0) - this contains the stale <code>json.py</code> file that was deleted as part of the commit.</h4>
+   <h4>Install the SDK you are testing against</h4>
+   <h4>Import the timob-5815-test project into TiStudio</h4>
+   <h4>Create the ti.5815 module</h4>
+   #* Create a new module (either via commandline or TiStudio) with the identifier <code>ti.5815</code>
+   #* Place the <code>ti.5815.js</code> file in <code><module_root>/assets</code>
+   #* Build the module via <code>build.py</code>
+   #* Copy the module zipfile to the project directory for <code>timob-5815-test</code> and install
+   <h4>Build for simulator</h4>
+   #* Ensure that the <code><project_root>/build/iphone/Classes/defines.h</code> file is the default (all symbols)
+   #* Ensure that the app runs on simulator. Output should be:
+   <code><pre>
+   [WARN] awww yeah com.appcelerator.5815test
+   [INFO] SUPER!
+   </pre></code>
+   <h4>Build for device</h4>
+   #* Ensure that the <code><project_root>/build/iphone/Classes/defines.h</code> file contains only the necessary symbol info (note that there may be more than this in the file, but these are required to validate the bug):
+   <code><pre>
+   #define USE_TI_API
+   #define USE_TI_FILESYSTEM
+   #define USE_TI_FILESYSTEMGETFILE
+   #define USE_TI_FILESYSTEMRESOURCESDIRECTORY
+   #define USE_TI_APIINFO
+   #define USE_TI_APIWARN
+   #define USE_TI_APP
+   #define USE_TI_APPID
+   </pre></code>
+   #* Ensure that the application runs on device with the proper output
+   <h4>Export the project via the <code>transport.py</code> script:</h4>
+   bq. <code><mobilesdk_install>/iphone/transport.py <project_root></code>
+   #* Open the xcode project for the export, <code><project_root>/build/iphone/timob-5815-test.xcodeproj</code>
+   #* Confirm that the xcode project builds and runs on both simulator and device with the expected output
+   #* Confirm that after a build (either for simulator or device), the <code><project_root>/build/iphone/Classes/defines.h</code> includes the appropriate symbol info (as above)</li>
+<li>Stephen Tramer 2012-01-04
+
+   NOTE: When resolving this ticket, TIMOB-6458 should be resolved as a DUPLICATE and link back to this ticket in the comment posted while resolving.</li>
+<li>Stephen Tramer 2012-01-05
+
+   NOTE: When resolving this ticket, TIMOB-7001 should be resolved as FIXED provided that step 4. above passes.</li>
+<li>Natalie Huynh 2012-01-13
+
+   Tested with 1.9.0.v20120112153134 on simulator and ipod 4.3.3 device</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5815.json">JSON Source</a></p>

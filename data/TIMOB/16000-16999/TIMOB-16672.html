@@ -1,0 +1,88 @@
+---
+title: "[TIMOB-16672] Windows Hybrid: Downloading a file while offline crashes the app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-03-25T19:46:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2014 Sprint 06, 2014 Sprint 06 Tooling, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>Windows Hybrid</td></tr>
+<tr><th>Labels</th><td>module_hybrid, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2014-03-23T02:23:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-05-20T20:12:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When testing downloading a file using tiwp8.downloadFile() and your device is offline, the app crashes. We need to capture the error and properly throw an exception.
+
+On a side note, the XHR proxy seems to report 400 bad request for all requests when offline. That may be ok, but check what other environments do when offline and perhaps throw a better error.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2014-03-25
+
+   <h4>IMPORTANT API CHANGE!</h4>
+   
+   downloadFile() signature had to change to accommodate the onerror handler:
+   
+   <code><pre>
+   tiwp8.downloadFile({
+   	url: '<a href="http://www.ambientreality.com/test.pdf" rel="nofollow" target="_blank">http://www.ambientreality.com/test.pdf</a>',
+   	//saveTo: 'foo.pdf', // tmpFolder.Name,
+   	overwrite: true,
+   	oncomplete: function (e) {
+   		var ea = e.eventArgs,
+   			file = ea.property('file'),
+   			size = ea.property('size');
+   
+   		console.log('Finished downloading file to ' + file);
+   		console.log('File is ' + size + ' bytes');
+   
+   		var currentFolder = tiwp8.staticProperty('Windows.Storage.ApplicationData', 'Current'),
+   			localFolder = currentFolder.property('LocalFolder');
+   
+   		// convert the full path to a relative path
+   		file = file.replace(localFolder.property('Path') + '\\', '');
+   
+   		localFolder.invokeAsync('GetFileAsync', ['System.String', file], function (pdfFile) {
+   			tiwp8.invokeStaticAsync('Windows.System.Launcher', 'LaunchFileAsync', ['Windows.Storage.IStorageFile', pdfFile], function (success) {
+   				console.log('LaunchFileAsync success?', success);
+   				currentFolder.destroy();
+   				localFolder.destroy();
+   				pdfFile.destroy();
+   			});
+   		});
+   	},
+   	onerror: function (ex) {
+   		alert(ex);
+   	}
+   });
+   </pre></code></li>
+<li>Chris Barber 2014-03-25
+
+   Master pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5525" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5525</a>
+   3_2_X_hybrid pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/5526" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5526</a></li>
+<li>Samuel Dowse 2014-05-14
+
+   Verified fixed on:
+   Windows 8.1
+   Appcelerator Studio, build: 3.3.0.201405121247
+   Titanium SDK, build: 3.3.0.v20140514121712
+   Titanium CLI, build: 3.3.0-dev
+   Windows SDK: 8.0
+   Nokia Lumia 520: 8.0
+   
+   PDF file is downloaded successfully while network is connected.
+   App does not crash if network is not connected.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16672.json">JSON Source</a></p>

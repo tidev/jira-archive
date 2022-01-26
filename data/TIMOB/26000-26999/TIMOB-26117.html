@@ -1,0 +1,188 @@
+---
+title: "[TIMOB-26117] iOS: ES6 promises not supported on iOS 9. (Works on iOS 8 and 10.)"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-01-07T15:43:25.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0, node-titanium-sdk 0.4.13</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>es6, ios, promise</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-06-08T22:35:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-01-07T15:43:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+JavaScript ES6 "promises" are not supported on iOS 9 when setting "tiapp.xml" setting <code><transpile>true</transpile></code>.
+
+However, promises are supported on iOS 8 and iOS 10.
+
+*Steps to reproduce:*
+<h4>Set up a project's "tiapp.xml" with the below "transpile" setting.</h4>
+<h4>Build and run the below code on iOS 9.</h4>
+
+<code><pre>
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="<a href="http://ti.appcelerator.org" rel="nofollow" target="_blank">http://ti.appcelerator.org</a>">
+	<transpile>true</transpile>
+</ti:app>
+</pre></code>
+
+<code><pre>
+Ti.API.info("@@@ typeof Promise: " + (typeof Promise));
+var promise = new Promise(function(resolve, reject) {
+	Ti.API.info("@@@ Promise execution started.");
+	setTimeout(function() {
+		Ti.API.info("@@@ Promise execution ended.");
+		resolve();
+//		reject();
+	}, 1000);
+}).then(function() {
+	Ti.API.info("@@@ Promise.then() called.");
+}).catch(function(e) {
+	Ti.API.info("@@@ Promise.catch() called.");
+});
+</pre></code>
+
+*Result:*
+An exception dialog is displayed stating "Can't find variable: Promise".
+
+*Notes:*
+* This issue does not happen in iOS 8.1 and 8.4 simulators.
+* This issue does not happen in iOS 10.3.1 simulator.
+* I verified that this issue happens in iOS 9.0 and 9.3 simulator.
+* I've tried setting "tiapp.xml" <code><transpile></code> setting true and false. No difference. Always fails on iOS 9.x Setting <code><transpile></code> to false surprisingly works on iOS 8.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-06-10
+
+   Could this be an issue with Babel? I remember we specify the target level when transpiling, so that we only need to add the parts that are missing from that version.</li>
+<li>Christopher Williams 2018-06-11
+
+   We use babel-preset-env, which is supposed to use the target to partially transform the code based on what the underlying JS engine supports. But as discussed before, this doesn't mean we can support everything, particularly new features that require syntactical JS changes. The ticket Josh mentioned is very relevant here: TIMOB-25816
+   
+   iOS 8 is quite old and not even listed under the "obsolete" targets here: <a href="http://kangax.github.io/compat-table/es6/" rel="nofollow" target="_blank">http://kangax.github.io/compat-table/es6/</a> As a result, I'm not sure to what degree ES6 is supported there, so presumably transpilation should try and transform everything (but Promises shouldn't work unless we add polyfills?)
+   
+   iOS 9 has partial ES6 support, but should mostly support Promises "out of the box" - presumably without the need for polyfills.
+   
+   ... Actually looking at this: <a href="https://caniuse.com/#feat=promises" rel="nofollow" target="_blank">https://caniuse.com/#feat=promises</a> it does looks like Promises have been supported in iOS since 8.</li>
+<li>Christopher Williams 2018-06-11
+
+   My experience:
+   
+   | | iOS 8.1 | iOS 9.3 | iOS 11.4 |
+   | Transpile on | works | broken | works |
+   | Transpile off | works | broken | works |
+   
+   In fact, Promise is undefined on iOS 9.3 for me. So it does indeed seem like Promises are broken in iOS 9 specifically.
+   
+   We may need to somehow patch this ourselves since I don't think babel/babel-preset-env will fix it for us.
+   
+   Related finds: <a href="https://github.com/babel/babel/issues/8078" rel="nofollow" target="_blank">https://github.com/babel/babel/issues/8078</a></li>
+<li>Joshua Quick 2018-06-11
+
+   Thanks for looking into this Chris.
+   
+   This sounds like a good opportunity for me to use my new "ti.shell.js" and bootstrap loader via [TIMOB-26015] to extend our JS APIs. I'm already using it to add the newest ES6 functions to "String.prototype" if missing (was pretty easy to do). I'll look into doing the same for Promises if the type is missing. Since the team wants my "ti.shell.js" to use promises, then this type needs to exist even if transpiling is disabled.</li>
+<li>Chris Barber 2018-06-12
+
+   I verified that JavaScriptCore defines <code>Promise</code> in iOS Simulator 8.4, but not iOS Simulator 9.0, 9.1, 9.2, and 9.3.
+   
+   To be clear, I do not believe this is an issue with the iOS SDK version used to build the app. I tested using iOS SDK 11.3 and was still able to reproduce.
+   
+   It's also worth noting that <code>Promise</code> is defined on iOS 9.x simulators in both Mobile Safari and WebViews. This appears to only affect JavaScriptCore.</li>
+<li>Gary Mathews 2018-06-12
+
+   master: <a href="https://github.com/appcelerator/node-titanium-sdk/pull/32" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/32</a>
+   
+   titanium_mobile: <a href="https://github.com/appcelerator/titanium_mobile/pull/10107" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10107</a>
+   titanium_mobile_windows: <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/1257" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/1257</a></li>
+<li>Christopher Williams 2018-06-20
+
+   This was integrated (successfully) in node-titanium-sdk 0.4.13, which is now part of SDk master (7.4.0 target).
+   
+   Keep in mind this allows for user-code to make use of Promises (or async await) with transpilation, the issue of using Promises in bootstrap code/without transpilation is another issue.</li>
+<li>Samir Mohammed 2018-10-17
+
+   [~gmathews] When testing on SDK Version <code>7.5.0.v20181016071050</code> on iOS 9 the following error can be seen with and without transpile. 
+   
+   <code><pre>
+   [INFO] :   @@@ typeof Promise: undefined
+   [ERROR] :  Script Error {
+   [ERROR] :      column = 26;
+   [ERROR] :      line = 2;
+   [ERROR] :      message = "Can't find variable: Promise";
+   [ERROR] :      sourceURL = "file:///Users/Samir/Library/Developer/CoreSimulator/Devices/A80C19A6-EDA8-4BC5-B0D9-4829C585D0A9/data/Containers/Bundle/Application/5F61DA77-F342-4127-884C-69399303DFAB/T1.app/app.js";
+   [ERROR] :      stack = "    at (/app.js:2:26)\n    at global code(/app.js:15:70)\n    at require@[native code]\n    at (/ti.main.js:28:10)\n    at loadAsync(/ti.internal/bootstrap.loader.js:102:13)\n    at global code(/ti.main.js:25:52)";
+   [ERROR] :      toJSON = "<KrollCallback: 0x7ff29ee1e360>";
+   [ERROR] :  }
+   [ERROR] :  Script Error Module "app.js" failed to leave a valid exports object
+   </pre></code>
+   
+   *Test Environment*
+   <code><pre>
+   APPC Studio: 5.1.0.201808080937
+   iPhone 6 Sim (6.0)
+   APPC CLI: 7.0.6
+   Operating System Name: Mac OS Mojave
+   Operating System Version: 10.14
+   Node.js Version: 8.9.1
+   Xcode 10.0
+   </pre></code>
+   </li>
+<li>Ewan Harris 2018-10-18
+
+   I'm reopening this ticket.
+   
+   Took a quick look at today, the useBuiltIns option in babel 6 will only replace <code>require('babel-polfyfill')</code> with individual corejs requires for polyfills required by the specified target, so for iOS 9 it'll generate 42 requires for the environment.
+   
+   So here's our options to actually fix this:
+   
+   1. Inject <code>require('babel-polyfill')</code> into a users app.js which would allow the change made in this ticket work as intended.
+      * That'll probably have a performance impact due to the excessive requires
+   
+   2. Upgrade to the babel 7 packages (TIMOB-25650). @babel/preset-env has a <code>useBuiltIns: 'usage'</code> option which polyfills as needed.
+      * The work is mostly done, but the main problem here is (for correctness) the code makes use the <code>paths</code> arg for require.resolve when copying packages across. That was only added in Node 8.9.0, our current min is 6 (well we say 4 in the package.json but it's broke), we'd have to bump this to 8.9.0 in 7.5.0, which would be a semver major change in a semver minor release.
+   
+   What does everyone think?</li>
+<li>Christopher Williams 2018-10-22
+
+    Odd question, but can we "combine" the options here? i.e., Move to babel 7 and the if the dev is using Node < 8.9.0 we inject the require (and possible spit out a warning that we're doing so and to avoid it they can use Node 8.9+); and if they're on Node 8.9+ then switch to usage based useBuiltins?</li>
+<li>Ewan Harris 2018-10-22
+
+    [~cwilliams], I think that's possible.
+    
+    Thinking about it properly, I think we can actually move to babel 7 without having that hard requirement on 8.9. 
+    To my knowledge the code wont break if we're using lower than 8.9, it will just not do anything and we not might pull in the correct dep version that is required by @babel/polyfill), however that might not actually be a real cause for concern right now. Users on 8.9 will just have a more guaranteed correctness</li>
+<li>Ewan Harris 2018-10-23
+
+    <a href="https://github.com/appcelerator/node-titanium-sdk/pull/37/commits/3600c9428e0be7910c469f1a44ac153c63ebf92a" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/37/commits/3600c9428e0be7910c469f1a44ac153c63ebf92a</a> Updates the changes to allow Node 6 compatability</li>
+<li>Ewan Harris 2018-10-23
+
+    TIMOB-25740 and TIMOB-25816 should be closed at the same time as this</li>
+<li>Ewan Harris 2018-10-23
+
+    [~amukherjee], this ticket can be fixed by TIMOB-25650, but that isn't in scope for 7.5.0. Do we want to fix this in 7.5.0?</li>
+<li>Abir Mukherjee 2018-10-23
+
+    [~eharris], I think if TIMOB-25650 will fix this issue, then I would say move this one out of 7.5.0, and we'll close this ticket when TIMOB-25650 is closed. </li>
+<li>Ewan Harris 2018-10-24
+
+    [~amukherjee], that's fine with me</li>
+<li>Samir Mohammed 2019-01-07
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26117.json">JSON Source</a></p>

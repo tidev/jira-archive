@@ -1,0 +1,116 @@
+---
+title: "[TIMOB-28527] iOS: "ti.map" polyline click events not working if it only has 2 points"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-09-01T00:53:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, polyline, ti.map, touch</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-08-21T10:06:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-09-01T00:53:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Weird one. Check the following test case and click on the polyline:
+
+<code><pre>
+var Map = require('ti.map');
+
+var win = Ti.UI.createWindow();
+
+var polyline1 = Map.createPolyline({
+    points: [{
+            latitude: -33.884717,
+            longitude: 151.187993
+        },
+        [151.203099, -33.882152], // Remove this line and it won't work anymore
+        {
+            latitude: -33.886783,
+            longitude: 151.218033
+        }
+    ],
+    strokeColor: '#FF0000',
+    strokeWidth: 4
+});
+
+var map = Map.createView({
+    region: {
+        latitude: -33.87365,
+        longitude: 151.20689,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05
+    }
+});
+
+map.addPolyline(polyline1);
+
+win.add(map);
+
+map.addEventListener('click', function(e) {
+    Ti.API.info('Click Event: ' + JSON.stringify(e));
+});
+
+win.open();
+</pre></code>
+It works great! Now remove the second coordinate point (<code>\[151.203099, -33.882152\]</code>) and try again: The <code>click</code> event is not fired anymore. And even with the three points, it only fires when tapped into certain regions, which is also very odd.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-28527_67980/MapPolylineTest.js">MapPolylineTest.js</td></td><td>2021-08-31T19:58:53.000+0000</td><td>917</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2021-08-27
+
+   [~hknoechel], what's happening is the polyline is being converted into a shape on iOS (which requires at least 3 or more points) and the touch will only work if it happens within that shape's bounds. So, in your test code, pretend it is a triangle where the start and end points are connected, which is why tapping the bottom gap fires an event, but tapping the top-left and top-right gaps do not fire an event.
+   _(I'm not saying this is right. I'm just explaining how it currently works.)_</li>
+<li>Hans Knöchel 2021-08-27
+
+   That's super interesting to know, thanks! Curious how the native world solves the touch handling then. The example I saw use the point conversion as well.</li>
+<li>Joshua Quick 2021-08-27
+
+   I've been trying different things out.
+   
+   My first attempt was to do the math myself (which isn't hard) to calculate the distance of the touch point from the line... but my current code has precision issues with huge distances, such as Sydney to San Francisco. (I was calculating it in miles, but I should probably be calculating in latitude/longitude units instead.)
+   
+   I'm also going to try using the polyline's built-in <code>intersectMapRect</code> method where we could make the rectangle represent the touch point.
+   <a href="https://developer.apple.com/documentation/mapkit/mkoverlay/1452138-intersectsmaprect" rel="nofollow" target="_blank">https://developer.apple.com/documentation/mapkit/mkoverlay/1452138-intersectsmaprect</a>
+   </li>
+<li>Joshua Quick 2021-08-28
+
+   PR (ti.map): <a href="https://github.com/appcelerator-modules/ti.map/pull/476" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/pull/476</a></li>
+<li>Joshua Quick 2021-08-28
+
+   [~hknoechel], would you mind giving the above PR a go? It works for me.
+   
+   *Side Note:* I couldn't figure out how to make Apple's <code>intersectMapRect</code> work. So, I did the math myself.</li>
+<li>Hans Knöchel 2021-08-31
+
+   Works great! But it may become slow with more complex polylines / more points. In any case, it's way better than the original solution, so we should merge this!</li>
+<li>Joshua Quick 2021-08-31
+
+   I think one optimization that could be made is to skip hit testing on line segments that are off-screen. But I'm going to roll with what we've got since it seems to perform fine for your app which has lots of line segments.
+   
+   Thanks for bringing this up [~hknoechel].</li>
+<li>Lokesh Choudhary 2021-09-01
+
+   FR Passed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28527.json">JSON Source</a></p>

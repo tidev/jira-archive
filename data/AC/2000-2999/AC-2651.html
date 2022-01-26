@@ -1,0 +1,224 @@
+---
+title: "[AC-2651] Animations iOS7 vs iOS6 - Slower and Buggy"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-12T06:16:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>animation, slow, transition, window</td></tr>
+<tr><th>Reporter</th><td>Nicholas Cooper</td></tr>
+<tr><th>Assignee</th><td>Ritu Agrawal</td></tr>
+<tr><th>Created</th><td>2013-11-19T12:36:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm currently upgrading an iOS6 app to iOS7 using Ti 3.1.2 GA, xCode 5.0.1.  However there is an issue with Animations, they appear slower and buggy.  
+
+When opening a new Window within a TabGroup often the Window animation leaves a black space or the previous Window is partly displayed underneath during the animation.
+
+I have created a simple test case which exhibits the same issues.  It  appears to be an issue with how memory is managed, because the app will crash out.  In my example I've used large images ~800KB for the backgrounds (test_1, test_2) and for the images (badger, mushroom) ~80KB.  In my real app the images are much smaller in size and the app is less memory intensive mainly consititing of text but the problem still occurs.  The larger images are used mainly to force the issue.
+
+---
+Titanium.UI.setBackgroundColor('#000');
+var tabGroup = Titanium.UI.createTabGroup();
+
+var count = 0;
+
+function drawWin() {
+	var win = Titanium.UI.createWindow({  
+	    title:'Window '+count,
+	    backgroundColor:'#fff',
+	    tabBarHidden: true,
+	    navBarHidden: true,
+	});
+	
+	var view = Ti.UI.createView({
+		backgroundImage: (count%2?'test_1.jpg':'test_2.jpg'),
+	});
+	win.add(view);
+	
+	for(var i=0;i<5;i++) {
+		for(var j=0;j<5;j++) {
+			var box = Ti.UI.createView({
+				top: (0.5+i*10)+'%',
+				left: (0.5+j*10)+'%',
+				backgroundColor: 'rgba(81, 247, 181, 0.5)',
+				borderRadius: 20,
+				borderWidth: 2,
+				borderColor: 'rgba(81,98,247,0.6)',
+				height: '9%',
+				width: '9%',
+			});
+			var image = Ti.UI.createImageView({
+				top: 10,
+				left: 10,
+				right: 10,
+				bottom: 10,
+				image: ((i+j)%6?'badger.png':'mushroom.png'),
+			});
+			box.add(image);
+			var label = Ti.UI.createLabel({
+				text: ((i+j)%6?'Badger':'Mushroom'),
+				height: Ti.UI.SIZE,
+				width: Ti.UI.SIZE,
+				bottom: 10,
+				color: 'black',
+				font: {
+					fontSize: 8,
+				}
+			});
+			box.add(label);
+			view.add(box);
+		}
+	}
+	
+	var btn = Titanium.UI.createButton({
+		right: 50,
+		bottom: 20,
+		height: Ti.UI.SIZE,
+		width: Ti.UI.SIZE,
+		backgroundColor: 'rgba(255,255,255,0.8)',
+		borderRadius: 10,
+		title: 'Open Next Window',
+	});
+	btn.addEventListener('click',function(e) {
+		var newWin = drawWin();
+		var style = {
+			animated : true,
+		};
+		tab.open(newWin,style);
+	});
+	win.add(btn);
+
+	var btn2 = Titanium.UI.createButton({
+		left: 50,
+		bottom: 20,
+		height: Ti.UI.SIZE,
+		width: Ti.UI.SIZE,
+		backgroundColor: 'rgba(255,255,255,0.8)',
+		borderRadius: 10,
+		title: 'Close Window',
+	});
+	btn2.addEventListener('click',function(e) {
+		win.close();
+	});
+	win.add(btn2);
+
+	
+	count++;
+	
+	return win;
+}
+
+var win = drawWin();
+
+var tab = Titanium.UI.createTab({  
+    title: 'Tab',
+    window: win,
+});
+tabGroup.addTab(tab);  
+
+
+// open tab group
+tabGroup.open();
+---
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-11-19
+
+   Hello,
+   we modified your test case to the bare bone and we can't reproduce the black screen effect. Can you please test it and let us know if you can reproduce it?
+   
+   We can't move your bug with your current testcase because is too complex, and likely to be rejected. If you can strip it to the minimal amount of code, would be pretty awesome.
+   
+   Our testcase: 
+   
+   <code><pre>
+   Titanium.UI.setBackgroundColor('#000');
+   var tabGroup = Titanium.UI.createTabGroup();
+   
+   var count = 0;
+   
+   function drawWin() {
+   	var win = Titanium.UI.createWindow({
+   		title : 'Window ' + count,
+   		backgroundColor : '#fff',
+   		tabBarHidden : true,
+   		navBarHidden : true,
+   	});
+   
+   	var btn = Titanium.UI.createButton({
+   		right : 50,
+   		bottom : 20,
+   		title : 'Open Next Window',
+   	});
+   	btn.addEventListener('click', function(e) {
+   		var newWin = drawWin();
+   		var style = {
+   			animated : true,
+   		};
+   		tab.open(newWin, style);
+   	});
+   	win.add(btn);
+   
+   	var btn2 = Titanium.UI.createButton({
+   		left : 50,
+   		bottom : 20,
+   		title : 'Close Window',
+   	});
+   	btn2.addEventListener('click', function(e) {
+   		win.close();
+   	});
+   	win.add(btn2);
+   
+   	count++;
+   
+   	return win;
+   }
+   
+   var win = drawWin();
+   
+   var tab = Titanium.UI.createTab({
+   	title : 'Tab',
+   	window : win,
+   });
+   tabGroup.addTab(tab);
+   
+   // open tab group
+   tabGroup.open();
+   </pre></code></li>
+<li>Nicholas Cooper 2013-11-21
+
+   The only problem with this test case is it's not memory intensive like the original.  I will try and create one that is half way between the two.</li>
+<li>Mostafizur Rahman 2013-12-31
+
+   Hello,
+   
+   We tested this issue again with the latest TiSDK. We can't reproduce it even with a memory intensive app. Not sure if this is still showing similar memory issues in your app. If so, please send us a test case so that we can take next necessary step to fix. 
+   
+   
+   <h4>Test Environment</h4>
+   
+   MAC OS X 10.8.5,
+   Titanium SDK 3.2.0 GA
+   IOS Simulator 7.0.3
+   Ti CLI 3.2.0 
+    
+   Thanks
+   </li>
+<li>Ritu Agrawal 2014-01-12
+
+   Resolving this ticket as we have not been able to reproduce this issue with the test case above. We would be happy to reopen this ticket if you can provide a simple test case to reproduce this issue.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2651.json">JSON Source</a></p>

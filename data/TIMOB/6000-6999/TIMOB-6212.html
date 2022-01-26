@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-6212] Android: Add Support for TLS to TCP Sockets"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 1.8.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>exalture</td></tr>
+<tr><th>Reporter</th><td>Shak Hossain</td></tr>
+<tr><th>Assignee</th><td>Eric Merriman </td></tr>
+<tr><th>Created</th><td>2011-11-17T07:23:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T17:31:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+Facebook chat now requires a secure connection, so any apps that are using it are now broken until TLS is exposed through our TCP sockets.
+
+<h4>Pull Request</h4>
+<a href="https://github.com/appcelerator/titanium_mobile/pull/726" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/726</a>
+
+<h4>How to Test</h4>
+Drop the following in an app.js. Look at the log. After some network traffic (~5 seconds) you should see the log message, "Socket secured!". (Note that around 10 seconds later, the connection will timeout and you'll be disconnected -- this is expected behavior.)
+
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor: '#fff'
+});
+
+var states = {
+    WAITING_FOR_FIRST_RESPONSE: 0,
+    WAITING_FOR_START_TLS: 1,
+    WAITING_FOR_PROCEED: 2,
+    WAITING_FOR_SECURED: 3,
+    DONE: 4,
+    ERRORED: 5
+};
+var currentState = Ti.Android ? states.WAITING_FOR_FIRST_RESPONSE : states.WAITING_FOR_START_TLS;
+
+var socket = Ti.Network.Socket.createTCP({
+    host: 'chat.facebook.com', port: 5222,
+    connected: function (e) {
+        Ti.API.info('Socket opened!');
+        Ti.Stream.pump(e.socket, read, 1024, true);
+        socket.write(Ti.createBuffer({
+            value: '<stream:stream xmlns:stream="<a href="http://etherx.jabber.org/streams" rel="nofollow" target="_blank">http://etherx.jabber.org/streams</a>" version="1.0" \
+                xmlns="jabber:client" to="chat.facebook.com" xml:lang="en" \
+                xmlns:xml="<a href="http://www.w3.org/XML/1998/namespace" rel="nofollow" target="_blank">http://www.w3.org/XML/1998/namespace</a>">'
+        }));
+    },
+    secured: function (e) {
+        Ti.API.info('Socket secured!');
+    },
+    error: function (e) {
+        Ti.API.info('Error (' + e.errorCode + '): ' + e.error);
+    },
+    closed: function (e) {
+        Ti.API.info('Socket closed!');
+    }
+});
+socket.connect();
+
+function write(msg) {
+    Ti.API.info('State: ' + currentState + ', Wrote: ' + msg);
+    socket.write(Ti.createBuffer({
+        value: msg
+    }));
+}
+
+function read(e) {
+    try {
+        if (e.buffer) {
+            var received = e.buffer.toString();
+            Ti.API.info('State: ' + currentState + ', Received: ' + received);
+            switch (currentState) {
+
+                case states.WAITING_FOR_FIRST_RESPONSE:
+                    if (received.split('<?xml version="1.0"?><stream:stream ').length <= 1) {
+                        Ti.API.error('Unexpected response from server while WAITING_FOR_FIRST_RESPONSE!');
+                        return currentState = states.ERRORED;
+                    }
+                    return currentState = states.WAITING_FOR_START_TLS;
+
+                case states.WAITING_FOR_START_TLS:
+                    if (received.split('<stream:features><starttls ').length <= 1) {
+                        Ti.API.error('Unexpected response from server while WAITING_FOR_START_TLS!');
+                        return currentState = states.ERRORED;
+                    }
+                    write('<starttls xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>');
+                    if (!Ti.Android) {
+                        // Note: iOS requires that startTLS be called right after sending the above XML.
+                        // This is required because of how reads and writes are queued up before a secure handshake.
+                        socket.startTLS();
+                        return currentState = states.WAITING_FOR_SECURED;
+                    }
+                    return currentState = states.WAITING_FOR_PROCEED;
+
+                case states.WAITING_FOR_PROCEED:
+                    if (received.split('<proceed xmlns="urn:ietf:params:xml:ns:xmpp-tls"/>').length <= 1) {
+                        Ti.API.error('Unexpected response from server while WAITING_FOR_PROCEED!');
+                        return currentState = states.ERRORED;
+                    }
+                    socket.startTLS();
+                    return currentState = states.WAITING_FOR_SECURED;
+
+                case states.WAITING_FOR_SECURED:
+                    write('<stream:stream xmlns:stream="<a href="http://etherx.jabber.org/streams" rel="nofollow" target="_blank">http://etherx.jabber.org/streams</a>" version="1.0" \
+                        xmlns="jabber:client" to="chat.facebook.com" xml:lang="en" \
+                        xmlns:xml="<a href="http://www.w3.org/XML/1998/namespace" rel="nofollow" target="_blank">http://www.w3.org/XML/1998/namespace</a>">');
+                    return currentState = states.DONE;
+
+            }
+        }
+        else {
+            Ti.API.error('Error: no e.buffer!');
+        }
+    } catch (ex) {
+        Ti.API.error(ex);
+    }
+}
+
+win.open();
+</pre></code>
+
+<h4>Related Tickets</h4>
+iOS: [TIMOB-6211]
+Android: [TIMOB-6212]
+APIDoc: [TIMOB-6213]
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dawson Toth 2011-11-17
+
+   Opened pull request <a href="https://github.com/appcelerator/titanium_mobile/pull/726" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/726</a></li>
+<li>Dawson Toth 2011-11-17
+
+   Revamped the description so that it is clear what this is addressing and how it can be tested.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6212.json">JSON Source</a></p>

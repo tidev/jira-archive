@@ -1,0 +1,1136 @@
+{
+	"id": "137290",
+	"key": "TIMOB-17798",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "16676",
+				"description": "Release 3.4.1",
+				"name": "Release 3.4.1",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2014-11-14"
+			},
+			{
+				"id": "16586",
+				"description": "Release 3.4.2",
+				"name": "Release 3.4.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2017-03-11"
+			},
+			{
+				"id": "16704",
+				"description": "Release 3.5.0",
+				"name": "Release 3.5.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2015-01-13"
+			},
+			{
+				"id": "16593",
+				"description": "Release 4.0.0",
+				"name": "Release 4.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2015-05-21"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2014-10-03T23:47:49.000+0000",
+		"created": "2014-09-26T21:10:26.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"android",
+			"cache",
+			"crash",
+			"download",
+			"googleplay",
+			"imageView",
+			"module_imageview",
+			"qe-manualtest",
+			"qe-testadded"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "pwang",
+			"key": "pwang",
+			"displayName": "Ping Wang",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2015-07-17T13:02:21.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "My app is crashing when I use Google Play Services to deliver doubleclick ads.\r\n\r\n{code:title=console output|borderStyle=solid}\r\n[ERROR] :  TiDownloadManager: (pool-4-thread-1) [18,3778] Exception downloading http://wwwcache.wral.com/asset/news/local/2014/09/26/14018104/14018104-1411727089-320x180.jpg\r\n[ERROR] :  TiDownloadManager: java.lang.ClassCastException: com.android.okhttp.HttpResponseCache cannot be cast to org.appcelerator.titanium.util.TiResponseCache\r\n[ERROR] :  TiDownloadManager: \tat org.appcelerator.titanium.util.TiResponseCache.peek(TiResponseCache.java:187)\r\n[ERROR] :  TiDownloadManager: \tat ti.modules.titanium.ui.widget.TiUIImageView$1.postDownload(TiUIImageView.java:119)\r\n[ERROR] :  TiDownloadManager: \tat org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:151)\r\n[ERROR] :  TiDownloadManager: \tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1112)\r\n[ERROR] :  TiDownloadManager: \tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:587)\r\n[ERROR] :  TiDownloadManager: \tat java.lang.Thread.run(Thread.java:841)\r\n[DEBUG] :  dalvikvm: DexOpt: --- END 'ads646200884.jar' (success) ---\r\n{code}\r\n\r\n(the URL listed in the output is an image that I am loading into an ImageView, so I inferred that the TiDownloadManager is handling the loading of ImageView images)\r\n\r\nThe problem only goes away if I disable DFP ads (I'm using my own ti.dfp module - https://github.com/jpriebe/ti.dfp).\r\n\r\nI found it strange that it was crashing, because this code was working just a few days ago, and the module had not been changed, nor had I really done anything to the app and the way it handles ImageViews.\r\n\r\nI scoured android source code, tweets, and forum posts, and I've learned that in android 4.4, Square's okhttp code is supposedly incorporated into HttpUrlConnection.  However, I've never found any code for com.android.okhttp.HttpResponseCache.  The only code I can find is for com.squareup.okhttp.HttpResponseCache, not \"com.android\".  \r\n\r\ncom.squareup.okhttp.HttpResponseCache extends java.net.ResponseCache, just like TiResponseCache does.  But the code in TiResponseCache.peek() is only expecting to get back a TiResponseCache object when it calls getDefault().  Changing that might not be trivial, since it depends on the cacheDir member variable of the returned object, and that's not part of the java.net.ResponseCache class.\r\n\r\nHere's what I think has happened -- google released Google Play Services 6.1.09 on September 23, 2014.  It automatically updated on my device.  Inside the new Google Play Services is a call to ResponseCache.setDefault(), and they're setting that default to a com.android.okhttp.HttpResponseCache object.\r\n\r\nTitanium assumes that the default system ResponseCache is the one that it set in TiApplication.java, and it doesn't handle things well when somebody else messes with the default.  \r\n\r\nI don't know what the fix is for this -- I'll leave that to the android platform experts in your employ.  But I think it is a critical issue, and will become more obvious in the coming days as this Play Services update propagates.  Any app that is using Google Play Services (or at least the DFP portion of it) and the TiDownloadManager will crash.\r\n",
+		"attachment": [
+			{
+				"id": "51666",
+				"filename": "adMob-Crash.zip",
+				"author": {
+					"name": "ingo",
+					"key": "ingo",
+					"displayName": "Ingo Muschenetz",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2014-09-29T14:13:47.000+0000",
+				"size": 3211197,
+				"mimeType": "application/zip"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: App crashes in TiResponseCache.peek()",
+		"creator": {
+			"name": "jpriebe",
+			"key": "jpriebe",
+			"displayName": "Jason Priebe",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jpriebe",
+			"key": "jpriebe",
+			"displayName": "Jason Priebe",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"environment": "Nexus 7 tablet, Android 4.4.4",
+		"closedSprints": [
+			{
+				"id": 220,
+				"state": "closed",
+				"name": "2014 Sprint 20 SDK",
+				"startDate": "2014-09-29T22:32:25.224Z",
+				"endDate": "2014-10-13T18:25:00.000Z",
+				"completeDate": "2014-10-13T18:25:45.560Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "325923",
+					"author": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Jason,\r\n\r\nI'm chasing a similar dog. Ti.Admob and Ti.Cloudpush, both with updated play library.\r\n\r\nAs soon as I eat, I'll be running tests against the modules, swapping out play libraries to be sure.\r\n\r\nCrazyness.  Just letting you know, you aren't alone.  Until you posted, thought it was just me. :)\r\n\r\nAndroid S4 (2 of them) running 4.4.2.\r\nGoogle Play Services version 6.1.09 (1459805-038)\r\n\r\n{code}\r\n0\t\tjava.lang.ClassCastException: com.android.okhttp.HttpResponseCache cannot be cast to org.appcelerator.titanium.util.TiResponseCache\r\n1\tat\torg.appcelerator.titanium.util.TiResponseCache.peek(TiResponseCache.java:187)\r\n2\tat\tti.modules.titanium.ui.widget.TiUIImageView.setImageInternal(TiUIImageView.java:715)\r\n3\tat\tti.modules.titanium.ui.widget.TiUIImageView.processProperties(TiUIImageView.java:802)\r\n4\tat\torg.appcelerator.kroll.KrollProxy.setModelListener(KrollProxy.java:1185)\r\n5\tat\torg.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:500)\r\n6\tat\torg.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:491)\r\n7\tat\torg.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:469)\r\n8\tat\torg.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:507)\r\n9\tat\torg.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:491)\r\n10\tat\torg.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:469)\r\n11\tat\torg.appcelerator.titanium.proxy.TiViewProxy.handleAdd(TiViewProxy.java:670)\r\n12\tat\torg.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:230)\r\n13\tat\tti.modules.titanium.ui.ScrollViewProxy.handleMessage(ScrollViewProxy.java:112)\r\n14\tat\tandroid.os.Handler.dispatchMessage(Handler.java:98)\r\n15\tat\tandroid.os.Looper.loop(Looper.java:157)\r\n16\tat\tandroid.app.ActivityThread.main(ActivityThread.java:5356)\r\n17\tat\tjava.lang.reflect.Method.invokeNative(Native Method)\r\n18\tat\tjava.lang.reflect.Method.invoke(Method.java:515)\r\n19\tat\tcom.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1265)\r\n20\tat\tcom.android.internal.os.ZygoteInit.main(ZygoteInit.java:1081)\r\n21\tat\tdalvik.system.NativeStart.main(Native Method)\r\n{code}\r\n\r\nh5. The imageView problem ended up being a red herring.  \r\nIn my case it is Ti.Admob that is causing the error.  Tested the android 2.1.1 version using the google play jar packaged with it, and also with the google play jar packaged with Ti.cloudpush.  Both cause the error shown above.  If it managed to NOT show the error above, it then will throw the error the Jason has documented.\r\n\r\n@ingo has a test project that fails for me",
+					"updateAuthor": {
+						"name": "sfeather",
+						"key": "sfeather",
+						"displayName": "Stephen Feather",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-26T21:49:41.000+0000",
+					"updated": "2014-09-27T01:25:29.000+0000"
+				},
+				{
+					"id": "326018",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Glad I'm not out in the wilderness on this one.  I'm sorry to hear it's impacting you, too, Stephen, but misery does love company.  :-)\r\n\r\nThis is scary -- our app is still in development, but if it had been in the wild, all of our users would have started to experience crashes as soon as their phones updated Google Play Services to 6.1.09.  And there would have been little we could do to fix it.\r\n\r\nI would suspect that any app that uses Play Services could be susceptible.  I'm using it for DFP, Stephen's using it for Admob and Cloudpush, what about Maps?  Any code in the Play Services subsystem that changes out the default responsecache to an okhttp.HttpResponseCache will cause this problem.\r\n\r\nTiResponseCache is going to have to be modified so that it either maintains its own default cache, separate from the system default cache, or it can otherwise be resilient against changes in the system default cache.  Developers with live apps using Google Play Services will need this fix ASAP.\r\n\r\nI urge Appcelerator to treat this issue with the highest priority.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-28T14:15:30.000+0000",
+					"updated": "2014-09-28T14:15:30.000+0000"
+				},
+				{
+					"id": "326064",
+					"author": {
+						"name": "banzaimobile",
+						"key": "banzaimobile",
+						"displayName": "Banzai Mobile",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hi Jason, Stephen,\r\n\r\nthis drove me crazy over the last few days. \r\nOur GialloZafferano Italian Recipes app has MILLIONS of active users here in Italy and abruptly started crashing since September 17th.\r\n\r\nWe use our custom module for DFP using GoogleAds SDK (latest version with Play Services) and immediately discovered that turning off advertising stops the crashes.\r\n\r\nAs Jason wrote, this is a really breaking issue and I hope Appcelerator will come out with a fix in a matter of days.\r\n\r\n@ingo, if you read this, I think it might be so widespread that it might be worth publishing a note on the blog to alert developers, so that they at least save headaches when they start getting crash reports and user complaints.\r\n\r\n",
+					"updateAuthor": {
+						"name": "banzaimobile",
+						"key": "banzaimobile",
+						"displayName": "Banzai Mobile",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2014-09-29T09:19:38.000+0000",
+					"updated": "2014-09-29T09:19:38.000+0000"
+				},
+				{
+					"id": "326086",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Attached admob-Crash.zip as example project.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-29T14:13:47.000+0000",
+					"updated": "2014-09-29T14:13:47.000+0000"
+				},
+				{
+					"id": "326088",
+					"author": {
+						"name": "fschroder@runway10.com",
+						"key": "fschroder@runway10.com",
+						"displayName": "Federico schroder",
+						"active": true,
+						"timeZone": "Australia/Sydney"
+					},
+					"body": "+1 for the bug report and the critical status.\r\nWe have a production app that was having some issues which we couldn't reproduce and crash reports like this have soared over the weekend. \r\n",
+					"updateAuthor": {
+						"name": "fschroder@runway10.com",
+						"key": "fschroder@runway10.com",
+						"displayName": "Federico schroder",
+						"active": true,
+						"timeZone": "Australia/Sydney"
+					},
+					"created": "2014-09-29T14:26:40.000+0000",
+					"updated": "2014-09-29T14:26:40.000+0000"
+				},
+				{
+					"id": "326113",
+					"author": {
+						"name": "fokkezb",
+						"key": "fokke",
+						"displayName": "Fokke Zandbergen",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"body": "I might have a similar case, where it cannot find network related ti.* classes. I'm currently testing if taking out the {{nl.rebellic.hockeyapp}} module makes a difference. The only other 2 modules in use are {{yy.logcatcher}} and {{dk.napp.drawer}} which both are not network-related.\r\n\r\n{code}\r\nD/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)\r\nD/dalvikvm(  852): GC_CONCURRENT freed 407K, 6% free 9649K/10164K, paused 6ms+2ms, total 72ms\r\nI/BatteryReceiverInfo(12156): level: 84 scale: 100 batteryLifePercent: 84\r\nI/SkypeAdConfigManager(12156): Setting Battery Life Threshold to '0'\r\nD/MobileDataStateTracker(  597): default: Broadcast received: android.intent.action.ANY_DATA_STATE apnType=default\r\nD/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)\r\nD/MobileDataStateTracker(  597): default: Broadcast received: android.intent.action.ANY_DATA_STATE apnType=default\r\nD/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)\r\nE/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.BufferProxy\r\nE/ProxyFactory(12511): No proxy info found for class.\r\nE/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.BufferProxy\r\nE/ProxyFactory(12511): No proxy info found for class.\r\nE/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.network.socket.TCPProxy\r\nE/ProxyFactory(12511): No proxy info found for class.\r\nF/libc    (12511): Fatal signal 11 (SIGSEGV) at 0x00000000 (code=1), thread 12530 (KrollRuntimeThr)\r\nI/DEBUG   (  172): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***\r\nI/DEBUG   (  172): Build fingerprint: 'google/occam/mako:4.4.4/KTU84P/1227136:user/release-keys'\r\nI/DEBUG   (  172): Revision: '11'\r\nI/DEBUG   (  172): pid: 12511, tid: 12530, name: KrollRuntimeThr  >>> com.zipwire.app <<<\r\nI/DEBUG   (  172): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 00000000\r\nI/DEBUG   (  172):     r0 00000000  r1 6db597e8  r2 00000000  r3 74e417a0\r\nI/DEBUG   (  172):     r4 00000000  r5 00000000  r6 6db597e8  r7 74e417a0\r\nI/DEBUG   (  172):     r8 00002aa4  r9 753c2001  sl 75833f14  fp 7718b139\r\nI/DEBUG   (  172):     ip 41560ed8  sp 75265808  lr 415026a3  pc 415026a6  cpsr 60010030\r\nI/DEBUG   (  172):     d0  73616c6320726f66  d1  20646e756f66206f\r\nI/DEBUG   (  172):     d2  646e6966206f7420  d3  66207373616c6370\r\nI/DEBUG   (  172):     d4  e52de0040a000003  d5  e12fff3ce59fc018\r\nI/DEBUG   (  172):     d6  00000601e49de004  d7  0000060100000000\r\nI/DEBUG   (  172):     d8  0000000000000000  d9  0000000000000000\r\nI/DEBUG   (  172):     d10 0000000000000000  d11 0000000000000000\r\nI/DEBUG   (  172):     d12 0000000000000000  d13 0000000000000000\r\nI/DEBUG   (  172):     d14 0000000000000000  d15 0000000000000000\r\nI/DEBUG   (  172):     d16 7e37e43c8800759c  d17 7e37e43c8800759c\r\nI/DEBUG   (  172):     d18 4024000000000000  d19 3ff0000000000000\r\nI/DEBUG   (  172):     d20 412e848200000000  d21 40e86a0000000000\r\nI/DEBUG   (  172):     d22 3ff0000000000000  d23 40e86a0000000000\r\nI/DEBUG   (  172):     d24 4024000000000000  d25 4000000000000000\r\nI/DEBUG   (  172):     d26 4000000000000000  d27 547d42aea2879f2e\r\nI/DEBUG   (  172):     d28 0001000000010000  d29 4028000000000000\r\nI/DEBUG   (  172):     d30 3ff0000000000000  d31 4000000000000000\r\nI/DEBUG   (  172):     scr 20000013\r\nI/DEBUG   (  172): \r\nI/DEBUG   (  172): backtrace:\r\nI/DEBUG   (  172):     #00  pc 0004c6a6  /system/lib/libdvm.so\r\nI/DEBUG   (  172):     #01  pc 000f8067  /data/app-lib/com.zipwire.app-1/libkroll-v8.so (titanium::network::socket::TCPProxy::connect(v8::Arguments const&)+102)\r\nI/DEBUG   (  172):     #02  pc 00171034  /data/app-lib/com.zipwire.app-1/libkroll-v8.so\r\nI/DEBUG   (  172):     #03  pc 0008b137  <unknown>\r\n{code}",
+					"updateAuthor": {
+						"name": "fokkezb",
+						"key": "fokke",
+						"displayName": "Fokke Zandbergen",
+						"active": true,
+						"timeZone": "Europe/Amsterdam"
+					},
+					"created": "2014-09-29T17:16:48.000+0000",
+					"updated": "2014-09-29T17:16:48.000+0000"
+				},
+				{
+					"id": "326137",
+					"author": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "More crashes related to the recent update of the google play services:\r\nhttps://groups.google.com/forum/#!searchin/google-admob-ads-sdk/ava.lang.NoClassDefFoundError$3A$20android.net.http.HttpResponseCache/google-admob-ads-sdk/-3X2MkTD_iA/i_B5FM1P0GsJ (This one is also about HttpResponseCache)\r\nhttps://groups.google.com/forum/#!topic/google-admob-ads-sdk/SX9yb3F_PNk",
+					"updateAuthor": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-29T18:13:12.000+0000",
+					"updated": "2014-09-29T18:13:12.000+0000"
+				},
+				{
+					"id": "326344",
+					"author": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"body": "Perhaps this will help:\r\nhttps://groups.google.com/d/msg/google-admob-ads-sdk/SX9yb3F_PNk/yu89-rSPLp4J\r\nGoogle will release fixes later this week.",
+					"updateAuthor": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"created": "2014-09-30T15:36:09.000+0000",
+					"updated": "2014-09-30T15:36:09.000+0000"
+				},
+				{
+					"id": "326353",
+					"author": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Another scenario to add... No crash, but map graphics end up missing in my app. Errors from the console:\r\n\r\n{code}\r\nD/REQUEST ( 9777): DRD(0): 62|75|75|147, <1s, 1kb\r\nD/REQUEST ( 9777): Close\r\nD/REQUEST ( 9777): Add Data Request: 7\r\nD/REQUEST ( 9777): Add Data Request: 108\r\nD/REQUEST ( 9777): Connection opened to:https://clients4.google.com/glm/mmap/api\r\nD/REQUEST ( 9777): Open Connection\r\nD/REQUEST ( 9777): DRD(1): 62|15|7|108\r\nD/REQUEST ( 9777): Close\r\nD/REQUEST ( 9777): Error processing: com.google.maps.api.android.lib6.b.d@1a73ffd7 not retrying\r\nD/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.b.j@12a1a0c4\r\nD/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.b.v@9655bad\r\nD/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.gmm6.m.af@2c74f356\r\nE/REQUEST ( 9777): ERROR\r\nE/REQUEST ( 9777): java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.String.startsWith(java.lang.String)' on a null object reference\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.StatusLine.<init>(StatusLine.java:24)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.Response$Builder.statusLine(Response.java:392)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.JavaApiConverter.createOkResponse(JavaApiConverter.java:116)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.ResponseCacheAdapter.get(ResponseCacheAdapter.java:53)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:166)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:369)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.HttpURLConnectionImpl.connect(HttpURLConnectionImpl.java:106)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.HttpURLConnectionImpl.getOutputStream(HttpURLConnectionImpl.java:208)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.DelegatingHttpsURLConnection.getOutputStream(DelegatingHttpsURLConnection.java:218)\r\nE/REQUEST ( 9777): \tat com.android.okhttp.internal.http.HttpsURLConnectionImpl.getOutputStream(HttpsURLConnectionImpl.java:25)\r\nE/REQUEST ( 9777): \tat com.google.maps.api.android.lib6.b.l.run(Unknown Source)\r\nE/REQUEST ( 9777): \tat java.lang.Thread.run(Thread.java:818)\r\nD/REQUEST ( 9777): Connection opened to:https://clients4.google.com/glm/mmap/api\r\nD/REQUEST ( 9777): Open Connection\r\nD/REQUEST ( 9777): DRD(2): 62|15|7|108\r\nD/REQUEST ( 9777): Close\r\nD/REQUEST ( 9777): Error processing: com.google.maps.api.android.lib6.b.d@36e4eee2 not retrying\r\n{code}",
+					"updateAuthor": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2014-09-30T16:34:10.000+0000",
+					"updated": "2014-09-30T16:34:10.000+0000"
+				},
+				{
+					"id": "326415",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The Google Mobile Ads (a.k.a. AdMob) SDK recently enabled http caching, which must have exposed this crash in Titanium. The Mobile Ads SDK has disabled caching for now, but plans to re-enable it in the next version.\r\n\r\nIt looks like Titanium is assuming that any cache object must be a Titanium one when its downcasted (see https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiResponseCache.java#L187 for one example). This code should probably check instanceof before casting, and assume that the cache is null otherwise.",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T18:27:17.000+0000",
+					"updated": "2014-09-30T18:27:17.000+0000"
+				},
+				{
+					"id": "326424",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Eric -- interesting information about the SDK disabling caching and re-enabling it in the next version.  \r\n\r\nWhen you say that the SDK has disabled caching, has it been disabled in response to the problems caused by the caching code?  Can they disable it without pushing a new version of Google Play Services?\r\n\r\nWhat is your source for that information?  ",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-30T18:34:04.000+0000",
+					"updated": "2014-09-30T18:34:04.000+0000"
+				},
+				{
+					"id": "326437",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "It is being disabled for now as a result of the Titanium issue. It does require a new play services push (currently no server-side switch), but a new version is being rolled out this week for this as well as some other crashes that were recently introduced.\r\n\r\nI work at Google and am on the Developer Relations team for the Google Mobile Ads SDK.",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T19:03:00.000+0000",
+					"updated": "2014-09-30T19:03:00.000+0000"
+				},
+				{
+					"id": "326438",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Thanks, Eric.  I guess you know what you're talking about!  :-)\r\n\r\nI'm glad to hear that Google is interested in the success of Titanium-based apps.  I do agree that a fix needs to be made in the Titanium core so that it doesn't make assumptions about what kind of cache is available.\r\n\r\nCan you shed any light on why I couldn't find source code for com.android.okhttp.HttpResponseCache ?  I understand that is code that is being merged in from Square, but the only source I could find was not under the com.android.okhttp namespace.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-30T19:12:37.000+0000",
+					"updated": "2014-09-30T19:12:37.000+0000"
+				},
+				{
+					"id": "326441",
+					"author": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Besides breaking AdMob, some Ti apps and Google Maps SDK, it also broke the RedLaser SDK. The rollback can't come fast enough!",
+					"updateAuthor": {
+						"name": "iotashan",
+						"key": "iotashan",
+						"displayName": "Shannon Hicks",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2014-09-30T19:22:07.000+0000",
+					"updated": "2014-09-30T19:22:07.000+0000"
+				},
+				{
+					"id": "326445",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "I'm not sure where the source itself comes from, but android.net.http.HttpResponseCache seems to use it internally: https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L156",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T19:50:23.000+0000",
+					"updated": "2014-09-30T19:50:23.000+0000"
+				},
+				{
+					"id": "326490",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "master PR: https://github.com/appcelerator/titanium_mobile/pull/6185\r\n3.4.X PR: https://github.com/appcelerator/titanium_mobile/pull/6186",
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T20:27:38.000+0000",
+					"updated": "2014-09-30T20:39:31.000+0000"
+				},
+				{
+					"id": "326503",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Please see my comments on the commit -- I think that there might be some serious consequences of this code change.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-30T20:49:16.000+0000",
+					"updated": "2014-09-30T20:49:16.000+0000"
+				},
+				{
+					"id": "326509",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~jpriebe] to transmit your concern over to the discussion here, yes, the side effect is that this removes the capacity for caching to occur. However, I don't know if we have an alternative. Is there some alternative interface we can code to and respond correctly depending on the type of cache being used?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T20:58:05.000+0000",
+					"updated": "2014-09-30T20:58:05.000+0000"
+				},
+				{
+					"id": "326513",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Eric - If the Mobile Ads SDK enable http caching next release, are you guys planning to expose it somehow? We won't be able to cache on our side if the returned cache is not exposed.",
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T21:12:00.000+0000",
+					"updated": "2014-09-30T21:12:00.000+0000"
+				},
+				{
+					"id": "326522",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Ingo: is it possible for TiResponseCache to manage its *own* default cache?  In other words, can it override setDefault() and instantiate a single object to serve as the cache for the Titanium app?  Then whenever it calls getDefault(), it gets a reference to the cache that it created.  IIRC, TiResponseCache has all the logic to manage the cached content on the filesystem, so it can function in parallel to any other caches used by other apps/libraries on the system.\r\n\r\nThe downside is that it would not benefit from files cached by other apps on the device.  But I would argue that most of the content that a Titanium app is caching is unique to that app, so cross-app caching is of little benefit.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-30T21:46:33.000+0000",
+					"updated": "2014-09-30T21:46:33.000+0000"
+				},
+				{
+					"id": "326524",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "I'm concerned about this because for the class of apps that we build, caching is HUGELY beneficial.  We build news apps.  If a user opens the app at 13:00 and sees 20 stories, each with an image, and then opens it again at 14:00, it's possible that 15 of the 20 stories and images are the same.  Caching saves a lot of data transfer in such a situation, which is very common in our apps.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-09-30T21:47:53.000+0000",
+					"updated": "2014-09-30T21:47:53.000+0000"
+				},
+				{
+					"id": "326526",
+					"author": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"body": "No caching for remote ImageViews is absolutely a no-go in my opinion. If that's the implication of the fix then a workaround is a must.",
+					"updateAuthor": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"created": "2014-09-30T21:53:08.000+0000",
+					"updated": "2014-09-30T21:53:08.000+0000"
+				},
+				{
+					"id": "326530",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Mark - The PRs submitted isn't fixing the problem at hand, but rather applying best coding practices. I believe Google is fixing it internally and will be releasing an update sometime this week. That is my understanding from Eric's comments.",
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T21:58:19.000+0000",
+					"updated": "2014-09-30T21:58:19.000+0000"
+				},
+				{
+					"id": "326537",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "To clarify:\r\n\r\n* The current PR just addresses the crash. It is a workaround for that. As a side effect, it disables caching, but no caching is better than crashing.\r\n* We do have a larger issue for how to handle caching where we are getting a different object than before. In this case, we need some guidance from Google on what is the best path forward here.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-09-30T22:18:14.000+0000",
+					"updated": "2014-09-30T22:18:14.000+0000"
+				},
+				{
+					"id": "326553",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "For Google Mobile Ads, the SDK calls [HttpResponseCache.getInstalled()|http://developer.android.com/reference/android/net/http/HttpResponseCache.html#getInstalled()] to get the cache. If it doesn't exist, the SDK uses [HttpResponseCache.install|http://developer.android.com/reference/android/net/http/HttpResponseCache.html#install(java.io.File, long)] to create a new one. And according to the documentation, HttpResponseCache.install sets the created cache as the default cache.\r\n\r\nThe [HttpResponseCache implementation|https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L167-L171] is doing the same as the proposed change, which is to check the instance of the default and see if it's an instance of com.android.okhttp.HttpResponseCache, and otherwise returning null. The way this is implemented doesn't play well with other ResponseCache implementations though, since it seems only one type can be the default and the previous type is simply overwritten.\r\n\r\nJust a thought - Could the TiResponseCache just keep a static TiResponseCache variable that it refers to instead of getDefault()? The class seems to be implementing the whole caching mechanism itself. Why rely on the ResponseCache's default which can get overridden by other implementations?",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-01T00:42:38.000+0000",
+					"updated": "2014-10-01T00:42:38.000+0000"
+				},
+				{
+					"id": "326569",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "You mean like I suggested yesterday afternoon?  :-)",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-10-01T12:00:49.000+0000",
+					"updated": "2014-10-01T12:00:49.000+0000"
+				},
+				{
+					"id": "326597",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Ah yes, you did beat me to the suggestion :)",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-01T17:21:12.000+0000",
+					"updated": "2014-10-01T17:21:12.000+0000"
+				},
+				{
+					"id": "326635",
+					"author": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~jpriebe], [~ericleich], thanks for your suggestion. But Titanium current downloading/caching mechnism for remote images is using URLConnection which is dependent on the system's default cache. If TiResponseCache is not set to the default, images won't be saved to the directory we set.",
+					"updateAuthor": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-01T20:14:54.000+0000",
+					"updated": "2014-10-01T20:14:54.000+0000"
+				},
+				{
+					"id": "326638",
+					"author": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"body": "[~pwang] so is there an alternative solution? No image caching is better than crashes but will still make a poor user experience for many apps.",
+					"updateAuthor": {
+						"name": "mokesmokes",
+						"key": "mokesmokes",
+						"displayName": "Mark Mokryn",
+						"active": true,
+						"timeZone": "Asia/Jerusalem"
+					},
+					"created": "2014-10-01T20:36:03.000+0000",
+					"updated": "2014-10-01T20:36:03.000+0000"
+				},
+				{
+					"id": "326640",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "I hope you can work something out with Google that will allow you to continue caching in one form or another.  I can see that you have some additional functions in TiResponseCache (like peek(), for instance) that would make it difficult to rely on just the methods provided by the generic java.net.ResponseCache.\r\n\r\nThere's nothing in the java.net.ResponseCache documentation that says you can't derive your own class from it and use your class instead.  But there are obvious problems if you do that and then a library that you use (e.g., Google Play Services) also does it.    Some Google guidance would be extremely helpful here.\r\n\r\nI can work with the disabling of caching for a point release or two (especially since our biggest app yet is still in development), but caching is a critical part of app performance for us.  We've *got* to have caching back soon!",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-10-01T20:47:55.000+0000",
+					"updated": "2014-10-01T20:47:55.000+0000"
+				},
+				{
+					"id": "326668",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "To be clear, Google Play services just uses Android's [HttpResponseCache|http://developer.android.com/reference/android/net/http/HttpResponseCache.html] straight up, not a different subclass of java.net.ResponseCache.\r\n\r\nIs it feasible for TiResponseCache to have a \"has a\" relationship with HttpResponseCache instead of an \"is a\" relationship with ResponseCache?",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-01T22:59:41.000+0000",
+					"updated": "2014-10-01T22:59:41.000+0000"
+				},
+				{
+					"id": "326708",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Eric -- you probably know a ton more about this than I do.  But from an outsider's perspective, GPS seems to be setting the default cache to an instance of com.android.okhttp.HttpResponseCache.  Maybe that's now the \"standard\" android HttpResponseCache; I don't know.  It's really hard to tell from the documentation.\r\n\r\nTiResponseCache and com.android.okhttp.HttpResponseCache are both derived from java.net.ResponseCache.  As long as TiResponseCache has its own methods like peek(), there's not going to be a good way to have it gracefully handle some other module changing the default cache out from under it.\r\n\r\nI like your idea of the \"has a\" relationship, but how can it implement things like peek(), if it just \"has a\" black-box HttpResponseCache?  I don't think there's a way to crack it open to see if something exists in cache, for example, to implement something like peek().  And if you look at the implementation of TiResponseCache, I think my peek() example is just the tip of the iceberg.",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-10-02T01:41:41.000+0000",
+					"updated": "2014-10-02T01:41:41.000+0000"
+				},
+				{
+					"id": "326789",
+					"author": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR: https://github.com/appcelerator/titanium_mobile/pull/6192\r\nThis PR takes care of all kinds of ResponseCache. As long as the system's default response cache is set, we can retrieve the cached content from it. \r\n\r\n*Caveat:* \r\n1. The cache directory for TiResponseCache is in SDcard. It won't be removed/cleaned until the app is uninstalled. \r\n2. The cache directory for HttpResponseCache depends. It will be removed/cleaned when the app is forced to stop and launched again.\r\n\r\nFor FR:\r\n1. Run the attached app when the network is on. It should not crash and show two images.\r\n2. Back out of the app using BACK button. Turn off the network. Run it again. It should still show two images. This means HttpResponseCache works.\r\n3. Run the code attached below when the network is on. It should show one image.\r\n4. Back out of the app using BACK button. Turn off the network. Run it again. It should still show one image. This means TiResponseCache works.\r\n{code}\r\nvar win = Titanium.UI.createWindow();\r\n\t\r\nvar imageView = Titanium.UI.createImageView({\r\n\t\timage:'http://static.appcelerator.com/images/header/appc_logo.png',\r\n\t\ttop:20,\r\n\t\twidth:100,\r\n\t\theight:100\r\n});\r\n\r\nwin.add(imageView);\r\nwin.open();\r\n{code}",
+					"updateAuthor": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-02T19:47:31.000+0000",
+					"updated": "2014-10-02T19:57:44.000+0000"
+				},
+				{
+					"id": "326816",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Ping -- this is great news!  Thanks for all your work on this.\r\n\r\nQuestion: are there ramifications of peek() returning true when the default cache is not an instance of TiResponseCache?  Will that cause the ImageView to think that the image is already on local storage?\r\n\r\nI notice that ImageView has a nice behavior of deferring image loading until it is scrolled into view (like if it's at the bottom of a TableView, for instance, it doesn't seem to load until the user scrolls down to the bottom of the TableView and brings the ImageView on screen).  \r\n\r\nThis change won't affect that, will it?",
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2014-10-02T20:48:51.000+0000",
+					"updated": "2014-10-02T20:48:51.000+0000"
+				},
+				{
+					"id": "326838",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~ericleich] Thank you for your guidance so far. We now have a proposed proper fix, but with the update this morning of Google Play Services, I'm not sure how to test it any more. Is there a previous version of Google Play Services we can install?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-02T22:21:21.000+0000",
+					"updated": "2014-10-02T22:21:21.000+0000"
+				},
+				{
+					"id": "326849",
+					"author": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "The Google Play services library 6.1 (rev 20) should be available from Android's SDK manager any day now. If you compile an app against that version of the library and run it on a device that doesn't have Google Play services installed (e.g. an emulator or a Kindle Fire), it'll expose the bug.",
+					"updateAuthor": {
+						"name": "ericleich",
+						"key": "ericleich",
+						"displayName": "Eric Leichtenschlag",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-02T23:06:10.000+0000",
+					"updated": "2014-10-02T23:06:10.000+0000"
+				},
+				{
+					"id": "326898",
+					"author": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~jpriebe], if the default cache is not an instance of TiResponseCache but it is not null, the peek() function will return true. If peek() returns true but the cached content cannot be fetched successfully, it will get the image through network.\r\nThis PR won't affect any ImageView/TableView behavior.",
+					"updateAuthor": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-03T17:59:14.000+0000",
+					"updated": "2014-10-03T17:59:14.000+0000"
+				},
+				{
+					"id": "327027",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~pwang] would you please set up a backport?",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-06T16:31:35.000+0000",
+					"updated": "2014-10-06T16:31:35.000+0000"
+				},
+				{
+					"id": "327031",
+					"author": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "3_4_X PR: https://github.com/appcelerator/titanium_mobile/pull/6200",
+					"updateAuthor": {
+						"name": "pwang",
+						"key": "pwang",
+						"displayName": "Ping Wang",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-06T17:23:53.000+0000",
+					"updated": "2014-10-06T17:23:53.000+0000"
+				},
+				{
+					"id": "329640",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "3.4.1 PR: https://github.com/appcelerator/titanium_mobile/pull/6277",
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-27T22:57:47.000+0000",
+					"updated": "2014-10-27T22:57:47.000+0000"
+				},
+				{
+					"id": "329644",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Approved and merged.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-27T23:08:53.000+0000",
+					"updated": "2014-10-27T23:08:53.000+0000"
+				},
+				{
+					"id": "329974",
+					"author": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"updateAuthor": {
+						"name": "lchoudhary",
+						"key": "lchoudhary",
+						"displayName": "Lokesh Choudhary",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-10-29T21:31:45.000+0000",
+					"updated": "2014-10-29T21:31:45.000+0000"
+				},
+				{
+					"id": "352023",
+					"author": {
+						"name": "pravipravi",
+						"key": "pravipravi",
+						"displayName": "Praveen Kodakkad",
+						"active": true,
+						"timeZone": "America/Adak"
+					},
+					"body": "When this issue fix will be available? I am still getting this issue when loading image to an imageview from Facebook Album. This is happening in Android Lollipop devices.",
+					"updateAuthor": {
+						"name": "pravipravi",
+						"key": "pravipravi",
+						"displayName": "Praveen Kodakkad",
+						"active": true,
+						"timeZone": "America/Adak"
+					},
+					"created": "2015-05-08T13:13:29.000+0000",
+					"updated": "2015-05-08T13:13:29.000+0000"
+				},
+				{
+					"id": "352024",
+					"author": {
+						"name": "pravipravi",
+						"key": "pravipravi",
+						"displayName": "Praveen Kodakkad",
+						"active": true,
+						"timeZone": "America/Adak"
+					},
+					"body": "\r\n{code:java}\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.String.startsWith(java.lang.String)' on a null object reference\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.StatusLine.<init>(StatusLine.java:24)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.Response$Builder.statusLine(Response.java:419)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.JavaApiConverter.createOkResponse(JavaApiConverter.java:116)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.ResponseCacheAdapter.get(ResponseCacheAdapter.java:53)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:190)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:373)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:323)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:190)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java:25)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at java.net.URL.openStream(URL.java:470)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1112)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:587)\r\n05-08 17:07:58.049: E/TiDownloadManager(7758): at java.lang.Thread.run(Thread.java:818)\r\n{code}\r\n\r\nThis is the error I am getting now.",
+					"updateAuthor": {
+						"name": "pravipravi",
+						"key": "pravipravi",
+						"displayName": "Praveen Kodakkad",
+						"active": true,
+						"timeZone": "America/Adak"
+					},
+					"created": "2015-05-08T13:15:22.000+0000",
+					"updated": "2015-05-08T13:15:22.000+0000"
+				},
+				{
+					"id": "352049",
+					"author": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "This issue was fixed last year. The error you're seeing looks like a different problem. Can you post a test case (perhaps create a different ticket altogether)? Thanks,",
+					"updateAuthor": {
+						"name": "hpham",
+						"key": "hpham",
+						"displayName": "Hieu Pham",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-05-08T17:43:53.000+0000",
+					"updated": "2015-05-08T17:43:53.000+0000"
+				},
+				{
+					"id": "352531",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-05-14T16:24:22.000+0000",
+					"updated": "2015-05-14T16:24:22.000+0000"
+				},
+				{
+					"id": "357906",
+					"author": {
+						"name": "KtorZ",
+						"key": "ktorz",
+						"displayName": "Matthias Benkort",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hey, I've noticed a similar issue since Lolipop. Previous version of Android are fine so it's likely to be a change in the Android SDK that Titanium hasn't caught yet.",
+					"updateAuthor": {
+						"name": "KtorZ",
+						"key": "ktorz",
+						"displayName": "Matthias Benkort",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-07-17T10:40:29.000+0000",
+					"updated": "2015-07-17T10:40:29.000+0000"
+				},
+				{
+					"id": "357911",
+					"author": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"updateAuthor": {
+						"name": "jpriebe",
+						"key": "jpriebe",
+						"displayName": "Jason Priebe",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-07-17T12:36:34.000+0000",
+					"updated": "2015-07-17T12:36:34.000+0000"
+				},
+				{
+					"id": "357912",
+					"author": {
+						"name": "KtorZ",
+						"key": "ktorz",
+						"displayName": "Matthias Benkort",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "@Jason - Hi, I'm currently with the 4.0.0.GA, I'll update and let you know how it goes.",
+					"updateAuthor": {
+						"name": "KtorZ",
+						"key": "ktorz",
+						"displayName": "Matthias Benkort",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-07-17T13:02:21.000+0000",
+					"updated": "2015-07-17T13:02:21.000+0000"
+				}
+			],
+			"maxResults": 50,
+			"total": 50,
+			"startAt": 0
+		}
+	}
+}

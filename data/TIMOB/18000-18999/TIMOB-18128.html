@@ -1,0 +1,177 @@
+---
+title: "[TIMOB-18128] Android: Repeated call children.length leads to generate exception "local reference table overflow""
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, children, core, defect, error, reprod</td></tr>
+<tr><th>Reporter</th><td>Andrey Tkachenko</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2014-12-02T20:41:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:55:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+App fail with error when call many time children.length.
+<code><pre>
+<Alloy>
+	<Window class="container" layout="vertical">
+		<Label id="label" onClick="doClick">Click me</Label>
+		<View id="myChildren" layout="vertical"></View>
+	</Window>
+</Alloy>
+</pre></code>
+<code><pre>
+function doClick(e) {
+    for(var i=0;i<200;i++) {
+        var c = $.index.children[1];
+        c.children.length;
+        c.add(Ti.UI.createLabel({text: 'label '+i}));
+        c=null;
+    }
+}
+
+$.index.open();
+</pre></code>
+
+{noformat}
+[WARN] :   dalvikvm: JNI local reference table (0xb7efb8e0) dump:
+[ERROR] :  dalvikvm: JNI ERROR (app bug): local reference table overflow (max=512)
+[WARN] :   dalvikvm:   Last 10 entries (of 512):
+[WARN] :   dalvikvm:       511: 0xa6487320 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       510: 0xa651a008 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       509: 0xa64ac1a0 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       508: 0xa64c3ae0 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       507: 0xa6940728 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       506: 0xa693a460 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       505: 0xa651f9e0 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       504: 0xa643be38 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       503: 0xa6932a50 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:       502: 0xa651a490 ti.modules.titanium.ui.LabelProxy
+[WARN] :   dalvikvm:   Summary:
+[WARN] :   dalvikvm:         1 of java.lang.String
+[WARN] :   dalvikvm:         1 of org.appcelerator.kroll.runtime.v8.V8Object
+[WARN] :   dalvikvm:         1 of org.appcelerator.kroll.KrollDict
+[WARN] :   dalvikvm:        31 of ti.modules.titanium.ui.ViewProxy (1 unique instances)
+[WARN] :   dalvikvm:       477 of ti.modules.titanium.ui.LabelProxy (30 unique instances)
+[WARN] :   dalvikvm:         1 of org.appcelerator.titanium.proxy.TiViewProxy[] (30 elements)
+[INFO] :   dalvikvm: "KrollRuntimeThread" prio=5 tid=10 RUNNABLE
+[INFO] :   dalvikvm:   | group="main" sCount=0 dsCount=0 obj=0xa64ff6e8 self=0xb7e859a0
+[INFO] :   dalvikvm:   | sysTid=29757 nice=0 sched=0/0 cgrp=[fopen-error:2] handle=-1209371152
+[INFO] :   dalvikvm:   | state=R schedstat=( 3292880506 583750565 1678 ) utm=272 stm=56 core=0
+[INFO] :   dalvikvm:   at org.appcelerator.kroll.runtime.v8.V8Object.nativeFireEvent(Native Method)
+[INFO] :   dalvikvm:   at org.appcelerator.kroll.runtime.v8.V8Object.fireEvent(V8Object.java:62)
+[INFO] :   dalvikvm:   at org.appcelerator.kroll.KrollProxy.doFireEvent(KrollProxy.java:884)
+[INFO] :   dalvikvm:   at org.appcelerator.kroll.KrollProxy.handleMessage(KrollProxy.java:1107)
+[INFO] :   dalvikvm:   at org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:347)
+[INFO] :   dalvikvm:   at android.os.Handler.dispatchMessage(Handler.java:95)
+[INFO] :   dalvikvm:   at android.os.Looper.loop(Looper.java:137)
+[INFO] :   dalvikvm:   at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+[INFO] :   dalvikvm:
+[INFO] :   libc: Fatal signal 11 (SIGSEGV) at 0xdeadd00d (code=1), thread 29757 (KrollRuntimeThr)
+{noformat}
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2014-12-03
+
+   Based on your error log, you can see there are 477 of ti.modules.titanium.ui.LabelProxy (30 unique instances), total is 512. So the root reason for local reference table overflow, is you called too many New Object(in  your case: label), not the children.length.</li>
+<li>Andrey Tkachenko 2014-12-03
+
+   Also:
+   c.children[0]
+   
+   
+   You say 30 Labels is too many ?
+   comment children.length and error go away.
+   
+   
+   
+   </li>
+<li>Andrey Tkachenko 2014-12-03
+
+   Test this code with 20 000 labels. Runs  without error.
+   <code><pre>
+   function doClick(e) {
+       for(var i=0;i<20000;i++) {
+           $.myChildren.add(Ti.UI.createLabel({text: 'label '+i}));        
+       }
+   }
+   
+   $.index.open();
+   </pre></code>
+   
+   Pretty simple testcase which fail the app:
+   <code><pre>
+   for(var i=0;i<20000;i++) {
+           $.index.children[1];        
+       }
+   </pre></code></li>
+<li>Shuo Liang 2014-12-03
+
+   It seems calling .children[] will return a Object in local reference table, which is not released. 
+   Did you run the test in simulator or device? as I can't reproduce your problem on both simulator and device</li>
+<li>Andrey Tkachenko 2014-12-03
+
+   <code><pre>
+   for(var i=0;i<20000;i++) {
+           $.index.children[1];       
+       }
+   </pre></code>
+   
+   Device Lenovo A630, Android 4.0.4 - *ok*
+   Genymotion Emulator (Googel Nexus 4 - 4.2.2 - API 17) - *error*
+   Android Emulator - 4.1.2 - *error*
+   Simulator iPhone 4s - *ok*
+   </li>
+<li>Shuo Liang 2014-12-03
+
+   Ok. I can reproduce you problem in Emulator (Google Nexus 4 - 4.2.2 - API 17)。
+   
+   Will forward this ticket to our Mobil engineer team to investigate. Thank you for your report.</li>
+<li>Andrey Tkachenko 2014-12-03
+
+   Same error with: Ti.Platform.displayCaps</li>
+<li>Andrey Tkachenko 2014-12-05
+
+   Monkey patch: <a href="https://gist.github.com/falkolab/3657846b9a795d83c07d" rel="nofollow" target="_blank">https://gist.github.com/falkolab/3657846b9a795d83c07d</a></li>
+<li>Andrey Tkachenko 2014-12-05
+
+   OMG... , same error: 
+   <code><pre>
+   for (var i = 0; i < 1000; i++) {
+       $.myChildren.getParent();
+   }
+   </pre></code></li>
+<li>Andrey Tkachenko 2015-01-29
+
+    What about Ti.Platform.displayCaps and $.myChildren.getParent() ?</li>
+<li>Arjan 2015-04-03
+
+    same issue here with SDK 3.5.1.GA</li>
+<li>Lee Morris 2017-07-26
+
+    I am able to reproduce this issue, the application crashes are repeatedly clicking the "Click me" lablel. This was reproduced with the following environment;
+    Pixel (7.1)
+    Studio 4.9.0.201705302345
+    Ti SDK 6.1.1 GA
+    Appc NPM 4.2.9
+    Appc CLI 6.2.2
+    Ti CLI 5.0.14
+    Alloy 1.9.11
+    Xcode 8.2 (8C38)
+    Node v4.8.2
+    Java 1.8.0_131</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18128.json">JSON Source</a></p>

@@ -1,0 +1,180 @@
+---
+title: "[TIMOB-14742] Android: backgroundImage loading two times for window and four times for view"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-05-23T00:15:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Viktor Korol</td></tr>
+<tr><th>Assignee</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Created</th><td>2013-07-31T20:32:25.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-06-12T21:23:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Steps to Reproduce*
+1. Create a new Classic Default Project
+2. Drop the attached images into the Resources folder
+3. Run the test case
+4. Observe the actual result
+
+*Test case*
+<code><pre>
+var wnd = Ti.UI.createWindow({
+	fullscreen : false
+});
+var view = Ti.UI.createView();
+
+wnd.add(view);
+
+wnd.backgroundImage = "backWnd.png";
+view.backgroundImage = "backView.png";
+
+wnd.open();
+</pre></code>
+
+*Actual Result*
+From fastdev console:
+{noformat} 
+[INFO] get app.js: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\app.js
+[INFO] get images/backView.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backView.png
+[INFO] get images/backView.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backView.png
+[INFO] get images/backView.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backView.png
+[INFO] get images/backView.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backView.png
+[INFO] get images/backWnd.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backWnd.png
+[INFO] get images/backWnd.png: C:\Users\vkorol\Documents\Titanium_Studio_Workspace\backImage\Resources\android\images/backWnd.png
+{noformat} 
+
+*Expected Result*
+Background image must be loaded once.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14742_41177/.log">.log</td></td><td>2013-07-31T20:32:27.000+0000</td><td>51902</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14742_41250/backView.png">backView.png</td></td><td>2013-08-01T21:42:36.000+0000</td><td>5577</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14742_41249/backWnd.png">backWnd.png</td></td><td>2013-08-01T21:42:36.000+0000</td><td>5148</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-14742_41178/diagnostic6713599355514609606.log">diagnostic6713599355514609606.log</td></td><td>2013-07-31T20:32:32.000+0000</td><td>8589</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Alexey Chulochnikov 2013-08-01
+
+   Please fix it, i think that this behavior isn't correct!
+   It uses a lot of memory!</li>
+<li>Daniel Sefton 2013-08-01
+
+   According to TIMOB-13072:
+   
+   {quote}The additional 3 are for selected, focused and disabled states. If images are not explicitly specified for these, the background image is used.{quote}
+   
+   Resolving as duplicate.</li>
+<li>Viktor Korol 2013-08-01
+
+   Titanium should load only one specified backgroundImage in this case and use it for all states.
+   Titanium should not allocate memory for several copies of background image.
+   It is not fixed in TIMOB-13072. 
+   Please fix it.</li>
+<li>Viktor Korol 2013-08-01
+
+   If I set 1280x720 image as backgroundImage then on android 4.0.3 application made four 3686416-byte allocations. It is 14MB memory from 48MB (max VM heep size) only for background image.
+   
+   {noformat}
+   I/dalvikvm-heap(  801): Grow heap (frag case) to 14.065MB for 3686416-byte allocation
+   D/dalvikvm(  801): GC_FOR_ALLOC freed 6K, 8% free 14327K/15431K, paused 62ms
+   D/dalvikvm(  801): GC_CONCURRENT freed <1K, 8% free 14327K/15431K, paused 7ms+6ms
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   W/ActivityManager(   88): Launch timeout has expired, giving up wake lock!
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   D/dalvikvm(  801): GC_FOR_ALLOC freed 41K, 8% free 14328K/15431K, paused 68ms
+   I/dalvikvm-heap(  801): Grow heap (frag case) to 17.575MB for 3686416-byte allocation
+   D/dalvikvm(  801): GC_FOR_ALLOC freed <1K, 7% free 17928K/19079K, paused 62ms
+   D/dalvikvm(  801): GC_CONCURRENT freed 1K, 7% free 17927K/19079K, paused 6ms+6ms
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   I/Process (   88): Sending signal. PID: 801 SIG: 3
+   I/dalvikvm(  801): threadid=3: reacting to signal 3
+   I/dalvikvm(  801): Wrote stack traces to '/data/anr/traces.txt'
+   W/InputManagerService(   88): Focus gain on non-focused client com.android.internal.view.IInputMethodClient$Stub$Proxy@4192aca0 (uid=10013 pid=753)
+   W/ActivityManager(   88): Activity idle timeout for ActivityRecord{41309710 com.test.backimage/.BackimageActivity}
+   I/Launcher(  753): setLoadOnResume
+   I/Launcher(  753): setLoadOnResume
+   I/Launcher(  753): setLoadOnResume
+   D/dalvikvm(  801): GC_FOR_ALLOC freed 38K, 7% free 17928K/19079K, paused 64ms
+   I/dalvikvm-heap(  801): Grow heap (frag case) to 21.090MB for 3686416-byte allocation
+   I/Launcher(  753): setLoadOnResume
+   D/dalvikvm(  801): GC_FOR_ALLOC freed <1K, 6% free 21528K/22727K, paused 72ms
+   D/dalvikvm(  801): GC_CONCURRENT freed <1K, 6% free 21528K/22727K, paused 5ms+11ms
+   I/Launcher(  753): setLoadOnResume
+   D/dalvikvm(  801): GC_FOR_ALLOC freed 39K, 6% free 21530K/22727K, paused 62ms
+   I/dalvikvm-heap(  801): Grow heap (frag case) to 24.608MB for 3686416-byte allocation
+   D/dalvikvm(  801): GC_FOR_ALLOC freed <1K, 5% free 25129K/26375K, paused 76ms
+   D/dalvikvm(  801): GC_CONCURRENT freed <1K, 5% free 25129K/26375K, paused 7ms+9ms
+   D/gralloc_goldfish(  801): Emulator without GPU emulation detected.
+   I/ActivityManager(   88): Displayed com.test.backimage/org.appcelerator.titanium.TiActivity: +8s861ms (total +1m50s172ms)
+   W/NetworkManagementSocketTagger(   88): setKernelCountSet(10013, 0) failed with errno -2
+   D/dalvikvm(  753): GC_CONCURRENT freed 1782K, 12% free 14053K/15943K, paused 7ms+417ms
+   D/dalvikvm(  415): GC_CONCURRENT freed 326K, 6% free 9567K/10119K, paused 7ms+7ms
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=Messaging)
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=Camera)
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=Settings)
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=Browser)
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=Phone)
+   D/Launcher.Model(  753): going to save icon bitmap for info=ShortcutInfo(title=People)
+   I/Launcher(  753): setLoadOnResume
+   I/TiAnalyticsSvc(  801): (Thread-87) [38409,38409] Analytics Service Started
+   I/TiAnalyticsSvc(  801): (Thread-87) [2491,40900] Stopping Analytics Service
+   I/dalvikvm(  801): dvmDdmHandleHpsgChunk(when 1, what 0, heap 0)
+   D/dalvikvm(  801): GC_EXPLICIT freed 383K, 5% free 25251K/26375K, paused 8ms+9ms
+   {noformat}</li>
+<li>Joe Falcone 2014-07-03
+
+   Just to pile on here...  we have an app that rotates different pictures as the backgroundImage on the main Window and after a few minutes the app runs out of memory on Android only.
+   
+   So it appears that the memory allocated for the backgroundImage and the other images is not being released when a new backgroundImage is set.
+   
+   We've done this using both 
+   Ti.UI.Window.setBackgroundImage and Ti.UI.setBackgroundImage.  
+   Using either too many times will cause the device to run out of memory and give this error:
+   
+   [ERROR] :  libc: mmap fail (pid 7033, tid 7033, size 8294400, flags 0x2, errno 12(Out of memory))</li>
+<li>Joshua Quick 2017-04-12
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/8960" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8960</a></li>
+<li>Joshua Quick 2017-05-08
+
+   6_1_x: <a href="https://github.com/appcelerator/titanium_mobile/pull/9032" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9032</a>
+   
+   This fix needs to be back-ported since more image loading fixes will be made to 6.1.x that depend on this change.</li>
+<li>Samir Mohammed 2017-06-12
+
+   Verified fix in SDK version: 6.2.0.v20170612114319. Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/8960" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8960</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14742.json">JSON Source</a></p>

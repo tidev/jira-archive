@@ -1,0 +1,129 @@
+---
+title: "[AC-2624] Pause & Resume events don't firing right on Android "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-01T23:28:25.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Titanium SDK & CLI</td></tr>
+<tr><th>Labels</th><td>activity, android, pause, resume</td></tr>
+<tr><th>Reporter</th><td>Manuel Conde Vendrell</td></tr>
+<tr><th>Assignee</th><td>Ritu Agrawal</td></tr>
+<tr><th>Created</th><td>2013-08-30T14:35:56.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-03-08T07:41:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In theory, Ti.Android.currentActivity will work in the right way, but it actually only happens when you are using exclusively "heavyweight" windows.
+
+In my project I'm using a "custom Navigation controller" which will create a stack of windows when needed. In order to physical back button to work without exiting the app, it is neccesary to make this trick while creating the new win in the stack: win.navBarHidden = true;
+
+This seems to cause the problem with Android activity: when this new window is opened, the "parent" window goes to "pause" and "stop" states, so the app / OS already considers the app to be in the background (but in fact we are interacting with it).
+This is why pause cannot fire again when you press 'home' or when a call is received... it's already 'paused'.
+Resume also cannot fire as when the app reopens, for some reason the app is never considered to have come into the foreground!
+BUT if you hit the back button on the first main window, which brings you to the splash screen, then the pause and resume events works fine.
+
+The way around is don't use the navBarHidden = true but, then, a back button press will close the entire app, instead of simple going to the previous window.
+
+Here you can see my custom NavBar, if you want to test the problem (also the full app is working now to test it, if you want): 
+<a href="https://github.com/mcvendrell/Pasti/blob/master/app/lib/navigation.js" rel="nofollow" target="_blank">https://github.com/mcvendrell/Pasti/blob/master/app/lib/navigation.js</a>
+
+More info:
+<a href="http://developer.appcelerator.com/question/149942" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/149942</a>
+
+For any clarification or test case, I can provide more code.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-09-10
+
+   Hello,
+   
+   as a workaround, you can catch the android back button event and handle according to your stack of windows. 
+   
+   best,
+   
+   MAuro </li>
+<li>Mauro Parra-Miranda 2013-09-10
+
+   In order to process this as a Ti Mobile SDK bug, we need a full testcase, adn the instructions to reproduce the issue.</li>
+<li>Manuel Conde Vendrell 2013-09-10
+
+   No problem, you can reproduce it easily.
+   
+   Take this simple project (main window with two buttons to open a new window): <a href="https://github.com/mcvendrell/Basic-custom-NavBar" rel="nofollow" target="_blank">https://github.com/mcvendrell/Basic-custom-NavBar</a>
+   
+   Just as it is now, this problem occurs. To see how it happens, just add this lines to INDEX.JS:
+   
+   function OnAppResume(){
+     Ti.API.info('***---> OnAppResume');
+   }
+   function OnAppPause(){
+     Ti.API.info('***---> OnAppPause');
+   }
+   Ti.Android.currentActivity.addEventListener('resume', OnAppResume);
+   Ti.Android.currentActivity.addEventListener('pause', OnAppPause);
+   
+   And launch the project. You will see that, once the first screen is opened, the PAUSE event is fired. You can now push the home button, nothing will happen. And you can launch the app again, no RESUME event will be fired.
+   
+   Now go to LIB/NAV.JS file and comment the line #108 win.navBarHidden = true;
+   
+   Relaunch the app. Now the events are fired correctly: nothing in the first screen, press home button, PAUSE is fired, recall app, RESUME is fired.
+   
+   For the tip, to avoid back to close app, I'm doing exactly that: manage back button manually. But thanks for it.</li>
+<li>Mostafizur Rahman 2013-12-29
+
+   Hello,
+   
+   I tested this issue with the test code bellow. I can’t reproduce this issue.  It’s working perfect in Android Device. Please check my code and let me know if have any problem then send your test code and test procedure.
+   
+   
+   <h4>Test Environment</h4>
+   
+   Mac OSX   10.8.5,
+   Titanium SDK 3.2.0 GA, 
+   Ti CLI 3.2.0
+   Android 4.2.2 Device 
+   
+   
+   <h4>Test code</h4>
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   function OnAppResume() {
+   	Ti.API.info('***---> OnAppResume');
+   }
+   
+   function OnAppPause() {
+   	Ti.API.info('***---> OnAppPause');
+   }
+   
+   Ti.Android.currentActivity.addEventListener('resume', OnAppResume);
+   Ti.Android.currentActivity.addEventListener('pause', OnAppPause);
+   
+   win.open();
+   
+   </pre></code>
+   
+   
+   Thanks
+   </li>
+<li>Manuel Conde Vendrell 2013-12-31
+
+   Mostafizur, I suppose that now, with Ti 3.2.0, will work because one of the changes made is that all the opened windows in Android are heavyweight by default and you don't need to use *win.navBarHidden = true* to transform it to heavyweight (that was the main problem).
+   
+   I guess that in 3.2.0 this issue has no sense.</li>
+<li>Ritu Agrawal 2014-01-01
+
+   [~mcvendrell] Resolving this ticket as fixed in 3.2.0 GA release as per the transition from light weight window to heavy weight window. Please let us know if you see any issue with this release and we would be happy to take a look.</li>
+</ol>
+
+
+<p><a href="/AC/AC-2624.json">JSON Source</a></p>

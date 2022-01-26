@@ -1,0 +1,94 @@
+---
+title: "[TIMOB-19799] iOS: ioslib: TypeError: Cannot read property 'sort' of undefined"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-10-28T15:09:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2015-10-26T19:16:19.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-02-19T22:45:46.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Appears that we need some better error checking. I don't have the specific instance to recreate, though the code appears to be vulnerable here:
+
+  /usr/local/bin/node /Users/ingo/.appcelerator/install/5.0.3/package/node_modules/appc-cli-titanium/node_modules/titanium/bin/titanium build -l trace --plugin-paths /Users/ingo/.appcelerator/install/5.0.3/package/node_modules --config-file /var/folders/jf/k0njrhzd5nb9q91mdm4ymr380000gp/T/build-1445886520214.json --no-banner
+
+<code><pre>
+[TRACE] [ioslib] No iOS Simulator UDID specified, searching for best match
+[TRACE] [ioslib] Scanning Xcodes: 7.1:7B91b
+TypeError: Cannot read property 'sort' of undefined
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/simulator.js:604:53
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/simulator.js:127:11
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/utilities.js:55:9
+    at process._tickCallback (node.js:355:11)
+---------------------------------------------
+    at magik (/Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/utilities.js:40:13)
+    at detect (/Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/simulator.js:123:9)
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/simulator.js:426:3
+    at fireCallbacks (/Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/xcode.js:63:5)
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/xcode.js:69:11
+    at /Users/ingo/Library/Application Support/Titanium/mobilesdk/osx/5.1.0.v20151021132025/node_modules/ioslib/lib/utilities.js:55:9
+    at process._tickCallback (node.js:355:11)
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ingo Muschenetz 2015-10-26
+
+   Note:
+   
+   TRACE  | titanium exited with exit code 1
+   ERROR  | Error: ti run exited with error code 1
+   
+   Though I had NOT accepted the Xcode 7.1 license agreement at this point. Accepting the license agreement fixed it.</li>
+<li>Chris Barber 2015-10-27
+
+   ioslib PR: <a href="https://github.com/appcelerator/ioslib/pull/29" rel="nofollow" target="_blank">https://github.com/appcelerator/ioslib/pull/29</a></li>
+<li>Chris Barber 2015-10-28
+
+   Titanium SDK master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7362" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7362</a></li>
+<li>Chris Barber 2015-10-28
+
+   To test:
+   
+   1. Install Xcode 7, launch it, accept the EULA. Build a Titanium app. Everything should work.
+   2. Delete Xcode 7 (i.e. /Applications/Xcode.app). The simulators installed with Xcode 7 will still exist, but Xcode and the iOS Simulator won't.
+   3. Install Xcode 7.1, but DO NOT launch it. DO NOT accept the EULA.
+   4. Build an app and watch it fail.
+   
+   What's going on here? ioslib is finding the old simulators from Xcode 7 that use the iOS 9 runtime and maybe some older runtimes if you install older simulators.
+   
+   When you install Xcode 7.1, you will have the iOS Simulator 9.1 runtime. You won't have a iOS 9 runtime (you deleted it). You also haven't launched Xcode 7.1, so it hasn't initialized the new iOS 9.1 Simulators.
+   
+   So ioslib detects Xcode 7.1, iOS SDK 9.1, and iOS Simulator 9.1. When ioslib detect simulators, it shortcuts and trusts the iOS Simulators found when detecting Xcode. When ioslib tries to find a simulator, the Xcode results and Simulator results don't jive and the error in this ticket happens. As simple check fixes it. I have also added additional checks in ioslib's simulator library to make sure the selected Xcode has had the EULA accepted, otherwise it errors out.</li>
+<li>Tony Lukasavage 2015-11-17
+
+   Thanks for the heads up here, I was completely lost when I got this error (appc li 5.0.4, ti sdk 5.0.2). Can confirm that agreeing to the XCode license agreement resolved the issue.</li>
+<li>Eric Wieber 2016-02-19
+
+   Verified fixed, using:
+   
+   MacOS 10.11.3 (15D21)
+   Studio 4.5.0.201602170821
+   Ti SDK 5.2.0.v20160219124528
+   Appc NPM 4.2.3-2
+   Appc CLI 5.2.0-269
+   Alloy 1.7.33
+   Xcode 7.1 and Xcode 7.2
+   
+   Attempting to build without accepting the Xcode EULA results in an error message and failed build. Tested using the provided steps.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19799.json">JSON Source</a></p>

@@ -1,0 +1,109 @@
+---
+title: "[TIMOB-23570] Hyperloop: iOS - Support use_frameworks flag in Cocoapods"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-09-18T15:14:32.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Hyperloop 2.2.0</td></tr>
+<tr><th>Components</th><td>Hyperloop, iOS</td></tr>
+<tr><th>Labels</th><td>hyperloop, notable, swift</td></tr>
+<tr><th>Reporter</th><td>Ron Piwetz</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2016-06-22T15:35:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-10-19T22:43:37.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When use_frameworks! is included in Podfile, linking fails due to the framework being looked for in the wrong location.  Even if the framework is placed in the expected location, the app will crash upon execution.  Details provided below.
+
+I discovered this issue while trying to use a swift Cocoapod, but it is easily reproduced using the Hyperloop_Sample app as well.  I will describe steps to reproduce for both cases.
+
+1. For Hyperloop_Sample, simply add <code>use_frameworks!</code> to the beginning of Podfile and change the platform to 8.0 (frameworks only supported in iOS 8+).  Change the min-ios-ver to 8.0 in tiapp.xml as well.  As expected, instead of creating static libraries, frameworks for each pod are created instead.  These can be seen inside of <code>build/Release-iphonesimulator</code>.  The first issue comes during linking.  The framework is expected to be at <code>build/iphone/build/Products/Debug-iphonesimulator</code> as seen in the attached build log (see Sample.log), search for GLCalendarView to see the expected location of the framework on line 4466.  I then tried manually copying the 3 frameworks from <code>build/Release-iphonesimulator</code> to <code>build/iphone/build/Products/Debug-iphonesimulator</code> which allows the app to be built, but when it runs on the simulator, immediately crashes, see the attached crash log (Sample.crash).  I'm not real sure what the problem is, just that the error is "Library not loaded" for reason "image not found".
+
+2. Next, I created a new project, enabled hyperloop, then tried to use a swift cocoapod.  Swift pods require use of <code>use_frameworks!</code>, so without this issue being resolved, we will be unable to use any swift pods.  I've attached my Podfile (see Podfile).  I tried building without referencing the pod in the Podfile, just to test, and while the app builds, it crashes as well, see (swift.crash).
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23570_59618/Podfile">Podfile</td></td><td>2016-06-22T15:28:24.000+0000</td><td>91</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23570_59619/Sample.crash">Sample.crash</td></td><td>2016-06-22T15:23:58.000+0000</td><td>4085</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23570_59620/Sample.log">Sample.log</td></td><td>2016-06-22T15:11:52.000+0000</td><td>2476353</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-23570_59617/swift.crash">swift.crash</td></td><td>2016-06-22T15:34:15.000+0000</td><td>48981</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-06-23
+
+   Hey there! Please follow TIMOB-23530 for further discussions, we already a PR in place for the GA.</li>
+<li>Brenton House 2016-06-28
+
+   [~hansknoechel] are we sure that the new ticket covers the scenario in this ticket?</li>
+<li>Hans Knöchel 2016-06-28
+
+   Nope it doesn't, I just realized that today. Sorry for closing! And thank you [~rpiwetz] for noticing. We might want to open this one again and handle the issue here. Thanks again!</li>
+<li>Chee Kiat Ng 2016-07-21
+
+   [~bimmel] May want to mention this somewhere as a known issue so that people know the current hyperloop module is not able to use swiftpods.</li>
+<li>Brenton House 2016-10-12
+
+   [~hansknoechel] How does the timeframe for Hyperloop 2.0 align w/ the timeline for Appcelerator 6.0?</li>
+<li>Hans Knöchel 2016-10-12
+
+   </li>
+<li>Jan Vennemann 2016-11-29
+
+   A short status update about the current progress on this ticket: I was successfully able to prepare the Hyperloop build pipeline for Swift Pods by integrating a script from CocoaPods which embeds the Frameworks into the Xcode project and copies them over to their required destination. Currently there are two blockers for this ticket: 
+   * TIMOB-24163: If the framework requires Swift only classes/structs, the metabase generation fails. For example Alamofire requires the Swift-only struct URL
+   * TIMOB-24180: Swift files that have references to each other can not be processed because the Swift metabase parser currently parses them file by file.
+   
+   Both issues can be resolved by using [SourceKit](<a href="https://github.com/apple/swift/tree/master/tools/SourceKit)" rel="nofollow" target="_blank">https://github.com/apple/swift/tree/master/tools/SourceKit)</a> but require a complete rewrite of the Swift metabase parser.</li>
+<li>Jan Vennemann 2017-03-03
+
+   [~hansknoechel], to speed this up i would suggest to split the support for dynamic framework in two parts. In a first step we only support frameworks which expose an Objective-C interface. I have a PoC for that running and it requires no changes to the Swift metabase parser. After that we can focus on bringing support for pure Swift frameworks with the metabase parser rewrite. Thoughts?</li>
+<li>Jan Vennemann 2017-04-21
+
+   PR: <a href="https://github.com/appcelerator/hyperloop.next/pull/159" rel="nofollow" target="_blank">https://github.com/appcelerator/hyperloop.next/pull/159</a>
+   
+   This is the first iteration for support of dynamic frameworks with the <code>use_framework!</code> flag in CocoaPods. It is currently limited to frameworks that expose an Objective-C interface header, so not all Swift Pods are supported yet. To achieve that we first need to rewrite the Swift Metabase parser and evaluate a few other technical challenges. I'll create a few additional tickets dedicated to that soon and link them to this one.</li>
+<li>Jan Vennemann 2017-09-15
+
+    [~hknoechel], updated the PR with the latest changes which means it now also resolves TIMOB-23853.
+    
+    Breakdown of important changes:
+    - Allows usage of <code>use_frameworks!</code> flag in CocoaPods
+    - Support of Swift frameworks if they provide an Objective-C interface header
+    - Hyperloop now automatically picks up all frameworks from modules and the project's <code>platform/ios</code> folder. No manual configuration needed anymore for frameworks in <code>appc.js</code>.
+    
+    </li>
+<li>Jan Vennemann 2017-10-19
+
+    [~ewieber], follow these steps to verify. They use they hyperloop-examples project.
+    
+    <h4>Add the <code>use_frameworks!</code> flag to the Podfile as well as <code>pod 'AWSS3'</code></h4>
+    <h4>Add the following code to <code>app/controllers/index.js</code></h4>
+    <code><pre>
+    var AWSS3TransferManagerDownloadRequest = require('AWSS3/AWSS3TransferManagerDownloadRequest');
+    var downloadRequest = new AWSS3TransferManagerDownloadRequest();
+    downloadRequest.bucket = 'myBucket';
+    </pre></code>
+    
+    *Expected behavior*
+    The app should launch successfully. The above code is executed upon opening and makes sure the AWSS3 APIs are available, which come from a dynamic frameworks. The other third-party examples in the app should still work as expected.</li>
+<li>Eric Wieber 2017-10-19
+
+    Verified. The use_frameworks! flag can be used in podfile without issue. Tested using the flag with dynamic frameworks and ensuring that their inclusion did not break other third-party frameworks in the project.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23570.json">JSON Source</a></p>

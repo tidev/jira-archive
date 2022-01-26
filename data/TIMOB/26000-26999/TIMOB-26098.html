@@ -1,0 +1,93 @@
+---
+title: "[TIMOB-26098] iOS: Simulator randomly crashes during Ti.Buffer "toBlob()" test"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2018-06-05T22:00:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-05T22:15:33.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+We recently updated the Ti.Buffer API to be more comprehensive and tested. In a recent PR, I now noticed a crash occurring when calling "toBlob" on a Ti.Buffer instance (crash log attached). It looks like it instantiates a Ti.Blob successfully, but it then gets deallocated too early and crashes with a bad access.
+
+This might either be related to [this change](<a href="https://github.com/appcelerator/titanium_mobile/commit/38f9ebcc506f9b5275ea9a032794fd66c6cb4502#diff-cf2c45a6e64c734d0a5fc57a971170d7R309)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/38f9ebcc506f9b5275ea9a032794fd66c6cb4502#diff-cf2c45a6e64c734d0a5fc57a971170d7R309)</a> from 2 years ago or from [this change](<a href="https://github.com/appcelerator/titanium_mobile/pull/10028)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10028)</a> a few months ago. I feel it might even have happened before these two, but haven't been surfaced before [~cwilliams] added the unit tests for it.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26098_65249/mocha_2018-05-31-162329_curlywurly-macos.crash">mocha_2018-05-31-162329_curlywurly-macos.crash</td></td><td>2018-06-05T22:06:21.000+0000</td><td>166692</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-06-05
+
+   A quick stress test does not trigger the crash (30+ runs):
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: 'Trigger'
+   });
+   
+   btn.addEventListener('click', function() {
+       var win2 = Ti.UI.createWindow({ backgroundColor: 'red' });
+       win2.addEventListener('open', function () {
+           var blob;
+   
+           // just a simple ascii string
+           var buffer = Ti.createBuffer({
+               length: 12
+           });
+           buffer[0] = 97; // a
+           buffer[1] = 112; // p
+           buffer[2] = 112; // p
+           buffer[3] = 99; // c
+           buffer[4] = 101; // e
+           buffer[5] = 108; // l
+           buffer[6] = 101; // e
+           buffer[7] = 114; // r
+           buffer[8] = 97; // a
+           buffer[9] = 116; // t
+           buffer[10] = 111; // o
+           buffer[11] = 114; // r
+       
+           Ti.API.info(buffer.toString());
+       
+           blob = buffer.toBlob();
+           Ti.API.info('BLOB LENGTH = ' + blob.length + ', BUFFER LENGTH = ' + buffer.length);
+           Ti.API.info(blob.text);
+   
+           setTimeout(function () {
+               win2.close();
+           }, 1000);
+       });
+   
+       win2.open();
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26098.json">JSON Source</a></p>

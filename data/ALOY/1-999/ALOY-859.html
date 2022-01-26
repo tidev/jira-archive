@@ -1,0 +1,413 @@
+---
+title: "[ALOY-859] Compile failing on OSX Mavericks when targeting Windows Server network drives"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2014-09-08T13:10:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Tooling</td></tr>
+<tr><th>Labels</th><td>Alloy, Mavericks</td></tr>
+<tr><th>Reporter</th><td>Malcolm Hollingsworth</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2013-10-23T15:40:04.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-03-07T22:25:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>update (10/24/2013)</h4>
+
+A correlation between [~jamesdraper] and [~core13] shows that the likely culprit for this issue is when a network drive sourced from a Windows Server is used as the project folder when building Alloy on OSX Mavericks. 
+
+<h4>original</h4>
+
+Q&A: <a href="http://developer.appcelerator.com/question/158722/titanium-studio-and-os-x-mavericks---error-generating-ast-file-with-jquery" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/158722/titanium-studio-and-os-x-mavericks---error-generating-ast-file-with-jquery</a>
+
+No existing or new Alloy based apps will compile.  Each fails during the "optimizing" process, usually indicating an issue with the base alloy files.
+
+**Error text;**
+
+[INFO] :   ----- OPTIMIZING -----
+[INFO] :   - alloy.js
+[INFO] :   - alloy/widget.js
+[INFO] :   - alloy/sync/localStorage.js
+[INFO] :   - alloy/sync/properties.js
+[INFO] :   - alloy/sync/sql.js
+[INFO] :   - alloy/sync/util.js
+[WARN] :   : ERROR: Unexpected character '' [alloy/sync/util.js:7,1]
+[ERROR] :  Error generating AST for "/Volumes/concepts/tests/Test44-Vanilla/Resources/alloy/sync/util.js"
+[ERROR] :  Unexpected character ''
+[ERROR] :  line 7, column 1, position 183
+[ERROR] :  Alloy compiler failed
+
+**util.js** (system file - after being compiled by Alloy)
+
+function S4() {
+     return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+};
+ 
+exports.guid = function() {
+     return (S4()+S4()+'-'+S4()+'-'+S4()+'-'+S4()+'-'+S4()+S4()+S4());
+}
+ 
+The problem occurs in different files in different code positions and when it is triggered always appears to denote the last character as being at fault.  Simply changing the positions of code in the app does NOT change where the error is triggered - it always appears to be the end of a file that is getting snagged.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2013-10-23
+
+   was closed on accident, re-opening</li>
+<li>Eric Merriman  2013-10-23
+
+   So far QE is unable to reproduce. For our Mavericks testing we needed to update Studio to 3.1.4 to support Mavericks (mostly file path issues in previous eclipse core). 
+   
+   In this testing Alloy was checked not only on Mavericks but also Mountain Lion, Linux, and Windows. Please note that the Mavericks GM seed was used.
+   
+   For this ticket we used the GM Mavericks, and ran alloy compiles successfully in the following configs:
+   Studio 3.2.0 + CLI 3.2.0 + Alloy 1.2.2 + SDK 3.1.3.GA
+   Studio 3.1.3 + CLI 3.2.0 + Alloy 1.2.2 + SDK 3.1.3.GA
+   Studio 3.1.4 + CLI 3.2.0 + Alloy 1.2.2 + SDK 3.1.3.GA
+   Studio 3.1.3 + CLI 3.1.2 + Alloy 1.2.2 + SDK 3.1.3.GA
+   
+   QE is not using 3.1.5 currently, since previously tested was 3.1.4 and current development is on 3.2.0. We are downloading and trying this config anyhow to see if we can reproduce the fail case.
+   
+   </li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+   Keep in mind, whilst my experience is with the beta track of Ti SDK 3.1.5, there are others who have the same experience with Ti SDK 3.1.4</li>
+<li>Tony Lukasavage 2013-10-23
+
+   Just to make sure all the obvious stuff is out of the way, can you please fully uninstall and then reinstall node and alloy? The error seems to indicate that it's choking on unicode sequences which are obviously nothing new to alloy and I'm hard-pressed to figure out how this is at all affected by Mavericks. I'll report how my efforts to reproduce go as soon as I actually have mavericks downloaded and installed.</li>
+<li>Tony Lukasavage 2013-10-23
+
+   [~mxia] [~cwilliams] [~emerriman] has anything changed in the node.js or node module installation in Studio 3.1.4 or 3.1.5 that could potentially impact us here (conflicting installs perhaps)? I'm grasping at straws for the time being because this seems to be very specific to certain environments and the only common thread i can find besides the mavericks upgrade is that all who have encountered this issue have also done the new studio install.</li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+   Still failing to build
+   
+   I tried un-installing using;
+   
+   sudo npm -g uninstall alloy
+   sudo npm -g uninstall node
+   
+   Then back on with;
+   
+   <a href="http://nodejs.org/download/" rel="nofollow" target="_blank">http://nodejs.org/download/</a>
+   sudo npm -g install alloy</li>
+<li>Tony Lukasavage 2013-10-23
+
+   [~core13] does <code>sudo npm uninstall -g node</code> actually do anything? <code>node</code> isn't an npm module, so I doubt that it actually removed the node installation. For reference, here's a guide to completely wiping node.js from Mac OSX: <a href="http://stackoverflow.com/questions/14673327/removing-node-js-from-mountain-lion" rel="nofollow" target="_blank">http://stackoverflow.com/questions/14673327/removing-node-js-from-mountain-lion</a></li>
+<li>Eric Merriman  2013-10-23
+
+   [~core13] Would you mind reporting back the following:
+   ti -v
+   ti sdk (Looking for which SDK is set as active)
+   
+   Additionally we just tried the following and were unable to reproduce.
+   Studio 3.1.5 + CLI 3.1.2 + Alloy 1.2.2 + SDK 3.1.3.GA
+   
+   Do you have a sample project? I am assuming from this ticket that nothing works for you so figure as well that a new "default" project will also fail.</li>
+<li>Eric Merriman  2013-10-23
+
+   I checked on the Q&A and see the JQuery info. We will try to put something together and try with that.</li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+    CLI version 3.1.2
+    Titanium SDK version 3.1.3.GA
+    
+    @Tony - before your link I had no idea how to uninstall node (assumed it was the same as alloy), having followed the instructions - I would hope these were published somewhere on the Appcelerator documentation as they are not easy and certainly would not be guessed.
+    
+    Having run the true un-installs of Node and Alloy and then rebooting - then re-installing both, there are improvements.
+    
+    If I create new default project and leave the destination folder as a local drive - it works right up into the simulator.
+    
+    HOWEVER; if the app is created on a network drive (my usual usage) then the app WILL not optimise but will NOT get past the first initial simulator running and fails with the following error;
+    
+    [INFO] :   Test47-Vanilla-Alloy3/1.0 (3.1.3.GA.222f4d1)
+    [ERROR] :  Script Error {
+    [ERROR] :      line = 3;
+    [ERROR] :      message = "Parse error";
+    [ERROR] :      name = SyntaxError;
+    [ERROR] :      sourceId = 241699584;
+    [ERROR] :      sourceURL = "file:///Users/MacMini3/Library/Application%20Support/iPhone%20Simulator/7.0/Applications/3E145F8E-E6FB-4985-95AF-503ABAE759C4/Test47-Vanilla-Alloy3.app/app.js";
+    [ERROR] :  }</li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+    My sample projects so far are "brand new unaltered "default alloy project" and an existing large app that worked fine this morning.</li>
+<li>Tony Lukasavage 2013-10-23
+
+    [~core13] so this is error is specific to building projects on network drives then? On a local drive everything seems to work fine? This would explain a bit more why this didn't occur until you upgraded your OS. It's distinctly possible something in the way these network drives are handled is causing this.</li>
+<li>James Draper 2013-10-23
+
+    Hi Tony, yes I'm also building on a network drive
+    </li>
+<li>Tony Lukasavage 2013-10-23
+
+    OK, I think we have a culprit here. We'll get crackin' and see if we can work around whatever issues Mavericks introduced.</li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+    
+    I will do more tests in the morning but I think it is a bit early to blame my drobo</li>
+<li>Malcolm Hollingsworth 2013-10-23
+
+    I will move a project from a network drive to local drive and see what happens
+    </li>
+<li>Tony Lukasavage 2013-10-23
+
+    [~core13] as the network drive is the common thread between you and [~jamesdraper], who is the only other person to come forward with the issue so far, I think it's the best lead. I'll be trying to reproduce once I can get my other laptop up and running, and I think [~emerriman] is attempting to reproduce the same. </li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    I have performed numerous tests and have now reduced the problem down to a single situation.
+    
+    "Alloy apps will not complete the optimisation process or otherwise if this does proceed it will not run run the app due to a broken alloy.js file IF the project folder is stored on a network drive and the OSX version OSX Mavericks."
+    
+    I performed the following additional tests to rule out or in other forms of storage;
+    
+    Using a large app currently in development that uses almost every part of the Alloy system in order to work - an app that was working fine prior to Mavericks upgrade and continued to work as was on other machines not upgraded.
+    
+    Test 1; Copy app files to local machine using local drive = App worked without issues
+    Test 2; Copy app files to local machine using usb key = App worked without issues
+    Test 3; Copy app files to local machine using memory card = App worked without issues
+    Test 4; Copy app files to network drive (Drobo RAID) = Fails optimisation process.
+    Test 5; Copy app files to network drive (USB External HD) = Fails optimisation process.
+    
+    To confirm using apps in various states of code will sometimes alloy the optimisation process to complete - but then once the app first starts an error appears explaining that there is a problem with alloy.js
+    
+    The problem is restricted to Alloy apps, classic apps have not shown any issues so far - although my tests here are limited as no problems were found during initial tests.
+    
+    I suggest the title is changed from; "Mavericks: compile failing on network drives" to "Mavericks: Alloy compile failing on network drives".</li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    So as of now I can continue to create apps but without any of the backup safe guards we employ - thus I am hoping for a very fast resolution to this difficult to find but important issue.
+    
+    I cannot be the only person (other than Eric) that takes real time backups so seriously.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    [~core13] The title is fine as this ticket is contained in the ALOY project. The fact that it pertains to Alloy is implied.
+    
+    We'll continue to investigate, but it's good to know you localized the issue and can now work around it.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    Just ran the default alloy app successfully with the following:
+    
+    * OSX Mavericks, connecting to shared drive on other Mac running 10.8.4, which is where the project is located
+    * TiSDK 3.2.0.v20131022171645
+    * Alloy 1.3.0
+    * iOS 7 sim and SDK
+    * XCode 5
+    * titanium CLI 3.2.0
+    
+    So I haven't reproduced yet. [~core13] are you aware of whether or not it's relevant if the computer doing the sharing is running Mavericks? That's my next test. I'll also try your SDK and Alloy versions now as well.</li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    The computer doing the sharing is a Windows Server 2003 box.
+    
+    All files are accessible and editable over the network share, no errors in any document format.  The ONLY issues are the errant end of file issues already reported.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    Also tried with Alloy 1.2.2 and TiSDK 3.1.3.GA, still unable to reproduce. I'll update to OSX Mavericks on the computer from which I'm creating the shared drive and will try again after that completes.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    [~jamesdraper] any chance you are also using a Windows Server as the source of your networked drive?</li>
+<li>Tony Lukasavage 2013-10-24
+
+    [~core13] So I've matched your environment with the details you've given as best I can:
+    
+    * OSX Mavericks
+    * TiSDK 3.1.3
+    * Alloy 1.2.2
+    * node.js 0.10.21
+    * titanium CLI 3.2.0
+    * Building from network drive (OSX shared folder)
+    
+    Yet I can't reproduce. Can you tell me what version of the Titanium CLI you have installed?
+    
+    <code><pre>
+    titanium --version
+    </pre></code>
+    
+    Can try building against a network drive that is _not_ sourced from a Windows Server? That would definitely narrow this down further, and I don't have the means to create a Windows Server on my end. </li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    Thought I had - but here you go;
+    
+    CLI 3.1.2 (results from command you provided).
+    
+    Keep in mind whilst I have tested both studio and CLI, most of the tests have been performed in studio specifically.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    [~core13] I'll try that version now and try some tests through Studio, but I thought you said that the same issues occurred with CLI. It is a really important distinction for tracking this down, so if you had more success with CLI than with Studio, we need to know.
+    
+    Can you take a shot at building against a Mac-based network drive as well?</li>
+<li>James Draper 2013-10-24
+
+    Hey Tony, yes we're using Windows Server 2008 as the network drive. </li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    @Tony, just to confirm; I experienced all the same issues using Studio and CLI - I was just pointing out the extensive rule out tests this morning were all performed using Studio.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    Everything works for me with the following combinations, so I'm starting to think it may be specific to the type of network drive, only because I don't see any other disparities between my environment and the information that [~core13] provided:
+    
+    * OSX Mavericks
+    * TiSDK 3.1.3 & 3.2.0.v20131022171645
+    * Alloy 1.2.2 & 1.3.0
+    * node.js 0.10.21
+    * titanium CLI 3.2.0 & 3.1.2
+    * Building from network drive (OSX shared folder)</li>
+<li>Tony Lukasavage 2013-10-24
+
+    OK, now we're cooking. Based on [~jamesdraper] confirming that his issue also stems from a Windows Server I think it's safe to say that this is the most likely culprit. 
+    
+    Can either [~jamesdraper] or [~core13] please confirm that builds from non-Windows Server network drives work? 
+    
+    It will be just a little bit before the west coast office is available, but I'll see if they can get me a Windows Server with which I can reproduce on my end. Worst case this will be a known issue with Mavericks + Windows Server + Alloy. Best case I can track down exactly why this weirdness is happening in this _very_ specific case.</li>
+<li>James Draper 2013-10-24
+
+    Sorry guys I just checked with our network admin guy and we don't have any non-Windows network drives to test this at my end.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    Ah, apparently Apple switched to defaulting to SMB2 protocol instead of AFP by default for sharing. <a href="http://reviews.cnet.com/8301-13727_7-57588593-263/os-x-mavericks-switches-to-smb2-networking/" rel="nofollow" target="_blank">http://reviews.cnet.com/8301-13727_7-57588593-263/os-x-mavericks-switches-to-smb2-networking/</a>
+    
+    It's seeming more and more likely that these file sharing settings are the issue. I'm not sure how you can change the setting as the OS seems to choose whatever protocol it deems most appropriate, but this is almost certainly the cause.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    [~core13] and [~jamesdraper], can you try the tips detailed here for forcing your network connection to use the SMB1 protocol and not the new SMB2 protocol and let me know if that alleviates the issues you are having? Or, just try the first option that simply requires you changing the protocol of the address you use to connect to the server.
+    
+    <a href="http://cammodude.blogspot.com/" rel="nofollow" target="_blank">http://cammodude.blogspot.com/</a>
+    
+    It would probably be best to test against a new project, just to make sure it's a clean slate.</li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    I have changed the network share from the original;
+    
+    smb://webserver01/concepts
+    
+    to
+    
+    cifs://webserver01/concepts
+    
+    Created a brand new app to test against using this network share at it still fails, but it is managing to get past the optimising stage (a few previous tests also managed this)
+    
+    Error Information
+    
+    -- Start simulator log -------------------------------------------------------
+    [ERROR] :  Script Error {
+    [INFO] :   Application started
+    [INFO] :   Test48-Vanilla-Alloy4-Network/1.0 (3.1.3.GA.222f4d1)
+    [ERROR] :      line = 3;
+    [ERROR] :      message = "Parse error";
+    [ERROR] :      name = SyntaxError;
+    [ERROR] :      sourceId = 250096384;
+    [ERROR] :      sourceURL = "file:///Users/MacMini3/Library/Application%20Support/iPhone%20Simulator/7.0/Applications/71CE93D6-D3F3-4A1F-A0B2-0E29FD3FCB25/Test48-Vanilla-Alloy4-Network.app/app.js";
+    [ERROR] :  }</li>
+<li>James Draper 2013-10-24
+
+    I tried option 2 in the blog post (force changing the connection via Terminal) but still got the same error unfortunately, I thought that would definitely fix it. I'm out of the office now until Tuesday so unfortunately won't be able to help test anything else but good luck guys and thanks!</li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    I do not have a Mac Server to share a network drive from available to me.
+    
+    In case it helps I have shared a folder from another Mac running Mountain Lion and connected that as a share to my Mavericks machine.
+    
+    There appears to be no problems working from that Mac to Mac share.</li>
+<li>Tony Lukasavage 2013-10-24
+
+    OK, so not as simple as I was hoping, but I think we're on the right track. Good news that it seems to be specifically with Windows Server. I tried setting up SMB sharing from my Mac and then connected to it with my Mavericks machine via SMB. Still unable to reproduce. We'll need to allocate some additional resources here before going any further so I can test against a Windows Server (unless someone wants to open up a share for me to test with before that happens). Your realtime backups will need to be manual for the time being, but all other processes should be working fine now with the knowledge we have so far. </li>
+<li>Tony Lukasavage 2013-10-24
+
+    While I can't confirm this myself, this apple discussion indicates that the issue may be present on Windows Servers anywhere before 2008 R2. I believe both Windows Servers mentioned in this thread both fit that criteria (2003 and 2008). <a href="https://discussions.apple.com/thread/5467191" rel="nofollow" target="_blank">https://discussions.apple.com/thread/5467191</a></li>
+<li>Malcolm Hollingsworth 2013-10-24
+
+    I have a test server available using Windows Server 2008 - tomorrow I will make sure it is running R2 at least (no idea what the current one is) and I will run some more tests.</li>
+<li>Malcolm Hollingsworth 2013-10-25
+
+    I have performed more tests - this time using "Windows Server 2008 R2 Enterprise", however the problem still persits.
+    
+    I have tried connecting to the server using the standard SMB and forcing original SMB1.
+    
+    I have tried an existing app (that works when locally accessed) and a brand new project created onto the 2008r2 box this morning with no code changes - this also fails.
+    
+    The problem does appear to be Windows Server related but does NOT appear to be the fault specifically of version 2003 and the problem persists with version 2008r2.
+    
+    Still not working.</li>
+<li>Tony Lukasavage 2013-10-25
+
+    We've got one of our resources working on spinning up a Windows Server now. Once I have that available I'll work on reproducing. Whether or not it's something I can work around remains to be seen, but I'll report back here with any results.</li>
+<li>Malcolm Hollingsworth 2013-10-25
+
+    I am downloading the Windows 2012 r2 ISO from MS, but taking ages - unlikely to have it running before end of Monday.</li>
+<li>Malcolm Hollingsworth 2013-10-29
+
+    I have now got a clean version of Windows Server 2012r2 installed with all latest updates applied.
+    
+    The problem still persists.  Exactly the same as all other versions of Windows Server.
+    
+    So to confirm; Windows Server 2002, 208rs & 2012r2 fail to compile/process Alloy apps due to end of file issues (that appear in different locations depending on amount of code) and in app.js (on clean new default Alloy apps).
+    
+    All tests use the original SMB and not the Mavericks default SMB2, the prefix "cifs" was used to enforce these connections/shares.
+    
+    So there is still no way to have files located on a Windows file server and use Mavericks/Alloy.</li>
+<li>Eric Merriman  2013-10-30
+
+    Hello all, we have had our IT guys set up a windows 2008 server, and after multiple visits, we have a running server with shared drive. We have been trying over the last few days to get Studio to recognize the workspace with no success. We tried creating a folder from the Mac on the shared drive and that works. Specification of that folder as the workspace fails and Studio quits with no log info. We tried copying over an existing workspace and then using that. Same failure. In both cases a metadata folder with a .lock file is created, so writing is not an issue.
+    
+    If anyone who has successfully configured this way has any tips for us, the QE team would greatly appreciate it. </li>
+<li>Eric Merriman  2013-10-31
+
+    Bravo. Our intrepid and hard-working intern [~sdowse] has worked with the studio team and has sorted our issues with an ini file change and is now able to reproduce. We will work with [~tlukasavage] and see if we can get to the root cause.</li>
+<li>Malcolm Hollingsworth 2013-10-31
+
+    Just for clarity, does the genius of Samuel mean you can now compile using windows server drive or that you have now been able to reproduce the failures I and others have pointed out?</li>
+<li>Tony Lukasavage 2013-10-31
+
+    Sounds like they reproduced it. I'll work with them today or tomorrow to see if a fix/workaround is even possible in this interesting scenario. I'm hoping to find some configuration setting of some kind here rather than a code change, if only because it seems odd to modify Alloy to account for what seems to be a mac -> windows networking issue.</li>
+<li>Tim Poulsen 2014-04-04
+
+    This issue appears to be specific to problems copying the three sync adapter files (lib/sync/localStorage.js, properties.js, and sql.js). All three, and only these files, end up with multiple NUL characters appended at the end after the build process. The error reported initially on this ticket is being thrown during the CLI build phase. It seems likely that the NULs are being added during Alloy's compile phase when these files are copied to the Resources directory.
+    
+    I've unsuccessfully tried replacing the file-copy function under the assumption that somehow bytes beyond the end-of-file marker were getting written to the files. I've used a hex editor to confirm that the source files do not contain any extraneous characters. Commenting out the code that copies the sync adapters "fixes" the problem.
+    
+    This is not related to Studio. I have been working at the command line and getting the same errors.</li>
+<li>Tim Poulsen 2014-04-04
+
+    Further investigation: the NULL chars are being appended to other files in addition to the sync adapters listed in my previous comment. I can also reproduce this issue connecting to a Windows 8.1 share, so it's not specific to the Windows Server version listed in the description. I've tried various encodings when copying files, but that's made no difference.</li>
+<li>Tim Poulsen 2014-07-07
+
+    Is this still a problem for folks? If so, can you please post any additional information that can help us track down a solution to the issue: for example, node version, windows server type/version, os-x version, network protocols used, TiSDK version, etc.</li>
+<li>Malcolm Hollingsworth 2014-07-23
+
+    As an update; this still fails for me even after all the Mavericks updates and with drive shares hooked up using the cifs prefix.
+    
+    Has anyone tried this with Yosemite yet?  I do not have a set up with it running, still hobbling with the lack of server access right now - now wanted to add insult to injury to the issue.
+    
+    I know this is not of your making guys, but some good news on this would be - well - good news.</li>
+<li>Malcolm Hollingsworth 2014-09-07
+
+    I have been performing tests on Yosemite to see if it will connect to a Windows Server using the same tests as were performed for the original ticket I created using Mavericks to a Windows Server.
+    
+    Yosemite + Windows Server = Working
+    
+    Environment:
+    - OS X Yosemite Developer Preview 7
+    - Windows Server 2003 (lowest spec chosen as likeliest to fail)
+    - Titanium Studio 3.4 RC (05/09/2014)
+    - Titanium SDK 3.4.0_v20140905152516 (RC daily)
+    - Default Alloy Project;
+     - Initial test performed with no code change
+     - Subsequent test performed with minor changes (to confirm tests files were actually on the windows server)
+    
+    I would recommend closing this ticket as it is unlikely to ever be fixed due to several Mavericks updates from Apple still not resolving the problem.  I know that James has moved away from the Window Server to host these files.
+    </li>
+<li>Tim Poulsen 2014-09-08
+
+    I'm closing this ticket based on Malcolm's findings that Yosemite resolves this issue.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-859.json">JSON Source</a></p>

@@ -1,0 +1,104 @@
+---
+title: "[TIMOB-15403] iOS: Not possible to build adhoc IPA with CLI 3.2.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-19T01:40:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 21, 2013 Sprint 21 Core, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>CLI, iOS</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>florian bergmann</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-10-07T08:25:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-08T22:48:08.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I cannot build an adhoc file with the new CLI. Although there occur no errors no IPA file is created. If I don't add the --build-only flag the simulator opens.
+
+
+In Studio the ad hoc provisioning profile cannot be selected it says that it is a development instead of adhoc profile. I cannot select the profile when I'm in the Distribute adhoc screen.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Dan Tamas 2013-10-07
+
+   The problem is in the new detect.js that is in the sdk itself (not in the Ti CLI)
+   <code><pre>
+   /Library/Application Support/Titanium/mobilesdk/osx/3.2.0.v20130927153242/iphone/cli/lib/detect.js
+   </pre></code>
+   
+   The detection of the adhoc type for the profile is wrong, the only difference between a development and an adhoc profile is the *get-task-allow* entitlement.
+   
+   So I changed the detection part from
+   <code><pre>
+   if (!p.ProvisionedDevices || !p.ProvisionedDevices.length) {
+   	dest = 'distribution';
+   } else if (new Buffer(p.DeveloperCertificates[0], 'base64').toString().indexOf('Distribution:') != -1) {
+   	dest = 'adhoc';
+   }
+   </pre></code>
+   
+   to
+   
+   <code><pre>
+   if (!p.ProvisionedDevices || !p.ProvisionedDevices.length) {
+   	dest = 'distribution';
+   } else if (!entitlements['get-task-allow']) {
+   	dest = 'adhoc';
+   }
+   </pre></code>
+   
+   and it seems to work fine at least for 3.2.0.v20130927153242
+   
+   </li>
+<li>Chris Barber 2013-10-07
+
+   [~rborn] Yeah, I broke master a week or so ago. :( I've fixed it and hope to have the fix merged in the next day or so. Thank you for your patience.</li>
+<li>Dan Tamas 2013-10-07
+
+   </li>
+<li>Chris Barber 2013-10-07
+
+   [~rborn] Yeah, that is also fixed, but pending PR. I have moved TC-3104 to timob.</li>
+<li>Dan Tamas 2013-10-07
+
+   Cool, thank you.</li>
+<li>Dan Tamas 2013-10-07
+
+   [~cbarber] sorry to be a pita, but it seems that CLI 3.2.0 fully builds everytime I run it.
+   
+   <code><pre>
+   titanium build -p ios
+   </pre></code>
+   
+   Is this fixed too in the PR or do I have to open a new ticket?
+   Thnx,</li>
+<li>Chris Barber 2013-10-07
+
+   [~rborn] The problem is with device and distribution builds. Simulator builds should be fine.</li>
+<li>Dan Tamas 2013-10-07
+
+   Nope, it rebuilds everything each time on simulator too.</li>
+<li>Allen Yeung 2013-10-19
+
+   Fixed as a part of <a href="https://github.com/appcelerator/titanium_mobile/pull/4781" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4781</a></li>
+<li>Olga Romero 2013-11-08
+
+    Tested and verified Fixed with:
+    CLI 3.2.0 (git://github.com/appcelerator/titanium.git)
+    Alloy 1.3.0
+    <code><pre>
+    ti build -p ios -T dist-adhoc
+    </pre></code>
+     .ipa file i s created</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15403.json">JSON Source</a></p>

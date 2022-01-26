@@ -1,0 +1,223 @@
+---
+title: "[TIMOB-25486] Android: html styles not getting applied correctly in WebView in SDK 6.3.0.GA"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2018-03-13T21:51:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>escalation</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-11-07T03:26:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T22:20:03.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Reproduce</h4>
+1. Use the following simple code in an alloy project.
+<code><pre>
+<Alloy>
+	<Window onOpen="onWinOpen">
+		<View class="imgContainer" height="65%">
+			<WebView id="captureImg1"/>
+		</View>
+	</Window>
+</Alloy>
+</pre></code>
+
+<code><pre>
+function onWinOpen() {
+
+	tempImageFile1 = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'GetImage1.png');
+
+	Ti.API.info('onWebViewLoad', JSON.stringify(tempImageFile1));
+	imageStyle = ' height:100%;position:absolute;';
+	
+	html = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=10.0, minimum-scale=.25, user-scalable=1'/></head><body onload='onLoad()'><script>function onLoad(){Ti.App.fireEvent('app:imageLoad');}</script><img src='" + tempImageFile1.nativePath + "' style='" + imageStyle + "'/></body></html>";
+
+	$.captureImg1.setHtml(html);
+
+}
+
+$.index.open();
+</pre></code>
+1. Copy of project [Project](<a href="https://axwaysoftware-my.sharepoint.com/personal/vvazquezmontero_axway_com/_layouts/15/guestaccess.aspx?guestaccesstoken=WJWavnEh%2FAB2TFgwpO%2F%2B2eWLqXIxCVFdDv0da%2B3CD%2BE%3D&docid=2_1c7c4f16fc811463ba1dd911690e841c8&rev=1&e=fea122bfeb73428a85d25f37ce421f83)" rel="nofollow" target="_blank">https://axwaysoftware-my.sharepoint.com/personal/vvazquezmontero_axway_com/_layouts/15/guestaccess.aspx?guestaccesstoken=WJWavnEh%2FAB2TFgwpO%2F%2B2eWLqXIxCVFdDv0da%2B3CD%2BE%3D&docid=2_1c7c4f16fc811463ba1dd911690e841c8&rev=1&e=fea122bfeb73428a85d25f37ce421f83)</a>
+2. Run the project in an android device.
+3. You will see the image doesn't show-up.
+
+<h4>Note</h4>
+1. This is only happened in SDK 6.3.0.GA
+2. It is working well in SDK 6.2.2.GA
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2017-11-08
+
+   I attempted to simplify the test case provided and couldn't see any issues?
+   
+   <code><pre>
+   var win = Ti.UI.createWindow(),
+       webView = Ti.UI.createWebView(),
+       img = Ti.Filesystem.getFile('appicon.png');
+   
+   win.addEventListener('open', function () {
+       webView.setHtml("<html><body onload='onLoad()'><script>function onLoad(){Ti.App.fireEvent('app:imageLoad');}</script><img src='" + img.nativePath + "' style='width:20%;height:20%'/></body></html>");
+   });
+   
+   win.add(webView);
+   win.open();
+   </pre></code></li>
+<li>Victor Vazquez Montero 2017-11-08
+
+   Let me try that and will share with customer after tested. 
+   Best regards, 
+   Victor Montero</li>
+<li>Victor Vazquez Montero 2017-11-09
+
+   [~gmathews] Per the customer 
+   In the index.js of the attached app, they added the comment " run with 6.3.0 sdk. The image won't appear and if you remove position it shows the image but looks odd". 
+   
+   So mentioned that the image appears when position is removed. 
+   
+   Instead of making it work with position:absolute, you have removed it and it works. 
+   They want to be able to make it work with their existing code as it did in 6.2.2 GA
+   So far I've been able to reproduce this behavior.</li>
+<li>Gary Mathews 2017-11-13
+
+   [~vvazquezmontero] This looks like an issue with Chromium (used by WebView) instead of Titanium.</li>
+<li>Gary Mathews 2017-12-01
+
+   [~vvazquezmontero] [~rramirez] I believe this is a HTML issue. I don't have the full use-case used in your app, but <code>position: absolute</code> is positioned relative to the nearest positioned ancestor instead of the viewport and it's dimensions do not alter the dimensions of the parent. I think using percentage values for the <code>height</code> could be causing the issue. For images, ideally you would use absolute values (e.g: <code>width: 200px; height: 200px;</code>). You could also remove <code>height: 20%</code> to let the browser decide.</li>
+<li>Victor Vazquez Montero 2017-12-01
+
+   Thank you for the detailed explanation. I will try that on my end and then share with ABC to see if they would be able to remove the Height percentage to make it work </li>
+<li>Victor Vazquez Montero 2017-12-12
+
+   [~gmathews]  Hey Gary, I provided them the two options to resolve the issue but they came back with the explanation of why they needed to implement as they have. Below is there response, is there anything we can share with them to work around this issue? 
+   
+   "The use case we have is to load an image into an imageView.
+   The image view should occupy 65% of the window.
+    If the image height is greater than width, we want the image height to occupy the entire imageView and size the width according and if the width is greater than height , we want the image width to occupy the entire imageView and size the height accordingly.
+   
+   The main reason why we had to go for webView instead of image view is because of the absence of pinch to zoom in android imageView similar to iOS. Even the third party modules we tried were very bad.
+   
+   So, we are loading the image into the webView as a html.
+   We are using height 100% if height>width and width 100% if width>height and using position:absolute to occupy the maximum area in the webView as mentioned in the use case.
+   
+   We cannot use absolute values here as using them will change the height occupied by the image in different resolutions.
+   We have a percentage for the web view in the window and we want to image to occupy the full height or width of the webView based on its dimensions.
+   
+   Let us know, if there is different way to solve this issue."
+   
+   Is there a work around we could provide them for this use case? I've tried with SDK 7.0.0 GA and the image still does not load as it did with SDK 6.2.2 GA</li>
+<li>Gary Mathews 2017-12-15
+
+   [~vvazquezmontero] There's a couple of things they could try:
+   
+   1. Use the <code>pinch</code> event:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+           backgroundColor: 'gray'
+       }),
+       view = Ti.UI.createScrollView({
+           backgroundColor: 'red',
+           top: 0,
+           width: Ti.UI.FILL,
+           height: '65%'
+       });
+       img = Ti.UI.createImageView({
+           bubbleParent: true,
+           image: 'android/appicon.png',
+           width: Ti.UI.FILL
+       });
+    
+   view.addEventListener('pinch', function (e) {
+       var offset = e.scale * e.velocity * 10;
+       img.width = img.rect.width + offset;
+       img.height = img.rect.height + offset;
+   });
+   
+   view.add(img);
+   win.add(view);
+   win.open();
+   </pre></code>
+   
+   2. Attempt to amend the HTML style:
+   <code><pre>
+   style='max-width: 100%;max-height: 100%;width: auto;height: auto;'
+   </pre></code></li>
+<li>Victor Vazquez Montero 2017-12-18
+
+   [~gmathews] Thank you. I've shared that information with the customer</li>
+<li>Victor Vazquez Montero 2017-12-19
+
+    [~gmathews] Customer just shared that neither of these workarounds will work: 
+    bq. Thank you for the suggestions. But, none of them will work for us. 
+    bq. 
+    bq. 1 Use the pinch event: 
+    bq. 
+    bq. As scrollview can only be scrolled either horizontally or vertically, if we set it to vertical, we cannot scroll to right or left on the zoomed image to zoom it further at that specific place and vice versa. The overall zooming experience is very bad and it looks very artificial. This is the main reason why we went for web view instead of image view. 
+    bq. 
+    bq. 2. Attempt to amend the HTML style: 
+    bq. 
+    bq. Using this style, when the image's height is greater than width, will cause the image's width to occupy the entire web view and the height goes beyond the web view. Our requirement is to occupy the entire height and size the width accordingly. So, this wouldn't work. 
+    bq. 
+    bq. If the image's width is greater than height, it occupies the entire width and height gets sized accordingly as per our requirement. But, the image is not centered and it cornered towards top. This is the reason why we had to use position absolute so that the image is centered relative to the web view. 
+    
+    Let me know if there is anything we can do for them as they keep stating this is a blocker for them. 
+    </li>
+<li>Eric Merriman  2018-01-03
+
+    [~gmathews] Please prioritize this.</li>
+<li>Gary Mathews 2018-01-04
+
+    [~sliang] [~morahman] [~vvazquezmontero] Here's another workaround they could try:
+    
+    <code><pre>
+    var win = Ti.UI.createWindow(),
+        webView = Ti.UI.createWebView(),
+        img = Ti.Filesystem.getFile('android/appicon.png').read();
+    
+    win.addEventListener('postlayout', function () {
+        if (img.height > img.width) {
+            // NOTE: 97% to prevent slight vertical scroll
+            var style = 'width:auto;height:97%';
+        } else {
+            var style = 'width:100%;height:auto';
+        }
+        webView.setHtml("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'/></head><body onload='onLoad()'><script>function onLoad(){Ti.App.fireEvent('app:imageLoad');}</script><img src='" + img.nativePath + "' style='" + style + "'/></body></html>");
+    });
+    
+    win.add(webView);
+    win.open();
+    </pre></code></li>
+<li>Victor Vazquez Montero 2018-01-22
+
+    [~gmathews] Here is the feed back from ABC: 
+    
+    {quote}We are trying with different alternatives from our end. 
+    Earlier we used Position:absolute which is working fine (before 6.3.0), but after that it is not working (image is not visible). when tried with below code, The height is not adjusted to the screen and getting scrollable which is not expected. 
+    <code><pre>
+    if (img.height > img.width) { 
+    // NOTE: 97% to prevent slight vertical scroll 
+    var style = 'width:auto;height:97%'; 
+    } else { 
+    var style = 'width:100%;height:auto'; 
+    } 
+    </pre></code>
+    Regards, 
+    Bharath Kumar Gogineni.{quote}</li>
+<li>Eric Merriman  2018-08-02
+
+    Closing old "Won't fix" tickets. If you disagree, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25486.json">JSON Source</a></p>

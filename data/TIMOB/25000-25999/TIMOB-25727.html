@@ -1,0 +1,157 @@
+---
+title: "[TIMOB-25727] iOS:  base64decode issue observed with SDK 7.0.0 and above"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-07T17:24:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Aminul Islam</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2018-01-26T15:12:28.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-11-15T12:35:36.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi,
+We have an oAuth login module to login to our app. During the login process, we will have to decode a token. For this we have used Titanium.Utils.base64decode(token). 
+The same code works for TiSDK 6.3.0 and below. 
+Once we upgraded the sdk to 7.0.0 the same returns undefined 
+Below is the toke thats received while logging in using oAuth. 
+token 
+<code><pre>
+"eyJzdWIiOiJ0ZXN0IiwiZW1haWwiOiJ0ZXN0IiwiYXVkIjoidGVzdCIsImp0aSI6ImxvTHM4d2o5aWxBQUtWckNxbzhaMFMiLCJpc3MiOiJodHRwczpcL1wvc3NvLmV4YW1wbGUuY29tIiwiaWF0IjoxNTI2MTY3NDc3LCJleHAiOjE1MjYxNjc0NzcsInBpLnRlc3QiOiJMSTRmMW81Q2pqU2tHU2xTanM0bHlPeVlROCJ9"
+</pre></code>
+We have checked this in a simple code with only the below line 
+Titanium.Utils.base64decode(token) 
+Works fine in 6.3.0 and returns undefined in 7.0.0 and above 
+
+Thanks 
+
+*EDIT by Hans*: This ticket also fixes an issues where Android would not accept Ti.Filesystem.File parameters in <code>base64decode</code>. 
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25727_64766/decodedFile.txt">decodedFile.txt</td></td><td>2018-01-28T21:27:17.000+0000</td><td>21</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-01-26
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9773" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9773</a>
+   PR (7_0_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/9779" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9779</a>
+   
+   To be tested on both iOS and Android and together with the attached decodedFile.txt:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+       backgroundColor: '#fff'
+   });
+   
+   var btn = Ti.UI.createButton({
+       title: 'Trigger'
+   });
+   
+   btn.addEventListener('click', function() {
+     // Test missing padding, should be a JSON-payload
+     if (!Ti.Utils.base64decode('eyJzdWIiOiJTc2VsdmFyYWoiLCJlbWFpbCI6IlNzZWx2YXJhaiIsImF1ZCI6ImxhYmFsZXJ0IiwianRpIjoibG9Mczh3ajlpbFNTS1ZyRXFvOFowUyIsImlzcyI6Imh0dHBzOlwvXC9zc28uY2VsZ2VuZS5jb20iLCJpYXQiOjE1MTYxNzY0OTcsImV4cCI6MTUxNjE3Njc5NywicGkuc3JpIjoiTEk0ZjFvNUNqam81ejhQdVJOcWNreU95WVE4In0')) {
+       alert('ERROR (1)!');
+     }
+   
+     // Test padding
+     if (Ti.Utils.base64decode('Zg').text !== 'f') {
+       alert('ERROR (2)!');
+     }
+     if (Ti.Utils.base64decode('Zm8').text !== 'fo') {
+       alert('ERROR (3)!');
+     }
+     if (Ti.Utils.base64decode('Zm9v').text != 'foo') {
+       alert('ERROR (4)');
+     }
+     if (Ti.Utils.base64decode('Zm9vYg').text !== 'foob') {
+       alert('ERROR (5)!');
+     }
+     if (Ti.Utils.base64decode('Zm9vYmE').text !== 'fooba') {
+       alert('ERROR (6)!');
+     }
+     if (Ti.Utils.base64decode('Zm9vYmFy').text !== 'foobar') {
+       alert('ERROR (7)!');
+     }
+   
+     // Test long and short strings (from earlier tickets)
+     var shortString = 'ABCDEFGHIJ1234567890ABCDEFGHIJ12|psndemo2|abcd:1',
+       longString = 'ABCDEFGHIJ1234567890ABCDEFGHIJ12|psndemo2|abcd:12345678901234567890',
+       tiBase64ShortResult = Ti.Utils.base64encode(shortString),
+       tiBase64LongResult  = Ti.Utils.base64encode(longString);
+   
+     if (tiBase64ShortResult.getText() !== 'QUJDREVGR0hJSjEyMzQ1Njc4OTBBQkNERUZHSElKMTJ8cHNuZGVtbzJ8YWJjZDox') {
+       alert('ERROR 8!');
+     }
+     
+     Ti.API.info(tiBase64ShortResult);
+     Ti.API.info(tiBase64LongResult);
+     
+     if (tiBase64LongResult.getText() !== 'QUJDREVGR0hJSjEyMzQ1Njc4OTBBQkNERUZHSElKMTJ8cHNuZGVtbzJ8YWJjZDoxMjM0NTY3ODkwMTIzNDU2Nzg5MA==') {
+       alert('ERROR 9!');
+     }
+   
+     // Test Ti.File types
+     var f = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'decodedFile.txt'),
+       blob = Ti.Utils.base64encode(f),
+       string;
+   
+     if(blob.text !== 'SSBhbSBub3QgZW5jb2RlZCB5ZXQu') {
+       alert('ERROR 10!');
+     }
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Eric Wieber 2018-02-07
+
+   FR Passed. Base64 encoding and decoding is working as expected. Tested using the provided sample as well as the Utilities suite.</li>
+<li>Eric Wieber 2018-02-07
+
+   Verified changes included in SDK builds 7.0.2.v20180207091331 & 7.1.0.v20180205203710</li>
+<li>Alberto Marcone 2018-11-15
+
+   Still happening in TiSDK 7.4.1 and iOS 12.
+   
+   I have an encrypted file transformed in a blob that it's sent to the server. In order to do so we encode it in base 64. 
+   Basically once it's encoded, can't be decoded.
+   Following the encoded string:
+   
+   <code><pre>
+   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%3D
+   </pre></code>
+   When we decode it with any online decoder, i's decoded as expected.
+   When we decode it with Titanium, we get the result to be null.
+   
+   This broke our application and we would need an urgent fix!</li>
+<li>Alberto Marcone 2018-11-15
+
+   we ended up using an external library (<a href="https://github.com/ekscrypto/Base64)" rel="nofollow" target="_blank">https://github.com/ekscrypto/Base64)</a> that actually works.
+   
+   The simple conversion you do with: 
+   <code><pre>
+    NSData *decodedData = [[[NSData alloc] initWithBase64EncodedString:paddedStr options:0] autorelease];
+   </pre></code>
+   doesn't work with our encrypted nsdata.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25727.json">JSON Source</a></p>

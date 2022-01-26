@@ -1,0 +1,295 @@
+---
+title: "[TIMOB-16048] Only first Image is showing on a tableview when taking a picture from camera"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-12-23T21:28:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 26, 2013 Sprint 26 Core, Release 3.2.1, Release 3.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>andoid, module_tableview, qe-testadded, regression</td></tr>
+<tr><th>Reporter</th><td>Nadav Hoze</td></tr>
+<tr><th>Assignee</th><td>Allen Yeung</td></tr>
+<tr><th>Created</th><td>2013-12-18T23:54:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-23T10:39:39.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Taking picture from the camera and adding new row with the picture to a tableview shows only the first one. 
+
+<h4>Steps to reproduce:</h4>
+<code><pre>
+var win = Ti.UI.createWindow({
+        title : 'image test',
+        layout : 'vertical'
+});
+
+var btn = Ti.UI.createButton({
+	title : 'take picture'
+});
+btn.addEventListener('click',function(e){
+	Ti.Media.showCamera({
+		success : function(o) {
+		   var row = Ti.UI.createTableViewRow({
+                       className : 'img'
+		   });
+		   row.add(Ti.UI.createImageView({
+			image : o.media
+		   }));
+		   tv.appendRow(row);
+		}
+	});
+});
+win.add(btn);
+ 
+var tv = Ti.UI.createTableView({});
+win.add(tv);
+
+win.open();
+
+</pre></code> 
+<h4>Expected result:</h4>
+   once a picture is taken, a new row should be added with that image.
+
+<h4>Actual result:</h4>
+   A row is added but only the first row shows an image.
+
+<h4>Important:</h4>
+ I tried this also on a listview and a scrollview also I changed from o.media to o.media.nativePath but nevermind the combination all had the same unfortunate result of showing only the first image.
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Feather 2013-12-19
+
+   typo in test case, line 3, missing closing quotes.</li>
+<li>Stephen Feather 2013-12-19
+
+   Instead of referencing the returned blob directly, you really need to save it to a file you are managing yourself.</li>
+<li>Nadav Hoze 2013-12-19
+
+   Also tried that, saved it to all possible places that Ti.FileSystem has to offer but nothing worked.</li>
+<li>Ingo Muschenetz 2013-12-19
+
+   We have determined this is a regression from 3.1.3, and caused by the fix for TIMOB-12658. Can you try a workaround specifying a height/width value in the image view? Fixing this right now is likely to be extremely risky, but we will attempt a fix onto the 3.2.X branch ASAP right after 3.2.0 goes out.</li>
+<li>Allen Yeung 2013-12-20
+
+   Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5151" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5151</a></li>
+<li>Nadav Hoze 2013-12-20
+
+   I think this does not only concern tableviewrow, you can reproduce it also with simple view.
+   Just replace the tableview with a view that has a vertical layout and you'll see the same result.
+   Also as I wrote the under important section this happens also for listview and scrollview.</li>
+<li>Allen Yeung 2013-12-20
+
+   What are you adding to the listview/scrollview?  Could you please provide a code snippet of what you're talking about?
+   
+   I tried adding the image view to a scroll view with vertical layout, and it works fine.</li>
+<li>Nadav Hoze 2013-12-20
+
+   As written in the ticket this happens when you take an image somewhere from the local storage, the scenario I described is taking a a picture with the camera and add it to a tableview (look at the code snippet at the steps to reproduce).
+   Now if you replace the tableview with a vertical view or a scrollableview or a listview you will still get the same result - only the first pic you took will be shown.
+   
+   </li>
+<li>Nadav Hoze 2013-12-20
+
+   of course test it on device and not simulator. I tested it on Samsung Galaxy II.</li>
+<li>Allen Yeung 2013-12-20
+
+    If you just replaced the tableview line with a scroll view, then you are adding a tableview row to a scroll view.  In that scenario, it is invalid code.  If you could provide a snippet of EXACTLY what you are using, that would be very helpful.
+    
+    
+    </li>
+<li>Nadav Hoze 2013-12-20
+
+    Yes of course you also need of course to change the row to a view. here is the code snippet:
+    
+    <code><pre>
+    var win = Ti.UI.createWindow({
+            title : 'image test',
+    });
+     
+    var btn = Ti.UI.createButton({
+        title : 'take picture'
+    });
+    btn.addEventListener('click',function(e){
+        Ti.Media.showCamera({
+            success : function(o) {
+               var row = Ti.UI.createView({
+               });
+               row.add(Ti.UI.createImageView({
+                image : o.media
+               }));
+               view.add(row);
+            }
+        });
+    });
+    win.add(btn);
+      
+    var view = Ti.UI.createView({
+          layout : 'vertical',
+          width : Ti.UI.FILL,
+          height : Ti.UI.FILL
+    });
+    win.add(view);
+     
+    win.open();
+    </pre></code></li>
+<li>Allen Yeung 2013-12-20
+
+    The test case you posted does not work.  The view covers the button, and you can't click on it.  You need to make the window a 'vertical' layout.  After I change that, I was able to take the picture, and have it placed inside the view correctly.  I tried this on a Galaxy SII and a Nexus 5, and both work fine.
+    
+    So I can't reproduce the problem.  If you have any more use cases, please let me know.</li>
+<li>Nadav Hoze 2013-12-20
+
+    you're correct forgot to add vertical layout to the window, but the bug happens if you take *more than one picture*.
+    Do you see all of the pictures ?</li>
+<li>Allen Yeung 2013-12-20
+
+    You shouldn't see more than one picture.
+    
+    You're adding 2 views with 'fill' behavior to a view with vertical layout so only one view show at a time.  If you want it to display more than 1 image, you need to define height/width for the 'row' variable.</li>
+<li>Nadav Hoze 2013-12-20
+
+    You are right I should have set the height (forgot) and I see that with view example it is working.
+    So seems to me that the fix  you did in tableviewrow  should solve the problem.
+    But what about lisview and scrollview?  I experienced the same behavior as in tableview.</li>
+<li>Allen Yeung 2013-12-20
+
+    It worked fine on the scroll view for me as well.  If you are experiencing the issue on either of those, please provide an example.</li>
+<li>Nadav Hoze 2013-12-20
+
+    yeah same problem with listview, take more than 2 pictures and you'll see that only the first 2 are shown.
+    here is the code snippet:
+    
+    <code><pre>
+    var win = Ti.UI.createWindow({
+    	title : 'image test',
+    	layout : 'vertical',
+    	navBarHidden : false
+    });
+    
+    var btn = Ti.UI.createButton({
+    	title : 'take picture'
+    });
+    btn.addEventListener('click', function(e) {
+    	Ti.Media.showCamera({
+    		success : function(o) {
+    			listSection.appendItems([{
+    				pic : {
+    					image : o.media
+    				},
+    				template : 'picTemplate'
+    			}]);
+    		}
+    	});
+    });
+    win.add(btn);
+    var picTemplate = {
+    	properties : {
+    		height : 120
+    	},
+    	childTemplates : [{
+    		type : 'Ti.UI.ImageView', 
+    		bindId : 'pic', 
+    		properties : {
+    			width : Ti.UI.FILL,
+    			height : 100,
+    			left : 10,
+    			right : 10,
+    			top : 10,
+    			bottom : 10
+    		}
+    	}]
+    };
+    
+    var listView = Ti.UI.createListView({
+    	templates : {
+    		'picTemplate' : picTemplate
+    	},
+    	defaultItemTemplate : 'picTemplate',
+    });
+    
+    var listSection = Ti.UI.createListSection();
+    listView.setSections([listSection]);
+    win.add(listView);
+    
+    win.open();
+    
+    </pre></code></li>
+<li>Allen Yeung 2013-12-21
+
+    I tried this on a Galaxy SII and a Nexus 5 and it works fine for me.  I was able to take multiple pictures and it showed up in the row.  I did notice in the Galaxy SII, it didn't show up for the 4th picture, but in the logs, it shows an out of memory exception, which is a limitation of the device memory while loading the bitmap.
+    
+    <code><pre>
+    [INFO] :   TiDrawableReference: (pool-3-thread-1) [323,122812] Unable to decode bitmap. Will retry.
+    [DEBUG] :  skia: --- SkImageDecoder::Factory returned null
+    [INFO] :   TiDrawableReference: (pool-3-thread-1) [252,123064] Unable to decode bitmap. Will retry.
+    </pre></code></li>
+<li>Nadav Hoze 2013-12-22
+
+    Allen, I'd like to thank you for the logging you showed me, it finally helped me to figure out what went wrong.
+    It has nothing to do with tableview. the problem here is purely memory!!!.
+    
+    Pictures taken from camera are big and when bitmap tries to decode them it fails on out of memory.
+    So after a long hard work I managed to come with a good solution for this.
+    What needs to be done is resizing the picture and compressing it.
+    I tried to use the ImageFactory you guys developed but it failed on OutOfMemory error because code assumes it can compress all of the imageBlob bytes when infact it is to big.
+    So I created my own module and used the android best practice guide for displaying bitmaps - <a href="http://developer.android.com/training/displaying-bitmaps/load-bitmap.html" rel="nofollow" target="_blank">http://developer.android.com/training/displaying-bitmaps/load-bitmap.html</a>
+    
+    So to conclude:
+    1. I don't think there is a bug with tableview regarding taking pictures, it is all related to memory.
+       thus you can place an image in any type of view (table/list/scroll) but it will show it only if image is not too big.
+    2. You should maybe show a clearer indication for this, like broken picture, or an error popup.
+    3. ImageFactory module needs to be fixed it assumes that decode of byte array is always possible.
+    
+    </li>
+<li>Allen Yeung 2013-12-23
+
+    [~nadavh], thanks for your feedback.  There is actually an issue with loading images with tableview, and I have addressed it in the PR.
+    
+    For out of memory type exceptions, our normal approach is to log these errors instead of showing it in the UI.  We wouldn't want production apps to have error popups.
+    
+    For the ImageFactory module, it would be great if you could file a separate ticket for that module.  We'll make sure to take a look at it accordingly.
+    </li>
+<li>Allen Yeung 2013-12-23
+
+    3_2_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/5163" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5163</a></li>
+<li>Neha Mittal 2014-01-07
+
+    Tested with SDK: 3.2.1.v20140106195644 and 3.3.0.v20140106195650 using environment:
+    
+    Appcelerator Studio: 3.2.1.201401061716
+    acs@1.0.11
+    alloy@1.3.1-beta
+    npm@1.3.2
+    titanium@3.2.0
+    titanium-code-processor@1.1.0
+    Mac OSX 10.9 Mavericks
+    Device: Nexus 7(v4.4.2)
+    
+    Result: I am able to take multiple pictures and it showed up in the row.</li>
+<li>Lokesh Choudhary 2014-01-07
+
+    Verified the fix. Took 6 pics and all appeared one after other as expected.
+    
+    Closing.
+    
+    Environment:
+    Appc Studio : 3.2.1.201401061716
+    Ti SDK : 3.2.1.v20140106195644 , 3.3.0.v20140106195650
+    Mac OSX : 10.8.5
+    Alloy : 1.3.1-beta 	
+    CLI - 3.2.0
+    Samsung Galaxy S4 running android 4.2.2
+    Nexus 5 running android 4.4</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16048.json">JSON Source</a></p>

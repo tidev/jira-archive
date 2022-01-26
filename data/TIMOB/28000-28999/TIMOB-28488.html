@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-28488] iOS 15: Modal navigation window jumps navigation bar"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2021-09-14T08:46:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 10.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 10.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2021-06-12T13:00:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-11-18T17:54:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On iOS 15, the navigation bar of a modal navigation window "jumps" when opening it. It seems like it's trying to present a large title but then uses the normal title style. Test case will come later.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ewan Harris 2021-06-29
+
+   Repro case, click the first window. When the navwindow opens the navbar with the "A Window" text will jump
+   
+   <code><pre>
+   const win1 = Titanium.UI.createWindow();
+   win1.addEventListener('click', () => {
+   	const navWin = Ti.UI.createNavigationWindow({
+   		window: Ti.UI.createWindow({
+   			title: 'A window'
+   		})
+   	});
+   	navWin.open({ modal: true })
+   });
+   win1.open();
+   
+   </pre></code></li>
+<li>Joshua Quick 2021-07-02
+
+   This only happen when the device has a notch. It doesn't happen if there isn't a notch or if you display it modally in landscape orientation... because the notch is not above the title bar.
+   
+   So, it's an issue with how the safe area insets are handled.</li>
+<li>Joshua Quick 2021-07-12
+
+   I can't find a work-around for this top notch inset issue... other than to use the <code>Ti.UI.iOS.MODAL_PRESENTATION_OVER_CURRENT_FULL_SCREEN</code> instead.
+   
+   When Apple releases Xcode 13 beta 3, I'll double check to see if this is still an issue.</li>
+<li>Hans Knöchel 2021-07-18
+
+   Beta 3 is now out. I haven't tested it so far, but excited to know.</li>
+<li>Joshua Quick 2021-07-19
+
+   The issue still happens with Xcode 13 beta 3. (sigh)</li>
+<li>Hans Knöchel 2021-08-14
+
+   I can confirm it's still happening in Beta 5, so it does not seem like an Apple issue.</li>
+<li>Hans Knöchel 2021-08-31
+
+   Any idea how to tackle this? Happy to discuss ideas here.</li>
+<li>Joshua Quick 2021-09-01
+
+   I'm not sure how to fix this yet. I'll dig into it tomorrow.</li>
+<li>Joshua Quick 2021-09-03
+
+   [~hknoechel], I'm not sure what to do about this.
+   
+   I can reproduce the issue. I know that it "jumps" based on the height of the top notch. That is, initially the navigation bar "wrongly" compensates for the top safe area inset and then removes it once the window finishes the open animation. But I don't know what to do about this or if I have any control over it.
+   
+   The only iOS 15 breaking-change that I'm aware of is [scrollEdgeAppearance](<a href="https://developer.apple.com/documentation/uikit/uinavigationbar/3198027-scrolledgeappearance)" rel="nofollow" target="_blank">https://developer.apple.com/documentation/uikit/uinavigationbar/3198027-scrolledgeappearance)</a> now applies to the navigation bar. Is that a factor here? I'm not sure.</li>
+<li>Hans Knöchel 2021-09-08
+
+    I haven't been able to fix it either so far. This is really the last blocker before next weeks release of iOS 15 and honestly I'm a bit nervous it won't be fixed until then.  </li>
+<li>Hans Knöchel 2021-09-11
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/13061" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13061</a>
+    
+    -There might be an issue with large titles being positioned with too much space, but not sure, yet. In general, our app works fine now.- Turns out it was a grouped list view below a large header which is the same on iOS < 15. So all good so far!</li>
+<li>Joshua Quick 2021-09-13
+
+    PR (titanium_mobile): <a href="https://github.com/appcelerator/titanium_mobile/pull/13067" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/13067</a>
+    
+    The above is an alternative solution based on [~hknoechel] solution. (Thanks Hans!)
+    It also resolves a TabGroup issue where the tabs will be overlapped by the bottom "home indicator" on iPhone X, 11, and 12.</li>
+<li>Ahmed Mohamed 2021-11-15
+
+    If model nav window has fixed height then window's body will be start form top 0 behind the nav bar. please check it again because I have an issue because of this</li>
+<li>Ahmed Mohamed 2021-11-15
+
+    
+    <code><pre>
+    var homeWin = Ti.UI.createWindow();
+    
+    var openButton = Ti.UI.createButton({
+    	title: "Open",
+    	backgroundColor: 'blue',
+    	color: 'white',
+    	font: {
+    		fontSize: 24
+    	}
+    });
+    
+    openButton.addEventListener('click', function (e) {
+    	var modalWin = Ti.UI.createWindow({
+    		backgroundColor: 'gray',
+    		title: 'modal',
+    		barColor: 'blue',
+    		height: 300,
+    		width: 200,
+    		modal: true
+    	});
+    	var label = Ti.UI.createLabel({
+    		Text: "Here",
+    		backgroundColor: 'teal',
+    		height: 64,
+    		top: 0
+    	});
+    	modalWin.add(label);
+    
+    	var mainWindow = Ti.UI.createNavigationWindow({
+    		height: 300,
+    		width: 200,
+    		window: modalWin
+    	});
+    
+    	mainWindow.open();
+    
+    });
+    
+    homeWin.add(openButton);
+    homeWin.open();
+    </pre></code>
+    </li>
+<li>Ewan Harris 2021-11-18
+
+    [~ahmed.mohamed20320] could you please report that issue on the [GitHub issue tracker](<a href="https://github.com/appcelerator/titanium_mobile/issues/new/choose)" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/issues/new/choose)</a>, it doesn't look to be related to this iOS 15 issue as it occurs for me on iOS 14 also</li>
+<li>Ahmed Mohamed 2021-11-18
+
+    Yes i tested it again with 10.0.2.GA and it didn't work so it not related to this issue. I will report it</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28488.json">JSON Source</a></p>

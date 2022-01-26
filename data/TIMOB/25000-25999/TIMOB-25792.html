@@ -1,0 +1,119 @@
+---
+title: "[TIMOB-25792] Android: Scrolling horizontal ScrollView within a vertical ScrollView should disable vertical scrolling"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-04-18T00:25:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>ScrollView, android, parity</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-02-21T02:33:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-21T22:18:51.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+When scrolling a "horizontal" ScrollView within a "vertical" ScrollView, it will scroll horizontally until you scroll too far up/down, then horizontal scrolling will be canceled by the parent "vertical" ScrollView and it'll only scroll vertically from then on. This is a behavior change that was introduced in Titanium 6.3.0.
+
+The old behavior would block the parent ScrollView from scrolling vertically while scrolling the child horizontal ScrollView. This behavior should be restored. _(This is also the iOS behavior.)_
+
+*Steps to Reproduce:*
+<h4>Build/run the below code for Android using Titanium 6.3.0 or higher.</h4>
+<h4>Start dragging one of the horizontal ScrollViews. (It's the box containing labels.)</h4>
+<h4>As you drag it horizontally, drag up or down.</h4>
+<h4>Notice the parent ScrollView will scroll vertically, but you can no longer scroll the child ScrollView horizontally anymore.</h4>
+
+<code><pre>
+var window = Ti.UI.createWindow({ fullscreen: true });
+var verticalScrollView = Ti.UI.createScrollView(
+{
+	layout: "vertical",
+	scrollType: "vertical",
+	showVerticalScrollIndicator: true,
+	showHorizontalScrollIndicator: false,
+	backgroundColor: "darkgray",
+	width: Ti.UI.FILL,
+	height: Ti.UI.FILL,
+});
+for (var scrollViewIndex = 1; scrollViewIndex <= 20; scrollViewIndex++) {
+	verticalScrollView.add(Ti.UI.createLabel(
+	{
+		text: "Horizontal Scroll View " + scrollViewIndex.toString(),
+		color: "white",
+		top: "10dp",
+	}));
+	var horizontalScrollView = Ti.UI.createScrollView(
+	{
+		layout: "horizontal",
+		scrollType: "horizontal",
+		showVerticalScrollIndicator: false,
+		showHorizontalScrollIndicator: true,
+		backgroundColor: "darkgray",
+		borderWidth: "1dp",
+		borderColor: "black",
+		width: "100%",
+		height: "100dp",
+	});
+	for (var labelIndex = 1; labelIndex <= 20; labelIndex++) {
+		horizontalScrollView.add(Ti.UI.createLabel(
+		{
+			text: " Label " + labelIndex.toString() + " ",
+			color: "white",
+			backgroundColor: "gray",
+			top: "5dp",
+			left: "5dp",
+		}));
+	}
+	verticalScrollView.add(horizontalScrollView);
+}
+window.add(verticalScrollView);
+window.open();
+</pre></code>
+
+*Result:*
+Once you drag up or down while scrolling horizontally, the horizontal ScrollView's scrolling is canceled and only the parent vertical ScrollView can be scrolled.
+
+*Expected Result:*
+Parent vertical ScrollView should not be scrollable while scrolling a child horizontal ScrollView. This was the old Android behavior. It is also the iOS behavior.
+
+*Cause:*
+ScrollViews call the parent view's <code>requestDisallowInterceptTouchEvent()</code> method when scrolling has started. However, Google's <code>SwipeRefreshLayout.requestDisallowInterceptTouchEvent()</code> method ignores the request when made by a child view (in this case a <code>HorizontalScrollView</code>) that does not support nested scrolling. Since it's ignored, the parent ScrollView ends up intercepting and stealing the nested <code>HorizontalScrollView</code> touch events.
+[SwipeRefreshLayout.java#L735](<a href="https://github.com/aosp-mirror/platform_frameworks_support/blob/master/core-ui/src/main/java/android/support/v4/widget/SwipeRefreshLayout.java#L735)" rel="nofollow" target="_blank">https://github.com/aosp-mirror/platform_frameworks_support/blob/master/core-ui/src/main/java/android/support/v4/widget/SwipeRefreshLayout.java#L735)</a>
+
+*Work-Around:*
+You can restore the old behavior by listening to the horizontal ScrollView's "dragstart" and "dragend" events. In the "dragstart" event handler, disable the parent vertical ScrollView. In the "dragend" event handler, re-enable the parent vertical ScrollView.
+
+<code><pre>
+horizontalScrollView.addEventListener("dragstart", function(e) {
+	verticalScrollView.scrollingEnabled = false;
+});
+horizontalScrollView.addEventListener("dragend", function(e) {
+	verticalScrollView.scrollingEnabled = true;
+});
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-04-06
+
+   PR (master): <a href="https://github.com/appcelerator/titanium_mobile/pull/9985" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9985</a></li>
+<li>Lokesh Choudhary 2018-04-18
+
+   FR Passed. PR merged.</li>
+<li>Lokesh Choudhary 2018-06-21
+
+   Verified the fix in SDK  7.3.0.v20180618182516.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25792.json">JSON Source</a></p>

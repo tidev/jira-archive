@@ -1,0 +1,225 @@
+{
+	"id": "170757",
+	"key": "DAEMON-215",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "12519",
+			"key": "DAEMON",
+			"name": "Appcelerator Daemon"
+		},
+		"fixVersions": [
+			{
+				"id": "19959",
+				"description": "",
+				"name": "Appc Daemon 1.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2018-04-09"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2018-01-12T17:29:23.000+0000",
+		"created": "2018-01-09T12:16:00.000+0000",
+		"priority": {
+			"name": "None",
+			"id": "6"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "eharris",
+			"key": "eharris",
+			"displayName": "Ewan Harris",
+			"active": true,
+			"timeZone": "Europe/Dublin"
+		},
+		"updated": "2018-01-12T17:29:23.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "15050",
+				"name": "appcd-core",
+				"description": "Core daemon logic: config, plugin loader, logging, dispatcher"
+			}
+		],
+		"description": "h5.Description\r\n\r\nCurrently the daemon core adds the plugin directories under appcd-default-plugins and {{~/.appcelerator/appcd/plugins}} to the PluginManager on start.\r\n\r\nI would like to propose that we also add the global node_modules directory to this.\r\n\r\nThe benefits I see are\r\n\r\n- Plugins not distributed with the daemon do not need to a) tell users to npm install with a {{--prefix}} flag b) have to have a post-install flag to ensure that they get picked up by the daemon (most titanium cli plugins I've seen do this)\r\n- {{npm install -g}} becomes the easy way of getting plugins, we easily get the discoverability of the npm registry\r\n\r\nThe drawbacks I see are\r\n\r\n- It's simple to expand this idea into allowing us to pickup local node_modules (i.e in a titanium application), while this works in the realm of a once and done process like the titanium cli I don't fully understand how we can support the concept of local plugins in the daemon.\r\n- We could potentially majorly increase the number of fswatchers we setup when reading in all the global node modules\r\n\r\nI foresee an implementation that is structured as follows\r\n* Add the global node_modules dir to the paths array of the PluginManager creation in appcd-core\r\n* In appcd-plugin/src/plugin.js, throw an error for any package.json's we read in that do _not_ contain an appcd field\r\n** This is a changeable requirement but I believe that unless there is a way to tell what is an appc-daemon plugin then we will register _every_ folder under node_modules, other tools do this by using {{TOOL_NAME-plugin-X}}, but seeing as we're reading in the package.json anyway I don't see why we cant add the validation there to lift some restrictions on the naming conventions.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Core: Include global node_modules directory in the plugins",
+		"creator": {
+			"name": "eharris",
+			"key": "eharris",
+			"displayName": "Ewan Harris",
+			"active": true,
+			"timeZone": "Europe/Dublin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "eharris",
+			"key": "eharris",
+			"displayName": "Ewan Harris",
+			"active": true,
+			"timeZone": "Europe/Dublin"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 986,
+				"state": "closed",
+				"name": "2018 Sprint 01 Tooling",
+				"startDate": "2017-12-31T16:58:25.103Z",
+				"endDate": "2018-01-14T16:58:00.000Z",
+				"completeDate": "2018-01-17T22:42:40.307Z",
+				"originBoardId": 219
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "432906",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "[~cbarber] FYI, I finally got round to writing this up, it seems easily doable but easily footgun-able",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2018-01-09T12:17:08.000+0000",
+					"updated": "2018-01-09T12:17:08.000+0000"
+				},
+				{
+					"id": "433004",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "I'm not a huge fan of this, but I can see the usefulness.\r\n\r\nAs you suggested, we have to enforce that plugin's {{package.json}}'s MUST contain an {{appcd}} section. If we don't then we don't have any way to distinguish appcd plugins from globally installed node modules.\r\n\r\nFor fun, I added {{/usr/local/lib/node_modules}} to the plugin init and here's what it discovered:\r\n\r\n{code}\r\nPlugin                   Version   Type      Path                                                 Node.js    Status                         Active/Total Requests\r\nacs                      1.2.0     external  /usr/local/lib/node_modules/acs                      >= 0.6.0   Inactive                       0 / 0\r\nalloy                    1.10.3    external  /Users/chris/appc/alloy                              >=0.10     Inactive                       0 / 0\r\nandroid                  1.1.0     external  /Users/chris/appc/appcd-plugin-android               8.9.1      Inactive                       0 / 0\r\nappcelerator             4.2.11-2  external  /usr/local/lib/node_modules/appcelerator             >= 4.0     Inactive                       0 / 0\r\neslint                   4.3.0     external  /usr/local/lib/node_modules/eslint                   >=4        Inactive                       0 / 0\r\neslint-config-axway      2.0.7     external  /Users/chris/appc/eslint-config-axway                8.9.1      Inactive                       0 / 0\r\ngenymotion               1.1.0     external  /Users/chris/appc/appcd-plugin-genymotion            8.9.1      Inactive                       0 / 0\r\ngulp                     3.9.1     external  /usr/local/lib/node_modules/gulp                     >= 0.9     Inactive                       0 / 0\r\nhpm-cli                  1.4.0     external  /usr/local/lib/node_modules/hpm-cli                  >=4        Inactive                       0 / 0\r\nios                      1.1.0     external  /Users/chris/appc/appcd-plugin-ios                   8.9.1      Inactive                       0 / 0\r\njdk                      1.1.0     external  /Users/chris/appc/appcd-plugin-jdk                   8.9.1      Inactive                       0 / 0\r\nlerna                    2.6.0     external  /usr/local/lib/node_modules/lerna                    >= 4       Inactive                       0 / 0\r\nmocha                    3.2.0     external  /usr/local/lib/node_modules/mocha                    >= 0.10.x  Inactive                       0 / 0\r\nnode-gyp                 3.6.2     external  /usr/local/lib/node_modules/node-gyp                 >= 0.8.0   Inactive                       0 / 0\r\nnode-inspector           0.12.8    external  /usr/local/lib/node_modules/node-inspector           >=0.8.0    Inactive                       0 / 0\r\nnpm                      5.6.0     external  /usr/local/lib/node_modules/npm                      8.9.1      Inactive                       0 / 0\r\nnpm-check-updates        2.14.0    external  /usr/local/lib/node_modules/npm-check-updates        >=0.12     Inactive                       0 / 0\r\nnsp                      2.6.2     external  /usr/local/lib/node_modules/nsp                      8.9.1      Inactive                       0 / 0\r\nretire                   1.4.0     external  /usr/local/lib/node_modules/retire                   >= 0.10.0  Inactive                       0 / 0\r\nsloc                     0.1.11    external  /usr/local/lib/node_modules/sloc                     8.9.1      Inactive                       0 / 0\r\nsystem-info              1.1.0     external  /Users/chris/appc/appcd-plugin-system-info           8.9.1      Inactive                       0 / 0\r\ntitanium                 5.0.14    external  /Users/chris/appc/titanium                           >=4.0      Inactive                       0 / 0\r\ntitanium-sdk             1.0.1     external  /Users/chris/appc/appcd-plugin-titanium-sdk          8.9.1      Inactive                       0 / 0\r\nwindows                  1.1.0     external  /Users/chris/appc/appcd-plugin-windows               8.9.1      Unsupported platform \"darwin\"  0 / 0\r\n{code}\r\n\r\nSo, enforcing an {{appcd}} section is a must.\r\n\r\nAs for filtering based on the package name starting with {{appcd-plugin-}}, I don't love that. The plugin system used to automatically strip {{/^appcd-plugin-/}} from the package name when determining the plugin name, but I ripped it out in favor of explicitly allowing the plugin to define it using {{appcd.name}}. The {{appcd-plugin-*}} naming convention was intended more for finding plugins in npm.\r\n\r\nAs far as the fs watchers is concerned, I'm not worried abut it. It's not recursive and only adds a fs watcher for each directory in {{/usr/local/lib/node_modules}} which on my machine is only 34 directories. I did a test and created over 25k fs watchers on macOS without issue.\r\n\r\nBeing that this feature would add about a half dozen lines of code, I'm find adding it to 1.1.0. We need to make sure there are no negative side effects.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2018-01-11T03:05:56.000+0000",
+					"updated": "2018-01-11T03:05:56.000+0000"
+				},
+				{
+					"id": "433029",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "Yeah the filtering based of name was more of a if for some reason the requirement of appcd in package.json was shot down here's another way of figuring out what's valid.\r\n\r\nI'd like to try and understand the plugin stuff a little more so mind if I take this one on?",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2018-01-11T13:49:04.000+0000",
+					"updated": "2018-01-11T13:49:34.000+0000"
+				},
+				{
+					"id": "433037",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Be my guest. :)",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2018-01-11T15:13:35.000+0000",
+					"updated": "2018-01-11T15:13:35.000+0000"
+				},
+				{
+					"id": "433080",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "https://github.com/appcelerator/appc-daemon/pull/264",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2018-01-12T13:35:51.000+0000",
+					"updated": "2018-01-12T13:35:51.000+0000"
+				},
+				{
+					"id": "433081",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "Published a test plugin to npm if it's wanted for testing {{npm install -g appcd-plugin-ewan-test}}, endpoint is {{/ewan-test/latest/hello}}.\r\n\r\nTwo points that are still possible todos here\r\n\r\n* Scoped packages don't get loaded\r\n* Yarn has it's own global modules directory so we might want to add that",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2018-01-12T13:38:23.000+0000",
+					"updated": "2018-01-12T13:38:23.000+0000"
+				}
+			],
+			"maxResults": 6,
+			"total": 6,
+			"startAt": 0
+		}
+	}
+}

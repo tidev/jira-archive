@@ -1,0 +1,260 @@
+---
+title: "[TIMOB-20604] iOS: ti.geofence not tracking location on"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-28T20:38:11.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>geofence</td></tr>
+<tr><th>Reporter</th><td>dan</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-03-03T00:35:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-06T17:49:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+on iOS I am setting a location for geofencing. The code and output are below. On the iOS simulator, i set my location to the exact location of the geofence: {"latitude":26.2465067,"longitude":-98.2226709}
+then to : {"latitude":25.2465067,"longitude":-98.2226709}
+then back to : {"latitude":26.2465067,"longitude":-98.2226709}
+
+none of the events are logged
+<code><pre>
+    var geoFences = e.geo_fences;
+    var regionList = [ ];
+    for ( var i = 0; i < geoFences.length; i++ ) {
+      var fence = geoFences[ i ];
+      var loc = fence.loc;
+      var MILES_TO_METERS = 1609.34;
+      var RAD_TO_MILES = 3959;
+      var radius = 400; //parseFloat(loc.radius.replace(/\/[0-9]+/, "")) * MILES_TO_METERS;
+      var coordinates = {
+          latitude: loc.coordinates[ 1 ],
+          longitude: loc.coordinates[ 0 ]
+       };
+      var region = Geofence.createRegion( {
+        center: coordinates,
+        radius: radius,
+        identifier: "test", //fence.payload.title
+      } );
+      Ti.API.info( 'Radius (m): ' + radius );
+      Ti.API.info( 'Coords (m): ' + JSON.stringify(coordinates) );
+      regionList.push( region );
+    };
+    // Start monitoring for region entrances/exits:
+    Geofence.stopMonitoringAllRegions();
+    if (regionList.length > 0) {
+	    Geofence.startMonitoringForRegions( regionList );
+    }
+    Ti.API.info( JSON.stringify( e.geo_fences ) );
+    Ti.API.info( e.geo_fences.length );
+    Ti.API.info(regionList.length);
+    Ti.API.info('regions: ' + Geofence.getMonitoredRegions( ).length);
+
+    // Event listener invoked when device enters a region being monitored:
+    Geofence.addEventListener( "error", function( e ) {
+    	TI.API.info('geo error: ' + JSON.stringify(e));
+    });
+    Geofence.addEventListener('monitorregions', function(e) {
+	    // Triggered when new regions are added to be monitored
+	    Ti.API.info('####### monitorregion #######: ' + JSON.stringify(e));
+	    for (var i = 0, j = e.regions.length; i < j; i++) {
+	        Ti.API.info('Region id: ' + e.regions[i].identifier);
+	    }
+	});
+    Geofence.addEventListener( "enterregion", function( e ) {
+      // Display local notification
+      Ti.API.info('entered');
+    } );
+</pre></code>
+OUTPUT:
+
+[INFO] :   Radius (m): 400
+[INFO] :   Coords (m): {"latitude":26.2465067,"longitude":-98.2226709}
+[INFO] :   [{"id":"56ce0e26c6f20d3509b8c1a4","loc":{"radius":".25/3959","coordinates":[-98.2226709,26.2465067]},"payload":{"alert":"You have a new high score.","icon":"little_star","badge":3,"title":"High score alert!","vibrate":true,"custom_field":{"score":51,"headlines":"And now for something completely different..."}},"created_at":"2016-02-24T20:10:14+0000","updated_at":"2016-02-24T20:10:14+0000"}]
+[INFO] :   1
+[INFO] :   1
+[INFO] :   regions: 1
+[INFO] :   ####### monitorregion #######: {"regions":[{}],"bubbles":true,"type":"monitorregions","source":{"id":"ti.geofence"},"cancelBubble":false}
+[INFO] :   Region id: test
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-20604_63818/ti.geofence-iphone-2.0.2.zip">ti.geofence-iphone-2.0.2.zip</td></td><td>2017-12-15T10:00:36.000+0000</td><td>237921</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>dan 2016-03-03
+
+   On the documentation page, <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Geofence, It says to use the following code: 
+   Geofence.addEventListener("enterregion", function(e) { ...
+   further down on the events, it says the event is called "enterregions"  (with an "s" at the end)
+   
+   I tried using "enterregions" but it still did not fire an event when the region was entered.
+   
+   I also did not provide an error.</li>
+<li>Sharif AbuDarda 2017-04-07
+
+   This is still a issue for SDK 6.0.3.GA. Tested the module sample code on basic example. In simulator the output is:
+   createRegion()
+   
+   <code><pre>
+   [INFO]  REGION: [object TiGeofenceRegion] with identifier: Appcelerator
+   </pre></code>
+   
+   startMonitoringForRegions() 1280
+   
+   <code><pre>
+   [INFO]  startMonitoringForRegions() I280
+   [INFO]  ####### monitorregion #######: {"regions":[{}],"bubbles":true,"type":"monitorre
+   gions","source":{},"cancelBubble":false}
+   [INFO]  Region id: Test1
+   [INFO]  ####### monitorregion #######: {"regions":[{}],"bubbles":true,"type":"monitorre
+   gions","source":{},"cancelBubble":false}
+   [INFO]  Region id: Test2
+   </pre></code>
+   
+   startMonitoringForRegions() appc
+   
+   <code><pre>
+   [INFO]  startMonitoringForRegions() appc
+   [INFO]  ####### monitorregion #######: {"regions":[{}],"bubbles":true,"type":"monitorre
+   gions","source":{},"cancelBubble":false}
+   [INFO]  Region id: Appcelerator
+   </pre></code>
+   
+   Tested with ti.geofence 2.0.1.Thanks.
+   </li>
+<li>Hans Knöchel 2017-04-13
+
+   <code>monitorregions</code> is fired, so "none of them is firing" is incorrect. And <code>enterregions</code> does only fire when you are not currently inside a region and you are testing with a real device. The simulator might not be able to trigger geofencing properly, since it's a different API then just Geolocation.
+   
+   *EDIT*: Oh, and you missspelled the event, it's called <code>[enterregions](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Geofence-event-enterregions)</code>, not <code>enterregion</code>.</li>
+<li>Darren Mason 2017-04-13
+
+   I have been trying to implement this and I noticed that it ONLY seems to work for me if I use the *Always* key
+   <key>NSLocationAlwaysUsageDescription</key>
+   I was using the *WhenInUse* key and it wasn't firing.
+   <key>NSLocationWhenInUseUsageDescription</key>
+   
+   After changing to <key>NSLocationAlwaysUsageDescription</key> and doing nothing else it worked.
+   </li>
+<li>Vijay Singh 2017-12-14
+
+   For this to work on iOS following pointers should be considered -
+   
+   1. Before start monitoring region, we have request location permission e.g. (Needs to add in doc)
+   
+   <code><pre>
+     Ti.Geolocation.requestLocationPermissions(Titanium.Geolocation.AUTHORIZATION_ALWAYS, function(e){
+       Ti.API.info(e.error);
+       if(e.success && Ti.Geolocation.hasLocationPermissions(Titanium.Geolocation.AUTHORIZATION_ALWAYS)) {
+         Ti.API.info('Required permission granted');
+       } else {
+         Ti.API.info('Required permission not granted');
+       }
+     });
+   </pre></code>
+   
+   2. If using iOS 11 and above, we must add -
+    NSLocationAlwaysUsageDescription, NSLocationWhenInUseUsageDescription, NSLocationAlwaysAndWhenInUseUsageDescription key in tiapp.xml. 
+   3. Below iOS 11, NSLocationAlwaysUsageDescription need to added tiapp.xml.
+   4. For simulation, we should use device rather simulator.  Simulation steps are mentioned in doc [here| <a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Modules.Geofence].
+   5. Sample working code (280Drive.gpx file used from sample app given in module for simulating location) - 
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({backgroundColor: '#fff'});
+   
+   var label = Ti.UI.createLabel({
+     text: 'Click ',
+     color: "#333",
+     font: {
+       fontSize: 20
+     }
+   });
+   
+   label.addEventListener('click', function(e){
+     var Geofence = require('ti.geofence');
+     var newRegion1 = Geofence.createRegion({
+       center: {
+           latitude:37.389601,
+           longitude:-122.050169
+       },
+       radius:1000,
+       identifier:'Appcelerator'
+     });
+   
+     var newRegion2 = Geofence.createRegion({
+       center: {
+           latitude:37.353732000,
+           longitude:-122.108480000
+       },
+       radius:1000,
+       identifier:'Axway'
+     });
+   
+     Ti.Geolocation.requestLocationPermissions(Titanium.Geolocation.AUTHORIZATION_ALWAYS, function(e){
+       Ti.API.info(e.error);
+       if(e.success && Ti.Geolocation.hasLocationPermissions(Titanium.Geolocation.AUTHORIZATION_ALWAYS)) {
+         Ti.API.info('Required permission granted');
+       } else {
+         Ti.API.info('Required permission not granted');
+       }
+     });
+                          
+     Geofence.startMonitoringForRegions([newRegion1, newRegion2]);
+   
+     Geofence.addEventListener("enterregions", function(e) {
+       Ti.API.info('####### enterregions #######: ' + JSON.stringify(e));
+       for (var i = 0, j = e.regions.length; i < j; i++) {
+         Ti.API.info('Region id: ' + e.regions[i].identifier);
+       }
+     });
+   
+     Geofence.addEventListener('monitorregions', function(e) {
+       Ti.API.info('####### monitorregion #######: ' + JSON.stringify(e));
+       for (var i = 0, j = e.regions.length; i < j; i++) {
+         Ti.API.info('Region id: ' + e.regions[i].identifier);
+       }
+     });
+   
+     Geofence.addEventListener('exitregions', function(e) {
+       Ti.API.info('####### exitregions #######: ' + JSON.stringify(e));
+       for (var i = 0, j = e.regions.length; i < j; i++) {
+         Ti.API.info('Region id: ' + e.regions[i].identifier);
+       }
+     });
+   });
+   win.add(label);
+   win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2017-12-15
+
+   PR: <a href="https://github.com/appcelerator-modules/ti.geofence/pull/41" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.geofence/pull/41</a>
+   
+   This PR updates Ti.Geofence to use the latest API's and replaces all deprecated API's. It also adds the "requestStateForRegion" method and "regionstate" event to receive cached region events.
+   
+   A prerelease-version is attached to this ticket!</li>
+<li>Eric Wieber 2018-02-28
+
+   FR Passed. Location is correctly tracked and I receive enter and exit location events while monitoring regions. Tested using the provided samples as well as the geolocation/geofence suite</li>
+<li>Eric Merriman  2018-08-06
+
+   Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20604.json">JSON Source</a></p>

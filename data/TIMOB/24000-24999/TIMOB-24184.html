@@ -1,0 +1,208 @@
+---
+title: "[TIMOB-24184] Once HttpClient.validatesSecureCertificate is set to false it can't be set to true "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2016-12-17T20:05:05.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Alberto Marcone</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-11-30T17:35:23.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-24T18:57:26.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I tested this and apparently if you dynamically change the validatesSecureCertificate value, once it's set to false it can't be set to true again. Very weird behavior. It's at application level, not even on the same javascript object.
+
+Sample code:
+		<code><pre>
+		var httpClient1 = Titanium.Network.createHTTPClient();
+		httpClient1.setTimeout(15000);
+		httpClient1.validatesSecureCertificate = true;
+		httpClient1.open('POST', "<a href="https://192.168.2.138" rel="nofollow" target="_blank">https://192.168.2.138</a>");
+		httpClient1.onerror = function(e) {
+			console.log("#1 onerror",e);
+		};
+		httpClient1.onload = function(e) {
+			console.log("#1 "+this.responseText);
+		};
+		httpClient1.send();
+		
+		var httpClient2 = Titanium.Network.createHTTPClient();
+		httpClient2.setTimeout(15000);
+		httpClient2.validatesSecureCertificate = false;
+		httpClient2.open('POST', "<a href="https://192.168.2.138" rel="nofollow" target="_blank">https://192.168.2.138</a>");
+		httpClient2.onerror = function(e) {
+			console.log("#2 onerror",e);
+		};
+		httpClient2.onload = function(e) {
+			console.log("#2 "+this.responseText);
+		};
+		httpClient2.send();
+
+                var httpClient3 = Titanium.Network.createHTTPClient();
+		httpClient3.setTimeout(15000);
+		httpClient3.validatesSecureCertificate = true;
+		httpClient3.open('POST', "<a href="https://192.168.2.138" rel="nofollow" target="_blank">https://192.168.2.138</a>");
+		httpClient3.onerror = function(e) {
+			console.log("#3 onerror",e);
+		};
+		httpClient3.onload = function(e) {
+			console.log("#3 "+this.responseText);
+		};
+		httpClient3.send();
+</pre></code>
+
+the response is the following:
+
+<code><pre>
+[INFO] :   #1 onerror {
+[ERROR] :  = "Il certificato di questo server non \U00e8 valido. \U00c8 possibile che tu stia effettuando la connessione a un server che dichiara di essere \U201c192.168.2.138\U201d, ma che potrebbe mettere a rischio le tue informazioni riservate.";
+[INFO] :   code = "-1202";
+[ERROR] :  source = "[object TiNetworkHTTPClient]";
+[ERROR] :  success = 0;
+[ERROR] :  type = error;
+[ERROR] :  }
+[INFO] :   #2 onerror {
+[INFO] :   code = 401;
+[ERROR] :  = "HTTP error";
+[ERROR] :  source = "[object TiNetworkHTTPClient]";
+[ERROR] :  success = 0;
+[ERROR] :  type = error;
+[ERROR] :  }
+[INFO] :   #3 onerror {
+[ERROR] :  = "HTTP error";
+[INFO] :   code = 401;
+[ERROR] :  source = "[object TiNetworkHTTPClient]";
+[ERROR] :  success = 0;
+[ERROR] :  type = error;
+[ERROR] :  }
+</pre></code>
+
+as you can see the second http call fails with the wrong error (no ssl check)
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-11-30
+
+   [~fmerzadyan] Maybe missing accessors like we had previously? Can you check this out?</li>
+<li>Alberto Marcone 2016-12-09
+
+   any updates on this? it's a huge security flaw on our app and we would need to fix this asap. Thank you</li>
+<li>Gary Mathews 2016-12-16
+
+   I can't reproduce your issue, although I don't have access to the host you are connecting too. Also, if <code>validatesSecureCertificate</code> is not defined it will default to <code>true</code> when deployed to production. <code>validatesSecureCertificate</code> is being set correctly.
+   
+   <code><pre>
+   [true, false, true].forEach(function (validate) {
+       var http = Titanium.Network.createHTTPClient({
+               onload: function (response) {
+                   Ti.API.info('success (validate: ' + validate + ')');
+               },
+               onerror: function (response) {
+                   Ti.API.info('error (validate: ' + validate + ')');
+               }
+           });
+       http.validatesSecureCertificate = validate;
+       http.open('GET', '<a href="https://expired.badssl.com/" rel="nofollow" target="_blank">https://expired.badssl.com/</a>');
+       http.send();
+   });
+   </pre></code>
+   <code><pre>
+   error (validate: true)
+   error (validate: true)
+   success (validate: false)
+   </pre></code>
+   
+   You could also try <code>httpClient.setValidatesSecureCertificate(true/false)</code> ?</li>
+<li>Alberto Marcone 2016-12-16
+
+   First off this has been wrongly tagged as Android although I'm testing it on iOS 9/10.
+   Apparently it's not a matter of expiration but of trusted certificate.
+   
+   Try this (with different responses so that we know exactly the call which generated it):
+   
+   <code><pre>
+   var httpClient1 = Titanium.Network.createHTTPClient({validatesSecureCertificate:true});
+   httpClient1.open('POST', "<a href="https://revoked.grc.com/" rel="nofollow" target="_blank">https://revoked.grc.com/</a>");
+   httpClient1.onerror = function(e) {
+   	console.log("#1 onerror",e);
+   };
+   httpClient1.onload = function(e) {
+   	console.log("#1 "+this.responseText);
+   };
+   httpClient1.send();
+   
+   setTimeout(function() {
+   	var httpClient2 = Titanium.Network.createHTTPClient({validatesSecureCertificate:false});
+   	httpClient2.open('POST', "<a href="https://revoked.grc.com/" rel="nofollow" target="_blank">https://revoked.grc.com/</a>");
+   	httpClient2.onerror = function(e) {
+   		console.log("#2 onerror",e);
+   	};
+   	httpClient2.onload = function(e) {
+   		console.log("#2 OK ");
+   	};
+   	httpClient2.send();
+   }, 2000);
+   
+   setTimeout(function() {
+       var httpClient3 = Titanium.Network.createHTTPClient({validatesSecureCertificate:true});
+   	httpClient3.open('POST', "<a href="https://revoked.grc.com/" rel="nofollow" target="_blank">https://revoked.grc.com/</a>");
+   	httpClient3.onerror = function(e) {
+   		console.log("#3 onerror",e);
+   	};
+   	httpClient3.onload = function(e) {
+   		console.log("#3 OK");
+   	};
+   	httpClient3.send();
+   }, 4000);
+   </pre></code>
+   
+   RESPONSES:
+   <code><pre>
+   [INFO] :   #1 onerror {
+   [INFO] :       code = "-1202";
+   [INFO] :       error = "The certificate for this server is invalid. You might be connecting to a server that is pretending to be \U201crevoked.grc.com\U201d which could put your confidential information at risk.";
+   [INFO] :       source = "[object TiNetworkHTTPClient]";
+   [INFO] :       success = 0;
+   [INFO] :       type = error;
+   [INFO] :   }
+   [INFO] :   #2 OK
+   [INFO] :   #3 OK
+   </pre></code>
+   
+   As you can see the last call should give the same error as the first but it doesn't. The params are always specified so it doesn't matter if it's in production or not.</li>
+<li>Gary Mathews 2016-12-16
+
+   [~hansknoechel] This is an iOS issue; I've corrected the ticket. Could you take a look?</li>
+<li>Hans Knöchel 2016-12-17
+
+   I spent the last day debugging this issue through the whole core and here are my results:
+   - We use the native <code>credentialForTrust:</code> method to ignore the invalid certificate
+   - As soon as the invalid connection *for that domain** is trusted, it won't prompt again (just like in the Browser)
+   - We cannot change this behavior, since it's an internal iOS mechanism
+   
+   So I will resolve this issue as <code>Not Our Bug</code>, I hope that's reasonable after this explanation. Thank you!</li>
+<li>Alberto Marcone 2016-12-19
+
+   thank you for the time you took to look into this.
+   
+   At this point would it be possible to remove the cache of the Untrusted SSL Exceptions like someone asked here [<a href="http://stackoverflow.com/questions/18120755/how-to-clear-trusted-server-certificate-cache-in-ios" rel="nofollow" target="_blank">http://stackoverflow.com/questions/18120755/how-to-clear-trusted-server-certificate-cache-in-ios</a>] ? Just wondering what my options are at this point</li>
+<li>Hans Knöchel 2016-12-19
+
+   I don't see a client-side API for this, so rather your server would need to handle this - or you try to set the cache-control request header, but not sure if that would effect certificates as well. </li>
+<li>Lee Morris 2017-03-24
+
+   Closing ticket with reference to the previous comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24184.json">JSON Source</a></p>

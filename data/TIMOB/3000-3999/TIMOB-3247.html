@@ -1,0 +1,225 @@
+---
+title: "[TIMOB-3247] Titanium.App.fireEvent from html stopped working in Android from 1.6.0"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2020-01-09T18:50:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Harald Sakshaug</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:40:21.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-01-09T18:50:55.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Titanium.App.fireEvent from a html page to the underlying app.hs
+file in iPhone have been possible from the "html: htmlString"
+property of a webview for a long time. (The "url: page" property
+would however not work)</p>
+<p>Up until 1.5.1 this was possible in Android too, using either
+the "url: page" property or the "html: htmlString" property of the
+webView.</p>
+<p>In SDK 1.6.0 both seems to work on the Android Emulator, but on
+the device these are not triggered at all. On the 1.5.1 SDK these
+are picked up on the device from both the url and the html property
+on the device, but none of these works on the device in the 1.6.0
+SDK release.</p>
+<p>It would be fine if it only worked from the "html" property as
+on the iPhone, but now interaction between the html page and the
+underlying app.js file does not work anymore in Android.</p>
+<p>I have been testing on a Android device (Galaxy 9000S running
+APIs 2.1)</p>
+<p>On the emulator all api's from 1.6 till 2.2 seems to work
+ok.</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Harald Sakshaug 2011-04-15
+
+   <div><p>Typo in ticket: app.hs should be app.js.</p></div></li>
+<li>Aaron K. Saunders 2011-04-15
+
+   <div><p>I am getting a crash when ever i attempt to fire an event from
+   inside a webView, I will do some more testing and write a simple
+   app to verify</p></div></li>
+<li>Dawson Toth 2011-04-15
+
+   <div><p>Harald, is your HTML well formed? If you don't have and the Ti
+   scripts won't have anywhere to get injected, and so they won't be
+   injected.</p>
+   <p>For example, this script should alert that Ti.App.fireEvent is a
+   function, but it will not:</p>
+   <pre>
+   <code class="javascript">var web = Ti.UI.createWebView({
+       html: 'hi'
+   });
+   web.addEventListener('load', function() {
+       web.evalJS('alert(Ti.App.fireEvent);');
+   });</code>
+   </pre>
+   <p>while this script will, when all I have changed is adding the
+   proper HTML elements:</p>
+   <pre>
+   <code>var web = Ti.UI.createWebView({
+       html: '&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;hi&lt;/body&gt;&lt;/html&gt;'
+   });
+   web.addEventListener('load', function() {
+       web.evalJS('alert(Ti.App.fireEvent);');
+   });</code>
+   </pre>
+   <p>Can you verify that you are seeing the same behavior? I have
+   only tested this on the iPhone Simulator 4.2.</p></div></li>
+<li>Harald Sakshaug 2011-04-15
+
+   <div><p>Hi Dawson,</p>
+   <p>It works perfect on the iPhone and the iPhone simulator using
+   the html property. I pull the HTML from the server and inject it
+   into the webview using the HTML property-</p>
+   <p>This works fine sin the Android Emulator as well. Both using the
+   HTML property and injecting downloaded HTML, and the url propery
+   pointing to the external file.</p>
+   <p>The problem is the Android Device where neither method
+   works.<br>
+   If i compile with the 1.5.1 it works perfectly on the device too
+   using the url property, but compiling with 1.6.0 breaks it.</p>
+   <p>The HTML i load is pulled from this url:<br>
+   <a href=
+   "<a href="http://turisme.nextcon.no/tourlist.aspx" rel="nofollow" target="_blank">http://turisme.nextcon.no/tourlist.aspx</a>"><a href="http://turisme.nextcon.no/tourlist.aspx" rel="nofollow" target="_blank">http://turisme.nextcon.no/tourlist.aspx</a></a></p>
+   <p>One odd behaviour I have seen is that it appear to work for one
+   build in 1.6.0 if I just compile it in 1.5.1 first. I havent been
+   testing enough to see thatt this is perfect every time, but it
+   appears that building 1.5.1 and immediately building 1.6.0
+   afterwards it work for that first build only.</p>
+   <p>I sort of have put it aside waiting for someone to look at this
+   error report.</p>
+   <p>Thanks, Harald.</p></div></li>
+<li>Dan B 2011-04-15
+
+   <div><p>I can confirm custom events are not firing from within web views
+   in Linux Android 1.6.1 Mar 11 2011 18:20 r2732315a (web view ui
+   events fire fine, issue is from within webview). However, they do
+   appear to be firing in OSX iOS 1.6.0.</p></div></li>
+<li>Julian G 2011-04-15
+
+   <div><p>I want to highlight this issue as being potentially quite a
+   major one. As things stand, there is an entire category of app
+   (those requiring communication between a web view and the container
+   app) that this issue makes it nearly impossible to implement on
+   Android devices when using Titanium.</p>
+   <p>I implemented a pretty basic RSS news feeder app which pulls
+   content from a server and displays that content using a mixture of
+   native screens and web views. The web views are used to display
+   HTML content loaded from the feed. The HTML is generated from the
+   feed contents and is passed to the web view using its 'html'
+   property (all content is valid HTML). The HTML includes buttons
+   which, when clicked, request navigation to a new screen by using
+   Ti.App.fireEvent to raise an application level event.</p>
+   <p>Using mobile SDK 1.6, the app worked perfectly on iOS but was
+   hopelessly broken on Android as the event handlers (registered
+   using Ti.App.addEventListener) would never receive any events.
+   After an epic hack session, I eventually coded a work around by
+   registering a click event handler on the web view, re-injecting the
+   event into the web view using evalJS and then extracting the
+   required Ti.App event by the same route. Even then, I could only
+   get the events to their destination by moving the listener
+   registration from the Ti.App object to the web view object, and by
+   calling fireEvent on the web view object once the event had been
+   dug out of the web view:</p>
+   <pre>
+   <code class=
+   "javascript">// Dig application level events out of the web view when a click event happens
+   webView.addEventListener('click',function() {
+       // This solution requires a load of JS code in the web view.
+       var e = webView.evalJS('injectClickEvent()');
+       if( e ) {
+           e = JSON.parse( e );
+           // Calling Ti.App.fireEvent won't work...
+           webView.fireEvent( e.n, e.e );
+       }
+   });
+   // This listener on Ti.App won't work...
+   webView.addEventListener('some-application-level-event', myEventHandler );</code>
+   </pre>
+   <p>This problem seems to exist only for multi-window apps defined
+   over multiple files. If I create a trivial app in a single app.js
+   like the following, then it all works OK:</p>
+   <pre>
+   <code class="javascript">var webView = Ti.UI.createWebView({
+       html:'&lt;html&gt;&lt;input type="button" value="test" onclick="Ti.App.fireEvent(\"test\")"/&gt;&lt;/html&gt;';
+   });
+   Ti.App.addEventListener('test', function() { ... });
+   // etc...</code>
+   </pre>
+   <p>To reiterate, this was only a problem on Android. Also, the
+   problem does not seem to be confined to the 1.6.0 sdk; I tested on
+   1.6.1 and 1.5.1 and had the same issues on both.</p>
+   <p>What I'm describing is probably only part of a more fundamental,
+   JS scope related problem, as I also encountered occasional problems
+   firing events from within JS closures, but I'm highlighting this
+   problem as it was considerably more difficult to work around.</p></div></li>
+<li>KT 2011-04-15
+
+   <div><p>Are you seeing a message in your trace log along the lines of
+   "E/Web Console( 504): ReferenceError: Can't find variable: Ti at
+   file: ..." ?</p>
+   <p>Because I'm seeing that as per <a href=
+   "<a href="https://appcelerator.lighthouseapp.com/projects/32238/tickets/3539-android-no-ti-javascript-injection-to-webview" rel="nofollow" target="_blank">https://appcelerator.lighthouseapp.com/projects/32238/tickets/3539-android-no-ti-javascript-injection-to-webview</a>">
+   this</a>.</p>
+   <p>(I'm also trying to figure out if and how it's related to the
+   fact that evalJS() simply <a href=
+   "<a href="https://appcelerator.lighthouseapp.com/projects/32238/tickets/3510-android-evaljs-crashing-with-sigsegv" rel="nofollow" target="_blank">https://appcelerator.lighthouseapp.com/projects/32238/tickets/3510-android-evaljs-crashing-with-sigsegv</a>">
+   crashes</a> on 2.2.)</p></div></li>
+<li>Julian G 2011-04-15
+
+   <div><p>Kt - No errors are raised, and the Ti object is resolvable.</p></div></li>
+<li>KT 2011-04-15
+
+   <div><p>So I'm the only one seeing these, repeatedly and reproduceably
+   with a minimal app.js?</p></div></li>
+<li>Harald Sakshaug 2011-04-15
+
+    <div><p>I can do some testing to see if a minimal app.js fixes or
+    repairs the problem... however...</p>
+    <p>My app is not a minimal app, in which I experience the problem
+    with broken communication between appcelerator and the html. I am
+    not even certain if I am able to convert it to be that even,
+    needing both timers and the GPS on the Android which only runs
+    properly if the app have a proper activity (eg. no minimal app, but
+    running from its own .js file, probably fullscreen even...)</p>
+    <p>My initial info still holds tho, it do not work on the device,
+    but perfectly on the iPhone, iPhone simulator and the Android
+    emulator. Having to convert to minial app.js is not satisfactory or
+    even possible for me sadly enough, to much functionality depends on
+    the proper activity.</p>
+    <p>I would like to see this error lifted from "low" and to be fixed
+    :)</p></div></li>
+<li>Julian Goacher 2011-04-27
+
+    Oh well - after further changes to our project, Titanium stopped detecting even click events on the webview object, which killed the fix described above. Tried using touchend events instead, but this crashes the app after a swipe gesture. Upshot is that despite over a month's worth of dev effort on the project, we have given up trying to use Titanium for this and instead will start again and do it natively. This issue - combined with others - make me conclude that Titanium on Android is not stable or reliable. It has some vague but fundamental problems at its core (possibly due to concurrency issues), and there is no sign of these issues being taken seriously by the dev team (presumably because they can't be recreated with simple test cases).</li>
+<li>Reggie Seagraves 2011-04-27
+
+    This appears to be an Android issue.  Reassigning to Don Thorp for triage.</li>
+<li>Julian Goacher 2011-05-11
+
+    I added a comment to the Q&A section highlighting a serious problem which I think is relevant to this issue: <a href="http://developer.appcelerator.com/question/119481/incorrect-javascript-code-evaluation-on-titanium-android" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/119481/incorrect-javascript-code-evaluation-on-titanium-android</a>
+    
+    (I'm following the instructions at <a href="http://developer.appcelerator.com/blog/2011/04/platform-engineering-transitioning-to-jira-for-issue-tracking.html" rel="nofollow" target="_blank">http://developer.appcelerator.com/blog/2011/04/platform-engineering-transitioning-to-jira-for-issue-tracking.html</a> but it should really be raised as a Jira ticket).
+    
+    I'd try putting together a patch to fix this myself, but the complete lack of code documentation makes it way too time consuming...</li>
+<li>Alan Hutton 2020-01-09
+
+    It has been decided that this issue should be closed as “Won’t do.” This issue is out of date with our current supported SDK release (7.5.2.GA as of the date of closure), and out of date with mobile OS versions. Updating, or creating code may not reproduce the issue reported, or be a valid test case.
+    
+    If community members feel that the issue is still valid, please create a new ticket. Please reference this closed ticket number, include SDK used, comments, and code that demonstrates/reproduces the issue.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3247.json">JSON Source</a></p>

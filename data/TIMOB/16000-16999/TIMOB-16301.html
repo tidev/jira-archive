@@ -1,0 +1,121 @@
+---
+title: "[TIMOB-16301] Android: Module packaging fails on Windows"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2014-02-01T01:41:59.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-3.2.1</td></tr>
+<tr><th>Reporter</th><td>Samuel Dowse</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2014-01-23T23:42:18.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T22:05:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description</h4>
+Packaging an Android module to any of the three options from within Studio will fail with the following console output
+
+<code><pre>
+Executing build.xml...
+C:\Users\Tester\AppData\Roaming\Titanium\mobilesdk\win32\3.2.1.v20140122175749\module\android\build.xml:326: The following error occurred while executing this line:
+C:\Users\Tester\AppData\Roaming\Titanium\mobilesdk\win32\3.2.1.v20140122175749\module\android\build.xml:281: exec returned: 1
+</pre></code>
+
+I have attached a file containing the output of the studio log.
+
+<h4>Steps To Reproduce</h4>
+1. Create an Android module
+2. Package the module to the Titanium SDK
+
+<h4>Expected Result</h4>
+The module should package successfully
+
+<h4>Actual Result</h4>
+The package fails
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-16301_45348/consolelog.txt">consolelog.txt</td></td><td>2014-01-23T23:42:18.000+0000</td><td>8432</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Samuel Dowse 2014-01-28
+
+   Here is the output [~mxia]
+   <code><pre>
+   Buildfile: C:\Users\tester32\Documents\Appcelerator_Studio_Workspace\android\build.xml
+   python.set.exec:
+   python.check:
+        [echo] Testing for Python
+        [exec] Error: No python executable could be found on your system
+   
+   BUILD FAILED
+   C:\Users\tester32\AppData\Roaming\Titanium\mobilesdk\win32\3.2.1.v20140128093245\module\android\build.xml:142: exec returned: 1
+   
+   Total time: 812 milliseconds
+   </pre></code></li>
+<li>Michael Xia 2014-01-29
+
+   So look like python is not installed on the system. Sam, could you check if running "python" from command line works? If not, let's try installing Python separately and see if it helps.
+   </li>
+<li>Samuel Dowse 2014-01-29
+
+   [~mxia], Python 3.3.3 is installed and set up in the system environment variables. Running the command "python" in the command line detects the python environment as well. Studio still fails while packaging.</li>
+<li>Ingo Muschenetz 2014-01-29
+
+   I don't think we support that version of Python, do we? At one point, we only supported 2.7.</li>
+<li>Samuel Dowse 2014-01-29
+
+   [~ingo], to test your assumption I removed Python 3.3.3 and installed Python 2.7.6. I still ran into the same error.
+   Command line detects version 2.7.6 just as it did 3.3.3 and still Studio fails while packaging.</li>
+<li>Chris Barber 2014-02-01
+
+   After a couple hours I finally got everything installed and working.
+   
+   For starters, if you create the module from Studio, you need to download and install the Eclipse Java Development plugin. I suppose you can skip this if you invoke titanium.py directly from the command line, which brings us to the next dependency...
+   
+   You must install Python 2.7. Python 3.3 will NOT work. I tested with v2.7.6 (32-bit). You need to put Python directory in the PATH.
+   
+   Of course you need Apache Ant, so download and install that, then add the Ant directory to the PATH.
+   
+   Next you need to install the Android NDK. I chose r9c (64-bit). After unzipping (1.1GB!), you need to set the ANDROID_NDK environment variable to point to the folder. Be sure you install this in a directory that does NOT contain any spaces.
+   
+   Just when you think you're almost done, you need to download the Android 2.3.3 SDK. This is required by the (old) build scripts.
+   
+   Ready to build? Not so fast. You need to go download and install gperf (<a href="http://gnuwin32.sourceforge.net/packages/gperf.htm)." rel="nofollow" target="_blank">http://gnuwin32.sourceforge.net/packages/gperf.htm).</a> Add that to the PATH. Oh, then restart Windows for whatever reason.
+   
+   Finally create a module project. Remember to put it a directory that doesn't have any spaces. I have no clue how to build a module from Studio, so let's open a command prompt. Change to the module project directory and run "ant". 
+   
+   <code><pre>
+   BUILD SUCCESSFUL
+   Total time: 14 seconds
+   </pre></code></li>
+<li>Ingo Muschenetz 2014-02-01
+
+   Applause! FWIW, I have been trying to get rid of gperf for over a year now: TIMOB-10724. I wonder how much better it would be if we just did that and get rid of the Android 2.3.3 requirement.</li>
+<li>Chris Barber 2014-02-01
+
+   gperf is interesting. I'm not sure how it's being used, but it doesn't seem like something we can just rip out. Maybe if we rewrote the module build scripts in Node.js, then we could find something cross-platform that will work, which subsequently also removes Python from the equation.
+   
+   The Android 2.3.3 requirement has got to go.</li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as the issue cannot be reproduced and due to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16301.json">JSON Source</a></p>

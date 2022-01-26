@@ -1,0 +1,138 @@
+---
+title: "[TIMOB-20116] Android - ScrollableView removeView(): java.lang.IndexOutOfBoundsException: Invalid index X, size is X"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-05T03:31:23.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.0.2, Release 5.1.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, removeview, scrollableview</td></tr>
+<tr><th>Reporter</th><td>Rodolfo Perottoni</td></tr>
+<tr><th>Assignee</th><td>Ashraf Abu</td></tr>
+<tr><th>Created</th><td>2015-10-06T19:23:15.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-06-24T18:41:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This is happening only in the android platform. Seems like when you call the ScrollableView.removeView() method it automatically jumps to the previous view if you're currently viewing the one you're trying to delete. However, that fires an exception.
+How to reproduce:
+
+* Create an Android-enabled project with a single, main view.
+* Add to that view a ScrollableView and a Button below it.
+* Add 3 empty views to the ScrollableView.
+* Add an event to the button which fires the following code:
+<code><pre>
+_.each($.scrollableView.getViews(), function(view) {
+     $.scrollableView.removeView(view);
+});
+</pre></code>
+
+* Click the button with the view number 1 focused: it will work.
+* Reopen the app (so the views get added again), browse to the 3rd view and click the button.
+It will throw this exception:
+
+<code><pre>
+[ERROR] :  TiApplication: (main) [47704,48391] Sending event: exception on thread: main msg:java.lang.IndexOutOfBoundsException: Invalid index 1, size is 1; Titanium 5.0.3,2015/10/02 00:31,d4496fe
+[ERROR] :  TiApplication: java.lang.IndexOutOfBoundsException: Invalid index 1, size is 1
+[ERROR] :  TiApplication: 	at java.util.ArrayList.throwIndexOutOfBoundsException(ArrayList.java:255)
+[ERROR] :  TiApplication: 	at java.util.ArrayList.get(ArrayList.java:308)
+[ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.TiUIScrollableView$2.onPageSelected(TiUIScrollableView.java:159)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.scrollToItem(ViewPager.java:578)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.setCurrentItemInternal(ViewPager.java:555)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.setCurrentItemInternal(ViewPager.java:513)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager.dataSetChanged(ViewPager.java:912)
+[ERROR] :  TiApplication: 	at android.support.v4.view.ViewPager$PagerObserver.onChanged(ViewPager.java:2826)
+[ERROR] :  TiApplication: 	at android.database.DataSetObservable.notifyChanged(DataSetObservable.java:37)
+[ERROR] :  TiApplication: 	at android.support.v4.view.PagerAdapter.notifyDataSetChanged(PagerAdapter.java:276)
+[ERROR] :  TiApplication: 	at ti.modules.titanium.ui.widget.TiUIScrollableView.removeView(TiUIScrollableView.java:350)
+[ERROR] :  TiApplication: 	at ti.modules.titanium.ui.ScrollableViewProxy.handleMessage(ScrollableViewProxy.java:131)
+[ERROR] :  TiApplication: 	at android.os.Handler.dispatchMessage(Handler.java:98)
+[ERROR] :  TiApplication: 	at android.os.Looper.loop(Looper.java:135)
+[ERROR] :  TiApplication: 	at android.app.ActivityThread.main(ActivityThread.java:5254)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Native Method)
+[ERROR] :  TiApplication: 	at java.lang.reflect.Method.invoke(Method.java:372)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:903)
+[ERROR] :  TiApplication: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:698)
+</pre></code>
+
+How i've solved it:
+Before removing the ScrollableView views, i've used this method:
+
+<code><pre>
+$.scrollableView.scrollToView($.scrollableView.getViews()[0]);
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Andrey Tkachenko 2016-04-01
+
+   Friday PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7904" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7904</a>
+   
+   Test code: 
+   
+   index.xml
+   <code><pre>
+   <Alloy>
+   	<Window class="container">
+   		<ScrollableView id="scrollableView">
+   			<View><Label>1</Label></View>
+   			<View><Label>2</Label></View>
+   			<View><Label>3</Label></View>
+   		</ScrollableView>
+   		<View height="Ti.UI.SIZE" top="0" layout="vertical">
+   		<Button onClick="doClear">Clear</Button>
+   		<Button onClick="doClearSecond">Clear second</Button>
+   		</View>
+   	</Window>
+   </Alloy>
+   </pre></code>
+   
+   index.js
+   <code><pre>
+   function doClear(e) {
+       _.each($.scrollableView.getViews(), function(view) {
+        	$.scrollableView.removeView(view);
+        });
+   }
+   
+   function doClearSecond() {
+   	$.scrollableView.removeView($.scrollableView.getViews()[1]);}
+   $.index.open();
+   </pre></code>
+   
+   </li>
+<li>Ashraf Abu 2016-04-05
+
+   Tested code with test case above. Working as expected.</li>
+<li>Ashraf Abu 2016-04-05
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/7904" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7904</a> Merged with test cases in TIMOB-23134 and TIMOB-20116</li>
+<li>Lokesh Choudhary 2016-06-24
+
+   Verified the fix.
+   
+   <code>removeView()</code> does not give a <code>java.lang.IndexOutOfBoundsException</code>.
+   Closing.
+   
+   Environment:
+   Appc Studio : 4.7.0.201606150733
+   Ti SDK :  5.4.0.v20160617074028
+   Ti CLI : 5.0.9
+   Alloy : 1.9.0
+   MAC El Capitan : 10.11.4
+   Appc NPM : 4.2.7-2
+   Appc CLI : 5.4.0-18
+   Node: 4.4.4
+   Nexus 6 - Android 6.0.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20116.json">JSON Source</a></p>

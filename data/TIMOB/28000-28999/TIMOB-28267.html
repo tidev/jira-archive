@@ -1,0 +1,306 @@
+---
+title: "[TIMOB-28267] Ti.Barcode event handlers not working properly on iOS"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 9.3.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>eventlistener</td></tr>
+<tr><th>Reporter</th><td>VDLP</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2020-10-30T11:35:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-01-26T15:15:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When using ti.barcode module with SDK 9.0.3.GA and 9.2.2.GA on iOS 13 it sometimes happens that the registered event handlers stop working. This often happens if you remove a event listener that does not exist and try adding it again.
+
+Because we want to ensure we don't register a event listener twice we often call <code>Barcode.removeEventListener(...);</code> before adding any listeners. This used to work on older iOS/titanium/ti.barcode versions.
+
+We've tested with ti.barcode version 2.0.4 and 6.0.0
+
+With the following example app the issue can be reproduced by tapping the buttons in the following order;
+
+> Add Event Listeners
+> resetCapture
+> remove event listeners
+> resetCapture
+
+The barcodeSuccess callback is not called anymore although that is expected.
+If we try to tap <code>resetCapture</code> multiple times in a clean run the event handers will always be properly removed, added and called.
+
+index.js
+<code><pre>
+const Barcode = require('ti.barcode');
+const overlay = Ti.UI.createView({
+	backgroundColor: 'transparent',
+	top: 0,
+	right: 0,
+	bottom: 0,
+	left: 0
+});
+
+var switchButton = Ti.UI.createButton({
+	title: Barcode.useFrontCamera ? 'Back Camera' : 'Front Camera',
+	textAlign: 'center',
+	color: '#000',
+	backgroundColor: '#fff',
+	style: 0,
+	font: {
+		fontWeight: 'bold',
+		fontSize: 16
+	},
+	borderColor: '#000',
+	borderRadius: 10,
+	borderWidth: 1,
+	opacity: 0.5,
+	width: 220,
+	height: 30,
+	bottom: 10
+});
+
+switchButton.addEventListener('click', function () {
+	Barcode.useFrontCamera = !Barcode.useFrontCamera;
+	switchButton.title = Barcode.useFrontCamera ? 'Back Camera' : 'Front Camera';
+});
+
+overlay.add(switchButton);
+
+var cancelButton = Ti.UI.createButton({
+	title: 'Cancel',
+	textAlign: 'center',
+	color: '#000',
+	backgroundColor: '#fff',
+	style: 0,
+	font: {
+		fontWeight: 'bold',
+		fontSize: 16
+	},
+	borderColor: '#000',
+	borderRadius: 10,
+	borderWidth: 1,
+	opacity: 0.5,
+	width: 220,
+	height: 30,
+	top: 20
+});
+cancelButton.addEventListener('click', function () {
+	Barcode.cancel();
+});
+overlay.add(cancelButton);
+
+
+function barcodeAddEventListeners() {
+    console.log('barcodeAddEventListeners');
+    Barcode.addEventListener('success', barcodeSuccess);
+    Barcode.addEventListener('cancelled', barcodeCancelled);
+    Barcode.addEventListener('error', barcodeError);
+}
+
+function barcodeRemoveEventListeners() {
+    console.log('barcodeRemoveEventListeners');
+    Barcode.removeEventListener('success', barcodeSuccess);
+    Barcode.removeEventListener('cancelled', barcodeCancelled);
+    Barcode.removeEventListener('error', barcodeError);
+}
+
+function resetCapture() {
+    barcodeRemoveEventListeners();
+    barcodeAddEventListeners();
+    barcodeCapture();
+}
+
+function barcodeSuccess() {
+    console.log('barcodeSuccess');
+}
+
+function barcodeCancelled() {
+    console.log('barcodeCancelled');
+}
+
+function barcodeError() {
+    console.log('barcodeError');
+}
+
+
+var cameraPermission = (callback) => {
+	if (OS_ANDROID) {
+		if (Ti.Media.hasCameraPermissions()) {
+			if (callback) {
+				callback(true);
+			}
+		} else {
+			Ti.Media.requestCameraPermissions(function (e) {
+				if (e.success) {
+					if (callback) {
+						callback(true);
+					}
+				} else {
+					if (callback) {
+						callback(false);
+					}
+					console.log('No camera permission'); // eslint-disable-line no-alert
+				}
+			});
+		}
+	}
+
+	if (OS_IOS) {
+		if (callback) {
+			callback(true);
+		}
+	}
+};
+
+function barcodeCapture() {
+    cameraPermission(success => {
+        console.log('gotPermission', {success: success});
+        if(success) {
+            Barcode.capture({
+                animate: true,
+                showCancel: false,
+                showRectangle: false,
+                keepOpen: false,
+                allowInstructions: false,
+                allowMenu: true,
+                overlay: overlay,
+                acceptedFormats: [
+                    Barcode.FORMAT_QR_CODE
+                ]
+            });
+        }
+    })
+    
+}
+
+
+$.index.open();
+</pre></code>
+
+index.xml
+<code><pre>
+<Alloy>
+	<Window id="index" layout="vertical">		
+		<Button left="0" right="0" top="50" onClick="barcodeAddEventListeners">Add Event Listeners</Button>
+		<Button left="0" right="0" top="10" onClick="barcodeRemoveEventListeners">Remove Event Listeners</Button>
+		<Button left="0" right="0" top="10" onClick="barcodeCapture">barcodeCapture</Button>
+		<Button left="0" right="0" top="10" onClick="resetCapture">resetCapture</Button>
+	</Window>
+</Alloy>
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rene Pot 2020-11-02
+
+   Is this happening on iOS 14 too? Or just iOS 13?</li>
+<li>VDLP 2020-11-04
+
+   Only had a chance to test it on iOS 13</li>
+<li>Satyam Sekhri 2020-11-24
+
+   Could not reproduce it on the simulator. Could not test on the device as the test app crashes on click of resetCapture button on both iOS 13 and 14 devices.</li>
+<li>Srinivasan Pulipakkam 2020-11-30
+
+   [~menzo] Can you please check the response ^^ and see if there is any issue in the test app.. </li>
+<li>VDLP 2020-12-02
+
+   Well it's not gonna work on a simulator because the test requires using the camera which is not available on simulator. And for me the app works on device when built with the mentioned SDK / plugin versions. Maybe Satyam can provide crash log?</li>
+<li>Satyam Sekhri 2020-12-03
+
+   The app crash was a permission issue at my end. Could run the app now and noticed that following the steps in sequence as mentioned below the barcodeSuccess callback is successfully called in step 2 but not in step 4.
+   Step 1: After the app open click on Add Event Listeners
+   Step 2: click resetCapture
+   Step 3: click remove event listeners
+   Step 4: click resetCapture</li>
+<li>VDLP 2020-12-04
+
+   So just to be clear, that confirms that you were able to reproduce the issue?</li>
+<li>Vijay Singh 2020-12-09
+
+   [~menzo] Yes. We are able to reproduce it. I have started working on this. I'll update here with progress.</li>
+<li>Vijay Singh 2020-12-11
+
+   This is bug in SDK not in Barcode module.
+   
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/12339" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/12339</a>
+   
+   Test Case 1 - 
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor: '#fff',
+   	layout: 'vertical'
+   });
+   
+   var btn1 = Ti.UI.createButton({
+   	title: 'Add Event Listeners to button 3',
+   	top: 120
+   });
+   btn1.addEventListener('click', () => {
+   	btn3.addEventListener('click', logEvent);
+   });
+   win.add(btn1);
+   
+   var btn2 = Ti.UI.createButton({
+   	title: 'Remove Event Listeners to button 3',
+   	top: 40
+   });
+   btn2.addEventListener('click', () => {
+   	btn3.removeEventListener('click', logEvent);
+   });
+   win.add(btn2);
+   
+   var btn3 = Ti.UI.createButton({
+   	top: 40,
+   	title: 'Click on Button3'
+   });
+   win.add(btn3);
+   
+   win.open();
+    
+   function logEvent() {
+       console.log('Event logged');
+   }
+   
+   win.addEventListener('focus', focusEvent);
+   
+   win.removeEventListener('focus', focusEvent);
+   win.removeEventListener('focus', focusEvent);
+   win.removeEventListener('focus', focusEvent);
+   
+   win.addEventListener('focus', focusEvent);
+   
+   function focusEvent() {
+       console.log('Focus Event logged');
+   }
+   </pre></code>
+   
+   Note - 
+   1. On app run it should log 'Focus Event logged'.
+   2. Add event listener on button 3 once the remove event listener > 3 times and then add event listener again by clicking respective buttons. Now click button 3. It should log 'Event Log' .
+   
+   
+   </li>
+<li>Satyam Sekhri 2020-12-15
+
+    FR Passed.
+    Waiting for Jenkins build.</li>
+<li>Christopher Williams 2020-12-16
+
+    merged to master, cherry-picked to 9_3_X for 9.3.1 target</li>
+<li>martin 2021-01-26
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28267.json">JSON Source</a></p>

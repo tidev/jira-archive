@@ -1,0 +1,149 @@
+---
+title: "[TIMOB-25930] Android: Crashing with runtime exception"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 7.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Rene Pot</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2018-04-04T15:58:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-04-12T06:35:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Android app keeps crashing for many users using the app created by [~zettageek] as contractor.
+
+<code><pre>
+java.lang.RuntimeException: 
+  at android.app.ActivityThread.handleReceiver (ActivityThread.java:3290)
+  at android.app.ActivityThread.-wrap20 (ActivityThread.java)
+  at android.app.ActivityThread$H.handleMessage (ActivityThread.java:1715)
+  at android.os.Handler.dispatchMessage (Handler.java:102)
+  at android.os.Looper.loop (Looper.java:154)
+  at android.app.ActivityThread.main (ActivityThread.java:6682)
+  at java.lang.reflect.Method.invoke (Native Method)
+  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run (ZygoteInit.java:1520)
+  at com.android.internal.os.ZygoteInit.main (ZygoteInit.java:1410)
+Caused by: java.lang.ClassNotFoundException: 
+  at dalvik.system.BaseDexClassLoader.findClass (BaseDexClassLoader.java:56)
+  at java.lang.ClassLoader.loadClass (ClassLoader.java:380)
+  at java.lang.ClassLoader.loadClass (ClassLoader.java:312)
+  at android.app.ActivityThread.handleReceiver (ActivityThread.java:3285)
+</pre></code>
+
+
+<code><pre>
+SDK Version: 7.1.0.GA
+Android Target SDK Version: 26
+Hyperloop Enabled: YES (we use the Localytics-Hyperloop library on Github)
+Facebook SDK In User: YES
+Push Notifications: YES (Via Plot Projects)
+Attached to Axway Platform: YES
+Alloy Framework In Use: YES
+Android Permissions In Use:
+<uses-permission android:name="android.permission.CAMERA"/>
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+<uses-permission android:name="android.permission.GET_ACCOUNTS"/>
+<uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
+<uses-permission android:name="com.my.app.permission.C2D_MESSAGE"/>
+<permission android:name="com.my.app.permission.C2D_MESSAGE" android:protectionLevel="signature"/>
+<uses-feature android:name="android.hardware.camera"/>
+<uses-feature android:name="android.hardware.camera.autofocus"/>
+</pre></code>
+
+*Further information:*
+
+We also use GCM receivers.
+AppCompat as base Android theme.
+run-on-main-thread is TRUE.
+as is intent-filter-new-task = TRUE
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25930_65022/AndroidManifest.xml">AndroidManifest.xml</td></td><td>2018-04-04T21:22:19.000+0000</td><td>7430</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25930_65023/main-dex-classes.txt">main-dex-classes.txt</td></td><td>2018-04-04T21:22:19.000+0000</td><td>41219</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-04-04
+
+   It looks like the system is failing to find a <code>BroadcastReceiver</code> Java class for a broadcasted intent.
+   
+   Questions:
+   <h4>Are there any other broadcast receivers other than GCM (push notifications) set up in the app? (Ex: activity intent-filters, facebook deep-linking, etc.)</h4>
+   <h4>Is the app multidex'ed? (After doing a build, check the <code>build/android/bin/dexfiles</code> folder for multiple dex files.)</h4>
+   <h4>Do you have info regarding which Android OS versions this tends to happen on? We're looking for trends such as Android 4.x only or Android 8.x only.</h4>
+   
+   Thanks.</li>
+<li>Gary Mathews 2018-04-06
+
+   [~zettageek] I received a crash after turning on my phone, Android 7.1.1:
+   <code><pre>
+   E/TiApplication: (main) [8,3408] Sending event: exception on thread: main msg:java.lang.RuntimeException: Unable to instantiate receiver com.localytics.gcm.GCMBroadcastReceiver: java.lang.ClassNotFoundException: Didn't find class "com.localytics.gcm.GCMBroadcastReceiver" on path: DexPathList[[zip file "/data/app/com.redacted.app-1/base.apk"],nativeLibraryDirectories=[/data/app/com.redacted.app-1/lib/arm64, /data/app/com.redacted.app-1/base.apk!/lib/arm64-v8a, /system/lib64, /vendor/lib64]]; Titanium 7.1.0,2018/03/14 13:40,undefined
+       java.lang.RuntimeException: Unable to instantiate receiver com.localytics.gcm.GCMBroadcastReceiver: java.lang.ClassNotFoundException: Didn't find class "com.localytics.gcm.GCMBroadcastReceiver" on path: DexPathList[[zip file "/data/app/com.redacted.app-1/base.apk"],nativeLibraryDirectories=[/data/app/com.redacted.app-1/lib/arm64, /data/app/com.redacted.app-1/base.apk!/lib/arm64-v8a, /system/lib64, /vendor/lib64]]
+           at android.app.ActivityThread.handleReceiver(ActivityThread.java:3046)
+           at android.app.ActivityThread.-wrap18(ActivityThread.java)
+           at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1580)
+           at android.os.Handler.dispatchMessage(Handler.java:102)
+           at android.os.Looper.loop(Looper.java:154)
+           at android.app.ActivityThread.main(ActivityThread.java:6186)
+           at java.lang.reflect.Method.invoke(Native Method)
+           at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:889)
+           at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:779)
+        Caused by: java.lang.ClassNotFoundException: Didn't find class "com.localytics.gcm.GCMBroadcastReceiver" on path: DexPathList[[zip file "/data/app/com.redacted.app-1/base.apk"],nativeLibraryDirectories=[/data/app/com.redacted.app-1/lib/arm64, /data/app/com.redacted.app-1/base.apk!/lib/arm64-v8a, /system/lib64, /vendor/lib64]]
+           at dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:56)
+           at java.lang.ClassLoader.loadClass(ClassLoader.java:380)
+           at java.lang.ClassLoader.loadClass(ClassLoader.java:312)
+           at android.app.ActivityThread.handleReceiver(ActivityThread.java:3041)
+           at android.app.ActivityThread.-wrap18(ActivityThread.java) 
+           at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1580) 
+           at android.os.Handler.dispatchMessage(Handler.java:102) 
+           at android.os.Looper.loop(Looper.java:154) 
+           at android.app.ActivityThread.main(ActivityThread.java:6186) 
+           at java.lang.reflect.Method.invoke(Native Method) 
+           at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:889) 
+           at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:779)
+   </pre></code>
+   
+   Your <code>localytics</code> broadcast receiver does not exist. After taking a look at the <code>localytics</code> module I found the correct class to use:
+   <code><pre>
+   <receiver android:name="com.localytics.gcm.GCMBroadcastReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+   
+   <!--- REPLACE WITH --->
+   
+   <receiver android:name="com.localytics.android.GcmReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+   </pre></code></li>
+<li>Joshua Quick 2018-04-07
+
+   Note that you can reproduce this issue by rebooting your phone. This is because the BroadcastReceiver mentioned by Gary is set up to be invoked when the phone has been booted-up.</li>
+<li>Josh Lambert 2018-04-11
+
+   Hey guys! We're unable to reproduce this on our end still, even after a reboot. Is there anything special we should do besides rebooting the device?</li>
+<li>Joshua Quick 2018-04-12
+
+   [~zettageek], that would suggest some other BroadcastReceiver is configured wrong in the "AndroidManifest.xml" file. One that's not set up to listen for a "android.intent.action.BOOT_COMPLETED" intent.
+   
+   Is the "AndroidManifest.xml" file attached to this ticket yours? Each <code><receiver></code> XML element's name attribute references a Java class that the OS will attempt to instantiate via Java reflection. It's the fully qualified Java class name, which includes the package name (aka: namespace). I suspect one of the receiver names are wrong, has a typo, or has been renamed within a module. Meaning, to double check, a matching Java class needs to be found for each receiver name. Odds are there is a mismatch with one of the modules you're using.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25930.json">JSON Source</a></p>

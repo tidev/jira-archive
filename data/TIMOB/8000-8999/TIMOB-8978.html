@@ -1,0 +1,110 @@
+---
+title: "[TIMOB-8978] Ti API: View.size, View.rect should report values in defaultunit, not system unit"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2012-06-18T10:28:26.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-12 Core</td></tr>
+<tr><th>Components</th><td>TiAPI</td></tr>
+<tr><th>Labels</th><td>core, parity, qe-port</td></tr>
+<tr><th>Reporter</th><td>Arthur Evans</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2012-05-03T15:16:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-08-09T15:13:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Currently, it appears that Ti.View.size and Ti.View.rect are reported in system default units, regardless of the setting of ti.ui.defaultunit. On Android, this means that these values are reported in pixels, even if you're specifying your entire UI in DIPs.
+
+(On iOS, they're reported in DIPs, which is usually what you want anyway; and in mobile web, px and DIP are the same thing.)
+
+Is there any reason that we couldn't report these values in defaultunit so that users can do simple math with them without having to convert them back into the unit of their choice?
+
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2012-06-07
+
+   <h4>Testing</h4>
+   ----
+   
+   Testing will need to be run on both iOS and Android, ideally with displays which have different densities (in order to ensure that the non-DIP values are treated correctly).
+   
+   Create a new project, with the following app.js:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   function onLayout(e) {
+   	var view = e.source;
+   	var rectObj = {
+   		width:view.rect.width,
+   		height:view.rect.height
+   	};
+   	var sizeObj = {
+   		x:view.size.x,
+   		y:view.size.y,
+   		width:view.size.width,
+   		height:view.size.height
+   	};
+   	console.log("rect ",view.tag," in default: (",view.rect.x,",",view.rect.y,",",view.rect.width,",",view.rect.height,")");
+   	console.log("size ",view.tag," in default: (",view.size.x,",",view.size.y,",",view.size.width,",",view.size.height,")");
+   }
+   
+   var view = Ti.UI.createView({
+   	width:"100px",
+   	height:"100px",
+   	top:"10px",
+   	tag:1
+   });
+   win.add(view);
+   view.addEventListener('postlayout', onLayout);
+   
+   var view2 = Ti.UI.createView({
+   	width:"1in",
+   	height:"1in",
+   	bottom:"10px",
+   	tag:2
+   });
+   win.add(view2);
+   view2.addEventListener('postlayout', onLayout);
+   
+   var view3 = Ti.UI.createView({
+   	width:50,
+   	height:50,
+   	left:10,
+   	tag:3
+   });
+   win.add(view3);
+   view3.addEventListener('postlayout', onLayout);
+   
+   win.open();
+   </pre></code>
+   
+   Replace the <code>ti.ui.defaultunit</code> property in <code>tiapp.xml</code> with the following values:
+   * unset (not present)
+   ** *iOS*: The units are displayed in DIP
+   ** *Android*: The units are displayed in px
+   * <code>px</code>
+   * <code>in</code>
+   
+   Values should be displayed for the appropriate unit type on various devices. Feel free to contact me for further information, but the most important thing to remember is that 1 dip = 2px on iOS, and 1 in = 160 dip.
+   
+   *NOTE:* Android has a bug where non-px values are always reported as rounded to the nearest integer. This needs to be fixed so that rect sizes can be reported accurately for in/cm/mm.</li>
+<li>Olga Romero 2012-08-09
+
+   Verified fix with:
+   Titanium Studio, build: 2.1.1.201207271312
+   Titanium SDK: 2.1.1.v20120727140110</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8978.json">JSON Source</a></p>

@@ -1,0 +1,87 @@
+---
+title: "[TIMOB-26800] iOS:TiBlob.imageAsCompressed leaks memory"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-12-04T18:27:19.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0, Release 7.5.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.5.2</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>engSchedule, ios</td></tr>
+<tr><th>Reporter</th><td>Richard Lustemberg</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2019-02-04T10:08:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-12-04T18:27:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The TiBlob.imageAsCompressed method leaks memory as it's not initialising the blob with the page context. For that reason, is not deallocated once it's JS proxy is garbage collected.
+The following code (TiBlob.m, line 387,also in TitaniumKit) should be changed:
+
+<code><pre>
+return [[[TiBlob alloc] initWithData:UIImageJPEGRepresentation(image, compressionQuality) mimetype:@"image/jpeg"] autorelease];
+</pre></code>
+into this:
+
+<code><pre>
+return [[[TiBlob alloc] _initWithPageContext:self.pageContext andData:UIImageJPEGRepresentation(image, compressionQuality) mimetype:@"image/jpeg"] autorelease];
+</pre></code>
+
+I can provide a PR if needed.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rakhi Mitro 2019-02-05
+
+   Hello,
+   
+   
+   Would you mind providing more information for the issues you are experiencing? For example is this something for iOS platform? If so, what SDK are you using? Which event listener is creating the issue? If this is a new issue can you share a simple test project app and test steps to recreate the issue on our end. After that, we will discuss with our team to fix this.</li>
+<li>Richard Lustemberg 2019-02-05
+
+   Hi Rahki, If you look at the code, you'll notice that they are using the wrong init method when creating the TiBlob for the imageAsCompressed method. In all the other image manipulation methods the code was updated to provide the pageContext. The leak is not caused by any event listener, but what happens is that the TiBlob is not deallocated after the JSProxy is garbage collected. If you debug using XCode you'll notice that as you create and nullify TiBlobs from the imageAsCompressed method, blobs are not deallocated from memory, and can be all found using the memory graph.
+   Steps to reproduce:
+   1)Create an image blob (using the Photo gallery)
+   2)Pass the blob to a new window holding an image view
+   3) Use the imageAsCompressed method to generate a new blob and use it for the image property of the image view.
+   4)Close the window.
+   Do this 10 times or more and the app will leak every blob until is terminated.
+   I've already fixed the issue on my modified version of the sdk, so I'm reporting the bug and providing the solution.
+   You can use this example: <a href="https://github.com/rlustemberg/Titanium-memory-management-tutorial." rel="nofollow" target="_blank">https://github.com/rlustemberg/Titanium-memory-management-tutorial.</a> Use tab 1, Button 'Open gallery 4' to reproduce.
+   I can provide a PR for sdk 8.x and backports to 7.4 and 7.5 (7.5 is severely broken at the moment so I'm not using it anymore until it's fixed)</li>
+<li>Sharif AbuDarda 2019-02-05
+
+   Hello [~rlustemberg], Can you share the PR here? I will forward it to the TIMOB now. Thanks.</li>
+<li>Richard Lustemberg 2019-02-06
+
+   Done!</li>
+<li>Vijay Singh 2019-02-06
+
+   PR (master) : <a href="https://github.com/appcelerator/titanium_mobile/pull/10680" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10680</a></li>
+<li>Jan Vennemann 2019-03-06
+
+   I took the liberty to fix a linting issue in the existing PRs and create a backport for 8_0_X:
+   
+   7_4_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/10681" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10681</a>
+   7_5_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/10682" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10682</a>
+   8_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/10755" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10755</a>
+   
+   [~rlustemberg], you mentioned 7_5_X is severely broken for your right now. Care to drop me a line what exactly you have issues with? Either on Slack or shot me a mail at [mailto:jvennemann@axway.com]. Thanks!</li>
+<li>Keerthi Mahalingam 2019-03-20
+
+   FR passed. PR merged  for master. waiting for resolving  Jenkins issue's for 7_4_X,7_5_X and 8_0_X  to merge.</li>
+<li>Christopher Williams 2019-03-25
+
+   merged to master, 8_0_X, 7_5_X. 7_4_X backport is still in progress/building, but I don't think we anticipate doing any further 7.4.x releases at this point...</li>
+<li>Christopher Williams 2019-03-25
+
+   Also merged 7_4_X backport...</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26800.json">JSON Source</a></p>

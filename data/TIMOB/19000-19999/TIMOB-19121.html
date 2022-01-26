@@ -1,0 +1,111 @@
+---
+title: "[TIMOB-19121] iOS: String.format crashes on iOS Simulator"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Do</td></tr>
+<tr><th>Resolution Date</th><td>2017-06-29T19:08:53.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, string.format</td></tr>
+<tr><th>Reporter</th><td>Mario</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2015-03-15T08:46:20.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-16T01:10:50.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I am relying heavily on String.format in combination with a Strings.xml Files to customize the user experience. This worked perfect until I recently switched from SDK 3.3 to 3.5 and iOS SDK 8.2.
+
+Running an application in a simulator (8.1 or 8.2) from within the Titanium Studio leads to a crash without any feedback or the Strings.xml content not being applied.
+
+Running the same application from within XCode in the same simulator version leads to the follow EXC_BAD_ACCESS in KrollContext.m. Screenshot attached.
+
+The corresponding function call in Javascript looks like this:
+
+<code><pre>
+
+filterTimeframeLabel.setText( String.format(L('Option_Filter_Timeframe_Details'), Util2.formatDate(transactionFilter.timeframe[0], 'DD.MM.YYYY'), Util2.formatDate(transactionFilter.timeframe[1], 'DD.MM.YYYY')) );
+
+</pre></code>
+
+Compiling an AdHoc and running the same application on a device works perfectly. This just applies to the simulator.
+
+
+In addition also simple String.Formats fail:
+
+<code><pre>
+label.setText ( String.format('%d test', 99) );
+</pre></code>
+
+Displays "99" in the simulator and "99 test" on the device.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-19121_54450/Bildschirmfoto 2015-03-15 um 09.39.39.png">Bildschirmfoto 2015-03-15 um 09.39.39.png</td></td><td>2015-03-15T08:46:21.000+0000</td><td>278159</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shuo Liang 2015-03-18
+
+   HI,
+   
+   Please provide a simple test case to reproduce your crashes issue, That will be really helpful. Thanks
+   
+   On the other hand, about missing text after %dm it is a known issue, ref: TIMOB-18640
+   
+   Regards,
+   Shuo</li>
+<li>James Falkner 2015-06-01
+
+   Can confirm. Here's a simple test case:
+   
+   {noformat}
+   $ mkdir /tmp/foo
+   $ cd /tmp/foo
+   $ ti create --name foo --id foo --workspace-dir <code>pwd</code>
+   $ cd foo
+   $ vi Resources/app.js
+   {noformat}
+   
+   Remove all contents of <code>app.js</code> and replace with:
+   
+   {noformat}
+   String.format("%2$d %1$s", "foo", 2);
+   {noformat}
+   
+   Then run it in the simulator:
+   
+   {noformat}
+   $ ti build --platform iphone --target simulator --device-id FF5C5A2C-2D8C-4ED2-A95A-AFD23AEE8F15 --sim-type iphone
+   {noformat}
+   
+   It will crash badly after the Appcelerator default splash screen.
+   
+   See, the second argument is the "d" and the first is the "s". <code>String.format("%1$s %2$d", "foo", 2);</code> works fine. <code>String.format("%2$d %1$s", "foo", 2);</code> fails. And it only fails in the simulator. This happens in both 3.5.1.RC and 4.0.0.RC4.
+   
+   </li>
+<li>Hans Knöchel 2017-06-28
+
+   I have validated the issue with our latest SDK and <code>String.format("%2$d %1$s", "foo", 2)</code> still crashes, while <code>String.format("%1$d %2$s", 2, "foo")</code>, so I am wondering why someone would specify the arguments in the reversed order. The bad access has to do with exactly that and would need to be adjusted for this special case accordingly. </li>
+<li>Hans Knöchel 2017-06-29
+
+   The issue is because the formats are structured incorrectly. When using the correct format-indexing, everything works. Besides that, the initial ticket request was already fixed before and does not occur anymore (tested on both Simulator and device).</li>
+<li>Lee Morris 2017-08-16
+
+   Closing with reference to the above observations.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19121.json">JSON Source</a></p>

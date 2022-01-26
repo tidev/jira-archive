@@ -1,0 +1,43 @@
+---
+title: "[DAEMON-230] Stream stringified JSON data over IPC and response instead of JSON.stringify()"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2018-02-14T23:57:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>appcd-core, appcd-plugin</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Chris Barber</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2018-02-02T16:42:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-14T23:57:41.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When a plugin sends a JS object response over IPC or a service writes a JS object response over the WebSocket or HTTP response, the JS object is serialized using <code>JSON.stringify()</code>. However, <code>JSON.stringify()</code> eats up a ton of memory when the JS object is large. It would be much more efficient to stringify while writing to the stream.
+
+There are several npm packages that will stringify a stream, but they are geared towards each write being a small object which they just call <code>JSON.stringify()</code> on it.
+
+What we need is transforming stream that does stringifies the JS object on the fly. Stringify is not a complex algorithm, but would need to figure out how to handle Node specific objects like <code>Buffer</code>.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chris Barber 2018-02-14
+
+   As good as an idea this is, it's not possible. :(
+   
+   When a plugin sends a response over IPC to the parent daemon process, it is calling <code>process.send()</code> which handles the serialization for us and there's no "streaming" taking place.
+   
+   When the daemon sends a response over a WebSocket, the <code>ws</code> library only has a simple <code>ws.send()</code> function and no stream interface. Internally it will write the data to a socket which is a stream interface, but it's abstracted by wrapping the data in a frame.
+   
+   It's worth noting that WebSocket responses are encoded with msgpack. msgpack supports streaming, so if <code>ws</code> should ever support streaming, we could use something like <a href="https://www.npmjs.com/package/bfj" rel="nofollow" target="_blank">https://www.npmjs.com/package/bfj</a> or <a href="https://www.npmjs.com/package/big-json" rel="nofollow" target="_blank">https://www.npmjs.com/package/big-json</a> to stringify the response and then stream it through msgpack as we write the bytes over the wire.</li>
+</ol>
+
+
+<p><a href="/DAEMON/DAEMON-230.json">JSON Source</a></p>

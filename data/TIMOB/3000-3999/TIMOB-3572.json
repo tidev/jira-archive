@@ -1,0 +1,276 @@
+{
+	"id": "64204",
+	"key": "TIMOB-3572",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "11251",
+				"name": "Sprint 2011-16",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2011-04-25"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2011-05-18T15:12:59.000+0000",
+		"created": "2011-04-15T03:46:46.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"enterprise",
+			"ios"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "blainhamon",
+			"key": "blainhamon",
+			"displayName": "Blain Hamon",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2011-05-18T15:12:59.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "{html}<div><p><strong>Expectation:</strong></p>\n<p>var scrollable = Ti.UI.createScrollableView();</p>\n<p>scrollable.views = [set of views]; // initial</p>\n<p>scrollable.views = [new set of views]; // further in flow;\nrelease previous set of views</p>\n<p><strong>Steps to recreate:</strong></p>\n<p>1) Run on device and load Instruments (all processes)<br>\n2) Tap 'Generate Section' button to confirm memory is being\nreleased on recreation.<br>\n3) Tap 'Update Views' button to confirm memory is not being\nreleased. Application will send memory notifications and eventually\ncrash on approx. 15-20 attempts.</p>\n<pre>\n<code class=\n\"javascript\">var win = Ti.UI.createWindow({ backgroundColor:'#fff', top:0, right:0, bottom:0, left:0 });\n\nvar contentContainer = Ti.UI.createView({ backgroundColor:'#000' });\nvar sectionContainer = Ti.UI.createView({ backgroundColor:'#f00' });\n\nvar scrollable = Ti.UI.createScrollableView({ top:0, right:0, left:0, bottom:50, backgroundColor:'#ff0' });\nvar button1 = Ti.UI.createButton({ bottom:0, left:0, width:'40%', height:50, title:'GENERATE SECTION' });\nvar button2 = Ti.UI.createButton({ bottom:0, right:0, width:'40%', height:50, title:'UPDATE VIEWS' });\n\nvar sectionState = false;\n\nvar currentImages = [];\n\nfunction createButton() {\n    var button = Ti.UI.createButton({ left:0, right:0, height:30, bottom:0, title:'Button' });\n    \n    button.addEventListener('click', function() {\n        Ti.API.info('Tapped button.');\n    });\n    \n    return button;\n}\n\n// ### Border Radius Performance - toImage improves this - larger memory footprint\nfunction generateItem(img) {\n    var itemContainer = Ti.UI.createView({ width:200, height:200, top:5, left:5, bottom:5, right:5, backgroundColor:'#0f0' });\n    var image = Ti.UI.createImageView({ width:200, height:100, image:img, borderRadius:5 }); // slow performance\n    var comp = Ti.UI.createImageView({ width:200, height:100 });\n    var title = Ti.UI.createLabel({ touchEnabled:'false', text:'Title', textAlign:'center', top:0, height:'auto' });\n    var button = createButton();\n    \n    itemContainer.add(image);\n    itemContainer.add(title);\n    itemContainer.add(button);\n    \n    itemContainer.addEventListener('singletap', function() {\n        Ti.API.info('Tapped view.');\n    });\n\n    image.addEventListener('load', function() {\n        comp.image = image.toImage();\n        itemContainer.remove(image);\n        itemContainer.add(comp);\n    });\n    \n    return itemContainer;\n}\n\nfunction createCustomView(images) {\n    var view = Ti.UI.createView({ top:0, left:0, right:0, bottom:0, layout:'horizontal', backgroundColor:'#f00' });\n    \n    var item;\n            \n    for (var i = 0; i &lt; 12; i++) {\n        item = generateItem(images[i]);\n        view.add(item);\n    }\n    \n    item.addEventListener('singletap', function() {\n        Ti.API.info('Tapped view.');\n    });\n    \n    return view;\n}\n\n// SUCCESS ON RELEASE FROM MEMORY\nfunction generateSection() {    \n    if (sectionState) {\n        contentContainer.remove(sectionContainer);\n    }\n    \n    setTimeout(function() {\n        var images = [];\n        \n        for (var i = 0; i &lt; 12; i++) {\n            images.push('image.png');\n        }\n        \n        currentImages = images;             \n        \n        sectionContainer = Ti.UI.createView({ backgroundColor:'#f00' });\n        contentContainer.add(sectionContainer);\n\n        scrollable = Ti.UI.createScrollableView({ top:0, right:0, left:0, bottom:50, backgroundColor:'#ff0' });\n\n        scrollable.views = [\n            createCustomView(images),\n            createCustomView(images),\n            createCustomView(images),\n            createCustomView(images)\n        ];\n\n        sectionContainer.add(scrollable);\n\n        sectionState = true;\n    }, 500);\n}\n\n// MEMORY ISSUES\nfunction refreshViews() {   \n    // works on simulator, crash on device (log below) - perhaps this should be done in a reverse order (remove last, first)\n    // for (var i = 0, sl = scrollable.views.length; i &lt; sl; i++) {\n    //      scrollable.removeView(scrollable.views[i]);\n    //  }\n    // [ERROR] The application has crashed with an unhandled exception. Stack trace:\n    // \n    // 0   CoreFoundation                      0x3173463d __exceptionPreprocess + 96\n    // 1   libobjc.A.dylib                     0x3642dc5d objc_exception_throw + 24\n    // 2   CoreFoundation                      0x31734491 +[NSException raise:format:arguments:] + 68\n    // 3   CoreFoundation                      0x317344cb +[NSException raise:format:] + 34\n    // 4   QuartzCore                          0x309ed61d _ZL18CALayerSetPositionP7CALayerRKN2CA4Vec2IdEEb + 140\n    // 5   QuartzCore                          0x309ed58b -[CALayer setPosition:] + 38\n    // 6   UIKit                               0x32e1136b -[UIView(Geometry) setCenter:] + 22\n    // 7   scrollabletest2                     0x00043115 -[TiViewProxy relayout] + 632\n    // 8   scrollabletest2                     0x00042673 -[TiViewProxy refreshView:] + 362\n    // 9   scrollabletest2                     0x00043445 -[TiViewProxy layoutChildrenIfNeeded] + 136\n    // 10  scrollabletest2                     0x0009d459 performLayoutRefresh + 344\n    // 11  CoreFoundation                      0x3170ba47 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 14\n    // 12  CoreFoundation                      0x3170decb __CFRunLoopDoTimer + 850\n    // 13  CoreFoundation                      0x3170e845 __CFRunLoopRun + 1088\n    // 14  CoreFoundation                      0x3169eec3 CFRunLoopRunSpecific + 230\n    // 15  CoreFoundation                      0x3169edcb CFRunLoopRunInMode + 58\n    // 16  GraphicsServices                    0x3288741f GSEventRunModal + 114\n    // 17  GraphicsServices                    0x328874cb GSEventRun + 62\n    // 18  UIKit                               0x32e07d69 -[UIApplication _run] + 404\n    // 19  UIKit                               0x32e05807 UIApplicationMain + 670\n    // 20  scrollabletest2                     0x00003bb3 main + 70\n    // 21  scrollabletest2                     0x000036a8 start + 40\n    // \n    // \n    // 2011-04-13 09:19:00.904 scrollabletest2[8820:707] *** Terminating app due to uncaught exception 'CALayerInvalidGeometry', reason: 'CALayer position contains NaN: [nan 4.0726e-10]'\n    // *** Call stack at first throw:\n    // (\n    //  0   CoreFoundation                      0x3173464f __exceptionPreprocess + 114\n    //  1   libobjc.A.dylib                     0x3642dc5d objc_exception_throw + 24\n    //  2   CoreFoundation                      0x31734491 +[NSException raise:format:arguments:] + 68\n    //  3   CoreFoundation                      0x317344cb +[NSException raise:format:] + 34\n    //  4   QuartzCore                          0x309ed61d _ZL18CALayerSetPositionP7CALayerRKN2CA4Vec2IdEEb + 140\n    //  5   QuartzCore                          0x309ed58b -[CALayer setPosition:] + 38\n    //  6   UIKit                               0x32e1136b -[UIView(Geometry) setCenter:] + 22\n    //  7   scrollabletest2                     0x00043115 -[TiViewProxy relayout] + 632\n    //  8   scrollabletest2                     0x00042673 -[TiViewProxy refreshView:] + 362\n    //  9   scrollabletest2                     0x00043445 -[TiViewProxy layoutChildrenIfNeeded] + 136\n    //  10  scrollabletest2                     0x0009d459 performLayoutRefresh + 344\n    //  11  CoreFoundation                      0x3170ba47 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 14\n    //  12  CoreFoundation                      0x3170decb __CFRunLoopDoTimer + 850\n    //  13  CoreFoundation                      0x3170e845 __CFRunLoopRun + 1088\n    //  14  CoreFoundation                      0x3169eec3 CFRunLoopRunSpecific + 230\n    //  15  CoreFoundation                      0x3169edcb CFRunLoopRunInMode + 58\n    //  16  GraphicsServices                    0x3288741f GSEventRunModal + 114\n    //  17  GraphicsServices                    0x328874cb GSEventRun + 62\n    //  18  UIKit                               0x32e07d69 -[UIApplication _run] + 404\n    //  19  UIKit                               0x32e05807 UIApplicationMain + 670\n    //  20  scrollabletest2                     0x00003bb3 main + 70\n    //  21  scrollabletest2                     0x000036a8 start + 40\n    // )\n    // terminate called after throwing an instance of 'NSException'\n    \n    // this seems to work, but memory jumps on regenerating section\n    // for (var i = 0, sl = scrollable.views.length; i &lt; sl; i++) {\n    //      scrollable.views[i] = createCustomView(currentImages);\n    // }\n    \n    // previous views do not seem to be released from memory\n    scrollable.views = [\n        createCustomView(currentImages),\n        createCustomView(currentImages),\n        createCustomView(currentImages),\n        createCustomView(currentImages)\n    ];\n}\n\nbutton1.addEventListener('click', function(e) {\n    generateSection();\n});\n\nbutton2.addEventListener('click', function(e) {\n    refreshViews();\n});\n\nwin.add(contentContainer);\nwin.add(button1);\nwin.add(button2);\n\nwin.open();\n\ngenerateSection();</code>\n</pre></div>{html}",
+		"attachment": [
+			{
+				"id": "18337",
+				"filename": "image.png",
+				"author": {
+					"name": "fspencer",
+					"key": "fspencer",
+					"displayName": "Fred Spencer",
+					"active": true,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2011-04-15T03:46:47.000+0000",
+				"size": 27324,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "Updating views on a ScrollableView does not release previously set views from memory..",
+		"creator": {
+			"name": "fspencer",
+			"key": "fspencer",
+			"displayName": "Fred Spencer",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "fspencer",
+			"key": "fspencer",
+			"displayName": "Fred Spencer",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "130757",
+					"author": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Image used for example.</p></div>{html}",
+					"updateAuthor": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:46:47.000+0000",
+					"updated": "2011-04-15T03:46:47.000+0000"
+				},
+				{
+					"id": "130758",
+					"author": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>ios_proxy_registration<br>\ncommit: 6c9e23fb5ae2b9d838e841217193964ef4bd274a</p></div>{html}",
+					"updateAuthor": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:46:47.000+0000",
+					"updated": "2011-04-15T03:46:47.000+0000"
+				},
+				{
+					"id": "130759",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "{html}<div><p>Right now setViews is rather broken in that it doesn't release\nthe old proxies, it's true. Added to that, addView and removeView\n(Despite handling proxy retention properly) don't update the views\nproperty. Unfortunately, the cause lies somewhat deeper, involving\nthe proxies owned by the view instead of the scrollableviewproxy,\nwhich makes fixing this sticky.</p>\n<p>In the mean time, there's two solutions:<br>\n1) Treat setViews as a write-once action, and don't recycle a\nscrollableView to use one collection, then run over and use a\ndifferent collection; use multiple scrollableViews.</p>\n<p>2) If the former is not an option, the following can be done as\na workaround until scrollableView is fixed, given scrollableView\nfoo:</p>\n<pre>\n<code>var oldViews = foo.views;\nfor(var i=0; i&lt;oldViews.length; i++){\n    foo.removeView(oldViews[i]);\n}\nfoo.views = [...newviews...];</code>\n</pre></div>{html}",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-15T03:46:47.000+0000",
+					"updated": "2011-04-15T03:46:47.000+0000"
+				},
+				{
+					"id": "131029",
+					"author": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Confirmed that this provides fix for second workaround. Memory also appears to be releasing properly.\n\nUpdated source (image attached, above):\n\n{code:javascript} \nvar win = Ti.UI.createWindow({ backgroundColor:'#fff', top:0, right:0, bottom:0, left:0 });\n\nvar contentContainer = Ti.UI.createView({ backgroundColor:'#000' });\nvar sectionContainer = Ti.UI.createView({ backgroundColor:'#f00' });\n\nvar scrollable = Ti.UI.createScrollableView({ top:0, right:0, left:0, bottom:50, backgroundColor:'#ff0' });\nvar button1 = Ti.UI.createButton({ bottom:0, left:0, width:'40%', height:50, title:'GENERATE SECTION' });\nvar button2 = Ti.UI.createButton({ bottom:0, right:0, width:'40%', height:50, title:'UPDATE VIEWS' });\n\nvar sectionState = false;\n\nvar currentImages = [];\n\nfunction createButton() {\n\tvar button = Ti.UI.createButton({ left:0, right:0, height:30, bottom:0, title:'Button' });\n\t\n\tbutton.addEventListener('click', function() {\n\t\tTi.API.info('Tapped button.');\n\t});\n\t\n\treturn button;\n}\n\n// ### Border Radius Performance - toImage improves this - larger memory footprint\nfunction generateItem(img) {\n\tvar itemContainer = Ti.UI.createView({ width:200, height:200, top:5, left:5, bottom:5, right:5, backgroundColor:'#0f0' });\n\tvar image = Ti.UI.createImageView({ width:200, height:100, image:img, borderRadius:5 }); // slow performance\n\tvar comp = Ti.UI.createImageView({ width:200, height:100 });\n\tvar title = Ti.UI.createLabel({ touchEnabled:'false', text:'Title', textAlign:'center', top:0, height:'auto', font:{ fontSize:18, fontFamily:'Houschka Pro', fontWeight:'Bold' } });\n\tvar button = createButton();\n\t\n\titemContainer.add(image);\n\titemContainer.add(title);\n\titemContainer.add(button);\n\t\n\titemContainer.addEventListener('singletap', function() {\n\t\tTi.API.info('Tapped view.');\n\t});\n\n\timage.addEventListener('load', function() {\n\t\tcomp.image = image.toImage();\n\t\t\n\t\titemContainer.remove(image);\n\t\t//image = null;\n\t\t\n\t\titemContainer.add(comp);\n\t});\n\t\n\treturn itemContainer;\n}\n\nfunction createCustomView(images) {\n\tvar view = Ti.UI.createView({ top:0, left:0, right:0, bottom:0, layout:'horizontal', backgroundColor:'#f00' });\n\t\n\tvar item;\n\t\t\t\n\tfor (var i = 0; i < 12; i++) {\n\t\titem = generateItem(images[i]);\n\t\tview.add(item);\n\t}\n\t\n\titem.addEventListener('singletap', function() {\n\t\tTi.API.info('Tapped view.');\n\t});\n\t\n\treturn view;\n}\n\n// SUCCESS ON RELEASE FROM MEMORY\nfunction generateSection() {\t\n\tif (sectionState) {\n\t\tcontentContainer.remove(sectionContainer);\n\t\t//sectionContainer = null;\n\t}\n\t\n\tsetTimeout(function() {\n\t\tvar images = [];\n\t\t\n\t\tfor (var i = 0; i < 12; i++) {\n\t\t\timages.push('image.png');\n\t\t}\n\t\t\n\t\tcurrentImages = images;\t\t\t\t\n\t\t\n\t\tsectionContainer = Ti.UI.createView({ backgroundColor:'#f00' });\n\t\tcontentContainer.add(sectionContainer);\n\n\t\tscrollable = Ti.UI.createScrollableView({ top:0, right:0, left:0, bottom:50, backgroundColor:'#ff0' });\n\n\t\tscrollable.views = [\n\t\t\tcreateCustomView(images),\n\t\t\tcreateCustomView(images),\n\t\t\tcreateCustomView(images),\n\t\t\tcreateCustomView(images)\n\t\t];\n\n\t\tsectionContainer.add(scrollable);\n\n\t\tsectionState = true;\n\t}, 500);\n}\n\nfunction refreshViews() {\t\n\tvar oldViews = scrollable.views;\n\tfor (var i = 0, sl = oldViews.length; i < sl; i++) {\n\t\t\tscrollable.removeView(oldViews[i]);\n\t\t\t//oldViews[i] = null;\n\t}\n\t\n//\toldViews = null;\n\n\tscrollable.views = [\n\t\tcreateCustomView(currentImages),\n\t\tcreateCustomView(currentImages),\n\t\tcreateCustomView(currentImages),\n\t\tcreateCustomView(currentImages)\n\t];\n}\n\nbutton1.addEventListener('click', function(e) {\n\tgenerateSection();\n});\n\nbutton2.addEventListener('click', function(e) {\n\trefreshViews();\n});\n\nwin.add(contentContainer);\nwin.add(button1);\nwin.add(button2);\n\nwin.open();\n\ngenerateSection();\n{code}",
+					"updateAuthor": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-19T12:18:03.000+0000",
+					"updated": "2011-04-19T12:18:03.000+0000"
+				},
+				{
+					"id": "131033",
+					"author": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Warnings on pressing 'Update Views' button.\n\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n[WARN] Nil view frame was requested for [object TiUIView] in -[TiViewProxy refreshView:] (TiViewProxy.m:1426)\n\n",
+					"updateAuthor": {
+						"name": "fspencer",
+						"key": "fspencer",
+						"displayName": "Fred Spencer",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-19T12:56:12.000+0000",
+					"updated": "2011-04-19T12:58:05.000+0000"
+				},
+				{
+					"id": "132622",
+					"author": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified in instruments, the old imageviews are getting purged. Hooray.",
+					"updateAuthor": {
+						"name": "blainhamon",
+						"key": "blainhamon",
+						"displayName": "Blain Hamon",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-04-21T18:00:52.000+0000",
+					"updated": "2011-04-21T18:00:52.000+0000"
+				},
+				{
+					"id": "133355",
+					"author": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Hi Blain, is this behaviour: http://developer.appcelerator.com/question/119465/ios-regression-170-using-more-than-3-views-inside-a-scrollableview-ends-in-blank-tableviews as expected now after working on the leak management or is it a regression? Worked in SDK 1.6.1 but no longer in 1.7.0",
+					"updateAuthor": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2011-05-10T10:59:06.000+0000",
+					"updated": "2011-05-10T10:59:06.000+0000"
+				},
+				{
+					"id": "133924",
+					"author": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Used revised test code, instruments reports a initial state of 1.76MB. Repeatedly tapping on \"Update Views\" varied the usage, generally alternating between 2.3x and 1.8x MB. Closing. Note: the revised test code will crash after about 6 taps on the button with an NS exception that may be caused by trying to remove objects that are already removed. We will port the code to a test app and modify when we do to prevent this if possible.",
+					"updateAuthor": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2011-05-18T15:12:59.000+0000",
+					"updated": "2011-05-18T15:12:59.000+0000"
+				}
+			],
+			"maxResults": 9,
+			"total": 9,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,138 @@
+---
+title: "[TIMOB-26520] iOS: App fails to install on device using a build from Master "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-19T10:17:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Samir Mohammed</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2018-11-05T15:35:46.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-05-22T21:26:19.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+On the current build on Master <code>8.0.0.v20181102102238</code> the application fails to install to device and the following error is shown.
+<code><pre>
+[ERROR] :  An error occurred during build after 48s 872ms
+[ERROR] :  Failed to install app on device (0xe800801c)
+[ERROR] :  For some reason the app failed to install on the device. Try reconnecting your device and check your provisioning profile and entitlements.
+</pre></code>
+
+*Test Steps*
+<h4>Download latest build from master <code>appc ti sdk install -b master -d</code> (8.0.0.v20181102102238)</h4>
+<h4>Create a new Alloy/Titanium application </h4>
+<h4>Try run application on iOS device </h4>
+
+*Actual result*
+Above error is shown.
+
+*Expected result*
+Application should install and be able to run on device without any issues.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26520_65941/build_iphone.log">build_iphone.log</td></td><td>2018-12-03T10:24:14.000+0000</td><td>2466647</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Jan Vennemann 2018-11-05
+
+   [~cbarber], I'm also getting this from time to time. Maybe something in node-ios-device? I'm not getting any useful logs apart from the above error. (Slightly different error code though: 0xe8008001)
+   
+   Wiping the <code>build</code> folder and then running again solves the issue for me.</li>
+<li>Hans Knöchel 2018-11-06
+
+   I get this from current stable versions (e.g. 7.4.1) as well and applying the workaround Jan's describes as well. Would be great to fix! To reproduce:
+   1. Deploy an iOS app to device using 7.4.1 and Xcode 10
+   2. Change some lines of code in the app
+   3. Try to run the app again
+   
+   Expected: A fast, great Titanium app running on the iOS device
+   Actual: The above error code</li>
+<li>Chris Barber 2018-11-16
+
+   Nothing has changed in node-ios-device and since things work, granted intermittently, I doubt the problem is with node-ios-device.
+   
+   Just out of curiosity, what Node.js version are you using? node-ios-device has not been tested with Node.js 11.x (coming soon).</li>
+<li>Hans Knöchel 2018-11-16
+
+   v8.12.0 / v10.13.0 :(. I'd bet on an Xcode 10 thing that changed.</li>
+<li>Jan Vennemann 2018-11-16
+
+   Running Node v10.13.0 too. I have two Titanium projects i use for all kinds of testing. One is a classic project, the other is Alloys based. The classic one has this issue every now and then, whereas i have not seen it in the Alloy project yet. Super strange.</li>
+<li>Samir Mohammed 2018-11-19
+
+   Using Node 8.9.1 and I get this error all the time on the Master branch.</li>
+<li>Samuel Haig 2018-11-21
+
+   I also get a failure, even after running <code>appc ti clean</code> and removing the build folder. Using node v8.12.0. Using SDK 8.0.0.v20181031043847</li>
+<li>Ewan Harris 2018-12-03
+
+   Getting this issue all the time on master branch, [this issue](<a href="https://github.com/ios-control/ios-deploy/issues/148)" rel="nofollow" target="_blank">https://github.com/ios-control/ios-deploy/issues/148)</a> seems to have the same error code and points to a sort of code signing issue? I've attached the full build log from my run.</li>
+<li>Ewan Harris 2018-12-03
+
+   Rolling through the builds on the next branch
+   
+   8.0.0.v20180927131133 - Thu Sep 27, 2018 13:11:33 (/)
+   8.0.0.v20181001082706 - Mon Oct 01, 2018 08:27:06 (/)
+   8.0.0.v20181002083413 - Tue Oct 02, 2018 08:34:13 (x)
+   
+   So this looks to have been caused somewhere around the start of October, looking through the history I see <a href="https://github.com/appcelerator/titanium_mobile/pull/10218" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10218</a> as the PR with the most potential to cause this issue</li>
+<li>Ewan Harris 2018-12-03
+
+    Tried using [ios-deploy](<a href="https://github.com/ios-control/ios-deploy)" rel="nofollow" target="_blank">https://github.com/ios-control/ios-deploy)</a> in the hope that it gave me a better error. I guess it maybe did, <code>2018-12-03 15:32:44.618 ios-deploy\[80368:1665232\] \[ !! \] Error 0xe800801c: No code signature found. AMDeviceSecureInstallApplication(0, device, url, options, install_callback, 0)</code></li>
+<li>Chris Barber 2018-12-03
+
+    <code>TitaniumKit.framework</code> is injected at build time into the generated Xcode project and needs to be signed. This regression was introduced in [PR 10218](<a href="https://github.com/appcelerator/titanium_mobile/pull/10218)." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10218).</a>
+    
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10505" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10505</a></li>
+<li>Hans Knöchel 2018-12-04
+
+    This is definitely not only 8.0.0+ but also on earlier versions. Though it may be the same reason: We use a lot of dynamic frameworks, which also need to be signed differently. That would also explain why some apps run into it and some not.</li>
+<li>Chris Barber 2018-12-04
+
+    [~hknoechel] I don't follow. The issue is with the addition of <code>TitaniumKit.framework</code>, which was introduced into 8.0.0 via PR 10218.
+    
+    If this issue occurred in the past with dynamic frameworks, then I don't recall hearing about it. Most commonly this error was caused by bad provisioning profile as the error suggests.
+    
+    On a side note, PR 10218 also broke increment builds. I'll be fixing it in another commit to PR 10505.</li>
+<li>Hans Knöchel 2018-12-04
+
+    Please see the previous comments for reference. We are currently seeing this on all kind of Titanium projects using 7.4.1 / 7.5.0 GA builds and valid (non-automatically-signed) provisioning profiles. Not sure if [~jvennemann] also ran into this using < 8.0.0 builds, but I'll for sure try a 8.0.0 build with this flag set as well.</li>
+<li>Ewan Harris 2018-12-04
+
+    The 2 error codes mentioned so far appear to represent different things, I think it's best to do the following here
+    
+    - This ticket is for an 8.0.0 only issue where the TitaniumKit framework is not getting signed causing an app to fail to install to device due to a codesigning issue, throwing error code 0xe800801c. This issue is consistently reproducible
+    - A separate ticket is filed for the issue [~hknoechel] is mentioning. [~hknoechel] if you could send me reproducible steps/project on slack I can handle filing and collecting the necessary error logs that for you. It's possibly the same issue [~jvennemann] is seeing with error code 0xe8008001 which looks to represent ["An unknown error"](<a href="https://github.com/ios-control/ios-deploy/issues/292#issuecomment-328091687)." rel="nofollow" target="_blank">https://github.com/ios-control/ios-deploy/issues/292#issuecomment-328091687).</a> This issue is intermittent.</li>
+<li>Samir Mohammed 2018-12-19
+
+    Closing ticket, fix verified in SDK Version <code>8.0.0.v20181219044040</code>
+    
+    Test and other information can be found at: 
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/10505" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10505</a>
+    
+    </li>
+<li>Jan Vennemann 2019-05-22
+
+    [~hknoechel], [~eharris], for error code 0xe8008001 see TIMOB-27097</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26520.json">JSON Source</a></p>

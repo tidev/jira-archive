@@ -1,0 +1,97 @@
+---
+title: "[TIMOB-15254] Titanium does not handle 64bit integer correctly in Sqlite on iOS"
+---
+<table>
+<tr><th>Type</th><td>Story</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2016-06-13T06:30:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>64bit, ios, sqlite</td></tr>
+<tr><th>Reporter</th><td>James David Low</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2013-08-26T11:02:09.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-06-13T06:30:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If you store a 64bit integer in Sqlite it returns a truncated version when you try to read it back using resultset.field or resultset.fieldByName
+
+This is due to two things:
+1) A problem in the underlying pldatabase that the use:
+<a href="http://code.google.com/p/pldatabase/issues/detail?id=25&thanks=25&ts=1377514140" rel="nofollow" target="_blank">http://code.google.com/p/pldatabase/issues/detail?id=25&thanks=25&ts=1377514140</a>
+
+2) Even if the above problem was fixed Titanium still truncates in TiDatabaseResultSetProxy.m aprox. line #90 in the function transformObject :
+result = NUMINT([TiUtils intValue:obj def:NSNotFound valid:&valid]);
+
+There is a work around that requires no modification of the pldatabase library, since if Titanium were to use PLSqliteResultSet->bigIntForColumnIndex it correctly returns a 64bit Objective long long.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Motiur Rahman 2013-09-17
+
+   Hi James David Low,
+   
+   You can follow [this link](<a href="http://stackoverflow.com/questions/9643626/javascript-cant-handle-64-bit-integers-can-it).i" rel="nofollow" target="_blank">http://stackoverflow.com/questions/9643626/javascript-cant-handle-64-bit-integers-can-it).i</a> think you will know little more about this.
+   
+   Thanks</li>
+<li>James David Low 2013-09-17
+
+   Hi,
+   
+   This is not a JavaScript precision issue. This is an issue with the ObjectiveC code rounding 64bit integers to 16bit integers.
+   
+   I have managed to get it to work by editing the Objective C code for Titanium to use the PLSqliteResultSet->bigIntForColumnIndex function.
+   
+   Thanks,
+   James</li>
+<li>James David Low 2014-01-02
+
+   There has been a fix put in the underlying SQL Lite library. If Titanium copy the latest code for the pldatabase it should fix things:
+   
+   <a href="https://github.com/plausiblelabs/pldatabase/commit/517d00f9cc34766ef8de0e43bf47ea4599a73452" rel="nofollow" target="_blank">https://github.com/plausiblelabs/pldatabase/commit/517d00f9cc34766ef8de0e43bf47ea4599a73452</a></li>
+<li>James David Low 2016-06-13
+
+   I believe this is now fixed in PLSqliteResultSet.m in Titanium 5.2.0
+   
+   <code><pre>
+   - (id) objectForColumnIndex: (int) columnIndex {
+       [self assertNotClosed];
+   
+       int columnType = [self validateColumnIndex: columnIndex isNullable: YES];
+       switch (columnType) {
+           case SQLITE_TEXT:
+               return [self stringForColumnIndex: columnIndex];
+   
+           case SQLITE_INTEGER:
+               return [NSNumber numberWithLongLong:[self bigIntForColumnIndex: columnIndex]];
+   
+           case SQLITE_FLOAT:
+               return [NSNumber numberWithDouble: [self doubleForColumnIndex: columnIndex]];
+   
+           case SQLITE_BLOB:
+               return [self dataForColumnIndex: columnIndex];
+   
+           case SQLITE_NULL:
+               return [NSNull null];
+   
+           default:
+               [NSException raise: TI_PLDatabaseException format: @"Unhandled SQLite column type %d", columnType];
+       }
+   
+       /* Unreachable */
+       abort();
+   }
+   </pre></code></li>
+<li>Chee Kiat Ng 2016-06-13
+
+   [~jamesdlow] Thanks for the feedback!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15254.json">JSON Source</a></p>

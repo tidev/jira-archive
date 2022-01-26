@@ -1,0 +1,111 @@
+---
+title: "[TIMOB-20596] Android: HTTPClient leaking connections "
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>grebulon</td></tr>
+<tr><th>Assignee</th><td>Unknown</td></tr>
+<tr><th>Created</th><td>2016-03-14T11:05:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-02-28T19:54:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Running a long loop of HTTP POSTs crashes due to a connection leak.
+
+I suspect it's a bug in HttpURLConnection. (I switched to a module running over okhttp with connection pooling, to work around this.)
+
+Code to reproduce follows.
+
+Notes:
+<h4>Let the code run for awhile. For me it crashes at around 350 iterations.</h4>
+<h4>I advise to change the REST server to something private because jsonplaceholder.typicode.com is very slow.</h4>
+<h4>Uncommenting the line <code>xhr.setRequestHeader("Connection","Close");</code> will stop the leak, but then it's goodbye persistent connection.</h4>
+
+<code><pre>
+var mainview = Ti.UI.createView();
+var label = Ti.UI.createLabel({color:'black', text:'Click to start', height:'auto', width:'auto'});
+mainview.add(label);
+var window = Ti.UI.createWindow({backgroundColor:'#ffffff', navBarHidden:true, exitOnClose:true});
+window.add(mainview);
+
+var count = 0;
+
+function callApi(callback) {
+  var cmdurl="<a href="http://jsonplaceholder.typicode.com/posts/" rel="nofollow" target="_blank">http://jsonplaceholder.typicode.com/posts/</a>";
+  var params={title:'the title',body:'see how far we can go...',userId:666};
+  var httpmode=(params._httpmode)?params._httpmode:"POST";
+  var xhr = Ti.Network.createHTTPClient();
+  xhr.timeout=15000;
+  xhr.open("POST",cmdurl);
+//  xhr.setRequestHeader("Connection","Close"); // This will fix the leak but will cost us the persistent connection. see <a href="http://stackoverflow.com/a/20417556/2603965" rel="nofollow" target="_blank">http://stackoverflow.com/a/20417556/2603965</a>
+  xhr.onerror = function(e) {
+    callback();
+  };
+  xhr.onload = function() {
+    var d=false;
+    try {
+      d=JSON.parse(this.responseText);
+    } catch(e) {
+      d=false;
+    }
+    if (!d) {
+      callback();
+    } else {
+      callback(d);
+    }
+  };
+  xhr.send(params);
+};
+
+function printReply(d) {
+  if (count > 0) {
+    if (d) {
+      label.applyProperties({text:'ok ' + count, color:'black'});
+      Ti.API.info("HTTP TEST - count: " + count /*+ " - " + JSON.stringify(d)*/);
+    } else {
+      label.applyProperties({text:'error ' + count, color:'red'});
+      Ti.API.warn("HTTP TEST - count: " + count);
+    }
+  }
+  count++;
+  setTimeout(function() {
+    callApi(printReply);
+  }, 10);
+};
+
+label.addEventListener('click', function(e) {
+  Ti.API.info("HTTP TEST - start");
+  printReply();
+});
+
+window.open();
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Nazmus Salahin 2016-03-15
+
+   I am not been able to reproduce this issue with the given code and given steps. After over 1000 iterations the app running without any problem or crash or console log and the iteration continues. I have tried building the app with sdk 5.2.0 and 5.1.2GA and got the same result.
+   
+   *Environment*:
+   
+   *Device info:* Nexux7 (android 6.0.1)
+   *Node.js Version:* 0.12.7
+   *npm Version:* 2.11.3
+   *Titanium SDKs:* 5.2.0 and 5.1.2.GA
+   *Java Development Kit Version:* 1.8.0_73
+   *Titanium CLI Version:*  5.0.5</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20596.json">JSON Source</a></p>

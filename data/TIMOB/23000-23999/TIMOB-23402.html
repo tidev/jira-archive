@@ -1,0 +1,142 @@
+---
+title: "[TIMOB-23402] Analytics: Add data element to JSON payload for windows phone parity"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-05-23T23:03:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>Windows</td></tr>
+<tr><th>Labels</th><td>Analytics, qe-5.3.0, qe-5.4.0</td></tr>
+<tr><th>Reporter</th><td>Eric Merriman </td></tr>
+<tr><th>Assignee</th><td>Christopher Williams</td></tr>
+<tr><th>Created</th><td>2016-05-17T20:06:37.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-07T19:22:52.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description:</h4>
+Currently the windows phone JSON payloads for ti.background have no data element. The other platforms have this structure. There are improvement tickets in place to update the structure of the existing structure of the payload for both Android and iOS. Based on the status of those (linked) tickets, adding parity for windows should be done to reflect the other platform's payloads at the time of implementation.
+
+Current example:
+
+<code><pre>
+{
+	"ver": "3",
+	"id": "7cea9910-cf8b-4a3c-a8f8-c8ed14276cc5:dc5e5c1715b599dd",
+	"event": "ti.background",
+	"ts": "2014-12-09T18:14:51.282+0000",
+	"mid": "dc5e5c1715b599dd",
+	"sid": "79dd4123-1685-43fa-82d0-6816ddcd9901",
+	"aguid": "5ae84ca8-78ad-4776-9640-b7b3dd29543b",
+	"data": {
+		"value": ""
+	},
+	"seq": 3
+}
+</pre></code>
+
+<h4>Steps to reproduce:</h4>
+1) Install a titanium project on a windows phone device
+2) Launch the app
+3) Use either - a) point device to staging via DNS setting, check logs. b) Use get last event api c) If you have backend access, check the raw event on AWS.
+4) Examine any of the ti.background event types.
+
+<h4>Result:</h4>
+There is no "data" element
+
+<h4>Expected Result:</h4>
+There is a "data" element, in parity with the other platforms
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2016-05-18
+
+   [~iwhitfield] Just to check with you 2 things with regards to this:
+   1. So the current json package sent from a windows device to the analytics end point does not have a "data" element. Does this break anything? is this still a valid package or PEM ignores it?
+   2. Is there any difference to PEM if I sent
+   <code><pre>
+   	"data": {
+   		"value": ""
+   	},
+   </pre></code>
+   vs
+   <code><pre>
+   	"data": {	}
+   </pre></code>
+   
+   I'm trying to prioritise this ticket and the related ones.</li>
+<li>Isaac Whitfield 2016-05-18
+
+   [~cng]
+   
+   1. Dunno, I can investigate but parity is basically the most important thing with analytics. I think if it's not there it might be ok, but seems like it should be a very fast fix anyway?
+   2. Yes, you're wasting at least 10 bytes of storage for every event with the former. Doesn't sound like much but at a guess I'd say there's a couple of billion ti.background events in PEM. And when you consider that Elasticsearch is storing a whole bunch of "value" == "" in memory indices, it's gonna add up to way more waste.</li>
+<li>Chee Kiat Ng 2016-05-18
+
+   Yes these fixes are fast. I just want to make sure these are the correct approaches.
+   1. Ok we can put this in 5.3.1 or 5.4.0.
+   2. Ok we will put it in version 5.4.0.
+   
+   Thanks!</li>
+<li>Chee Kiat Ng 2016-05-18
+
+   To avoid confusion, basically the solution we want here is to have the element:
+   <code><pre> 
+   data: { } 
+   </pre></code></li>
+<li>Isaac Whitfield 2016-05-18
+
+   [~cng] yep, exactly that - empty object unless there's valid stuff to go in it ;)</li>
+<li>Christopher Williams 2016-05-23
+
+   <a href="https://github.com/appcelerator/titanium_mobile_windows/pull/712" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile_windows/pull/712</a></li>
+<li>Christopher Williams 2016-05-23
+
+   From looking at the code, the only event that was missing a data property was the ti.background event. It should now contain a data property with an empty object as it's value.</li>
+<li>Harry Bryant 2016-07-07
+
+   Verified as fixed, data elements are now implemented for JSON payloads for the windows platform. 
+   <code><pre>
+   "data": {
+   		"tz": -420,
+   		"sdkver": "ti.5.4.0",
+   		"platform": "windows",
+   		"osver": "10.0.10586.420",
+   		"ostype": "32bit",
+   		"oscpu": 4,
+   		"osarch": "ARM",
+   		"os": "windowsphone",
+   		"nettype": "UNKNOWN",
+   		"model": "NOKIA RM-1073_1004",
+   		"deploytype": "test",
+   		"app_version": "1.0",
+   		"app_name": "mobileEventsTest",
+   		"app_id": "com.appc.mobileEventsTest"
+   	},
+   </pre></code>
+   
+   Additionally, confirmed that there is an empty data element in Ti.Background events.
+   <code><pre>
+   "data": {},
+   </pre></code>
+   
+   Tested On: 
+   Windows 10 Pro 
+   Windows Phone 10.0 (Microsoft Lumia 640 LTE) 
+   Ti SDK: 5.4.0.v20160705213725 
+   Appc Studio: 4.7.0.201606220541 
+   Appc NPM: 4.2.7-2 
+   App CLI: 5.4.0-26 
+   Xcode 7.3 
+   Node v4.2.6 
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23402.json">JSON Source</a></p>

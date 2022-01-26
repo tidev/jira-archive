@@ -1,0 +1,140 @@
+---
+title: "[TIMOB-17647] iOS8: Access to currentUserNotificationSettings & didRegisterUserNotificationSettings"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-09-15T16:10:22.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.0, Release 3.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios8</td></tr>
+<tr><th>Reporter</th><td>Ben Bahrenburg</td></tr>
+<tr><th>Assignee</th><td>Jon Alter</td></tr>
+<tr><th>Created</th><td>2014-09-07T01:17:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-21T20:27:24.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+iOS 8 has implemented permission dialogs and management around local notifications.  A user can "not allow" or adjust the local notifications they allow to be registered in this app.
+
+To address this, it would be nice to have the following:
+
+1. A method that returns the types currently registered and allow by the app's [UIApplication sharedApplication] currentUserNotificationSettings
+
+2. An event which fires with the UIUserNotificationSettings provided to the app delegate didRegisterUserNotificationSettings method
+
+An approach on how to do this is available in this gist <a href="https://gist.github.com/benbahrenburg/7b65d074c728cba0de4c" rel="nofollow" target="_blank">https://gist.github.com/benbahrenburg/7b65d074c728cba0de4c</a>
+
+PR available here <a href="https://github.com/appcelerator/titanium_mobile/pull/6025" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6025</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Ben Bahrenburg 2014-09-08
+
+   How to test:
+   ___________________
+   
+   1. Using an Ti SDK with this patch applied create a test app ( in classic mode )
+   2. Update the app.js with this sample <a href="https://gist.github.com/benbahrenburg/7b65d074c728cba0de4c#testing-the-updates" rel="nofollow" target="_blank">https://gist.github.com/benbahrenburg/7b65d074c728cba0de4c#testing-the-updates</a>
+   3. Compile your sample app against the iOS8 SDK
+   4. Press bntTest1, you will get a permissions prompt
+   5. Accept the permissions request
+   6. You will see the below event, usernotificationsetting, fire
+   ~~~
+   Ti.App.iOS.addEventListener('usernotificationsetting',function(e){
+       Ti.API.info('usernotificationsetting:' + JSON.stringify(e));        
+   })
+   ~~~
+   7. Press the btnTest2 button, you will now see the requested rights ( Ti.App.iOS.NOTIFICATION_TYPE_BADGE,Ti.App.iOS.NOTIFICATION_TYPE_SOUND,Ti.App.iOS.NOTIFICATION_TYPE_ALERT) printed to the console
+   8. Reset the simulator and run the same tests as above, but do not approve the rights request
+   9. Then press the btnTest2 button.  You should see an empty array printed to the console.
+   10. Reset the simulator
+   11. Compile the sample app against the iOS7 SDK
+   12. Perform steps 4 thru 9. For all steps you should not see any rights provided
+   </li>
+<li>Pedro Enrique 2014-09-09
+
+   Hi Ben,
+   I believe this was implemented in this PR, can you check if it has what you need?</li>
+<li>Pedro Enrique 2014-09-09
+
+   This PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/5988" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/5988</a></li>
+<li>Ben Bahrenburg 2014-09-09
+
+   Hi Pedro, these methods are helpful but don't provide access to the registered and approved permissions.  The issue my PR solves is allowing the developer to tell what permissions are available to their app, and which have been requested vs approved.
+   
+   You would use my PR before and after using PR #5988</li>
+<li>Ingo Muschenetz 2014-09-11
+
+   All, please see TIMOB-17683 as well. Thoughts appreciated.</li>
+<li>Jon Alter 2014-09-11
+
+   This ticket is resolved by TIMOB-17640</li>
+<li>Satyam Sekhri 2014-09-15
+
+   Tested as per Ben's instructions but with the app.js code below
+   <code><pre>
+   var win = Titanium.UI.createWindow({  
+       backgroundColor:'#fff',layout:'vertical'
+   });
+   
+   var bntTest1 = Titanium.UI.createButton({
+       title:'Test 1', width:'auto', top:80
+   });
+   win.add(bntTest1);
+   
+   var bntTest2 = Titanium.UI.createButton({
+       title:'Test 2', width:'auto', top:60
+   });
+   win.add(bntTest2);
+   
+   Ti.App.iOS.addEventListener('usernotificationsettings',function(e){
+       Ti.API.info('usernotificationsetting:' + JSON.stringify(e));        
+   });
+   
+   bntTest1.addEventListener('click',function(d){
+   
+        Ti.App.iOS.registerUserNotificationSettings({
+                       types: [Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE,
+                              Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND,
+                              Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT]
+          });
+   
+   });
+   
+   bntTest2.addEventListener('click',function(d){
+   
+       var currentNotifications = Ti.App.iOS.getCurrentUserNotificationSettings();
+       var userSettings = [];
+       for (var iLoop=0;iLoop<currentNotifications.types.length;iLoop++){
+           if(currentNotifications.types[iLoop] == Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE ){
+               userSettings.push("Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE");
+           }
+           if(currentNotifications.types[iLoop] == Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND ){
+               userSettings.push("Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND");
+           }
+           if(currentNotifications.types[iLoop] == Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT ){
+               userSettings.push("Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT");
+           }               
+       }
+       Ti.API.info('displayNotifications:' + JSON.stringify(userSettings));
+   
+   });
+   win.open();
+   </pre></code>
+   
+   Tested On:
+   SDK: 3.4.0.v20140913174915
+   Studio: 3.4.0.201409131030
+   CLI: 3.4.0-rc3
+   Alloy: 1.5.0-rc2
+   Xcode: Xcode 6 GM</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17647.json">JSON Source</a></p>

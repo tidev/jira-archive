@@ -1,0 +1,64 @@
+---
+title: "[TIMOB-5400] NSRecursiveLock dealloced while in use / crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-09T11:25:44.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.7.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>branch-5062, crash, tableview</td></tr>
+<tr><th>Reporter</th><td>Stephen Tramer</td></tr>
+<tr><th>Assignee</th><td>Stephen Tramer</td></tr>
+<tr><th>Created</th><td>2011-10-01T08:27:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2012-02-09T11:25:44.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+While performing rapid insert (and possibly delete) options of a row, the following error occurs, and the application crashes:
+
+bq. Thu Sep 29 17:18:08 unknown tiapp[19156] <Warning>: *** -[NSRecursiveLock dealloc]: lock (<NSRecursiveLock: 0x5ba6450> '(null)') deallocated while still in use
+
+It appears from the crash log as though an imageview is being deallocated at the same time as a cell is being recycled, possibly indicating underprotection.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-5400_23119/devlog recursive lock.txt">devlog recursive lock.txt</td></td><td>2011-10-01T08:38:31.000+0000</td><td>27888</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-10-01
+
+   Crash log for the bug report.</li>
+<li>Stephen Tramer 2011-10-01
+
+   This appears to be a very ugly timing issue, where:
+   
+   - A cell goes into reuse, which causes a view detach of the image view, which then locks the destroy lock for the view proxy
+   - While this is occurring on the main thread, garbage collection is occurring on the JS thread. The image view is "forgotten" at exactly a time allowing its JS object to become unprotected, meaning that the proxy is marked for deallocation.
+   - GC just happens to grab up the object associated with the image view, which deallocates it while the lock is still being held onto, and zeroes out whatever value is in r5 (presumably, the address of the destroyLock object, since this is what's released to nil just before the crash). Something tries to access the r5 register, and crash.
+   
+   This is why blocking insert operations on the main thread [a proposed solution] works - it prevents garbage collection from occurring at the same time as cell reuse, through scheduling shenanigans. Also explains why the issue is intermittent and difficult to reproduce outside of these particular crashes.
+   
+   Knowing that this is the likely cause means that a test to (possibly) reliably reproduce the issue through "poor timing" could be written.</li>
+<li>Stephen Tramer 2011-11-10
+
+   Cannot reproduce in 1.8.0.1.0555dcc. Tested in iPad Simulator, iOS 4.3/5.0. Previously this bug did appear on simulator, leading me to believe that it has been resolved.</li>
+<li>Thomas Huelbert 2012-02-09
+
+   no way for qe to confirm, closing based on XSteven comments</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5400.json">JSON Source</a></p>

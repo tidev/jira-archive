@@ -1,0 +1,534 @@
+---
+title: "[TIMOB-19040] iOS9: Replace MPMoviePlayerController in Ti.Media.VideoPlayer with AVPlayerViewController"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-11-16T13:49:43.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>media, movieplayer</td></tr>
+<tr><th>Reporter</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2015-06-18T07:51:03.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-06-26T06:59:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+MPMoviePlayerController is getting deprecated in iOS9. We are using this in TiMediaVideoPlayer, so we have to work on an alternative. Likely AVPlayerViewController.
+
+Deprecation details: <a href="https://developer.apple.com/library/prerelease/ios/releasenotes/General/iOS90APIDiffs/frameworks/MediaPlayer.html" rel="nofollow" target="_blank">https://developer.apple.com/library/prerelease/ios/releasenotes/General/iOS90APIDiffs/frameworks/MediaPlayer.html</a>
+
+AVPlayer Reference: <a href="https://developer.apple.com/library/prerelease/ios/documentation/AVFoundation/Reference/AVPlayer_Class/index.html#//apple_ref/doc/uid/TP40009530" rel="nofollow" target="_blank">https://developer.apple.com/library/prerelease/ios/documentation/AVFoundation/Reference/AVPlayer_Class/index.html#//apple_ref/doc/uid/TP40009530</a>
+
+AVPlayerViewController Reference: <a href="https://developer.apple.com/library/prerelease/ios/documentation/AVFoundation/Reference/AVPlayerViewController_Class/index.html#//apple_ref/doc/uid/TP40014273" rel="nofollow" target="_blank">https://developer.apple.com/library/prerelease/ios/documentation/AVFoundation/Reference/AVPlayerViewController_Class/index.html#//apple_ref/doc/uid/TP40014273</a>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-01-30
+
+   PR (work in progress): <a href="https://github.com/appcelerator/titanium_mobile/pull/8194" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8194</a>
+   
+   Demo:
+   <code><pre>
+   /* -- Data Structure -- */
+   
+   var dataStructure = [{
+   	title : "Play video",
+   	action : playVideo
+   }, {
+   	title : "Pause video",
+   	action : pauseVideo
+   }, {
+   	title : "Stop video",
+   	action : stopVideo
+   }, {
+   	title : "Change video source (local)",
+   	action : changeLocalVideoSource
+   }, {
+   	title : "Change video source (remote)",
+   	action : changeRemoteImageSource
+   }, {
+   	title : "Change background color",
+   	action : changeBackgroundColor
+   }, {
+   	title : "Set volume to 50%",
+   	action : decreaseVolume
+   }, {
+   	title : "Get playable duration",
+   	action : getPlayableDuration
+   }, {
+   	title : "Get playback state",
+   	action : getPlaybackState
+   }, {
+   	title : "Set full width",
+   	action : setSizeFullWidth
+   }, {
+   	title : "Set width + height to 300 (animated)",
+   	action : setSize
+   }, {
+   	title : "Is playing?",
+   	action : getPlaying
+   }, {
+   	title: "Take screenshot at 5s",
+   	action: takeScreenshot
+   }, {
+   	title: "Set initial playback time",
+   	action: setInitialPlaybackTime
+   }, {
+   	title: "Set fullscreen",
+   	action: setFullscreen
+   }];
+   
+   var counter = 0;
+   
+   /* -- UI -- */
+   
+   var isiOS = (Ti.Platform.osname == "ipad" || Ti.Platform.osname == "iphone");
+   
+   var win = Titanium.UI.createWindow({
+   	title : 'Video Player Demo',
+   	backgroundColor : '#fff',
+   	layout : 'vertical'
+   });
+   
+   var nav = isiOS ? Ti.UI.iOS.createNavigationWindow({
+   	window : win
+   }) : null;
+   
+   var header = Ti.UI.createView({
+   	height : 350,
+   	backgroundColor : "#eee"
+   });
+   
+   var content = Ti.UI.createScrollView({
+   	layout : "horizontal",
+   	scrollType : "vertical",
+   	contentWidth : Ti.Platform.displayCaps.platformWidth
+   });
+   
+   var videoPlayer = Titanium.Media.createVideoPlayer({
+   	autoplay : false,
+   	url : 'movie.mp4',
+   	initialPlaybackTime: 1000,
+   	pictureInPictureEnabled : true, // Only supported on iOS9 & iPad Air or later!
+   	scalingMode : Titanium.Media.VIDEO_SCALING_MODE_RESIZE_ASPECT
+   });
+   
+   for (var i = 0; i < dataStructure.length; i++) {
+   	var btn = Ti.UI.createButton({
+   		top : '3.5%',
+   		left : '7%',
+   		height : 60,
+   		width : '40%',
+   		tintColor : '#b50d00',
+   		backgroundColor : '#e0e0e0',
+   		title : dataStructure[i].title
+   	});
+   
+   	btn.addEventListener("click", dataStructure[i].action);
+   
+   	content.add(btn);
+   }
+   
+   header.add(videoPlayer);
+   win.add(header);
+   win.add(content);
+   
+   if (nav) {
+   	nav.open();
+   } else {
+   	win.open();
+   }
+   
+   /* -- Events -- */
+   
+   videoPlayer.addEventListener('complete', function(e) {
+   	Ti.API.info('complete ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('durationavailable', function(e) {
+   	Ti.API.info('durationavailable ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('error', function(e) {
+   	Ti.API.info('error ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('load', function(e) {
+   	Ti.API.info('load ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('playbackstate', function(e) {
+   	Ti.API.info('playbackstate ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('playing', function(e) {
+   	Ti.API.info('playing ' + JSON.stringify(e));
+   });
+   
+   videoPlayer.addEventListener('preload', function(e) {
+   	Ti.API.info('preload ' + JSON.stringify(e));
+   });
+   
+   /* -- Actions -- */
+   
+   function playVideo() {
+   	videoPlayer.play();
+   }
+   
+   function pauseVideo() {
+   	videoPlayer.pause();
+   }
+   
+   function stopVideo() {
+   	videoPlayer.stop();
+   }
+   
+   function changeRemoteImageSource() {
+   	videoPlayer.url = '<a href="http://techslides.com/demos/sample-videos/small.mp4" rel="nofollow" target="_blank">http://techslides.com/demos/sample-videos/small.mp4</a>';
+   	videoPlayer.play();
+   }
+   
+   function changeBackgroundColor() {
+   	var colors = ["#f00", "#ff0", "#0ff", "#00f", "#0f0", "#f0f"];
+   
+   	videoPlayer.setBackgroundColor(colors[Math.floor(Math.random() * colors.length)]);
+   	counter = (counter == (colors.length - 1)) ? 0 : counter + 1;
+   }
+   
+   function decreaseVolume() {
+   	videoPlayer.setVolume(0.5);
+   }
+   
+   function changeLocalVideoSource() {
+   	videoPlayer.url = 'another.mp4';
+   	videoPlayer.play();
+   }
+   
+   function getPlayableDuration() {
+   	alert(videoPlayer.playableDuration);
+   }
+   
+   function getPlaybackState() {
+   	alert(videoPlayer.playbackState);
+   }
+   
+   function setSizeFullWidth() {
+   	videoPlayer.setWidth('100%');
+   }
+   
+   function setSize() {
+   	videoPlayer.animate({
+   		width : 300,
+   		height : 300
+   	})
+   }
+   
+   function getPlaying() {
+   	alert(videoPlayer.playing);
+   }
+   
+   function takeScreenshot() {
+   	var blob = videoPlayer.thumbnailImageAtTime({
+   		time: 5 // In seconds
+   	});
+   	var _win = Ti.UI.createWindow({backgroundColor: "#fff"});
+   	var image = Ti.UI.createImageView({image: blob});
+   	image.addEventListener("click", function() {
+   		_win.close();
+   	})
+   	_win.add(image);
+   	_win.open();
+   }
+   
+   function setInitialPlaybackTime() {
+   	videoPlayer.setInitialPlaybackTime(3000); // In milliseconds
+   }
+   
+   function setFullscreen() {
+   	videoPlayer.setFullscreen(true); // In milliseconds
+   }
+   </pre></code></li>
+<li>Vijay Singh 2016-12-30
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8721" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8721</a></li>
+<li>Hans Knöchel 2016-12-30
+
+   Moving to 7.0.0 because of the breaking changes discussed on Github.</li>
+<li>Vijay Singh 2017-11-14
+
+   Test Case (modified above demo)-
+   
+   <code><pre>
+   var dataStructure = [{
+     title : "Play video",
+     action : playVideo
+   }, {
+     title : "Pause video",
+     action : pauseVideo
+   }, {
+     title : "Stop video",
+     action : stopVideo
+   }, {
+     title : "Change video source (local)",
+     action : changeLocalVideoSource
+   }, {
+     title : "Change video source (remote)",
+     action : changeRemoteImageSource
+   }, {
+     title : "Change background color",
+     action : changeBackgroundColor
+   }, {
+     title : "Set volume to 50%",
+     action : decreaseVolume
+   }, {
+     title : "Get playable duration",
+     action : getPlayableDuration
+   }, {
+     title : "Get playback state",
+     action : getPlaybackState
+   }, {
+     title : "Set full width",
+     action : setSizeFullWidth
+   }, {
+     title : "Set width + height to 300 (animated)",
+     action : setSize
+   }, {
+     title : "Is playing?",
+     action : getPlaying
+   }, {
+     title: "Take screenshot at 5s",
+     action: takeScreenshot
+   }, {
+     title: "Take multiple screenshots",
+     action: captureSeriesOfImages
+   }, {
+     title: "Set initial playback time",
+     action: setInitialPlaybackTime
+   }, {
+     title: "Is airPlay allowed?",
+     action: getAllowsAirPlay
+   }, {
+     title: "repeatMode ?",
+     action: getRepeatMode
+   }];
+    
+    
+   var counter = 0;
+    
+   /* -- UI -- */
+    
+   var isiOS = (Ti.Platform.osname == "ipad" || Ti.Platform.osname == "iphone");
+    
+   var win = Titanium.UI.createWindow({
+     title : 'Video Player Demo',
+     backgroundColor : '#fff',
+     layout : 'vertical'
+   });
+    
+   var nav = isiOS ? Ti.UI.iOS.createNavigationWindow({
+     window : win
+   }) : null;
+    
+   var header = Ti.UI.createView({
+     height : 350,
+     backgroundColor : "#eee"
+   });
+    
+   var content = Ti.UI.createScrollView({
+     layout : "horizontal",
+     scrollType : "vertical",
+     contentWidth : Ti.Platform.displayCaps.platformWidth,
+     contentHeight : 1000
+   });
+    
+   var videoPlayer = Titanium.Media.createVideoPlayer({
+     autoplay : true,
+     url : '<a href="http://techslides.com/demos/sample-videos/small.mp4" rel="nofollow" target="_blank">http://techslides.com/demos/sample-videos/small.mp4</a>',//'movie.mp4',
+     initialPlaybackTime: 1000,
+     showsControls:true,
+     pictureInPictureEnabled : true, // Only supported on iOS9 & iPad Air or later!
+     scalingMode : Titanium.Media.VIDEO_SCALING_MODE_RESIZE_ASPECT,
+     repeatMode : Titanium.Media.VIDEO_REPEAT_MODE_NONE
+   });
+    
+   for (var i = 0; i < dataStructure.length; i++) {
+     var btn = Ti.UI.createButton({
+       top : '3.5%',
+       left : '7%',
+       height : 60,
+       width : '40%',
+       tintColor : '#b50d00',
+       backgroundColor : '#e0e0e0',
+       title : dataStructure[i].title
+     });
+    
+     btn.addEventListener("click", dataStructure[i].action);
+    
+     content.add(btn);
+   }
+    
+   header.add(videoPlayer);
+   win.add(header);
+   win.add(content);
+    
+   if (nav) {
+     nav.open();
+   } else {
+     win.open();
+   }
+    
+   /* -- Events -- */
+    
+   videoPlayer.addEventListener('complete', function(e) {
+     Ti.API.info('complete ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('durationavailable', function(e) {
+     Ti.API.info('durationavailable ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('error', function(e) {
+     Ti.API.info('error ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('load', function(e) {
+     Ti.API.info('load ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('playbackstate', function(e) {
+     Ti.API.info('playbackstate ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('playing', function(e) {
+     Ti.API.info('playing ' + JSON.stringify(e));
+   });
+    
+   videoPlayer.addEventListener('preload', function(e) {
+     Ti.API.info('preload ' + JSON.stringify(e));
+   });
+    
+   /* -- Actions -- */
+    
+   function playVideo() {
+     videoPlayer.play();
+   }
+    
+   function pauseVideo() {
+     videoPlayer.pause();
+   }
+    
+   function stopVideo() {
+     videoPlayer.stop();
+   }
+    
+   function changeRemoteImageSource() {
+     videoPlayer.url = '<a href="http://techslides.com/demos/sample-videos/small.mp4" rel="nofollow" target="_blank">http://techslides.com/demos/sample-videos/small.mp4</a>';
+     videoPlayer.play();
+   }
+    
+   function changeBackgroundColor() {
+     var colors = ["#f00", "#ff0", "#0ff", "#00f", "#0f0", "#f0f"];
+    
+     videoPlayer.setBackgroundColor(colors[Math.floor(Math.random() * colors.length)]);
+     counter = (counter == (colors.length - 1)) ? 0 : counter + 1;
+   }
+    
+   function decreaseVolume() {
+     videoPlayer.setVolume(0.5);
+   }
+    
+   function changeLocalVideoSource() {
+     videoPlayer.url = 'another.mp4';
+     videoPlayer.play();
+   }
+    
+   function getPlayableDuration() {
+     alert(videoPlayer.playableDuration);
+   }
+    
+   function getAllowsAirPlay() {
+     alert(videoPlayer.allowsAirPlay);
+   }
+    
+    function getShowControls() {
+     alert(videoPlayer.showsControls);
+   }
+    
+   function getPlaybackState() {
+     alert(videoPlayer.playbackState);
+   }
+   function getRepeatMode() {
+      alert(videoPlayer.repeatMode); 
+   }
+    
+   function setSizeFullWidth() {
+     videoPlayer.setWidth('100%');
+   }
+    
+   function setSize() {
+     videoPlayer.animate({
+       width : 300,
+       height : 300
+     })
+   }
+    
+   function getPlaying() {
+     alert(videoPlayer.playing);
+   }
+    
+   function takeScreenshot() {
+     var blob = videoPlayer.thumbnailImageAtTime({
+       time: 5 // In seconds
+     });
+     var _win = Ti.UI.createWindow({backgroundColor: "#fff"});
+     var image = Ti.UI.createImageView({image: blob});
+     image.addEventListener("click", function() {
+       _win.close();
+     })
+     _win.add(image);
+     _win.open();
+   }
+    
+   function captureSeriesOfImages() {
+     var _win = Ti.UI.createWindow({
+       backgroundColor: "#fff",
+       layout : 'vertical'
+     });
+     _win.open();
+    
+     videoPlayer.requestThumbnailImagesAtTimes([1, 2, 4], Ti.Media.VIDEO_TIME_OPTION_EXACT, function(e){
+     Ti.API.info('Captured screen shot at time ' + e.time);
+    
+     var image = Ti.UI.createImageView({
+       top:20,
+       height : '100',
+       image: e.image});
+     image.addEventListener("click", function() {
+       _win.close();
+     })
+     _win.add(image);
+       });
+   }
+    
+   function setInitialPlaybackTime() {
+     videoPlayer.setInitialPlaybackTime(3000); // In milliseconds
+   }
+   </pre></code></li>
+<li>Vijay Singh 2017-11-15
+
+   New PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/9600" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9600</a></li>
+<li>Eric Wieber 2017-11-16
+
+   Verified in SDK build 7.0.0.v20171116132144</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-19040.json">JSON Source</a></p>

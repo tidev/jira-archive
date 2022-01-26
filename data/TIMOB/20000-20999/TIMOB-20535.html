@@ -1,0 +1,118 @@
+---
+title: "[TIMOB-20535] iOS: Ti.WatchSession.sendMessage "message cannot be nil""
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-03-09T22:20:28.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, qe-5.4.0, watchOS2, watchkit</td></tr>
+<tr><th>Reporter</th><td>Rick Blalock</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-03-09T03:27:29.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-08-05T22:13:54.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Just now noticing this in the Ti SDK around the watch sendMessage method.  Anytime I try to fire the method I get:
+
+<code><pre>
+[ERROR] Script Error {
+[ERROR]     column = 48;
+[ERROR]     line = 517;
+[ERROR]     message = "-[WCSession sendMessage:replyHandler:errorHandler:]: message cannot be nil.";
+[ERROR]     sourceURL = "file:///Users/rickblalock/Library/Developer/CoreSimulator/Devices/DD7C8848-C744-4ECD-ADC1-B7A641519F10/data/Containers/Bundle/Application/A7670C9E-9548-4945-8726-E6FB156135B1/Fish%20Rules%20App.app/core.js";
+[ERROR]     stack = "[native code]\nreceiveWatchMessage@file:///Users/rickblalock/Library/Developer/CoreSimulator/Devices/DD7C8848-C744-4ECD-ADC1-B7A641519F10/data/Containers/Bundle/Application/A7670C9E-9548-4945-8726-E6FB156135B1/Fish%20Rules%20App.app/core.js:517:48";
+[ERROR] }
+</pre></code>
+
+Sample snippet of code:
+
+Ti: 
+<code><pre>
+Ti.WatchSession.sendMessage({
+   favorites: ['some value']
+});
+</pre></code>
+
+Swift (request from the watch to app):
+<code><pre>
+			self.session.sendMessage(
+				["type": "favorites"],
+				replyHandler: nil,
+				errorHandler: nil
+			)
+</pre></code>
+
+Swift (receiving info from the app to watch):
+<code><pre>
+	func session(session: WCSession, didReceiveMessage message: [String : AnyObject]) {
+		if (message["favorites"] != nil) {
+			self.favorites = message["favorites"]! as? Array<String>
+			return;
+		}
+// ... etc
+</pre></code>
+
+According to the run time error, it's being caused from the Titanium API <code>sendMessage</code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rick Blalock 2016-03-09
+
+   Ok I figured it out.  Back in Sept. the functionality changed.  So this is a regression from how it worked before.
+   
+   Per <a href="https://github.com/appcelerator/titanium_mobile/blob/0dce6d55b7d3b29cec31e19da6544177f27e1437/iphone/Classes/WatchSessionModule.m#L159" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/0dce6d55b7d3b29cec31e19da6544177f27e1437/iphone/Classes/WatchSessionModule.m#L159</a> - this works:
+   
+   <code><pre>
+   					Ti.WatchSession.sendMessage({
+   						message: {
+   							favorites: arr
+   						}
+   					});
+   </pre></code></li>
+<li>Rick Blalock 2016-03-09
+
+   Looking at <a href="https://github.com/appcelerator/titanium_mobile/commit/1d8aee1d2e4862d3d81271aff8ad836b2b09260a#diff-c8e5ac73085caff0252e3086f1c970e3" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/1d8aee1d2e4862d3d81271aff8ad836b2b09260a#diff-c8e5ac73085caff0252e3086f1c970e3</a> - it looks like maybe the docs just need to be updated to point this out eh?  This looks intentional, not so much an accidental regression</li>
+<li>Chee Kiat Ng 2016-03-09
+
+   [~hansknoechel] take a look? should be a docs issue.</li>
+<li>Hans Knöchel 2016-03-09
+
+   [~rblalock] Looking through the [docs](<a href="http://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">http://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.WatchSession-method-sendMessage), the <code>message</code> property is available. We could add the <code>required</code> flag and a note, that the property is required.
+   
+   -In addition to that, it looks like our API expects the callback as <code>onReply</code>, but the docs say <code>reply</code>. I'd actually prefer the <code>reply</code> naming, since it's the same with <code>success</code>, <code>error</code>, <code>cancel</code> callback's in other API's (so without the alloy-style <code>on</code>). What do you guys think? Could deprecate it for 5.4.0 and we clean-up in 6.0.0.- 
+   
+   EDIT: Looks like already been changed, great!</li>
+<li>Hans Knöchel 2016-03-09
+
+   We should also update the sample app [here](<a href="https://github.com/appcelerator-developer-relations/appc-sample-watchos2/blob/master/app/controllers/watchsession.js)." rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-watchos2/blob/master/app/controllers/watchsession.js).</a></li>
+<li>Hans Knöchel 2016-03-09
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7819" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7819</a></li>
+<li>Harry Bryant 2016-08-05
+
+   Verified as fixed, 
+   
+   Tested On:
+   iPhone 6S (9.3.3) Device
+   Watch OS 2.2.2
+   Mac OSX El Capitan 10.11.6
+   Ti SDK: 5.4.0.v20160804185318
+   Appc Studio: 4.7.0.201607250649
+   Appc NPM: 4.2.7	
+   App CLI: 5.4.0-37
+   Xcode 7.3.1
+   Node v4.4.7
+   
+   *Closing ticket.*</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20535.json">JSON Source</a></p>

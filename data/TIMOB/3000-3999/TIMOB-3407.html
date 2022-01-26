@@ -1,0 +1,118 @@
+---
+title: "[TIMOB-3407] tableview with dynamic row height causes really bad flickering"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Trivial</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-15T03:43:54.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>dynamic, flickering, height, ios, tableview</td></tr>
+<tr><th>Reporter</th><td>Brian</td></tr>
+<tr><th>Assignee</th><td>Reggie Seagraves</td></tr>
+<tr><th>Created</th><td>2011-04-15T03:43:54.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-10T18:36:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>When calling setData on a tableview that has rows with a dynamic
+height the ui flickers. Basically it seems to be drawing everything
+on top of each other and then stretching the rows vertically to
+accommodate the dynamic height. This causes the ui to flicker
+really bad... and on the actual device you see the squished text
+and then the expansion - looks horrible. Below is the code to
+reproduce. Just click the Refresh button.</p>
+<p>Ti Dev 1.2.2 and Ti Mobile 1.6.1 with iOS 4.2</p>
+<pre>
+<code>function applyData(tableView) {
+    var data = [];
+    for (var i=0;i&lt;20;i++) {
+        var rowView = Ti.UI.createTableViewRow({
+            height:'auto',
+            layout:'vertical'
+        });
+        for (var j=0;j&lt;3;j++) {
+            var label = Ti.UI.createLabel({
+                text:"Row i" + i + "j" + j,
+                height:'auto',
+                top:5,
+                left:5
+            });
+            rowView.add(label);
+        }
+        data.push(rowView);
+    }
+    tableView.setData(data);
+}
+
+var window = Ti.UI.createWindow({
+    title:"Funky Table Example",
+    modal:true
+});
+
+var funkyTable = Ti.UI.createTableView();
+applyData(funkyTable);
+window.add(funkyTable);
+
+var refreshButton = Ti.UI.createButton({
+    title:"Refresh"
+});
+
+refreshButton.addEventListener("click", function(e) {
+   applyData(funkyTable);
+});
+
+window.rightNavButton = refreshButton;
+
+window.open();</code>
+</pre></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Brian 2011-04-15
+
+   <div><p>I figured out a workaround that removes the flickering. You
+   cannot use height 'auto' on a TableViewRow, instead you have to
+   manually keep track of the height of the views you add to a row,
+   and then set the row height to this dynamic height.</p>
+   <p>Also when using labels with a height of 'auto', you also have to
+   set the width, otherwise you will always get a height of 0. Here is
+   the updated applyData function that fixes the flickering and allows
+   for a dynamic row height:</p>
+   <pre>
+   <code>var defaultWidth = Ti.Platform.displayCaps.platformWidth;
+   
+   function applyData(tableView) {
+       var data = [];
+       for (var i=0;i&lt;20;i++) {
+           var rowView = Ti.UI.createTableViewRow();
+           var height = 0;
+           for (var j=0;j&lt;3;j++) {
+               var label = Ti.UI.createLabel({
+                   text:"Row i" + i + "j" + j,
+                   height:'auto',
+                   width:defaultWidth,
+                   top:5 + height,
+                   left:5
+               });
+               height += label.size.height + 5;
+               rowView.add(label);
+           }
+           rowView.height = height;
+           data.push(rowView);
+       }
+       tableView.setData(data);
+   }</code>
+   </pre></div></li>
+<li>Lee Morris 2017-03-10
+
+   Closing ticket as the information requested was not provided.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-3407.json">JSON Source</a></p>

@@ -1,0 +1,417 @@
+---
+title: "[TIMOB-24375] iOS: Implement "Peek & Pop" for  Map view Annotation"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2017-08-17T12:46:15.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td> Ricardo Ramirez</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2017-02-06T20:04:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-08-23T20:37:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue Description </h4>
+
+When the user "force touch" on the map view annotation right image, we should catch the peek event listener for that annotation view and display a custom view with some actions like show direction, call etc.
+
+Usecase:
+In the application, customer is showing the addresses of the doctors available with in 25 km radius of the user selected location on a map view.
+
+There can be 25 pins near by the user selected location, all these locations are shown as annotations. when the user taps on a particular annotation the info should be displayed as title and subtitle of the annotation. 
+
+Also there will be a right image in the annotation, below are the events expected to be performed on tap or force touch of the annotation.
+
+<h4>Steps to Reproduce </h4>
+<h4>Create a new classic app mobile project </h4>
+<h4>Paste the code </h4>
+<code><pre>
+var MapModule = require('ti.map');
+var win = Ti.UI.createWindow();
+ 
+ 
+var left = Ti.UI.createView({
+height: Ti.UI.SIZE,//90,
+width: Ti.UI.SIZE,//200,
+isCustom:true
+//layout: 'vertical'
+});
+var img1= Ti.UI.createImageView({
+image:'KS_nav_views.png'
+});
+var button = Ti.UI.createLabel({
+height: 30,
+width: Ti.UI.SIZE,
+text: 'Button 1'
+});
+var button1 = Ti.UI.createLabel({
+height: 10,
+
+width: Ti.UI.SIZE,
+text: 'Button 2'
+});
+var button2 = Ti.UI.createLabel({
+height: 20,
+
+width: Ti.UI.SIZE,
+text: 'Button 3',
+bottom: 10
+});
+ left.add(img1);
+//left.add(button);
+ //left.add(button1);
+ //left.add(button2);
+
+var mainView=Ti.UI.createImageView({
+  height: 70,
+width: 200,
+//image: left.toImage() // uncommenting this line will render the UI correctly even though we are nopt adding this view any where
+});
+ //mainView.backgroundImage = left.toImage();
+var pin = MapModule.createAnnotation({
+    latitude:37.390749,
+    longitude:-122.081651,
+    title:"Title1 ",
+    //subtitle:'Mountain View, CA',
+    pincolor:MapModule.ANNOTATION_RED,
+    animate:true,
+   // leftView: left,//mainView,
+   rightView:left
+    //rightButton : 'KS_nav_views.png'
+}); 
+ 
+var mapview = MapModule.createView({
+    mapType: MapModule.NORMAL_TYPE,
+    animate:true,
+    regionFit:true,
+    userLocation: false,
+    annotations: [pin]
+}); 
+ 
+win.add(mapview);
+ 
+left.previewContext = Ti.UI.iOS.createPreviewContext({
+actions:[],
+preview:Ti.UI.createView({
+width:120,
+height:120,
+backgroundColor:'red',
+custom : left.isCustom,
+myAnnotation:pin
+})
+}); 
+ 
+ 
+  left.previewContext.addEventListener("peek", function(e) {
+        Ti.API.warn("The view was peeked - Update the preview here if you want to");
+        alert("info>>>>>>"+JSON.stringify(e));
+    });
+ 
+   left.previewContext.addEventListener("pop", function() {
+        Ti.API.warn("The view was popped - Open the full context here");
+    });
+ 
+win.open();
+
+</pre></code>
+<h4>Run </h4>
+<h4>Try The "Peek & pop" </h4>
+
+<h4>Expected Results</h4>
+
+1. When the user taps (click event of the map view annotation) on the annotation we should be displaying a view or optional dialog with different options like directions, call and profile.
+2.When the user "force touch" the map annotation on the devices which supports the peek & pop functionality (iPhone 6s and above), we should catch the peek event and display a custom preview view with options call, directions and profile.
+
+A. Tapping on the directions option should take the user to google maps with route plotted between the user current selected location and the doctor location.
+B. Tapping on the call option will place a call to doctors phone number.
+C . Tapping on the profile take the user where more detailed information of the doctor is shown.
+
+Limitations or Problems:
+
+1. There is no " Preview Context" property for the annotation directly. 
+2. There is "Preview context" property for the map view, but we want to implement this feature only on the force touch of right image in annotation.
+3. Applying "Preview Context" for map view does not suffice our requirement as we are not getting the source in the map view peek event.
+4. Tried achieving this adding a custom right view to the annotation. But the right view is not rendered properly, there are some limitations. Below are some:
+
+a) Unable to add a label or button or image view as right view to annotation.
+b) able to add only a plain view to the annotation right view. if we are creating a view and adding label, button or image view to that view and setting the view as right view of annotation, right view is not rendered.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Eric Merriman  2017-02-06
+
+   [~rramirez] This should be a feature request, correct?</li>
+<li>Vijay Singh 2017-08-17
+
+   PR - <a href="https://github.com/appcelerator-modules/ti.map/pull/209" rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/pull/209</a>
+   Test Case 1.
+   
+   <code><pre>
+   var MapModule = require('ti.map');
+   
+   if (!Ti.UI.iOS.forceTouchSupported) {
+     alert('NOT SUPPORTED!');
+   }
+   
+   var actions = [];
+   
+   var win = Ti.UI.createWindow({
+     backgroundColor: "white"
+   });
+   
+   // The actions to be added to the preview context.
+   var action = Ti.UI.iOS.createPreviewAction({
+     title: "Directions",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   var actionCall = Ti.UI.iOS.createPreviewAction({
+     title: "Call",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   action.addEventListener("click", function(e) {
+     alert("Title: " + e.title + " / Style: " + e.style + " / Index: " + e.index);
+   });
+   
+   actionCall.addEventListener("click", function(e) {
+     alert("Title: " + e.title + " / Style: " + e.style + " / Index: " + e.index);
+   });
+   
+   var actionProfile = Ti.UI.iOS.createPreviewAction({
+     title: "Call Profile",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   actionProfile.addEventListener("click", function(e) {
+     alert("Title: " + e.title + " / Style: " + e.style + " / Index: " + e.index);
+   });
+   
+   actions.push(action);
+   actions.push(actionCall);
+   actions.push(actionProfile);
+   
+   var pview = Ti.UI.createView({
+     height: 100,
+     backgroundColor: 'white'
+   });
+   
+   pview.add(Ti.UI.createLabel({
+     text: 'Address\n Title',
+     color: 'black'
+   }));
+   
+   // Create the preview context
+   var context = Ti.UI.iOS.createPreviewContext({
+     actions: actions, // Can have both Ti.UI.iOS.PreviewAction + Ti.UI.iOS.PreviewActionGroup
+     contentHeight: 100, // When unspecified, we use the available height
+     preview: pview
+   });
+   
+   var pin1 = MapModule.createAnnotation({  
+     latitude: 37.390749,
+     longitude: -122.081651,
+     title: "Title1 ",
+     subtitle: 'Mountain View, CA',
+     pincolor: MapModule.ANNOTATION_RED,
+     animate: true,
+     previewContext: context,
+   }); 
+   
+   var pin2 = MapModule.createAnnotation({  
+     latitude: 38.390749,
+     longitude: -122.081651,
+     title: "Title2 ",
+     subtitle: 'Mountain View, CA',
+     pincolor: MapModule.ANNOTATION_RED,
+     animate: true,
+     previewContext: context,
+   });
+   
+   context.addEventListener("peek", function(e) {
+     Ti.API.warn('in peek');
+   });
+   
+   context.addEventListener("pop", function(e) {
+     Ti.API.warn('in pop');
+   });
+   var mapview = MapModule.createView({  
+     mapType: MapModule.NORMAL_TYPE,
+     animate: true,
+     regionFit: true,
+     userLocation: false,
+     annotations: [pin1, pin2]
+   }); 
+   win.add(mapview);
+   win.open();
+   </pre></code>
+   
+   Test Case 2.
+   <code><pre>
+   var Map = require('ti.map');
+   
+   if (!Ti.UI.iOS.forceTouchSupported) {
+     alert('NOT SUPPORTED!');
+   }
+   
+   Ti.API.info('Initially even numbered annotations will be having force touch enabled');
+   
+   var ann = [];
+   var actions = [];
+   
+   var win = Titanium.UI.createWindow({
+     fullscreen: true,
+   });
+   
+   // The actions to be added to the preview context.
+   var action = Ti.UI.iOS.createPreviewAction({
+     title: "Enable force touch for 1",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   var actionCall = Ti.UI.iOS.createPreviewAction({
+     title: "Enable force touch for 3",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   action.addEventListener("click", function(e) {
+     var annot = ann[1];
+     annot.setPreviewContext(context);
+     Ti.API.info('Force touch enabled for annotation numbered 1');
+   });
+   
+   actionCall.addEventListener("click", function(e) {
+     var annot = ann[3];
+     annot.setPreviewContext(context);
+     Ti.API.info('Force touch enabled for annotation numbered 3');
+   });
+   
+   var actionProfile = Ti.UI.iOS.createPreviewAction({
+     title: "Enable force touch for 5",
+     style: Ti.UI.iOS.PREVIEW_ACTION_STYLE_DEFAULT
+   });
+   
+   actionProfile.addEventListener("click", function(e) {
+     var annot = ann[5];
+     annot.setPreviewContext(context);
+     Ti.API.info('Force touch enabled for annotation numbered 5');
+   });
+   
+   actions.push(action);
+   actions.push(actionCall);
+   actions.push(actionProfile);
+   
+   var pview = Ti.UI.createView({
+     height: 100,
+     backgroundColor: 'white'
+   });
+   
+   pview.add(Ti.UI.createLabel({
+     text: 'Address\n Title',
+     color: 'black'
+   }));
+   
+   // Create the preview context
+   var context = Ti.UI.iOS.createPreviewContext({
+     actions: actions, // Can have both Ti.UI.iOS.PreviewAction + Ti.UI.iOS.PreviewActionGroup
+     contentHeight: 100, // When unspecified, we use the available height
+     preview: pview
+   });
+   
+   var createMapIcon = function createMapIconFn(number) {
+   
+     var image = Ti.UI.createView({
+       height: Ti.UI.SIZE,
+       width: Ti.UI.SIZE,
+       backgroundColor: 'transparent',
+   
+     });
+     var imageBack = Ti.UI.createView({
+       height: 50,
+       width: 50,
+       borderRadius: 17,
+       backgroundColor: 'white',
+       borderColor: 'black',
+       top: 0,
+     });
+   
+     imageBack.add(Ti.UI.createLabel({
+       text: number,
+       color: 'black',
+       width: Ti.UI.SIZE,
+       height: Ti.UI.SIZE,
+       top: 5
+   
+     }));
+     image.add(imageBack);
+     return image;
+   };
+   
+   for (var i = 0; i < 6; i++) {
+   
+     var annotation = Map.createAnnotation({
+   
+       customView: createMapIcon(i),
+       latitude: Math.random() * 10 + 40,
+       longitude: Math.random() * 10,
+     });
+     if (i % 2 == 0) {
+       annotation.setPreviewContext(context);
+     }
+     ann.push(annotation);
+   };
+   
+   var mapview = Map.createView({
+     annotations: ann,
+     bottom: 0,
+     right: 0,
+     width: Ti.UI.FILL,
+     height: Ti.UI.FILL,
+     rotateEnabled: false,
+     compassEnabled: false,
+     mapType: Map.HYBRID_TYPE,
+     showsPointsOfInterest: false,
+     userLocation: true,
+   
+   });
+   win.add(mapview);
+   win.open();
+   </pre></code>
+   </li>
+<li>Hans Knöchel 2017-08-17
+
+   Review passed, new release 2.12.0 available [here](<a href="https://github.com/appcelerator-modules/ti.map/releases/tag/ios-2.12.0)." rel="nofollow" target="_blank">https://github.com/appcelerator-modules/ti.map/releases/tag/ios-2.12.0).</a> Please not that I pushed one more commit that fixes a build issue when compiling the module. 
+   
+   The module can be used today and will also be pre-packaged in 6.2.0 as well.</li>
+<li>Eric Wieber 2017-08-22
+
+   I encounter a crash when using the new module and performing two peek and pop actions in a row. I am able to reproduce this with either of the sample codes above.</li>
+<li>Vijay Singh 2017-08-23
+
+   [~ewieber], I assume you are verifying using SDK 6.1.x . This ticket was blocked by TIMOB-25046 as mentioned above. TIMOB-25046 is fixed in 6.2.0. So you have to test it on SDK 6.2.0 onwards or before SDK 6.0.3.GA .</li>
+<li>Eric Wieber 2017-08-23
+
+   Thanks Vijay, you are correct. Tested and verified implemented, using:
+   MacOS 10.12.6 (16G24b)
+   Studio 4.9.0.201705302345
+   Ti SDK 6.2.0.v20170823024940
+   Appc NPM 4.2.9
+   Appc CLI 6.2.3
+   Alloy 1.9.13
+   Xcode 8.3.3 (8E3004b)
+   
+   Peek and pop events are caught and can be addressed without error. A custom view can be displayed in response to the events.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-24375.json">JSON Source</a></p>

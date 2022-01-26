@@ -1,0 +1,115 @@
+---
+title: "[TIMOB-8697] iOS: MapView: Memory leaks detected while scrolling around in the map view so that the red pins change using iPad 2."
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Hold</td></tr>
+<tr><th>Resolution Date</th><td>2012-04-25T11:17:04.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 2.1.0, Sprint 2012-09 API</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>api, qe-ios040912</td></tr>
+<tr><th>Reporter</th><td>Anshu Mittal</td></tr>
+<tr><th>Assignee</th><td>Sabil Rahim</td></tr>
+<tr><th>Created</th><td>2012-04-12T03:21:34.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-07T18:28:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+ Memory leaks detected while scrolling around in the map view so that the red pins change using iPad 2.(Test Case- TIMOB-7467)
+
+Steps to reproduce:
+
+1. Install app to iOS device
+2. Open Instruments
+3. Select Leaks for iOS device
+4. Press Choose
+5. Under Choose Target, select Map and press Record
+6. Scroll around in the map view so that the red pins change
+7. Do a search in instruments for "TiMapPinAnnotationView"
+
+
+Expected result:
+After step 6: You shouldn't have any new memory leaks (note there may be a memory leak from when the app first launched but this is a known issue)
+After step 7: You should see the variable "TiMapPinAnnotationView"
+
+Actual Result:
+After step 7, memory leaks are detected. Please refer to the Instruments_map.trace file attached.
+
+App.js
+
+<code><pre>
+var win = Ti.UI.createWindow({
+    backgroundColor: '#fff'
+});
+
+map = Ti.Map.createView({
+            region : {
+                latitude : 36,
+                latitudeDelta : 5,
+                longitude : -93,
+                longitudeDelta : 5
+            },
+            toggled : false,
+            userLocation : false
+        }), toggleAnnos = function(e) {
+            var lat = 31, lng = (e.source.toggled ? -98 : -89), annos = [];
+            for( i = 0; i < 10; i++) {
+                annos.push({
+                    latitude : lat,
+                    longitude : lng
+                });
+                lat++;
+                if(e.source.toggled) {
+                    lng++;
+                } else {
+                    lng--;
+                }
+            }
+            e.source.removeAllAnnotations();
+            e.source.addAnnotations(annos);
+            e.source.toggled = !e.source.toggled;
+        };
+        win.add(map);
+        map.addEventListener('regionChanged', toggleAnnos);
+
+win.open();
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-8697_26998/Instruments_map.trace.zip">Instruments_map.trace.zip</td></td><td>2012-04-12T03:21:34.000+0000</td><td>3983278</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Marshall Culpepper 2012-04-12
+
+   @Anshu This issue is labeled as a regression, but there is not information about which version this regresses from.. can you provide that?</li>
+<li>Natalie Huynh 2012-04-12
+
+   Tested with 2.0.0 and 1.8.2 and still see the leak. Removed regression tag.</li>
+<li>Sabil Rahim 2012-04-25
+
+   Found that there is no memory leak on TiMapPinAnnotationView, but did notice there was a memory leak of 48bytes which was being caused by an Malloc on UIScorllView GestureRecognizer on ScrollEvent. After some digging around did figure out this is actually an well documented Apple bug and "Apple also assures that this will not cause any app to crash".(Sure enough its 48bytes each). The relevant Apple forum links are [here](<a href="https://devforums.apple.com/message/630695#630695)" rel="nofollow" target="_blank">https://devforums.apple.com/message/630695#630695)</a>, which matches exactly with the stack trace of the leak as I observed from Instruments. 
+   
+   Going to mark this as an HOLD as its an "Apple Bug".</li>
+<li>Neha Chhabra 2012-06-05
+
+   This even occurs on iPhone 4s(5.1)</li>
+<li>Lee Morris 2017-03-07
+
+   Closing ticket due to time passed.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-8697.json">JSON Source</a></p>

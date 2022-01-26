@@ -1,0 +1,254 @@
+{
+	"id": "173672",
+	"key": "TIMOB-27102",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20791",
+				"name": "Release 8.0.2",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-06-18"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-06-06T17:32:46.000+0000",
+		"created": "2019-05-25T00:33:52.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [
+			"appc",
+			"cli",
+			"engSchedule",
+			"ios",
+			"run",
+			"studio"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "eharris",
+			"key": "eharris",
+			"displayName": "Ewan Harris",
+			"active": true,
+			"timeZone": "Europe/Dublin"
+		},
+		"updated": "2019-06-06T17:32:46.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "13103",
+				"name": "CLI",
+				"description": "Node-based command line interface"
+			},
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			},
+			{
+				"id": "10207",
+				"name": "Tooling"
+			}
+		],
+		"description": "*Summary:*\r\nEvery time you click \"Run\" in Appcelator Studio to the iOS simulator, the IDE will *beachball* while rebuilding the workspace once the built app is launched in the simulator. The IDE can block for 5-60 seconds depending on the machine. While beachballing, the IDE cannot be used. Nor can you view anything being logged by the app.\r\n_(Studio always beachballs for 1 minute for me.)_\r\n\r\n*Cause:*\r\nThe CLI is changing the following Titanium SDK file whenever you do an {{appc run}} to the iOS Simulator.\r\n{code}\r\n./node_modules/ioslib/lib/sim_focus.scpt\r\n{code}\r\n\r\nAppcelerator Studio monitors for any Titanium SDK changes under the below directory. If at least 1 file is added/changed/deleted under this directory, then the IDE will \"Rebuild the Workspace\". The above file change is triggering this behavior for iOS simulator builds.\r\n{code}\r\n~/Library/Application Support/Titanium/mobilesdk\r\n{code}\r\n\r\n*Note:*\r\nYou can monitor file tree changes with the below node.js script. You'll need to change the below path to your equivalent SDK version folder that you plan on building with (don't forget to change {{<UserName}} in path) and then run it in the terminal via the {{node}} command line tool.\r\n{code:javascript}\r\nvar fs = require(\"fs\");\r\nvar folderPath = \"/Users/<UserName>/Library/Application Support/Titanium/mobilesdk/osx/8.1.0\";\r\nfs.watch(folderPath, { recursive: true }, function(eventType, fileName) {\r\n\tconsole.log(\"- [\" + eventType + \"] \" + fileName);\r\n});\r\n{code}\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "iOS: \"appc run\" wrongly edits a Titanium SDK installed file causing studio to beachball and rebuild its workspace",
+		"creator": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jquick",
+			"key": "jquick",
+			"displayName": "Joshua Quick",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1141,
+				"state": "closed",
+				"name": "2019 Sprint 12",
+				"startDate": "2019-06-03T22:00:37.435Z",
+				"endDate": "2019-06-14T22:00:00.000Z",
+				"completeDate": "2019-06-15T03:44:20.826Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1136,
+				"state": "closed",
+				"name": "2019 Sprint 11",
+				"startDate": "2019-05-18T17:39:52.830Z",
+				"endDate": "2019-05-31T17:39:00.000Z",
+				"completeDate": "2019-06-04T21:37:11.485Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "448657",
+					"author": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"body": "This looks to be down to us spawning osascript to run the sim focus script. If I run {{osascript \"/Users/eharris/Documents/git/titanium_mobile/node_modules/ioslib/lib/sim_focus.scpt\" \"Simulator\"}} manually then I se the same changes, it looks like osascript changes the modified time every time it runs that file. Some googling threw up https://stackoverflow.com/questions/9487469/prevent-an-applescript-script-from-changing-its-own-modification-date-when-using, and it looks like because we don't declare the variables we use as local they're implicitly global, declaring them with \"local\" at the start of the run handler fixes this for me. I'll verify with the folks in Dublin and then PR on Monday. We could potentially ship this in 8.0.2 if it's causing issues for Studio.\r\n\r\nNote, moved to TIMOB as this is a problem with ioslib which is part of the SDK and not the appc cli",
+					"updateAuthor": {
+						"name": "eharris",
+						"key": "eharris",
+						"displayName": "Ewan Harris",
+						"active": true,
+						"timeZone": "Europe/Dublin"
+					},
+					"created": "2019-05-25T21:10:04.000+0000",
+					"updated": "2019-05-25T21:11:23.000+0000"
+				},
+				{
+					"id": "448687",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "https://github.com/appcelerator/ioslib/pull/87",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-05-28T17:48:53.000+0000",
+					"updated": "2019-05-28T17:48:53.000+0000"
+				},
+				{
+					"id": "448688",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "8_0_X PR: https://github.com/appcelerator/titanium_mobile/pull/10915\r\nmaster PR: https://github.com/appcelerator/titanium_mobile/pull/10916",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-05-28T18:01:23.000+0000",
+					"updated": "2019-05-28T18:01:23.000+0000"
+				},
+				{
+					"id": "448727",
+					"author": {
+						"name": "ssekhri",
+						"key": "ssekhri",
+						"displayName": "Satyam Sekhri",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "FR passed. No file changes in the SDK folder after build to iOS simulator. Also no more beachball/temporary hang in the studio after iOS simulator launch.",
+					"updateAuthor": {
+						"name": "ssekhri",
+						"key": "ssekhri",
+						"displayName": "Satyam Sekhri",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-05-29T21:46:26.000+0000",
+					"updated": "2019-05-29T21:46:26.000+0000"
+				},
+				{
+					"id": "448738",
+					"author": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "merged to master and 8_0_X",
+					"updateAuthor": {
+						"name": "cwilliams",
+						"key": "cwilliams",
+						"displayName": "Christopher Williams",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2019-05-30T12:10:01.000+0000",
+					"updated": "2019-05-30T12:10:01.000+0000"
+				},
+				{
+					"id": "448898",
+					"author": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified the fix on SDK 8.2.0.v20190605080023, 8.1.0.v20190605095601 and 8.0.2.v20190605070127 .No beach ball occurs on running simulators\r\n*Test Enviornment:*\r\nName                        = Mac OS X\r\n  Version                     = 10.13.6\r\n  Architecture                = 64bit\r\nNode.js\r\n  Node.js Version             = 8.9.1\r\n  npm Version                 = 5.5.1\r\nTitanium CLI\r\n  CLI Version                 = 5.1.1\r\nTitanium SDK\r\n  SDK Version                 = 8.2.0.v20190605080023, \r\n                                             8.1.0.v20190605095601 \r\n                                             8.0.2.v2019060507012\r\nSimulator = iphon6s iOS 11, iPhone xr iOS 12, iPhone 7 iOS 12.",
+					"updateAuthor": {
+						"name": "kmahalingam",
+						"key": "kmahalingam",
+						"displayName": "Keerthi Mahalingam",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-06-06T17:32:41.000+0000",
+					"updated": "2019-06-06T17:32:41.000+0000"
+				}
+			],
+			"maxResults": 8,
+			"total": 8,
+			"startAt": 0
+		}
+	}
+}

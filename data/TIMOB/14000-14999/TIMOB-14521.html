@@ -1,0 +1,212 @@
+---
+title: "[TIMOB-14521] Android: Reading NULL value from database causes java exception"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-30T21:27:16.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 22, 2013 Sprint 22 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, database, regression, resultset, triage</td></tr>
+<tr><th>Reporter</th><td>Tommy Leung</td></tr>
+<tr><th>Assignee</th><td>Sunila</td></tr>
+<tr><th>Created</th><td>2013-06-30T03:08:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-16T09:23:49.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Problem*
+Reading a null value from a resultset causes a NullPointer Exception
+
+*Test case*
+<code><pre>
+var win = Ti.UI.createWindow();
+win.open();
+
+var db = Ti.Database.open('testDB');
+
+db.execute('CREATE TABLE IF NOT EXISTS test(name TEXT, captured INTEGERL);');
+db.execute('INSERT INTO test (name, captured) VALUES (?,?)', "111", 222);
+db.execute('INSERT INTO test (name, captured) VALUES (?,?)', null, null);
+
+var results = db.execute('SELECT name, captured FROM test');
+while (results.isValidRow()) {
+	var name = results.field(0);
+	var captured = results.fieldByName('captured');
+	Ti.API.info(name + ' ' + captured);
+	results.next();
+}
+results.close();
+db.close();
+</pre></code>
+
+*Log*
+<code><pre>
+E/TiResultSet(32758): (KrollRuntimeThread) [4,1124] Exception getting value for column 7: null
+E/TiResultSet(32758): java.lang.NullPointerException
+E/TiResultSet(32758): 	at java.io.ByteArrayInputStream.<init>(ByteArrayInputStream.java:58)
+E/TiResultSet(32758): 	at org.appcelerator.titanium.TiBlob.getInputStream(TiBlob.java:319)
+E/TiResultSet(32758): 	at org.appcelerator.titanium.TiBlob.guessContentTypeFromStream(TiBlob.java:193)
+E/TiResultSet(32758): 	at org.appcelerator.titanium.TiBlob.loadBitmapInfo(TiBlob.java:209)
+E/TiResultSet(32758): 	at org.appcelerator.titanium.TiBlob.blobFromData(TiBlob.java:182)
+E/TiResultSet(32758): 	at org.appcelerator.titanium.TiBlob.blobFromData(TiBlob.java:165)
+E/TiResultSet(32758): 	at ti.modules.titanium.database.TiResultSetProxy.internalGetField(TiResultSetProxy.java:113)
+E/TiResultSet(32758): 	at ti.modules.titanium.database.TiResultSetProxy.internalGetField(TiResultSetProxy.java:92)
+E/TiResultSet(32758): 	at ti.modules.titanium.database.TiResultSetProxy.field(TiResultSetProxy.java:64)
+E/TiResultSet(32758): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.nativeRunModule(Native Method)
+E/TiResultSet(32758): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.doRunModule(V8Runtime.java:159)
+E/TiResultSet(32758): 	at org.appcelerator.kroll.KrollRuntime.handleMessage(KrollRuntime.java:289)
+E/TiResultSet(32758): 	at org.appcelerator.kroll.runtime.v8.V8Runtime.handleMessage(V8Runtime.java:185)
+E/TiResultSet(32758): 	at android.os.Handler.dispatchMessage(Handler.java:95)
+E/TiResultSet(32758): 	at android.os.Looper.loop(Looper.java:130)
+E/TiResultSet(32758): 	at org.appcelerator.kroll.KrollRuntime$KrollRuntimeThread.run(KrollRuntime.java:112)
+</pre></code>
+
+*Additional details*
+A DB to get it reproduced can be the one available [here](<a href="https://github.com/appcelerator/KitchenSink/blob/master/Resources/etc/testdb.db)" rel="nofollow" target="_blank">https://github.com/appcelerator/KitchenSink/blob/master/Resources/etc/testdb.db)</a> (table will be created if not exists).
+
+<h3>Comments</h3>
+
+<ol>
+<li>Shak Hossain 2013-07-05
+
+   Hi,
+   Can you please post a runnable sample code to reproduce the issue?
+   </li>
+<li>Tommy Leung 2013-07-10
+
+   [Moved to description]</li>
+<li>Biju pm 2013-08-05
+
+   The issue cannot reproduce with the release master 3.2.0
+   Tested with: 
+   Titanium SDK version: 3.2.0
+   Tested on
+   Device: Samsung galaxy s duos Android version: 4.0.4</li>
+<li>Tommy Leung 2013-08-07
+
+   As per the "Environment" section. Please test with a Gingerbread (2.x) device. The problem is strictly with Gingerbread.</li>
+<li>Tommy Leung 2013-09-08
+
+   I hope this gets looked at soon, as the result of these NPE causes the app to be really slow firing off these NPE events.</li>
+<li>Dan Tamas 2013-09-26
+
+   I can confirm this issue with SDK 3.2.0.v20130828101643 too.</li>
+<li>Dan Tamas 2013-10-02
+
+   Hey guys, any news on this? Is really important for one of my projects.
+   This happens on the next device:
+   
+   *Android 2.3.3*
+   *Samsung Galaxy S2*
+   
+   Thank you.</li>
+<li>Stephen Feather 2013-10-02
+
+   Bug confirmed on *Droid 2*, *Droid X* running *Android 2.3.3*</li>
+<li>Ingo Muschenetz 2013-10-02
+
+   Hi All--We have QE on this. Once we've made sure we can reproduce it as well, we will fix it ASAP.</li>
+<li>Olga Romero 2013-10-02
+
+    *Cannot reproduce* with:
+    *Nexus 4 Android version 4.3*
+    Appcelerator Studio, build: 3.1.3.201309132456
+    Titanium SDK, build 3.1.4.v20130927154557</li>
+<li>Dan Tamas 2013-10-02
+
+    [~oromero] Did you see that everybody says *android 2.3.3* ?</li>
+<li>Olga Romero 2013-10-02
+
+    rborn It is just FYI, and yes, of course I *did* see it
+    </li>
+<li>Dan Tamas 2013-10-02
+
+    Oh, cool, thank you :)
+    </li>
+<li>Samuel Dowse 2013-10-05
+
+    Could not reproduce with:
+    Sony Ericsson Arc S version 2.3.3
+    Appcelerator Studio, build: 3.2.0.201309142421
+    Titanium Studio, build: 3.1.3.201309132423
+    Ti SDK: 3.1.3GA
+    </li>
+<li>Eric Merriman  2013-10-05
+
+    Hello all,
+    
+    We have tried many devices with this, and are unable to reproduce. We have tried 2.3.6, 2.3.4, 2.2.3, and finally got ourselves someone's personal device and installed 2.3.3. We focused on 3.1.3.GA as 3.2.0 is having some structural changes that require 3.2.0 CLI/3.2.0 SDK & 3.2.0 Studio to fully utilize.
+    
+    So please try 3.1.3.GA. If you need 3.2.0 please ensure you are using the combination of components listed above. If using just the CLI, please ensure you use "ti sdk select" to set the active SDK to the one you wish.
+    
+    Our next goal will be to try this with 3.2.0 on a variety of devices.</li>
+<li>Dan Tamas 2013-10-07
+
+    I am using the latest Ti CLI (3.2.0) and I don't use Studio at all.
+    
+    </li>
+<li>Samuel Dowse 2013-10-07
+
+    +Tested with:+
+    Android emulator running 2.3.3
+    Mac OSX - 10.8.5
+    
+    TI SDK: 3.2.0.v20131007104043
+    TI CLI: 3.2.0
+    Null Pointer Exception was thrown
+    
+    TI SDK: 3.1.3.GA
+    TI CLI: 3.2.0
+    No errors, worked as expected
+    
+    TI SDK: 3.2.0.v20131007104043
+    TI CLI: 3.1.3.GA
+    Null Pointer Exception was thrown
+    
+    +Tried with device+
+    Sony Xperia arc S running 2.3.3
+    TI SDK: 3.2.0.v20131007104043
+    TI CLI: 3.2.0
+    Null Pointer Exception was thrown
+    
+    Droid3 running 2.3.4
+    TI SDK: 3.2.0.v20131007104043
+    TI CLI: 3.2.0
+    Null Pointer Exception was thrown
+    
+    Nexus 4 running 4.2
+    TI SDK: 3.2.0.v20131007104043
+    TI CLIL 3.2.0
+    No errors, worked as expected</li>
+<li>Sunila 2013-10-19
+
+    Looks like 2.3 satisfies the isBlob check for null value, moved the isNull check to the top so that null value will be handled first.
+    
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/4812" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4812</a></li>
+<li>Dan Tamas 2013-10-28
+
+    Hey guys, when will this PR be merged into the master source? We cannot push further the android version because of this one.
+    Thank you.</li>
+<li>Samuel Dowse 2013-11-01
+
+    Verified and working on:
+    Mac OSX 10.9 Mavericks
+    Titanium Studio, build: 3.2.0.201310312257
+    Titanium SDK, build: 3.2.0.v20131101124843
+    CLI: 3.2.2
+    Alloy: 1.2.2
+    
+    Android Emulator: 2.3.3, 4.0.3, 4.4
+    Android Device: Samsung Galaxy Nexus 4.2.2, Sony Ericsson Arc S 2.3.3
+    
+    No null pointer exception thrown. Code displays correct output.
+    Closing bug.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-14521.json">JSON Source</a></p>

@@ -1,0 +1,109 @@
+---
+title: "[TIMOB-27438] Android: Toolbar "extendBackground" property ignored if added to window after open"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Open</td></tr>
+<tr><th>Resolution</th><td>Unresolved</td></tr>
+
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, engSchedule, toolbar</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-10-02T20:10:01.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-10-14T20:56:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+If you add <code>Toolbar</code> to a <code>Window</code> after it has been opened, then <code>Toolbar</code> property "extendBackground" is ignored. The <code>Toolbar</code> will instead be overlapped by the top status bar.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android.</h4>
+<h4>Tap on the "Add/Remove" button.</h4>
+<h4>Notice that the toolbar added to the top is overlapped by the status bar. (This is the bug.)</h4>
+
+<code><pre>
+var wasAdded = false;
+var windowSettings = {
+	extendSafeArea: true,
+};
+if (Ti.Android) {
+	windowSettings.windowFlags = Ti.UI.Android.FLAG_TRANSLUCENT_STATUS;
+	windowSettings.theme = "Theme.AppCompat.NoTitleBar";
+}
+var window = Ti.UI.createWindow(windowSettings);
+var toolbar = Ti.UI.createToolbar({
+	title: "My Toolbar",
+	titleTextColor: "white",
+	backgroundColor: "blue",
+	extendBackground: true,
+	top: 0,
+//	bottom: 0,
+	width: Ti.UI.FILL,
+});
+var button = Ti.UI.createButton({
+	title: "Add/Remove Toolbar",
+})
+button.addEventListener("click", function() {
+	if (wasAdded) {
+		window.remove(toolbar);
+	} else {
+		window.add(toolbar);
+	}
+	wasAdded = !wasAdded;
+});
+window.add(button);
+window.open();
+</pre></code>
+
+*Result:*
+ !Android-bad.png|thumbnail! 
+
+*Expected Result:*
+ !Android-good.png|thumbnail! 
+
+*Recommended Solution:*
+Our toolbar Java code should call the [requestApplyInsets()](<a href="https://developer.android.com/reference/android/view/View#requestApplyInsets())" rel="nofollow" target="_blank">https://developer.android.com/reference/android/view/View#requestApplyInsets())</a> method when attached to the window. This requests the view hierarchy to re-dispatch the window insets to all child views, which is used to apply an internal padding to the toolbar needed to make "extendBackground" work.
+
+We'll need to add something like the following to our Toolbar code.
+<code><pre>
+@Override
+public void onAttachedToWindow()
+{
+	super.onAttachedToWindow();
+
+	if (getFitsSystemWindows()) {
+		if (android.os.Build.VERSION.SDK_INT >= 20) {
+			requestApplyInsets();
+		} else {
+			requestFitSystemWindows();
+		}
+	}
+}
+</pre></code>
+
+*Work-around:*
+Add the <code>Toolbar</code> to the <code>Window</code> before opening it and use <code>Toolbar</code> methods <code>show()</code> and <code>hide()</code> to control its visibility instead.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27438_67006/Android-bad.png">Android-bad.png</td></td><td>2019-10-02T20:01:32.000+0000</td><td>89642</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-27438_67007/Android-good.png">Android-good.png</td></td><td>2019-10-02T20:01:32.000+0000</td><td>89771</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<p>No comments</p>
+
+<p><a href="/TIMOB/TIMOB-27438.json">JSON Source</a></p>

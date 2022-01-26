@@ -1,0 +1,237 @@
+{
+	"id": "173642",
+	"key": "TIMOB-27089",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "20412",
+				"name": "Release 8.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-08-13"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2019-05-23T14:52:13.000+0000",
+		"created": "2019-05-19T11:58:27.000+0000",
+		"priority": {
+			"name": "High",
+			"id": "2"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "20412",
+				"name": "Release 8.1.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2019-08-13"
+			}
+		],
+		"issuelinks": [
+			{
+				"id": "57645",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "171652",
+					"key": "TIMOB-26038",
+					"fields": {
+						"summary": "iOS: Move from legacy JavaScriptCore C Api to Obj-C API",
+						"status": {
+							"description": "This issue is being actively worked on at the moment by the assignee.",
+							"name": "In Progress",
+							"id": "3",
+							"statusCategory": {
+								"id": 4,
+								"key": "indeterminate",
+								"colorName": "yellow",
+								"name": "In Progress"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "6",
+							"description": "gh.issue.epic.desc",
+							"name": "Epic",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "cwilliams",
+			"key": "cwilliams",
+			"displayName": "Christopher Williams",
+			"active": true,
+			"timeZone": "America/New_York"
+		},
+		"updated": "2019-07-02T10:55:32.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			}
+		],
+		"description": "Our app crashes when asking for location permissions on SDK 8.1.0. The feature has not changed since a while and we noticed the crash after upgrading to latest master. Error:\r\n{code}\r\n[ERROR] The application has crashed with an uncaught exception 'NSInvalidArgumentException'.\r\n[ERROR] Reason:\r\n[ERROR] -[__NSMallocBlock__ value]: unrecognized selector sent to instance 0x60000236eee0\r\n[ERROR] Stack trace:\r\n[ERROR] 0   CoreFoundation                      0x000000011403b1bb __exceptionPreprocess + 331\r\n[ERROR] 1   libobjc.A.dylib                     0x000000010f334735 objc_exception_throw + 48\r\n[ERROR] 2   CoreFoundation                      0x0000000114059f44 -[NSObject(NSObject) doesNotRecognizeSelector:] + 132\r\n[ERROR] 3   CoreFoundation                      0x000000011403fed6 ___forwarding___ + 1446\r\n[ERROR] 4   CoreFoundation                      0x0000000114041da8 _CF_forwarding_prep_0 + 120\r\n[ERROR] 5   Lambus                              0x00000001098366a6 __66-[GeolocationModule locationManager:didChangeAuthorizationStatus:]_block_invoke + 198\r\n[ERROR] 6   Lambus                              0x00000001098364ef -[GeolocationModule locationManager:didChangeAuthorizationStatus:] + 495\r\n[ERROR] 7   CoreLocation                        0x000000010e99dd74 CLClientStopVehicleHeadingUpdates + 71531\r\n[ERROR] 8   CoreLocation                        0x000000010e99da15 CLClientStopVehicleHeadingUpdates + 70668\r\n[ERROR] 9   CoreLocation                        0x000000010e988210 CLClientInvalidate + 1351\r\n[ERROR] 10  CoreFoundation                      0x0000000113fa062c __CFRUNLOOP_IS_CALLING_OUT_TO_A_BLOCK__ + 12\r\n[ERROR] 11  CoreFoundation                      0x0000000113f9fde0 __CFRunLoopDoBlocks + 336\r\n[ERROR] 12  CoreFoundation                      0x0000000113f9ac2b __CFRunLoopRun + 2779\r\n[ERROR] 13  CoreFoundation                      0x0000000113f99e11 CFRunLoopRunSpecific + 625\r\n[ERROR] 14  GraphicsServices                    0x0000000118a8d1dd GSEventRunModal + 62\r\n[ERROR] 15  UIKitCore                           0x000000011cb0381d UIApplicationMain + 140\r\n[ERROR] 16  Lambus                              0x000000010967fcbc main + 988\r\n[ERROR] 17  libdyld.dylib                       0x0000000115c13575 start + 1\r\n{code}\r\nSome quick research shown that the issue is in the GeolocationModule.m where the callback {{authorizationCallback}} (a {{JSManagedValue}} type) seems to be deallocated already:\r\n{code}\r\n    TiThreadPerformOnMainThread(^{\r\n      NSMutableDictionary *propertiesDict = [TiUtils dictionaryWithCode:code message:errorStr];\r\n      [propertiesDict setObject:NUMINT([CLLocationManager authorizationStatus]) forKey:@\"authorizationStatus\"];\r\n      [[authorizationCallback value] callWithArguments:@[ propertiesDict ]];\r\n    },\r\n        YES);\r\n{code}\r\nJS code to reproduce:\r\n{code:js}\r\n/* eslint-disable strict */\r\n\r\nvar win = Ti.UI.createWindow({\r\n\tbackgroundColor: '#fff'\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n\ttitle: 'Request location permissions'\r\n});\r\n\r\nbtn.addEventListener('click', function () {\r\n\tTi.Geolocation.requestLocationPermissions(Ti.Geolocation.AUTHORIZATION_WHEN_IN_USE, event => {\r\n\t\talert(event);\r\n\t});\r\n});\r\n\r\nwin.add(btn);\r\nwin.open();\r\n{code}\r\nNotes:\r\n* We do have the {{NSLocationWhenInUseUsageDescription}} and {{NSLocationAlwaysAndWhenInUseUsageDescription}} plist keys added. \r\n* We do not use the {{UIBackgroundModes}} key {{location}} since we only request the location while using the app\r\n",
+		"attachment": [
+			{
+				"id": "66645",
+				"filename": "Locationtest  5-23-19, 11-13 AM.crash",
+				"author": {
+					"name": "kmahalingam",
+					"key": "kmahalingam",
+					"displayName": "Keerthi Mahalingam",
+					"active": false,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2019-05-23T18:28:29.000+0000",
+				"size": 67981,
+				"mimeType": "application/octet-stream"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: App crashes when asking for location permissions (SDK 8.1.0+)",
+		"creator": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 1141,
+				"state": "closed",
+				"name": "2019 Sprint 12",
+				"startDate": "2019-06-03T22:00:37.435Z",
+				"endDate": "2019-06-14T22:00:00.000Z",
+				"completeDate": "2019-06-15T03:44:20.826Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1146,
+				"state": "closed",
+				"name": "2019 Sprint 13",
+				"startDate": "2019-06-18T06:36:49.723Z",
+				"endDate": "2019-07-01T06:36:00.000Z",
+				"completeDate": "2019-07-01T16:45:24.126Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1149,
+				"state": "closed",
+				"name": "2019 Sprint 14",
+				"startDate": "2019-07-01T16:55:04.813Z",
+				"endDate": "2019-07-14T16:55:00.000Z",
+				"completeDate": "2019-07-15T15:41:02.311Z",
+				"originBoardId": 114
+			},
+			{
+				"id": 1136,
+				"state": "closed",
+				"name": "2019 Sprint 11",
+				"startDate": "2019-05-18T17:39:52.830Z",
+				"endDate": "2019-05-31T17:39:00.000Z",
+				"completeDate": "2019-06-04T21:37:11.485Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "448509",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Pull: https://github.com/appcelerator/titanium_mobile/pull/10902",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2019-05-19T15:28:51.000+0000",
+					"updated": "2019-05-19T15:28:51.000+0000"
+				},
+				{
+					"id": "449541",
+					"author": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "*Closing ticket.* fix verified in SDK version {{8.2.0.v20190628101943}} and SDK version {{8.1.0.v20190701132634}}\r\n\r\nTest and other information can be found at: \r\nhttps://github.com/appcelerator/titanium_mobile/pull/10902",
+					"updateAuthor": {
+						"name": "smohammed",
+						"key": "smohammed",
+						"displayName": "Samir Mohammed",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2019-07-02T10:55:22.000+0000",
+					"updated": "2019-07-02T10:55:22.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

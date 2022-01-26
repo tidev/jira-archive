@@ -1,0 +1,137 @@
+{
+	"id": "131377",
+	"key": "TIMOB-17156",
+	"fields": {
+		"issuetype": {
+			"id": "4",
+			"description": "An improvement or enhancement to an existing feature or task.",
+			"name": "Improvement",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2014-06-06T21:05:05.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"android",
+			"ant",
+			"cb-tooling",
+			"module_build"
+		],
+		"versions": [
+			{
+				"id": "15971",
+				"description": "Release 3.2.3",
+				"name": "Release 3.2.3",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2014-04-30"
+			}
+		],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2018-02-28T20:03:52.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [],
+		"description": "In Titanium 3.2.3 GA, it's impossible to work as a team on the development of modules since the paths in build.properties are hardcoded.\r\nThe only solution is to have all the team members store the SDKs in the same location but it becomes quite tricky when some are on OSX and some on Windows.\r\n\r\nh1. Step 1 : jar files\r\nThe jar files are inserted in the .classpath of the module with their absolute path. It's a trivial task to change them to use Classpath variables that each user can set in Preferences > Java > Build Path > Classpath Variables\r\nNo problem here and nothing needs to be changed, this manual step doesn't need to be automated.\r\n\r\nh1. Step 2 : build.properties\r\nAt first glance it looks like this file is used as part of the ant build so we are tempted to do like before and set our custom properties in Preferences > Ant > Runtime > Properties.\r\nThe variables that need to be defined:\r\n* {{ANDROID_SDK_ROOT}} (parent folder of {{platforms}} & {{add-ons}})\r\n* {{android.ndk}}\r\n* {{TITANIUM_MOBILE_PATH}} ({{xxx\\mobilesdk\\win32\\3.2.3.GA}} for instance)\r\n\r\nThen we change build.properties as such (for an android module):\r\n{code:title=build.properties|borderStyle=solid}\r\ntitanium.platform=${TITANIUM_MOBILE_PATH}/android\r\nandroid.platform=${ANDROID_SDK_ROOT}/platforms/android-10\r\ngoogle.apis=${ANDROID_SDK_ROOT}/add-ons/addon-google_apis-google-10\r\n{code}\r\n\r\nNow everything inside Ant looks fine except when it comes to the *docgen* target which can't decipher the android.platform.\r\nWe wouldn't expect it to even have to read the file since it's an Ant file.\r\nHowever we find this ugly part in {{module/builder.py}}:\r\n{code:title=module/builder.py|borderStyle=solid}\r\nbuild_properties = read_properties(open(os.path.join(project_dir, 'build.properties')))\r\nandroid_sdk_path = os.path.dirname(os.path.dirname(build_properties['android.platform']))\r\n{code}\r\n\r\nPython trying to read an Ant file seems to be an ugly hack.\r\nInstead I suggest doing the following:\r\n\r\nh2. 1. Changing in {{module/android/build.xml}} the macro {{titanium}} as such:\r\n{code:title=module/android/build.xml|borderStyle=solid}\r\n\t<macrodef name=\"titanium\">\r\n\t\t<attribute name=\"command\"/>\r\n\t\t<element name=\"args\" implicit=\"true\" optional=\"true\"/>\r\n\t\t<sequential>\r\n\t\t\t<python file=\"${titanium.py}\">\r\n\t\t\t\t<env key=\"android.platform\" file=\"${android.platform}\"/>\r\n\t\t\t\t<arg value=\"@{command}\"/>\r\n\t\t\t\t<args/>\r\n\t\t\t</python>\r\n\t\t</sequential>\r\n\t</macrodef>\r\n{code}\r\n\r\nDoing so, we inject in the environment of the python execution the proper variable expanded by Ant.\r\n\r\nh2. 2. Then, we change {{builder.py}} as such:\r\n{code:title= builder.py|borderStyle=solid}\r\n\tif is_android(platform):\r\n\t\tif 'android.platform' in os.environ:\r\n\t\t\tandroid_sdk_path = os.path.dirname(os.path.dirname(os.environ['android.platform']))\r\n\t\telse:\r\n\t\t\tbuild_properties = read_properties(open(os.path.join(project_dir, 'build.properties')))\r\n\t\t\tandroid_sdk_path = os.path.dirname(os.path.dirname(build_properties['android.platform']))\r\n\t\tandroid_sdk = AndroidSDK(android_sdk_path)\r\n{code}\r\n\r\nI left the old code because I don't want to risk side effects but at least when Ant has properly set android.platform in the env of python before calling the titanium script, we make use of it, reducing the need to manually read a file we shouldn't even be looking into.\r\n\r\nThose slight changes allow manual tweeking of the module project (for those interested) so that it can be worked on by users having stuff on different locations.\r\n(A proper mention of this possibility would be nice on the wiki as well if those changes are accepted).",
+		"attachment": [
+			{
+				"id": "48706",
+				"filename": "build.xml",
+				"author": {
+					"name": "kayl",
+					"key": "kayl",
+					"displayName": "Kevin Frugier",
+					"active": true,
+					"timeZone": "Europe/Berlin"
+				},
+				"created": "2014-06-06T21:05:05.000+0000",
+				"size": 17650,
+				"mimeType": "text/xml"
+			},
+			{
+				"id": "48707",
+				"filename": "builder.py",
+				"author": {
+					"name": "kayl",
+					"key": "kayl",
+					"displayName": "Kevin Frugier",
+					"active": true,
+					"timeZone": "Europe/Berlin"
+				},
+				"created": "2014-06-06T21:05:05.000+0000",
+				"size": 8162,
+				"mimeType": "text/plain"
+			}
+		],
+		"flagged": false,
+		"summary": "Supporting per user configuration for build.properties for Android modules",
+		"creator": {
+			"name": "kayl",
+			"key": "kayl",
+			"displayName": "Kevin Frugier",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "kayl",
+			"key": "kayl",
+			"displayName": "Kevin Frugier",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "308899",
+					"author": {
+						"name": "ragrawal",
+						"key": "ragrawal",
+						"displayName": "Ritu Agrawal",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~kayl] Great writeup. Much appreciated.\r\n\r\nMoving this improvement request to engineering for further evaluation and prioritization.",
+					"updateAuthor": {
+						"name": "ragrawal",
+						"key": "ragrawal",
+						"displayName": "Ritu Agrawal",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-06-13T16:35:07.000+0000",
+					"updated": "2014-06-13T16:35:07.000+0000"
+				}
+			],
+			"maxResults": 1,
+			"total": 1,
+			"startAt": 0
+		}
+	}
+}

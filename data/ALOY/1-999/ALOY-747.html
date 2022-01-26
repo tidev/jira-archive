@@ -1,0 +1,108 @@
+---
+title: "[ALOY-747] Alloy: Add attributes to override create, add and remove methods"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-17T20:57:33.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 15</td></tr>
+<tr><th>Components</th><td>XML</td></tr>
+<tr><th>Labels</th><td>alloy, compare, views</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-07-15T06:13:40.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-07-22T17:58:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+This issue builds forth on TC-2609, asking for dynamic namespace loading for Alloy view components.
+
+If using existing object factories, being either native or CommonJS modules, these might not always follow the convention of <code>createTagName</code>, <code>add</code> and <code>remove</code> for creating the view component, adding a child to it or removing it.
+
+Using optional <code>toCreate</code>, <code>toAdd</code>, <code>toRemove</code> attributes, one should be able to override these defaults, so that:
+
+<code><pre>
+<Alloy>
+  <MyView ns="my.factory" toCreate="get" toAdd="attach">
+    <Label>Some label</Label>
+  </MyView>
+</Alloy>
+</pre></code>
+
+properly translates into:
+
+<code><pre>
+if (typeof MyFactory === 'undefined') var MyFactory = require('my.factory');
+$.__views.__alloyId1 = MyFactory.get({ .. });
+$.__views.__alloyId2 = Ti.UI.createLabel({ text: 'Some label, .. });
+$.__views.__alloyId1.attach($.__views.__alloyId2);
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2013-07-15
+
+   Here is the PR: <a href="https://github.com/appcelerator/alloy/pull/179" rel="nofollow" target="_blank">https://github.com/appcelerator/alloy/pull/179</a></li>
+<li>Tony Lukasavage 2013-07-15
+
+   Why would I do this as opposed to just creating a separate controller/view and referencing it with <Require>? This seems like a lot of cruft in the XML attributes to do something that is essentially already solved with self-contained controllers. I would prefer to focus on resolving the issue that XML elements can't be nested inside <Require> or <Widget> attributes. Would that work just as well for you?</li>
+<li>Fokke Zandbergen 2013-07-15
+
+   Well, I can think of two reasons:
+   
+   * Using <code>ns</code> like discussed in ALOY-743 the view could come from a native module as well.
+   * This could be a good way to include legacy code in a app rewritten (partially) in Alloy.</li>
+<li>Tony Lukasavage 2013-07-15
+
+   But would the ability to nest elements in <Require> make this easier? It wouldn't cover handling legacy code, but that's not a primary concern of mine. My main issue is that I feel that Alloy has almost too many special XML attributes as it stands, I'm very hesitant to add anymore because it will be (near) impossible to remove them if and when we do find a cleaner way to implement this. It just feels a little to shoe-horned in when <Require> can do the bulk of this already.</li>
+<li>Fokke Zandbergen 2013-07-15
+
+   I just discovered another, more crucial one :) By default, in <code>compilerUtils.js</code> on line 253, Alloy uses <code>.addEventListener</code> for <code>Ti.</code> namespaces and <code>.on</code> for all others when using the <code>onEvent</code> attribute in views. If I have my own factory wrapping Titanium proxy objects, this won't work.
+   
+   So I guess I would like to add a 4th: <code>toBind</code> ;)</li>
+<li>Tony Lukasavage 2013-07-15
+
+   As I think you are realizing, it's feeling far to "bolted on" to go through at this point. There's just too many little things to consider and I don't want to add an XML attribute every time we find another one.</li>
+<li>Fokke Zandbergen 2013-07-16
+
+   What about instead introducing one new element to register new namespace objects? That would be similar to registering namespaces in HTML and more clear because you're aware of what you're doing.
+   
+   <code><pre>
+   <Alloy>
+     <Namespace ns="my.namespace" require="myNamespace" create="get" add="attach" remove="dettach" />
+     <SomeView ns="my.namespace" />
+   </Alloy>
+   </pre></code>
+   
+   This element should be used to inform Alloy on a namespace's behavior (create/add/remove) as well as optionally specifying a CommonJS/native module to require (if not already in global scope).</li>
+<li>Tony Lukasavage 2013-07-17
+
+   </li>
+<li>Tony Lukasavage 2013-07-17
+
+   In short, I like the ability to allow arbitrary UI components to be inserted via XML, but I don't want this crazy level of flexibility managed in XML. New UI components should abide by the standard interface for creating components and adding/removing them from the view hierarchy.
+   
+   <code><pre>
+   <SomeComponent ns="my.stuff"/>
+   </pre></code>
+   
+   is expected to implement my.stuff.createSomeComponent(), my.stuff.SomeComponent.add(), my.stuff.SomeComponent.remove(), and any other Titanium-like function that it may make use of. We should more clearly define this interface, but allowing an arbitrary interface is deviating too far from creating a coding standard, which is what Alloy is aiming to do.</li>
+<li>Tony Lukasavage 2013-07-17
+
+    Closing this as based on our conversation I don't think this method or the associated PR best suits Alloy goal of establishing a clear coding standard. I'll be happy to continue the conversation, but I think cleaner long-term solutions have been put forth.</li>
+<li>Fokke Zandbergen 2013-07-18
+
+    I can live with this decision ;)
+    
+    Writing a custom parser would be too complicated and time consuming for most I think, but I agree that asking of modules to follow the create, add, remove and even 'on' convention is not too much asked.
+    
+    Then the only issue left is a more clean loading of the module, but we'll discuss that further in ALOY-743.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-747.json">JSON Source</a></p>

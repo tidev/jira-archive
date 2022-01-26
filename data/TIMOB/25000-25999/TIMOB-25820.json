@@ -1,0 +1,115 @@
+{
+	"id": "171210",
+	"key": "TIMOB-25820",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "2",
+			"description": "The problem described is an issue which will never be fixed.",
+			"name": "Won't Fix"
+		},
+		"resolutiondate": "2018-08-09T08:25:00.000+0000",
+		"created": "2018-02-28T03:37:19.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hknoechel",
+			"key": "hansknoechel",
+			"displayName": "Hans Knöchel",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"updated": "2018-08-09T08:25:00.000+0000",
+		"status": {
+			"description": "A resolution has been taken, and it is awaiting verification by reporter. From here issues are either reopened, or are closed.",
+			"name": "Resolved",
+			"id": "5",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [],
+		"description": "postlayout event doesn't trigger when used on TableViewRow.\r\n\r\nTo replicate,  create a new Alloy MObile Project.\r\n\r\nReplace index.xml contents with below:\r\nIndex.xml\r\n\r\n<Alloy>\r\n\t<Window class=\"container\" id=\"win\" layout=\"vertical\" >\r\n\t\t<TableView width=\"90%\"  height=\"Titanium.UI.SIZE\" top=\"100\"   >\r\n\t\t\t<TableViewRow onPostlayout=\"test1\" onClick=\"test2\"  >\r\n\t\t\t\t<Label text=\"API Health\"  />\r\n\t\t\t</TableViewRow>\r\n\t\t\t<TableViewRow id=\"tvr\"  >\r\n\t\t\t\t<Label text=\"Consumer Engagement\"  />\r\n\t\t\t</TableViewRow>\r\n\t\t\t<TableViewRow   >\r\n\t\t\t\t<Label text=\"API Usage\"  />\r\n\t\t\t</TableViewRow>\r\n\t\t\t<TableViewRow   >\r\n\t\t\t\t<Label text=\"Infrastructure Health\"  />\r\n\t\t\t</TableViewRow>\r\n\t\t</TableView>\r\n\t</Window>\r\n</Alloy>\r\n\r\n\r\nReplace index.js contents with below:\r\n\r\n$.win.open();\r\n\r\nfunction test1() {\r\n\talert(\"hello\");\r\n}\r\n\r\n$.tvr.addEventListener(\"postlayout\", test1);\r\n\r\nfunction test2() {\r\n\talert(\"clicked\");\r\n}\r\n\r\n\r\n\r\nYou can see the click event is working, but not the postlayout. ",
+		"attachment": [],
+		"flagged": false,
+		"summary": "postlayout on TableViewRow doesn't work on iOS",
+		"creator": {
+			"name": "isener",
+			"key": "isener",
+			"displayName": "ILAY SENER",
+			"active": true,
+			"timeZone": "Australia/Sydney"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "isener",
+			"key": "isener",
+			"displayName": "ILAY SENER",
+			"active": true,
+			"timeZone": "Australia/Sydney"
+		},
+		"environment": "Studio : 5.0.0.201712081732\r\nSDK: 7.0.2GA (also test on 7.1.X and 7.2.X, same outcome)\r\niOS emulator (iPHone6)",
+		"closedSprints": [
+			{
+				"id": 1058,
+				"state": "closed",
+				"name": "2018 Sprint 16 SDK",
+				"startDate": "2018-07-29T22:26:06.486Z",
+				"endDate": "2018-08-12T22:26:00.000Z",
+				"completeDate": "2018-08-13T17:38:16.757Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "439682",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "This might be the expected behavior on iOS because of the following background. The underlaying {{UITableView}} does not render it's cells like usual views ({{UIView}} subclasses). Instead of finishing a layout by having a view on-screen, table-view cells (both for Ti.UI.ListView and Ti.UI.TableView - they use the same native API internally) are rendered off-screen and are presented to the user once they reach the visible area of the scroll-interaction. After \"scrolling them away\", either up or down, the cells are being destructed again. This is done to ensure the best scrolling-performance across that native API and is decided by the iOS system itself.\r\n\r\nNow when it comes to the {{postlayout}} event, it is usually called on \"normal\" views when they finished layouting on the screen, e.g. they have reached their final rect (width / height) and origin (x- / y-position). For table-view-rows, they are always embedded in the vertical stack of cells inside the {{UITableView}} or their section, so they won't fire because of that. They also do not fire when their sub-views are ready, because that goes under the rendering-pipeline as discussed above, which \"finishes\" layouting even before you know that you will use that cell (by using the scroll-direction to determine and prepare the next cells to present). \r\n\r\nThat's the long story behind why it does not fire. We *could* make it fire by manually firing the event at some point of the layouting-pipeline, but that's really against what this API is meant for and it should be considered as a native limitation. For sure, we should update the docs to reflect this behavior. I'd love your feedback [~isener]!",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2018-08-02T07:19:32.000+0000",
+					"updated": "2018-08-02T07:19:32.000+0000"
+				}
+			],
+			"maxResults": 3,
+			"total": 3,
+			"startAt": 0
+		}
+	}
+}

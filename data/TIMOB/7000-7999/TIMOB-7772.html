@@ -1,0 +1,122 @@
+---
+title: "[TIMOB-7772] iOS :: Simulator - Excessive Project Cleaning Required Due to softlinks"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2012-02-27T23:12:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.2</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Stephen Feather</td></tr>
+<tr><th>Assignee</th><td>Neeraj Gupta</td></tr>
+<tr><th>Created</th><td>2012-02-22T06:48:12.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-09T22:38:27.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem</h4>
+Project must be cleaned between subsequent runs against the simulator to remove build error
+
+<h4>Expectations</h4>
+Expect that when project is run against the simulator, that I don't have to clean the project each time to remove the symlinks to allow build to continue
+
+<h4>Observations</h4>
+* This particular project is the only one in which we copy files from /Resources (Resources/library/html) out into the /Library  (/Library/Private Documents/) in order to update/overwrite them. 
+
+* Switching between sdks resolves problem with first run.
+
+* Subsequent runs against the same sdk has problem
+
+* Manually deleting files from simulator directory does not resolve problem.
+
+* Removing app from simulator does not resolve problem.
+
+
+
+
+
+<code><pre>
+for (var i=0;i<dirList.length;i++)
+{
+	
+	var originfile = Titanium.Filesystem.getFile(htmlsource, dirList[(i)]);
+	var newfile = Titanium.Filesystem.getFile(htmldestination, dirList[(i)]);
+    newfile.write(originfile);
+}
+</pre></code>
+
+<h4>Logs of Incident</h4>
+<code><pre>
+[INFO] One moment, building ...
+[INFO] Detected third-party module: com.0x82.sharekit/1.1
+[INFO] Detected third-party module: com.0x82.sharekit/1.1
+[INFO] Titanium SDK version: 1.8.2 (02/17/12 11:46 442eea2)
+[INFO] iPhone Device family: universal
+[INFO] iPhone SDK version: 5.0
+[INFO] iPhone simulated device: iphone
+[ERROR] Error: Traceback (most recent call last):
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.2.v20120217114657/iphone/builder.py", line 961, in main
+    softlink_for_simulator(project_dir,app_dir)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.2.v20120217114657/iphone/compiler.py", line 178, in softlink_for_simulator
+    softlink_resources(resources_dir,app_dir)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.2.v20120217114657/iphone/compiler.py", line 154, in softlink_resources
+    softlink_resources(from_,to_,False)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.2.v20120217114657/iphone/compiler.py", line 154, in softlink_resources
+    softlink_resources(from_,to_,False)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.2.v20120217114657/iphone/compiler.py", line 162, in softlink_resources
+    os.symlink(from_, to_)
+OSError: [Errno 17] File exists
+</pre></code>
+
+<code><pre>
+[INFO] One moment, building ...
+[INFO] Detected third-party module: com.0x82.sharekit/1.1
+[INFO] Detected third-party module: com.0x82.sharekit/1.1
+[INFO] Titanium SDK version: 1.8.1 (01/27/12 17:31 a24502a)
+[INFO] iPhone Device family: universal
+[INFO] iPhone SDK version: 5.0
+[INFO] iPhone simulated device: iphone
+[ERROR] Error: Traceback (most recent call last):
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.1/iphone/builder.py", line 953, in main
+    softlink_for_simulator(project_dir,app_dir)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.1/iphone/compiler.py", line 178, in softlink_for_simulator
+    softlink_resources(resources_dir,app_dir)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.1/iphone/compiler.py", line 154, in softlink_resources
+    softlink_resources(from_,to_,False)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.1/iphone/compiler.py", line 154, in softlink_resources
+    softlink_resources(from_,to_,False)
+  File "/Users/sfeather/Library/Application Support/Titanium/mobilesdk/osx/1.8.1/iphone/compiler.py", line 162, in softlink_resources
+    os.symlink(from_, to_)
+OSError: [Errno 17] File exists
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Feather 2012-02-22
+
+   Now I'm concerned.  Upon further investigation, it has been discovered that 6 PNG files in the {project}/Resources/library/images folder were replaced with symlinks to nowhere.  When those original files were restored from the repository, the above errors disappeared.
+   
+   However, this raises a much graver concern in that original source files appear to have been modified/destroyed by the build script AND/OR the running of the application on the simulator.
+   
+   I won't have time to investigate much further today, as this has already wasted too much time.
+   
+   For the record, we don't manually symlink anything of our own.</li>
+<li>Stephen Feather 2012-02-26
+
+   Despite nearly 300 iOS builds since reporting the error has not resurfaced. May need to table this until it pops up again, Neeraj.</li>
+<li>Neeraj Gupta 2012-02-27
+
+   @Stephen - marking this bug resolved based on your last comment. Please reopen it if you encounter this issue again.</li>
+<li>Lee Morris 2017-03-09
+
+   Closing ticket as the issue cannot be reproduced.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-7772.json">JSON Source</a></p>

@@ -1,0 +1,92 @@
+---
+title: "[TIMOB-692] camera crash"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-04-17T01:53:56.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Nolan Wright</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:34:35.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-04-17T01:53:56.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Phone =&gt; Camera =&gt; Camera Basic</p>
+<p>crashes on device</p></div>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Very difficult to reproduce this crash. But the relevant stack
+   trace is:</p>
+   <pre>
+   <code>0   CoreFoundation                      0x32de1d1d __exceptionPreprocess + 52
+   1   libobjc.A.dylib                     0x3266be14 objc_exception_throw + 40
+   2   CoreFoundation                      0x32de2bfd -[NSObject doesNotRecognizeSelector:] + 112
+   3   CoreFoundation                      0x32d67b19 ___forwarding___ + 480
+   4   CoreFoundation                      0x32d5e840 _CF_forwarding_prep_0 + 48
+   5   Titanium                            0x0008fd55 -[TitaniumViewController loadView] + 376
+   6   UIKit                               0x30c59758 -[UIViewController view] + 52
+   7   UIKit                               0x30ce094c -[UIWindowController transition:fromViewController:toViewController:target:didEndSelector:] + 1268
+   8   UIKit                               0x30cd7788 -[UIViewController dismissModalViewControllerWithTransition:] + 452
+   9   UIKit                               0x30cd75bc -[UIViewController dismissModalViewControllerAnimated:] + 36
+   10  Titanium                            0x000923dd -[TitaniumApp hideModalController:animated:] + 116
+   11  Titanium                            0x000c3091 -[MediaModule imagePickerController:didFinishPickingMediaWithInfo:] + 128</code>
+   </pre></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Isolated the crash in <code>-[TitaniumViewController
+   loadView]</code>. Occurs in this loop:</p>
+   <pre>
+   <code> for (TiWindowProxy * thisWindowProxy in windowViewControllers)
+       {
+           TiUIView * thisView = [thisWindowProxy view];
+           [rootView addSubview:thisView];
+           [thisWindowProxy reposition]; &lt;---- BUG IS HERE
+       }</code>
+   </pre>
+   <p>Apparently, sometimes a TiWindowProxy is not really a
+   TiWindowProxy. There's probably an initialization race condition
+   somewhere: This bug only seems to appear if you IMMEDIATELY tap
+   'use' after the picture is processed.</p>
+   <p>In this case, the <code>thisWindowProxy</code> is really a
+   <code>TiWindowViewController</code> (the one for the tab
+   group).</p></div></li>
+<li>Blain Hamon 2011-04-15
+
+   <div><p>Aha.</p>
+   <p>windowViewControllers <em>used</em> to be an array of proxies,
+   <em>but</em> I changed them into viewControllers. The fact that the
+   [thisWindowProxy view] doesn't crash is due to viewControllers and
+   proxies <em>both</em> having a method called that.</p>
+   <p>With viewControllers wrapping proxies, that 'view' is a
+   TiUIView. With viewControllers that aren't, like, say, the Camera,
+   they're standard UIViews, which would not have a reposition
+   method.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Re: Blain's comment -</p>
+   <p>Turns out that this was fixed by Jeff as another bug (not sure
+   which one). I'm marking it resolved - but if anyone can still
+   reproduce it in the 1.2.0 freeze, here are instructions:</p>
+   <p>Phone -&gt; Camera -&gt; Camera Basic<br>
+   Take a picture<br>
+   As soon as the 'use' button comes up, tap it IMMEDIATELY. The bug
+   may show up if you tap it at other times, but this seemed to be the
+   most reliable way to reproduce.</p>
+   <p>Of course, re-open the bug if it can be reproduced and I will
+   fix.</p></div></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-692.json">JSON Source</a></p>

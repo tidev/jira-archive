@@ -1,0 +1,223 @@
+---
+title: "[TIMOB-6423] Android: Build should accept an alias password"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-15T22:17:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 23, 2013 Sprint 23 Core, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>Android, Tooling</td></tr>
+<tr><th>Labels</th><td>androidbuild, cb-verified, qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Nam Le</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2011-12-01T15:10:11.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-12T01:22:15.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The ADT supports packaging an apk using a specific keystore/password and a key/password. It appears that we require both the keystore and alias passwords to be the same. When I run the builder.py script using the correct keystore password, but use a alias with a different password, the script hangs.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6423_43949/mykeystore">mykeystore</td></td><td>2013-11-15T10:45:45.000+0000</td><td>1370</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-6423_43950/testkeystore">testkeystore</td></td><td>2013-11-15T10:45:45.000+0000</td><td>1368</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Don Thorp 2011-12-01
+
+   Why is this needed. I believe our signing guide tells them to use the same password. </li>
+<li>Nam Le 2011-12-02
+
+   It provides additional security and flexibility to our users. If this is something that you don't intend to add, then we should at least return some error or response, instead of just hanging</li>
+<li>Chris Barber 2013-11-15
+
+   Pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/4980" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4980</a>
+   
+   To test:
+   
+   1) create an Android project using Studio or the CLI
+   2) copy attached keystores to your computer
+   3) perform the following builds below
+   
+   Attached keystore info:
+   <code><pre>
+   mykeystore
+   store password = 123123
+   alias = myalias
+   no key password
+   </pre></code>
+   
+   <code><pre>
+   testkeystore
+   store password = 123123
+   alias = testalias
+   key password = 456456
+   </pre></code>
+   
+   NOTE: --output-dir has been omitted, but is still required. You will be prompted for the output dir in each scenario below.
+   
+   Test 1) mykeystore: No keystore args
+   <code><pre>
+   ti build -p android -T dist-playstore
+   
+   Where is the keystore file used to sign the app?: /path/to/mykeystore
+   
+   What is the keystore's password?: <type bad password>
+   [ERROR] Keystore was tampered with, or password was incorrect
+   
+   What is the keystore's password?: <type 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter bad password (didn't expect any password)>
+   [ERROR] Bad key password
+   
+   What is the keystore's key password? (leave blank to use the store password): <hit return key>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 2) mykeystore: Bad --keystore
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore ~/badkeystore
+   
+   [ERROR] Invalid keystore file
+   
+   Where is the keystore file used to sign the app?: /path/to/keystore
+   
+   What is the keystore's password?: <type 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <hit return key>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 3) mykeystore: Good --keystore, missing --store-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore
+   
+   What is the keystore's password?: <enter 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <hit return key>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 4) mykeystore: Good --keystore, bad --store-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore --store-password foo
+   
+   [ERROR] Keystore was tampered with, or password was incorrect
+   
+   What is the keystore's password?: <enter 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <hit return key>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 5) mykeystore: Good --keystore and --store-password (won't prompt for --key-password since mykeystore doesn't have one)
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore --store-password 123123
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 6) testkeystore: No keystore args
+   <code><pre>
+   ti build -p android -T dist-playstore
+   
+   Where is the keystore file used to sign the app?: /path/to/testkeystore
+   
+   What is the keystore's password?: <type bad password>
+   [ERROR] Keystore was tampered with, or password was incorrect
+   
+   What is the keystore's password?: <type 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <hit return key>
+   [ERROR] Bad key password
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter bad password>
+   [ERROR] Bad key password
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter 456456>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 7) testkeystore: Good --keystore, missing --store-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/testkeystore
+   
+   What is the keystore's password?: <enter 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter 456456>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 8) testkeystore: Good --keystore, bad --store-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/testkeystore --store-password foo
+   
+   [ERROR] Keystore was tampered with, or password was incorrect
+   
+   What is the keystore's password?: <enter 123123>
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter 456456>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 9) testkeystore: Good --keystore and --store-password, missing --key-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore --store-password 123123
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter 456456>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 10) testkeystore: Good --keystore and --store-password, bad --key-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore --store-password 123123 --key-password foo
+   
+   [ERROR] Bad key password
+   
+   What is the keystore's key password? (leave blank to use the store password): <enter 456456>
+   
+   ... should build successfully
+   </pre></code>
+   
+   Test 11) testkeystore: Good --keystore, --store-password, and --key-password
+   <code><pre>
+   ti build -p android -T dist-playstore --keystore /path/to/mykeystore --store-password 123123 --key-password 456456
+   
+   ... should build successfully
+   </pre></code></li>
+<li>Samuel Dowse 2013-12-12
+
+   Verified fixed on:
+   Mac OSX 10.9 Mavericks
+   Appcelerator Studio, build: 3.2.0.201312101708
+   Titanium SDK, build: 3.2.0.v20131210191510
+   CLI: 3.2.0-cr
+   Alloy: 1.3.0-cr
+   
+   Ran all the test cases provided in the comments.
+   All examples ran as expected.
+   Closing.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-6423.json">JSON Source</a></p>

@@ -1,0 +1,176 @@
+---
+title: "[TIMOB-20407] Ti.Contacts.save() unresponsive on iOS>=9"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-05T06:24:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>ios, qe-.5.4.0</td></tr>
+<tr><th>Reporter</th><td>Rhys Leo Coronado</td></tr>
+<tr><th>Assignee</th><td>Srikanth Sombhatla</td></tr>
+<tr><th>Created</th><td>2016-02-15T15:02:48.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-06-09T22:31:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hi, I'm trying to use Ti.Contacts.save() in iOS>=9, but it seems unresponsive or isn't saving at all.
+
+I get this kind of error when trying to use methods like Ti.Contacts.Person (object).setPhone()
+
+<code>{"message":"-\[CNContact setPhoneNumbers:\]: unrecognized selector sent to instance 0x7fb6b34d5980")</code>
+
+We're using the default or unmodified TiContactsPerson.m 
+
+
+<code><pre>
+var win = Ti.UI.createWindow({
+	backgroundColor: '#ffffff'
+});
+
+
+var button = Ti.UI.createButton({
+	width: 200,
+	height: 50,
+	title: "Save to address book"
+});
+
+win.add(button);
+
+
+function performAddressBookFunction() {
+	// sample stopped working on 5.1.2.GA
+	// var people = Ti.Contacts.getAllPeople();
+	// var contactsToSave = [];
+// 	
+	// for (var i=0; i<people.length; i++) {
+		// contactsToSave.push(people[i]);
+		// Ti.Contacts.removePerson(people[i]);
+	// }
+// 	
+	// Ti.Contacts.save(contactsToSave);
+	// contactsToSave = [];
+	
+	Ti.Contacts.createPerson({
+	  	firstName: 'Rey',
+	  	lastName: 'Bumalay',	
+	  	phone: {
+	  		mobile: ['+63 9176490093', '+63 9176490094'],
+	  		'Toll Free': ['1 800 1000000']
+	  	},
+	  	email: {
+	  		work: ['john@doe.com'],
+	  		'Personal Email': ['reyjexter@gmail.com']
+	  	},
+	 	url: {
+	  		homepage: ['<a href="http://www.google.com" rel="nofollow" target="_blank">http://www.google.com</a>'],
+	  		'Resume/CV/BIO': ['<a href="http://www.myresume.com" rel="nofollow" target="_blank">http://www.myresume.com</a>'],
+	  		'Schedule as a Service': ['<a href="http://www.service.com" rel="nofollow" target="_blank">http://www.service.com</a>']
+	  	}
+	});
+	
+	alert("Successfully saved");
+}
+
+function addressBookDisallowed() {
+	alert("Address book disallowed");
+}
+	
+
+button.addEventListener('click', function(e) {
+	
+	if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_AUTHORIZED){
+	    performAddressBookFunction();
+	} else if (Ti.Contacts.contactsAuthorization == Ti.Contacts.AUTHORIZATION_UNKNOWN){
+	    Ti.Contacts.requestAuthorization(function(e){
+	        if (e.success) {
+	            performAddressBookFunction();
+	        } else {
+	            addressBookDisallowed();
+	        }
+	    });
+	} else {
+	    addressBookDisallowed();
+	}
+});
+
+win.open();
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Rhys Leo Coronado 2016-02-15
+
+   To add:
+   
+   {"message":"-[CNContact setPhoneNumbers:]: unrecognized selector sent to instance 0x7fb6b34d5980")
+   
+   ^It happens with setEmail(), setUrl(), setAddress(), setInstantMessage with their respective error setEmail, setUrl, setAddress, setInstantMessage unrecognized selector sent to instance.</li>
+<li>Chee Kiat Ng 2016-02-16
+
+   This may already be fixed in 5.2.0. [~ssombhatla] check it out?</li>
+<li>Srikanth Sombhatla 2016-02-23
+
+   [~rlcoronado] We currently don't support custom labels like <code>Toll Free</code>,<code>Personal Email</code>. For example the supported labels for phone are <a href="https://docs.appcelerator.com/platform/latest/#" rel="nofollow" target="_blank">https://docs.appcelerator.com/platform/latest/#</a>!/api/Titanium.Contacts.Person-property-phone
+   
+    </li>
+<li>Dustin Hume 2016-02-27
+
+   This is still an issue in 5.2.0 and it is not related to the customer labels mentioned.
+   
+   <code><pre>
+   var currentAddress = f.person.address;
+   if(currentAddress.work){
+       var addressAlreadyExists = false;
+       for(var i=0;i<currentAddress.work.length;i++){
+           if(currentAddress.work[i].Street == contactInfo.location){
+               addressAlreadyExists = true;
+           }
+       }
+       if(!addressAlreadyExists){
+           currentAddress.work.push({
+               CountryCode: 'us',
+               Street: contactInfo.location
+           });
+       }
+       addressAlreadyExists=null;
+   }
+   else{
+       currentAddress.work = [{
+           CountryCode: 'us',
+           Street: contactInfo.location
+       }];
+   }
+   f.person.setAddress(currentAddress);
+   currentAddress=null;
+   </pre></code>
+   
+   f.person.setAddress(currentAddress) throws this error:
+   <code><pre>
+   [ERROR] Script Error {
+       column = 25;
+       line = 788;
+       message = "-[CNContact setPostalAddresses:]: unrecognized selector sent to instance 0x7ff15bba7590";
+   </pre></code>
+   
+   In addition, as mentioned, setPhone(), setEmail(), and setUrl() also throw a similar error. This same code works fine in iOS versions below 9</li>
+<li>Srikanth Sombhatla 2016-02-29
+
+   Reopened for validation. </li>
+<li>Srikanth Sombhatla 2016-04-05
+
+   </li>
+<li>Harry Bryant 2016-06-09
+
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20407.json">JSON Source</a></p>

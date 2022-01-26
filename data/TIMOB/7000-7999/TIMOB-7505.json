@@ -1,0 +1,175 @@
+{
+	"id": "85676",
+	"key": "TIMOB-7505",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2012-01-29T22:51:37.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [],
+		"versions": [
+			{
+				"id": "12580",
+				"description": "Dual Runtime 1.8.0",
+				"name": "Release 1.8.0.1",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2011-12-22"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "ingo",
+			"key": "ingo",
+			"displayName": "Ingo Muschenetz",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2015-04-13T20:12:14.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "h2. Problem\r\n\r\naddEventListener in another event listener is not removed by removeEventListener.\r\n\r\nh2. Test Case\r\n\r\nEvery time the button is clicked, one extra \"blurListener\" is added, each resulting in a message on log. Thus, the removeEventListener is not working.\r\n\r\n\r\n{code:lang=javascript|title=app.js}\r\nTi.UI.setBackgroundColor('#000');\r\n\r\nvar win1 = Ti.UI.createWindow({\r\n\ttitle: 'Win1',\r\n\tfullscreen: true\r\n});\r\n\r\nvar win2 = Ti.UI.createWindow({\r\n\ttitle: 'Win2',\r\n\tfullscreen: true\r\n});\r\n\r\nvar btn = Ti.UI.createButton({\r\n\ttitle: 'Button',\r\n\ttop: 10\r\n});\r\nwin1.add(btn);\r\n\r\nvar lbl = Ti.UI.createLabel({\r\n\ttext: 'Label',\r\n\ttop: 10\r\n});\r\nwin2.add(lbl);\r\n\r\nvar i = 0;\r\nvar blurListener = function() {\r\n\tTi.API.info('blurListener: ' + (i++));\r\n\twin1.removeEventListener('blur', blurListener);\r\n};\r\n\r\nbtn.addEventListener('click', function() {\r\n\twin1.addEventListener('blur', blurListener);\t\r\n\t\r\n\tTi.API.info('---');\r\n\twin2.open({\r\n\t\tanimated: true\r\n\t});\r\n});\r\n\r\nwin1.open();\r\n{code}\r\n\r\nh3. Workaround\r\nYou can solve the problem by overriding the addEventListener and removeEventListener prototypes of the Titanium.UI.Window objects. Just insert the code below into the app.js.\r\n\r\n{code:javascript}\r\n(function() {\r\n\tif (Ti.Platform.name == 'android') {\r\n\t\tvar _addEventListener = Ti.UI.Window.prototype.addEventListener;\r\n\t\tvar _removeEventListener = Ti.UI.Window.prototype.removeEventListener;\r\n\t\t\r\n\t\tTi.UI.Window.prototype._eventListener = function(e) {\r\n\t\t\tif (typeof e.source == 'undefined') return;\r\n\t\t\tif (e.source.toString() != '[object TiBaseWindow]') return;\r\n\t\t\tvar listeners = e.source._eventListeners[e.type];\r\n\t\t\tfor (var i=0; i<listeners.length; i++)\r\n\t\t\t\tlisteners[i](e);\r\n\t\t};\r\n\t\t\r\n\t\tTi.UI.Window.prototype.addEventListener = function(type, func) {\r\n\t\t\tif (!this._eventListeners) this._eventListeners = {};\r\n\t\t\tif (typeof this._eventListeners[type] == 'undefined') {\r\n\t\t\t\tthis._eventListeners[type] = [];\r\n\t\t\t\t_addEventListener.call(this, type, this._eventListener);\t\r\n\t\t\t}\r\n\t\t\tthis._eventListeners[type].push(func);\r\n\t\t};\r\n\t\t\r\n\t\tTi.UI.Window.prototype.removeEventListener = function(type, func) {\r\n\t\t\tif (typeof this._eventListeners[type] != 'undefined') {\r\n\t\t\t\tvar listeners = this._eventListeners[type];\r\n\t\t\t\tfor (var i=0; i<listeners.length; i++) {\r\n\t\t\t\t\tlisteners.splice(i, 1);\r\n\t\t\t\t\tbreak;\t\r\n\t\t\t\t}\r\n\t\t\t}\r\n\t\t};\r\n\t}\r\n})();\r\n{code}\r\n\r\nh2. Logs\r\n\r\nThe output of the above script after 3 button press and back:\r\n{code:lang=none|title=console}\r\n[INFO]\t---\r\n[INFO]\tblurListener: 0\r\n[INFO]\t---\r\n[INFO]\tblurListener: 1\r\n[INFO]\tblurListener: 2\r\n[INFO]\t---\r\n[INFO]\tblurListener: 3\r\n[INFO]\tblurListener: 4\r\n[INFO]\tblurListener: 5\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: event listener added in another event listener is not removed",
+		"creator": {
+			"name": "wallner",
+			"key": "wallner",
+			"displayName": "Adam Wallner",
+			"active": true,
+			"timeZone": "Europe/Budapest"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "wallner",
+			"key": "wallner",
+			"displayName": "Adam Wallner",
+			"active": true,
+			"timeZone": "Europe/Budapest"
+		},
+		"environment": "* Titanium 1.8.0.1 and 1.9.0 (git)\r\n* Android device and emulator\r\n* Google APIs Android 2.2, Android 2.1\r\n* V8\r\n* Mac OS X Lion",
+		"comment": {
+			"comments": [
+				{
+					"id": "181026",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Thanks for raising this ticket. Would you please do the following to allow it to be escalated:\r\n\r\n* to the environment field, add the runtime this has been tested with\r\n* add the logs that shows what happened when the test case was launched\r\n\r\nPlease review the [JIRA Ticket Checklist|https://wiki.appcelerator.org/display/guides/How+to+Submit+a+Bug+Report#HowtoSubmitaBugReport-JIRATicketChecklist] when raising tickets, and start all tickets using the [JIRA Ticket Template|https://wiki.appcelerator.org/display/guides/JIRA+Ticket+Template].\r\n\r\nMany thanks",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2012-01-30T03:27:18.000+0000",
+					"updated": "2012-01-30T03:27:18.000+0000"
+				},
+				{
+					"id": "181166",
+					"author": {
+						"name": "wallner",
+						"key": "wallner",
+						"displayName": "Adam Wallner",
+						"active": true,
+						"timeZone": "Europe/Budapest"
+					},
+					"body": "I've changed the report. I've made a better example and workaround.\r\n\r\nThanks",
+					"updateAuthor": {
+						"name": "wallner",
+						"key": "wallner",
+						"displayName": "Adam Wallner",
+						"active": true,
+						"timeZone": "Europe/Budapest"
+					},
+					"created": "2012-01-31T01:26:16.000+0000",
+					"updated": "2012-01-31T01:26:16.000+0000"
+				},
+				{
+					"id": "181172",
+					"author": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"body": "Adam\r\n\r\nTo the environment field, please state the runtime which has exhibited this issue - v8 or rhino.\r\n\r\nThanks\r\n",
+					"updateAuthor": {
+						"name": "pdowsett",
+						"key": "pdowsett",
+						"displayName": "Paul Dowsett",
+						"active": true,
+						"timeZone": "Europe/London"
+					},
+					"created": "2012-01-31T04:50:22.000+0000",
+					"updated": "2012-01-31T04:50:22.000+0000"
+				},
+				{
+					"id": "181192",
+					"author": {
+						"name": "wallner",
+						"key": "wallner",
+						"displayName": "Adam Wallner",
+						"active": true,
+						"timeZone": "Europe/Budapest"
+					},
+					"body": "Oh, it's the V8 engine, sorry. I've not tested on Rhino.",
+					"updateAuthor": {
+						"name": "wallner",
+						"key": "wallner",
+						"displayName": "Adam Wallner",
+						"active": true,
+						"timeZone": "Europe/Budapest"
+					},
+					"created": "2012-01-31T07:26:34.000+0000",
+					"updated": "2012-01-31T07:27:42.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

@@ -1,0 +1,193 @@
+---
+title: "[TIMOB-5394] 1.8 Breaks tableView click events in some circumstances"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-10-07T11:23:52.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 1.8.0</td></tr>
+<tr><th>Fix Version/s</th><td>Sprint 2011-40, Release 1.8.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_tableview, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Rick Blalock</td></tr>
+<tr><th>Assignee</th><td>Blain Hamon</td></tr>
+<tr><th>Created</th><td>2011-09-30T10:58:02.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-19T12:46:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+TableView click events don't work depending on how complex the rows are.  Previous to the build referenced it worked fine (and also works in 1.7.2).  Below is a sample to reliably reproduce.
+
+<code><pre>
+var createBGBox = function(view, height) {
+    height = height || 40;
+    var outerView = Ti.UI.createView({
+        width: 'auto',
+        height: view.size.height + height
+    });
+    
+    var contentView = view;
+    outerView.content = contentView;
+    
+    var defaults = {
+        backgroundColor: "#e4e4e4", //"#c9d9df",
+        opacity: 0.90,
+        borderRadius: 7,
+        borderWidth: 1,
+        borderColor: "#FFFFFF",
+        left: 5,
+        width: 310,
+        height: view.size.height + (height - 10)
+    };
+    
+    var bgView = Ti.UI.createView(defaults);
+    
+    var ds = Ti.UI.createImageView({
+        image: 'KS_nav_ui.png',
+        hires: true,
+        top: bgView.size.height - 12,
+        width: 320,
+        left: 0
+    });
+    outerView.add(ds);
+    
+    outerView.add(bgView);
+    outerView.add(contentView);
+
+    return outerView;
+};
+
+
+
+ var createCustomTableRow = function(obj) {
+    var row = Ti.UI.createTableViewRow({
+        className: 'eventdata',
+        hasChild: true,
+        height: 99,
+        borderWidth:0,
+        selectedBackgroundImage: 'none',
+        selectionStyle:Ti.UI.iPhone.TableViewCellSelectionStyle.NONE
+    });
+
+    var txtView = Ti.UI.createView({
+        layout: 'vertical',
+        width: 'auto',
+        height: 'auto',
+        left: 115
+    });
+
+    var contentView = Ti.UI.createView({
+        width: 'auto',
+        height: 'auto'
+    });
+
+    var titleLBL = Ti.UI.createLabel({
+        text: obj.name,
+        height: 'auto',
+        width: 170,
+        left: 5,
+        font: {
+            fontSize: 15,
+            fontWeight: 'bold'
+        }
+    });
+    txtView.add(titleLBL);
+
+    contentView.add(txtView);
+       
+    var view = createBGBox(contentView);
+    row.add(view);
+    row.height = view.size.height;
+
+    return row;
+};
+
+
+var win = Ti.UI.createWindow({ backgroundColor: '#fff' });
+
+var data = [
+	createCustomTableRow({
+		name: 'Test Row Data'
+	}),
+	createCustomTableRow({
+		name: 'Test Row Data'
+	}),
+	createCustomTableRow({
+		name: 'Test Row Data'
+	}),
+	createCustomTableRow({
+		name: 'Test Row Data'
+	}),
+	createCustomTableRow({
+		name: 'Test Row Data'
+	}),
+	createCustomTableRow({
+		name: 'Test Row Data'
+	})
+];
+
+var table = Ti.UI.createTableView({
+    separatorStyle: Ti.UI.iPhone.TableViewSeparatorStyle.NONE,
+    backgroundColor: 'transparent',
+    top:'7%',
+    data: data
+});
+
+table.addEventListener('click', function() {
+	alert('row clicked');
+})
+
+win.add(table);
+
+win.open();
+
+</pre></code>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Blain Hamon 2011-10-03
+
+   Pull pending</li>
+<li>Blain Hamon 2011-10-07
+
+   Regression test: The following should not have any scrolling or response from the web view other than alerts on singletap and swipe.
+   
+   <code><pre>
+   var w = Titanium.UI.createWindow();
+   w.orientationModes = [Titanium.UI.PORTRAIT, Titanium.UI.LANDSCAPE_LEFT, Titanium.UI.LANDSCAPE_RIGHT];
+   var loremIpsum = "<html><body>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec "+
+   "faucibus vulputate lorem ac suscipit. Ut sit amet felis a metus mollis egestas at ac erat. Sed nec "+
+   "urna urna, nec posuere justo. Cras nec malesuada orci. Donec interdum, elit vel consequat lacinia, "+
+   "dui est convallis sem, nec lobortis nibh magna ac metus. Morbi sapien tellus, aliquet in convallis "+
+   "in, viverra sit amet justo. Cras vitae erat vitae erat blandit porttitor ac faucibus libero. Mauris "+
+   "sollicitudin, risus sit amet luctus consequat, lectus lorem sagittis sapien, at eleifend eros felis "+
+   "eu elit. Mauris ut nibh leo, vel tempus sem. Vestibulum ante ipsum primis in faucibus orci luctus "+
+   "et ultrices posuere cubilia Curae; Suspendisse eu lacus at ligula venenatis vestibulum.</body></html>";
+   var webview = Ti.UI.createWebView();
+   
+   webview.addEventListener('singletap', function(e)
+   {
+   	alert('singletap');
+   });
+   
+   webview.addEventListener('swipe', function(e)
+   {
+   	alert('swipe');
+   });
+   
+   webview.html = loremIpsum;
+   w.add(webview);
+   
+   w.open();
+   </pre></code></li>
+<li>Thomas Huelbert 2011-12-10
+
+   ipad2 5.0.1 RC1, studio 1.0.7RC, 10.6.8</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-5394.json">JSON Source</a></p>

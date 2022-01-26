@@ -1,0 +1,204 @@
+---
+title: "[TIMOB-20183] iOS: Ti.App.getArguments failing after opening app from spotlight Search"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-01-11T18:26:27.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Cristian vasquez</td></tr>
+<tr><th>Assignee</th><td>Srikanth Sombhatla</td></tr>
+<tr><th>Created</th><td>2015-12-29T03:52:08.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-28T22:07:18.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Description:*
+
+When I set my app to index some content in order to use the new Spotlight Search feature, I got an error when I select an item in the search that should be open using my app, the error happens if I try to use Ti.App.getArguments() in some part of my app; code that I use for push notifications and deep linking features.
+
+*The Error:*
+This error happens if I try to access Ti.App.getArguments() from any point in the app:
+
+<code><pre>
+[ERROR] 2015-12-21 18:23:50.839 Civico[21446:1435686] -[NSUserActivity boundBridge:withKrollObject:]: unrecognized selector sent to instance 0x7fef2a700b50
+[ERROR] Script Error {
+[ERROR]     column = 54;
+[ERROR]     line = 116;
+[ERROR]     message = "-[NSUserActivity boundBridge:withKrollObject:]: unrecognized selector sent to instance 0x7fef2a700b50";
+[ERROR]     sourceURL = "file:///Users/cristianv/Library/Developer/CoreSimulator/Devices/1F81EA0F-DAC5-46B0-A9FF-1BD44DD24486/data/Containers/Bundle/Application/2BE7BB9B-6438-4C07-A314-006A879D1CC4/Civico.app/app.js";
+[ERROR]     stack = "[native code]\nresumeEvent@file:///Users/cristianv/Library/Developer/CoreSimulator/Devices/1F81EA0F-DAC5-46B0-A9FF-1BD44DD24486/data/Containers/Bundle/Application/2BE7BB9B-6438-4C07-A314-006A879D1CC4/Civico.app/app.js:116:54";
+[ERROR] }
+</pre></code>
+
+*To reproduce:*
+1) Insert Ti.App.getArguments into sample app in the alloy.js file <a href="https://github.com/appcelerator-developer-relations/appc-sample-appsearch/blob/master/app/alloy.js#L14" rel="nofollow" target="_blank">https://github.com/appcelerator-developer-relations/appc-sample-appsearch/blob/master/app/alloy.js#L14</a> and run the app.
+
+2) Close the app
+
+3) Perform a search and open one item.
+
+4) Whatch the app crash.
+
+*Relevant Environment data:*
+<code><pre>
+Appcelerator Command-Line Interface, version 5.1.0
+
+Operating System
+  Name                        = Mac OS X
+  Version                     = 10.10.5
+  Architecture                = 64bit
+  # CPUs                      = 4
+  Memory                      = 4.0GB
+
+Node.js
+  Node.js Version             = 0.12.5
+  npm Version                 = 2.11.2
+
+Titanium CLI
+  CLI Version                 = 5.0.5
+  node-appc Version           = 0.2.31
+
+Titanium SDKs
+  5.1.1.GA
+    Version                   = 5.1.1
+    Install Location          = /Users/cristianv/Library/Application Support/Titanium/mobilesdk/osx/5.1.1.GA
+    Platforms                 = android, mobileweb, iphone
+    git Hash                  = e46100b
+    git Timestamp             = 11/24/15 11:07
+    node-appc Version         = 0.2.32
+
+Xcode
+  7.2 (build 7C68) - Xcode default
+    Install Location          = /Applications/Xcode.app/Contents/Developer
+    iOS SDKs                  = 9.2
+    iOS Simulators            = 9.2
+    Watch SDKs                = 2.1
+    Watch Simulators          = 2.1
+    Supported by TiSDK 5.1.1.GA = yes
+    EULA Accepted             = yes
+    Teams                     = none
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Srikanth Sombhatla 2016-01-06
+
+   PR <a href="https://github.com/appcelerator/titanium_mobile/pull/7614" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7614</a></li>
+<li>Srikanth Sombhatla 2016-01-07
+
+   [~apetkov]
+   
+   Here is the app.js containing only the relevant test case in js. Steps to test
+   
+   1. Launch app and select Add item. This will add an item to spotlight search. 
+   2. Kill app and relaunch by searching the term 'guitar' from spotlight search. You should see the continue activity details as an alert.
+   3. Now select Access Args, this should show the launch args as expected. 
+   
+   In case to debug in Xcode, after step 2 xcode->debug->Attach to Process and select the app process. Do this before step 3.
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+     backgroundColor: "White"
+   });
+    
+   var addItem = Ti.UI.createButton({
+     title: 'Add item',
+     top: '35%'
+   });
+   
+   var accessArgs = Ti.UI.createButton({
+     title: 'Access Args',
+     top: '50%'
+   });
+    
+   addItem.addEventListener('click', function() {
+     console.log("creating and adding item");
+     var itemAttr = Ti.App.iOS.createSearchableItemAttributeSet({
+       itemContentType: Ti.App.iOS.UTTYPE_AUDIO,
+       title: 'While My Guitar Gently Weeps',
+       artist: 'The Beatles',
+       album: 'The Beatles (White Album)',
+       musicalGenre: 'Rock',
+       keywords: ['love', 'sleeping', 'floor', 'sweeping']
+     });
+   
+     console.log("itemAttr:"+itemAttr);
+   
+     var item = Ti.App.iOS.createSearchableItem({
+       uniqueIdentifier: 'beatles-white-album-lp-1-track-7',
+       domainIdentifier: 'beatles-white-album',
+       attributeSet: itemAttr
+     });
+   
+     var indexer = Ti.App.iOS.createSearchableIndex();
+     indexer.addToDefaultSearchableIndex([item], function(e) {
+       if (e.success) {
+           alert('Kill app and now search for Guitar.');
+       } else {
+           alert('Error: ' + JSON.stringify(e.error));
+       }
+     });    
+   
+   });
+   
+   accessArgs.addEventListener('click', function() {
+     printArgs();
+   });
+   
+   Ti.App.iOS.addEventListener('continueactivity', function(e) {
+       // Not launched from Spotlight
+       if (e.activityType !== 'com.apple.corespotlightitem') {
+           return
+       }
+       var uniqueIdentifier = e.searchableItemActivityIdentifier;
+       var title = e.title;
+       alert('continueactivity: '+JSON.stringify(e));
+   });
+   
+   var printArgs = function() {
+     var args = Ti.App.getArguments();
+     var argsStr = JSON.stringify(args)
+     console.log("launchargs:"+argsStr);
+     alert(argsStr);
+   }
+    
+   win.add(addItem);
+   win.add(accessArgs);
+   win.open();
+   </pre></code></li>
+<li>Matthew Delmarter 2016-04-02
+
+   </li>
+<li>David Fox 2016-05-01
+
+   </li>
+<li>David Fox 2016-05-01
+
+   The PR posted above fixes the issue I linked to.</li>
+<li>Wilson Luu 2016-07-28
+
+   Closing ticket as fixed. While using the above test code, verified that the app does not crash after opening the app from spotlight search; after backgrounding and killing the app.
+   
+   Tested on:
+   
+   Appc CLI NPM: 4.2.7
+   Appc CLI Core: 5.4.0-36
+   Arrow: 1.8.2
+   SDK: 5.4.0.v20160727143921
+   Node: v4.4.7
+   OS: Mac OS X (10.11.6)
+   Xcode: 7.3.1
+   Device: iphone 6 plus (9.1)</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20183.json">JSON Source</a></p>

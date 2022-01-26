@@ -1,0 +1,274 @@
+---
+title: "[TIMOB-16431] iOS/Android: Updating ListItem of ListView displayed after Search crashes app"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2016-04-27T10:37:14.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>android, ios, listitem, listview</td></tr>
+<tr><th>Reporter</th><td>Young</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2014-01-18T18:03:50.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-04-27T10:37:38.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+App (iOS & Android) crashes when clickHandler of ListView updates ListItem when list being displayed as Search Result.
+
+To reproduce the error:
+1. add the following code to list_v2_search_searchview.js of Kitchen Sink:
+<code><pre>
+    e.section.updateItemAt(e.itemIndex, {
+        properties: { title: 'Will crash app' }
+    });
+</pre></code>
+
+2. do a search (with result)
+3. click on any row of the search result (list view)
+4. *app crash*
+
+Modified Kitchen Sink code:
+<code><pre>
+
+function clickHandler(e){
+    var message = 'Type:'+e.type+'\nSection title:'+e.section.headerTitle+'\nsectionIndex:'+e.sectionIndex+'\nitemIndex:'+e.itemIndex;
+    if(isValidVar(e.bindId)){
+        message += '\nbindId:'+e.bindId;
+    }
+    if(isValidVar(e.itemId)){
+        message += '\nitemId:'+e.itemId;
+    }
+    alert(message);
+
+    e.section.updateItemAt(e.itemIndex, {
+		properties: { title: 'Will crash app' }
+    });
+}
+</pre></code>
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mostafizur Rahman 2014-01-20
+
+   I tested this issue with the test code below. I can't reproduce this issue. Can you please do a quick test using the code below to see if you can reproduce the error. If so, please let us know.
+   
+   
+   <h4>Test Environment</h4>
+   Mac OX S 10.8.5
+   Ti SDK 3.2.0.GA
+   Ti CLI 3.2.0 
+   IOS simulator 7.0.3
+   
+   <h4>Test Code</h4>
+   
+   <code><pre>
+   var win = Ti.UI.createWindow({
+   	backgroundColor : 'white',
+   	fullscreen : true
+   });
+   
+   var search = Titanium.UI.createSearchBar({
+   	barColor : '#000',
+   	showCancel : true,
+   	height : 43,
+   	top : 0,
+   });
+   search.addEventListener('cancel', function() {
+   	search.blur();
+   });
+   
+   var listView = Ti.UI.createListView({
+   	searchView : search,
+   	caseInsensitiveSearch : true
+   });
+   
+   var listSection = Ti.UI.createListSection();
+   var fruits = ['Papaya', 'Peach', 'Pear', 'Persimmon', 'Pineapple', 'Pluot', 'Pomegranate'];
+   var data = [];
+   for (var i = 0; i < fruits.length; i++) {
+   	data.push({
+   		properties : {
+   			title : fruits[i],
+   			searchableText : fruits[i]
+   		}
+   	});
+   }
+   listSection.setItems(data);
+   
+   listView.addEventListener('itemclick', function(e) {
+   	e.section.updateItemAt(e.itemIndex, {
+   		properties : {
+   			title : 'Will crash app'+e.itemIndex
+   		}
+   	});
+   });
+   
+   listView.sections = [listSection];
+   win.add(listView);
+   win.open();
+   </pre></code>
+   
+   <h4>Step to Test </h4>
+   
+   <h4>Create a simple project </h4>
+   <h4>Update app.js with my test code </h4>
+   <h4>Run on iOS simulator for testing </h4>
+   <h4>Do a search (with result)</h4>
+   <h4>Click on any row of the search result (list view)</h4>
+   
+   <h4>Test Result </h4>
+   
+   App is running with out any crash 
+   
+   Thanks 
+   </li>
+<li>Martijn Kooij 2014-02-05
+
+   I am experiencing the same issue.
+   A simple project using Mostafizur Rahman's code also crashes as soon as I click an item in the search results. Code crashes in 3.2.0GA as well as 3.2.1.
+   
+   Ran the project in XCode and the crash occurs in TiUIListview.m, on this line:
+   -(void)buildResultsForSearchText
+   {
+       searchActive = ([searchString length] > 0); >> EXC_BAD_ACCESS
+   
+   
+   I will try to hack fix it, but I hope you can find a real fix soon.</li>
+<li>Ritu Agrawal 2014-02-09
+
+   Moving this ticket to engineering as I can reproduce this issue with the following test case on iOS platform. It appears related to TC-3682 (crash with deleteItemsAt) whereas this crash is with updateItemAt. 
+   
+   <code><pre>
+   var win=Ti.UI.createWindow({
+       fullscreen:false
+   });
+   var template={
+       childTemplates:[
+           {
+               type:'Ti.UI.Label',
+               bindId:'title'
+           }
+       ]
+   };
+   var items=[];
+   for(var k=0;k<500;k++){
+       items.push({
+           properties:{
+                   searchableText:'Click to delete '+k
+               },
+           title:{text:'Click to delete '+k}
+       });
+   }
+    
+   var search=Ti.UI.createSearchBar();
+    
+   var listView=Ti.UI.createListView({
+       templates:{template:template},
+       defaultItemTemplate:'template',
+       sections:[
+                   Ti.UI.createListSection({
+                           items:items
+                       })
+               ],
+       searchView:search
+   });
+   
+   listView.addEventListener('itemclick', function(e) {
+       e.section.updateItemAt(e.itemIndex, {
+           properties : {
+               title : 'Will crash app'+e.itemIndex
+           }
+       });
+   });
+     
+   listView.addEventListener('itemclick',function(e){
+       var index=e.itemIndex;
+       Ti.API.info("Index" + index);
+       // e.section.deleteItemsAt(index,1);
+       e.section.updateItemAt(e.itemIndex, {
+           properties : {
+               title : 'Will crash app' + e.itemIndex
+           }
+       });
+   });
+   
+   win.add(listView);
+   win.open();
+   </pre></code> </li>
+<li>Hans Knöchel 2016-04-27
+
+   Hey guys, could you try using the latest 5.2.2.GA for this issue? I remember we fixed something related for that release. Thank you!
+   
+   *EDIT*: Using the below code (refactored from above), it does not crash when clicking an item while the search is focussed:
+   
+   <code><pre>
+   var win = Ti.UI.createWindow();
+   
+   var template = {
+       childTemplates: [
+           {
+               type: 'Ti.UI.Label',
+               bindId: 'title'
+           }
+       ]
+   };
+   
+   var items = [];
+   
+   for (var k = 0; k < 500; k++) {
+       items.push({
+           properties: {
+               searchableText: 'Click to delete ' + k
+           },
+           title: {
+               text: 'Click to delete ' + k
+           }
+       });
+   }
+   
+   var search = Ti.UI.createSearchBar();
+   var listView = Ti.UI.createListView({
+       templates: {
+           template: template
+       },
+       defaultItemTemplate: 'template',
+       sections: [
+           Ti.UI.createListSection({
+               items: items
+           })
+       ],
+       searchView: search
+   });
+   
+   listView.addEventListener('itemclick', function(e) {
+   
+       Ti.API.info("Index" + e.itemIndex);
+   
+       e.section.updateItemAt(e.itemIndex, {
+           properties: {
+   			searchableText: 'Will crash app' + e.itemIndex
+           },
+           title: {
+               text: 'Will crash app' + e.itemIndex
+           }
+       });
+   });
+   
+   win.add(listView);
+   win.open();
+   </pre></code></li>
+<li>Hans Knöchel 2016-04-27
+
+   Closing for now. If you still experience it, feel free to comment here!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-16431.json">JSON Source</a></p>

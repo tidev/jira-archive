@@ -1,0 +1,237 @@
+{
+	"id": "122631",
+	"key": "ALOY-912",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "15759",
+				"description": "Alloy 1.3.1",
+				"name": "Alloy 1.3.1",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2014-02-10"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2014-01-07T20:39:59.000+0000",
+		"created": "2013-11-19T07:58:38.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"alloy",
+			"qe-testadded"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2014-07-31T18:24:45.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "12326",
+				"name": "XML",
+				"description": "View XML and parsing"
+			}
+		],
+		"description": "Hi,\r\n\r\njust upgraded to latest Alloy master version and noticed a crash when a headerView is only used for instance on a tablet:\r\n\r\n{code}\r\n$.index.open();\r\n{code}\r\n\r\n{code}\r\n<Alloy>\r\n    <Window class=\"container\">    \r\n        <TableView>\r\n            <HeaderView formFactor=\"tablet\">\r\n                <View>\r\n                    <Label>Text</Label>\r\n                </View>\r\n            </HeaderView>\r\n        </TableView>\r\n    </Window>\r\n</Alloy>\r\n{code}\r\n\r\nTested on Android 4.1.3 with Samsung Galaxy S2. Problem is it only creates the HeaderView on tablets but always wants to set the headerView property even on handhelds where the headerView does not exist.\r\n\r\nh3. Environment\r\n- OSX 10.8.5\r\n- iOS Simulator 7.0\r\n- Xcode 5.0.1\r\n- Latest Titanium SDK: 3.2.0.v20131108155642\r\n- Latest Titanium CLI Master 3.2.0\r\n- Latest Alloy Master 1.3.0\r\n\r\nLink to Q&A:\r\n[http://developer.appcelerator.com/question/159540/alloy-130-ignores-formfactor-in-headerview---leads-in-crash]",
+		"attachment": [
+			{
+				"id": "44860",
+				"filename": "logs.txt",
+				"author": {
+					"name": "mrahman",
+					"key": "mrahman",
+					"displayName": "Mostafizur Rahman",
+					"active": true,
+					"timeZone": "Asia/Dhaka"
+				},
+				"created": "2013-12-29T11:05:40.000+0000",
+				"size": 17331,
+				"mimeType": "text/plain"
+			}
+		],
+		"flagged": false,
+		"summary": "Alloy 1.3.0 ignores formfactor in headerView - leads in crash",
+		"creator": {
+			"name": "jicks83",
+			"key": "jicks83",
+			"displayName": "Jick Steen",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jicks83",
+			"key": "jicks83",
+			"displayName": "Jick Steen",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": null,
+		"comment": {
+			"comments": [
+				{
+					"id": "281127",
+					"author": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "FYI:\n\nAs I can release my app only having this fixed, I had a look to fix it. It seems to work for me but I guess it is not really a proper fix. What I basically did is assigning ProxyProperties that have a condition after creating the TableView instance. Because it looks like assigning {code}Ti.UI.createTableView({headerView: undefined}){code} or {code}{Ti.UI.createTableView({headerView: null}){code} both leads in a crash on Android.\n\n{code}\ndiff --git a/Alloy/commands/compile/parsers/Ti.UI.TableView.js b/Alloy/commands/compile/parsers/Ti.UI.TableView.js\nindex a279b72..e247035 100644\n--- a/Alloy/commands/compile/parsers/Ti.UI.TableView.js\n+++ b/Alloy/commands/compile/parsers/Ti.UI.TableView.js\n@@ -31,6 +31,7 @@ function parse(node, state, args) {\n                isDataBound = args[CONST.BIND_COLLECTION] ? true : false,\n                extras = [],\n                proxyProperties = {},\n+               conditionedProxyProperties = {},\n                localModel, arrayName, controllerSymbol;\n \n        // iterate through all children of the TableView\n@@ -77,7 +78,11 @@ function parse(node, state, args) {\n                        code += CU.generateNodeExtended(child, state, {\n                                parent: {},\n                                post: function(node, state, args) {\n-                                       proxyProperties[U.proxyPropertyNameFromFullname(fullname)] = state.parent.symbol;\n+                                       if (state.parent.condition) {\n+                                               conditionedProxyProperties[U.proxyPropertyNameFromFullname(fullname)] = {condition: state.parent.condition, symbol: state.parent.symbol};\n+                                       } else {\n+                                               proxyProperties[U.proxyPropertyNameFromFullname(fullname)] = state.parent.symbol;\n+                                       }\n                                }\n                        });\n \n@@ -162,6 +167,12 @@ function parse(node, state, args) {\n        var tableState = require('./default').parse(node, state);\n        code += tableState.code;\n \n+       if (conditionedProxyProperties) {\n+               _.each(conditionedProxyProperties, function (v, k) {\n+                       code += 'if (' + v.condition + ') {' + tableState.parent.symbol + \".\" + k + '= ' + v.symbol + \"; }\"\n+               });\n+       }\n+\n        // finally, fill in any model-view binding code, if present\n        if (isDataBound) {\n                localModel = localModel || CU.generateUniqueId();\ndiff --git a/Alloy/commands/compile/parsers/_ProxyProperty.js b/Alloy/commands/compile/parsers/_ProxyProperty.js\nindex 192b4e0..23f805e 100644\n--- a/Alloy/commands/compile/parsers/_ProxyProperty.js\n+++ b/Alloy/commands/compile/parsers/_ProxyProperty.js\n@@ -50,7 +50,8 @@ function parse(node, state, args) {\n \n        return {\n                parent: {\n-                       symbol: proxy\n+                       symbol: proxy,\n+                       condition: state.condition\n                },\n                isProxyProperty: true,\n                propertyName: U.lcfirst(args.fullname.match(/\\.([^\\.]+)$/)[1] || '')\n{code}",
+					"updateAuthor": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-11-25T10:50:32.000+0000",
+					"updated": "2013-11-25T10:50:32.000+0000"
+				},
+				{
+					"id": "282192",
+					"author": {
+						"name": "ewieber",
+						"key": "ewieber",
+						"displayName": "Eric Wieber",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi,\r\n\r\nAfter testing the code on several tablets and Android phones, from 2.2 to 4.2, I was not able to reproduce this issue.\r\nThe \"Test\" text properly showed up on tablets and not on phones. I did not witness a crash with Ti SDK 3.1.3 or 3.2.\r\n\r\nCan you please try out the latest nightly build of the TISDK and let us know an update if you continue to get this crashed.\r\n\r\nThanks,\r\n\r\n",
+					"updateAuthor": {
+						"name": "shossain",
+						"key": "shossain",
+						"displayName": "Shak Hossain",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-12-03T20:33:32.000+0000",
+					"updated": "2013-12-04T06:05:57.000+0000"
+				},
+				{
+					"id": "284723",
+					"author": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Strange, I still can reproduce the issue: http://pastebin.com/0REU3sBg\r\n\r\nalloy --version = 1.3.0 (Just updated to latest master using {code}sudo npm install -g git://github.com/appcelerator/alloy.git{code})\r\ntitanium --version = 3.3.0 (Just updated to latest master)\r\n\r\nHost OS: Mac OS X\r\nOS Version: 10.8.5\r\nOS Arch: x86\r\nJRE Version: 1.6.0_65\r\nTitanium Studio Version: 3.2.1.201312142230\r\nLatest Titanium SDK: 3.2.0.v20131216191854\r\nAndroid SDK Version: 4.4\r\nAndroid NDK Version: Unknown/Uninstalled\r\nTitanium CLI Enabled: true\r\n\r\nTested on Samsung Galaxy S2 with Android 4.1.2 \r\n\r\nGenerated controller code looks like this: http://pastebin.com/LkMzM6vq\r\nNotice line 28 where headerView is asigned but only generated for tablets in line 15.",
+					"updateAuthor": {
+						"name": "jicks83",
+						"key": "jicks83",
+						"displayName": "Jick Steen",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2013-12-17T10:18:13.000+0000",
+					"updated": "2013-12-17T10:18:27.000+0000"
+				},
+				{
+					"id": "287039",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "commit: https://github.com/appcelerator/alloy/pull/296\r\ntest app: https://github.com/appcelerator/alloy/tree/master/test/apps/testing/ALOY-912\r\n\r\nMerged in master and 1_3_X\r\n\r\nFunctional testing can be done on the app in the comments, or on the test app listed here. Both simply need to be run on android and not produce a runtime error. Before this fix, a runtime error would occur on android.",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-01-07T20:39:59.000+0000",
+					"updated": "2014-01-07T20:39:59.000+0000"
+				},
+				{
+					"id": "287046",
+					"author": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified fixed. \n\nTiSDK 3.2.1.v20140106195644\nAppcelerator Studio 3.2.1.201401061716\nAlloy 1.3.1-beta2\n\nAndroid Google Nexus Galaxy 4.3\niPhone 5 iOS7\nClosing",
+					"updateAuthor": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-01-07T21:22:42.000+0000",
+					"updated": "2014-01-07T21:22:42.000+0000"
+				},
+				{
+					"id": "291305",
+					"author": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified as fixed.\n\nTiSDK 3.2.1.v20140203174850\nAlloy 1.3.1-cr2\nCLI 3.2.1-beta3\nAppcelerator Studio 3.2.1.201402041206\t\niPhone 5 iOS 7\nAndroid Google Nexus Galaxy 4.3\n\nClosing",
+					"updateAuthor": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-02-05T01:41:44.000+0000",
+					"updated": "2014-02-05T01:41:44.000+0000"
+				}
+			],
+			"maxResults": 11,
+			"total": 11,
+			"startAt": 0
+		}
+	}
+}

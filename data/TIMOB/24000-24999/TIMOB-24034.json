@@ -1,0 +1,361 @@
+{
+	"id": "163960",
+	"key": "TIMOB-24034",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "16980",
+				"description": "New V8",
+				"name": "Release 6.0.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2016-11-15"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2016-10-18T02:47:24.000+0000",
+		"created": "2016-10-13T23:33:25.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "53096",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"outwardIssue": {
+					"id": "162661",
+					"key": "TIMOB-23786",
+					"fields": {
+						"summary": "iOS10: Logs not working on iOS 10 devices.",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "Critical",
+							"id": "1"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": {
+			"name": "cbarber",
+			"key": "cbarber",
+			"displayName": "Chris Barber",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"updated": "2018-08-06T17:49:34.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10206",
+				"name": "iOS",
+				"description": "iOS Platform"
+			},
+			{
+				"id": "10207",
+				"name": "Tooling"
+			}
+		],
+		"description": "The iOS Simulator shares ports with the host machine. The iOS build will select a log server port based on the {{<log-server-port>}} in the tiapp.xml or based on the hash of the app id using the following logic:\r\n\r\n{code}\r\nparseInt(sha1(this.tiapp.id), 16) % 50000 + 10000\r\n{code}\r\n\r\nBecause we only allow a possible 50,000 possibilities, the likelihood of a collision is high. In my tests, it's about 5%. The solution to the collisions is to just allow manual override by setting a {{<log-server-port>}} in the tiapp.xml.\r\n\r\nThe next problem is what if the app id hash port resolves a port number used by another piece of software? Say you have MongoDB installed and it's listening on port 27017. It's entirely possible Titanium will pick 27017.\r\n\r\nThe current iOS build logic tries to be smart. It starts a Node.js server listening on the selected port and if it can't bind to it, then that means some other app already has bound to the port. It will then select a random port. I knew at design time that random ports will break the differential build system, but figured it would only happen if there was a collision.\r\n\r\nTurns out that's not quite accurate. If you build an app for the sim and then rebuild our app while leaving the previous build running in the sim, the iOS build will detect the desired port is not available because the iOS app is currently listening on it. This causes the iOS build to randomly select a port.\r\n\r\nThe port number gets written to the Xcode project. Since it will generate a new random port every build (as long as the sim and previous build is running), the iOS build detects the Xcode project is different and forces a full rebuild.\r\n\r\nWe have 5 solutions:\r\n\r\n1. Don't select a random port. Just use the port regardless if it's in use. Cons: high chance of port collisions and false positives, the iOS app will fail to bind to it and there will be no logs and no warning.\r\n\r\n2. Don't select a random port. If the port is already in use, try connecting to it and see if it's the app we're trying to build and if so, then proceed with the build. If the port is being used by something such as a web server, it will be expecting data, but because the log server clients do not send data, we end up in a stalemate. We would need to add a timeout. Cons: the timeout will pause the build by ~1 second.\r\n\r\n3. Allow random ports if the desired port is unavailable. Pass the {{GCC_PREPROCESSOR_DEFINITIONS=\"TI_LOG_SERVER_PORT=XXXX\"}} directly into {{xcodebuild}} instead of baking it into the Xcode project. Cons: you will run in a loop where the build will alternate between the hashed port and a random one, we would need to force {{xcodebuild}} to re-compile using the new port value.\r\n\r\n4. Write the port to a file (could be any file) and bundle it with the app. Avoids the Xcode project and {{xcodebuild}}. If the file does not exist or is empty, then logging is disabled. Cons: easy to accidentally ship with the app and enable logging in production.\r\n\r\n5. Pass the port number in as an argument when we call {{simctl launch}}. We would still bake the {{DISABLE_TI_LOG_SERVER=1}} into the Xcode project for dist builds. Cons: ioslib currently does not support passing arguments into {{simctl launch}}, subsequent manually launching the app will not have the argument.\r\n\r\nI think option 1 and 3 are not too good. Option 2 is not so great. Option 4 is not too bad. https://www.youtube.com/watch?v=vm-MrkoJPC8\r\n\r\nThoughts?",
+		"attachment": [
+			{
+				"id": "60532",
+				"filename": "cleanBuild.trace",
+				"author": {
+					"name": "cng",
+					"key": "cng",
+					"displayName": "Chee Kiat Ng",
+					"active": false,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2016-10-17T13:52:27.000+0000",
+				"size": 1608787,
+				"mimeType": "application/octet-stream"
+			},
+			{
+				"id": "60533",
+				"filename": "subseqBuild.trace",
+				"author": {
+					"name": "cng",
+					"key": "cng",
+					"displayName": "Chee Kiat Ng",
+					"active": false,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2016-10-17T13:52:25.000+0000",
+				"size": 51092,
+				"mimeType": "application/octet-stream"
+			}
+		],
+		"flagged": false,
+		"summary": "iOS: New logging system breaks differential builds - simulator builds only",
+		"creator": {
+			"name": "cbarber",
+			"key": "cbarber",
+			"displayName": "Chris Barber",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "cbarber",
+			"key": "cbarber",
+			"displayName": "Chris Barber",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"environment": null,
+		"closedSprints": [
+			{
+				"id": 732,
+				"state": "closed",
+				"name": "2016 Sprint 21 Tooling",
+				"startDate": "2016-10-08T00:54:00.000Z",
+				"endDate": "2016-10-22T00:54:00.000Z",
+				"completeDate": "2016-10-24T04:18:13.798Z",
+				"originBoardId": 199
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "398992",
+					"author": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "I like option 2 if the timeout doesn't actively the build. When you say it could be done when resources are copied, it sounds like a good idea. I also like option 4, if we can ensure that it doesn't get shipped with production apps. Could be store it in the build dir or does that also make problems with recurring builds?",
+					"updateAuthor": {
+						"name": "hknoechel",
+						"key": "hansknoechel",
+						"displayName": "Hans Knöchel",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2016-10-14T18:07:48.000+0000",
+					"updated": "2016-10-14T18:07:48.000+0000"
+				},
+				{
+					"id": "398994",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Turns out we can't resolve log server port while copying resources... we must do it before we write the Xcode project which is right before we do all the parallel tasks.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2016-10-14T18:20:22.000+0000",
+					"updated": "2016-10-14T18:20:22.000+0000"
+				},
+				{
+					"id": "398999",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "I did a bunch of testing and ended up going with Option 2. I removed the code that selects a random port.\r\n\r\nNew logic:\r\n\r\n# Select the port to use based on either the {{<log-server-port>}} in the tiapp.xml or generate a port based on the app id\r\n# Validate that the port is an integer between 1024 and 65535\r\n# Start a Node server and try to bind to the port\r\n## If we can bind, the port is available and we kill the server and continue with the build\r\n## If we cannot bind, then connect to the port to see if it's a Titanium app:\r\n### If it's a Titanium app, check if the app id matches the one app we're building\r\n#### If yes, then continue with the build... when we install the new version, it'll kill the old one and release the port\r\n#### If no, then error out\r\n### If it's not a Titanium app...\r\n#### and the remote server expects data upon connect...\r\n##### and the server times out the connection because of no activity\r\n##### and server hangs and we timeout the connection because of no activity\r\n#### and the remote server immediately sends us data, but the first line of data is not our JSON encoded log header\r\n\r\nTo test:\r\n# Create 2 apps\r\n# Set a {{<log-server-port>6666</log-server-port>}} in the tiapp.xml\r\n# Build app1 for simulator\r\n# Leave app running\r\n# Build app2 for simulator\r\n# App2 should fail to build:\r\n{code}\r\n[ERROR] Another Titanium app \"com.appcelerator.testapp\" is currently running and using the log server port 6666\r\n[ERROR] Stop the running Titanium app, then rebuild this app\r\n[ERROR] -or-\r\n[ERROR] Set a unique <log-server-port> between 1024 and 65535 in the <ios> section of the tiapp.xml\r\n{code}\r\n# Kill App1 and it's build\r\n# Start a node server on port 6666\r\n{code}require('net').createServer(function () {\r\n\tconsole.log('got a new connection!');\r\n}).listen({\r\n\thost: 'localhost',\r\n\tport: 6666\r\n}, function () {\r\n\tconsole.info('Server started');\r\n});{code}\r\n# Build App1 or app2\r\n{code}\r\n[ERROR] Another process is currently bound to port 6666\r\n[ERROR] Set a unique <log-server-port> between 1024 and 65535 in the <ios> section of the tiapp.xml\r\n{code}\r\n\r\nFor bonus points, install something like MongoDB (27017) or MySQL (3306), set the {{<log-server-port>}}, and build. Should be same as last error above.\r\n\r\nTiSDK master PR: https://github.com/appcelerator/titanium_mobile/pull/8515\r\nTiSDK 6_0_X PR: https://github.com/appcelerator/titanium_mobile/pull/8516",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2016-10-14T20:11:44.000+0000",
+					"updated": "2016-10-14T20:11:44.000+0000"
+				},
+				{
+					"id": "399074",
+					"author": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~cbarber] the test cases work fine but i don't think it fixed differential build.\r\nWhen I initiated the subsequent build, sure enough there's a lot of \"No change, skipping ...\", but it still says \"Invoking xcodebuild\". Last I remember, it should say \"Skipping xcodebuild\". Please let me know if this is expected behavior.",
+					"updateAuthor": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-10-17T08:18:45.000+0000",
+					"updated": "2016-10-17T08:18:45.000+0000"
+				},
+				{
+					"id": "399079",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "[~cng] It will say in the log output what is triggering xcodebuild, so what does it say?",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2016-10-17T12:36:04.000+0000",
+					"updated": "2016-10-17T12:36:04.000+0000"
+				},
+				{
+					"id": "399085",
+					"author": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "[~cbarber]\r\nStrangely enough it is saying \r\n[INFO] : \b\b \b Forcing rebuild: image was updated, recompiling asset catalog\r\n\r\nbut i didn't do any image change. See attached 2 trace files.",
+					"updateAuthor": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-10-17T13:51:10.000+0000",
+					"updated": "2016-10-17T13:51:35.000+0000"
+				},
+				{
+					"id": "399086",
+					"author": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"body": "Then that means that the Xcode project and thus the log server port are not the reason for the rebuilds in which case this ticket is fixed. There obviously is a new issue surrounding asset catalog images. You could trying disabling app thinning and see if the problem is exclusively related to asset catalog images and file a ticket if so.",
+					"updateAuthor": {
+						"name": "cbarber",
+						"key": "cbarber",
+						"displayName": "Chris Barber",
+						"active": true,
+						"timeZone": "America/Chicago"
+					},
+					"created": "2016-10-17T14:18:22.000+0000",
+					"updated": "2016-10-17T14:18:22.000+0000"
+				},
+				{
+					"id": "399174",
+					"author": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PRs merged. CR and FT passed.",
+					"updateAuthor": {
+						"name": "cng",
+						"key": "cng",
+						"displayName": "Chee Kiat Ng",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2016-10-18T02:47:13.000+0000",
+					"updated": "2016-10-18T02:47:13.000+0000"
+				},
+				{
+					"id": "440222",
+					"author": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Cleaning up older fixed issues. If this issue should not have been closed as fixed, please reopen.",
+					"updateAuthor": {
+						"name": "emerriman",
+						"key": "emerriman",
+						"displayName": "Eric Merriman ",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2018-08-06T17:49:34.000+0000",
+					"updated": "2018-08-06T17:49:34.000+0000"
+				}
+			],
+			"maxResults": 9,
+			"total": 9,
+			"startAt": 0
+		}
+	}
+}

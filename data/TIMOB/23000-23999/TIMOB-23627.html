@@ -1,0 +1,219 @@
+---
+title: "[TIMOB-23627] Calendar, Contacts and Camera can crash on iOS 10 / Xcode 8"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-09-12T17:42:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.5.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios10, permissions, qe-5.5.0</td></tr>
+<tr><th>Reporter</th><td>Hans Knöchel</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-07-12T12:46:24.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-09-12T18:44:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Apps built with iOS 10 and Xcode 8 can crash when the user accesses different API's (Camera, Calendar & Contacts). After some research, this is because iOS 10 and later required the following keys that have been introduced back in iOS 6:
+- <code>NSContactsUsageDescription</code>
+- <code>NSCameraUsageDescription</code>
+- <code>NSCalendarsUsageDescription</code>
+- <code>NSMicrophoneUsageDescription</code>
+
+They are similar to the <code>NSLocationWhenInUseUsageDescription</code> and <code>NSLocationAlwaysUsageDescription</code> keys that need to be added to the plist. So this issue is more a docs ticket which we need to update and mention in the 6.0.0 release notes, so people know to add these keys.
+
+Further links: 
+- <a href="https://developer.apple.com/library/prerelease/content/documentation/General/Reference/InfoPlistKeyReference/Articles/CocoaKeys.html" rel="nofollow" target="_blank">https://developer.apple.com/library/prerelease/content/documentation/General/Reference/InfoPlistKeyReference/Articles/CocoaKeys.html</a>
+- <a href="https://forums.developer.apple.com/thread/51239" rel="nofollow" target="_blank">https://forums.developer.apple.com/thread/51239</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-07-13
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8130" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8130</a></li>
+<li>Hans Knöchel 2016-08-01
+
+   Reopening to additionally throw a warning if users don't have the keys when using iOS 10+.</li>
+<li>Hans Knöchel 2016-08-01
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/8181" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8181</a>
+   
+   Steps to test:
+   1. Run the following demo-code on iOS 9:
+   <code><pre>
+   var win = Titanium.UI.createWindow({
+       backgroundColor: "#FFFFFF",
+       layout: "vertical"
+   });
+   
+   var camera = Titanium.UI.createButton({
+       title: "Request video permissions (camera, microphone & gallery)",
+       top: 40
+   });
+   
+   var contacts = Titanium.UI.createButton({
+       title: "Request contacts permissions",
+       top: 40
+   });
+   
+   var calendar = Titanium.UI.createButton({
+       title: "Request calendar permissions",
+       top: 40
+   });
+   
+   var audio = Titanium.UI.createButton({
+       title: "Request audio permissions",
+       top: 40
+   });
+   
+   camera.addEventListener("click", function(e) {
+       if (!Ti.Media.hasCameraPermissions()) {
+           Ti.Media.requestCameraPermissions(takeVideo);
+       } else {
+           takeVideo();
+       }
+   });
+   
+   contacts.addEventListener("click", function() {
+       Ti.Contacts.requestContactsPermissions(function(e) {
+           Ti.API.warn("Contacts permissions granted? " + e.success);
+       });
+   });
+   
+   calendar.addEventListener("click", function() {
+       Ti.Calendar.requestCalendarPermissions(function(e) {
+           Ti.API.warn("Calendar permissions granted? " + e.success);
+       });
+   });
+   
+   audio.addEventListener("click", function() {
+       Ti.Media.requestAudioPermissions(function(e) {
+           Ti.API.warn("Audio permissions granted? " + e.success);
+       });
+   });
+   
+   win.add(camera);
+   win.add(contacts);
+   win.add(calendar);
+   win.add(audio);
+   win.open();
+   
+   function takeVideo() {
+       Ti.Media.showCamera({
+           success: function(e) {
+               Ti.API.info("Video captured successfully!");
+           },
+           error: function(e) {
+               alert("There was an error");
+           },
+           cancel: function(e) {
+               alert("The event was cancelled");
+           },
+           allowEditing: true,
+           saveToPhotoGallery: true,
+           mediaTypes: [Ti.Media.MEDIA_TYPE_VIDEO],
+           videoQuality: Ti.Media.QUALITY_HIGH
+       });
+   }
+   </pre></code>
+   2. No error-logs should appear, the user should be asked for permissions like before
+   3. Run the same code on iOS 10
+   4. The app should crash when not having the required keys included
+   5. Include the following keys in the plist-section of your tiapp.xml:
+   <code><pre>
+   <key>NSCameraUsageDescription</key>
+   <string>Can we use your camera?</string>
+   <key>NSMicrophoneUsageDescription</key>
+   <string>Can we use your microphone?</string>
+   <key>NSPhotoLibraryUsageDescription</key>
+   <string>Can we save to your library?</string>
+   <key>NSCalendarUsageDescription</key>
+   <string>Can we use your calendar?</string>
+   <key>NSContactsUsageDescription</key>
+   <string>Can we use to your contacts?</string>
+   </pre></code>
+   6. Run the app on iOS 10 again
+   7. The app should not crash anymore and the usage-descriptions in the tiapp.xml should be displayed in the authorization-dialogs.</li>
+<li>Hans Knöchel 2016-08-14
+
+   PR (5_5_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8222" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8222</a></li>
+<li>Josh Longton 2016-08-15
+
+   I am getting an error on an iOS 9.3.1 and 10 device when <code>Request video permissions (camera, microphone & gallery)</code> Is clicked.
+   
+   <h4>Steps to reproduce.</h4>
+   <h4>Download SDK <code>5.5.0.v20160815094515</code></h4>
+   <h4>Run sample app.js above</h4>
+   <h4>Click <code>Request video permissions (camera, microphone & gallery)</code></h4>
+   
+   {color:red}I tested this using <code>6.0.0.v20160810073036</code> and the error was not thrown.{color}
+   
+   <h4>Error</h4>
+   {noformat}
+   [ERROR] :  Script Error {
+   [ERROR] :      column = 819;
+   [ERROR] :      line = 1;
+   [ERROR] :      message = "+[TiUtils isIOS10OrGreater]: unrecognized selector sent to class 0x10056a848";
+   [ERROR] :      sourceURL = "file:///var/containers/Bundle/Application/5D074778-C4F2-4D20-B6DD-DDBA6A7D0243/TIMOB-23627.app/app.js";
+   [ERROR] :      stack = "[native code]\nfile:///var/containers/Bundle/Application/5D074778-C4F2-4D20-B6DD-DDBA6A7D0243/TIMOB-23627.app/app.js:1:819";
+   [ERROR] :  }
+   {noformat}
+   
+   *Reopening*</li>
+<li>Hans Knöchel 2016-08-15
+
+   All good, that was a problem with the backport I fixed as part of <a href="https://github.com/appcelerator/titanium_mobile/pull/8227" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8227</a> because I hoped [~apetkov] can merge it asap. As soon as it is merged (and [this commit](<a href="https://github.com/appcelerator/titanium_mobile/pull/8227/commits/7fdd260291840f61bb678caec0b261f7357256d0))" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8227/commits/7fdd260291840f61bb678caec0b261f7357256d0))</a> it will work.</li>
+<li>Hans Knöchel 2016-08-15
+
+   [~jlongton] Please try 5.5.0.v20160815115302, thanks.</li>
+<li>Josh Longton 2016-08-16
+
+   Verified as fixed, thanks [~hansknoechel]
+   
+   <h4>Tested on</h4>
+   {noformat}
+   iPhone 6s plus (9.3.1)
+   iPhone 6 (10.0)
+   iPhone Simulator (10.0)
+    Mac OSX El Capitan 10.11.6
+   Studio: 4.7.0.201607250649
+    Ti SDK: 5.5.0.v20160815115302
+    Appc NPM: 4.2.7
+   Appc CLI: 5.4.0.GA
+   Xcode 7.3.1
+   Node: v4.2.2
+   {noformat}
+   
+   *Closing ticket*</li>
+<li>Eric Wieber 2016-09-12
+
+   Small issue here: The key for Calendar permissions should be <code>NSCalendarsUsageDescription</code> not <code>NSCalendarUsageDescription</code> (Calendars should be plural, not singular). So, the crash still occurs for calendars when using our advised fix. Will need a quick update on docs/release notes.</li>
+<li>Hans Knöchel 2016-09-12
+
+    Fixed on master, 6_0_X and 5_5_X, please check and close. I think the release-notes are not affected, [~bimmel] please verify we have <code>NSCalendarUsageDescription</code> and not <code>NSCalendarsUsageDescription</code>.</li>
+<li>(deactived) Brian Immel 2016-09-12
+
+    [~hans123], confirmed. The release note is in good shape.</li>
+<li>Eric Wieber 2016-09-12
+
+    Verified fixed, using:
+    
+    MacOS 10.12 (16A239m)
+    Studio 4.7.1.201609100950
+    Ti SDK 5.5.0.v20160912110832
+    Appc NPM 4.2.7
+    Appc CLI 5.5.0-6
+    Alloy 1.9.2
+    Xcode 8.0 (8A218a)
+    
+    Calendar, Contacts, and Camera now properly throw an error indicating that the Keys must be added to the tiapp.xml. Once the keys are included, the app no longer crashes. Tested using the QE MediaModule as well as other test apps created that require different permissions.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23627.json">JSON Source</a></p>

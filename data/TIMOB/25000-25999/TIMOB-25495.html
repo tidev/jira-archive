@@ -1,0 +1,135 @@
+---
+title: "[TIMOB-25495] iOS: Unable to subscribe for push notifications on latest SDK"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Not Our Bug</td></tr>
+<tr><th>Resolution Date</th><td>2019-03-11T17:14:42.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Mostafizur Rahman</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2017-11-09T19:10:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-03-11T17:14:42.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Hello,
+
+Unable to subscribe to push notifications on latest Ti SDK 6.3.0.GA. We have tested the issue in the following environment:
+Appcelerator Command-Line Interface, version 6.3.0
+Axway Appcelerator Studio, build: 4.10.0.201709271713,
+Titanium SDK 6.3.0
+Xcode Version: Version 9.1
+iOS SDK 11
+
+*Steps to reproduce the issue:*
+1- Create new certificate
+2- Create new provisioning profile
+3- Delete old provisioning profiles from Apple developer and my mac
+4- Download and install the new profile and certificate
+5- Clean the project
+6- Delete the build forlder
+7- Uninstall and reinstall the app
+8- Run the app using the new certificate and profile (in development)
+9- Accept permission to allow notifications in the app
+ 
+OR
+Just create a new application and follow all the configuration for push notification on above working environment.
+
+*Test Code:*
+- <a href="https://gist.github.com/MotiurRahman/2cd4520727271bb60316d57032bf0028" rel="nofollow" target="_blank">https://gist.github.com/MotiurRahman/2cd4520727271bb60316d57032bf0028</a>
+
+*Test Results:*
+We have got an infinity loop like below
+<code><pre>[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+[INFO] :   Device Token: {"success":true,"code":0,"source":{},"type":"remote","deviceToken":"94xxxxxxxxxxxce52"}
+</pre></code>
+
+*Expected Result:*
+The device is subscribed for the push notification.
+
+Thanks
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25495_63577/Keychains+log.txt">Keychains+log.txt</td></td><td>2017-11-11T00:41:52.000+0000</td><td>3659</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25495_63576/security find-identity -p codesigning -v.txt">security find-identity -p codesigning -v.txt</td></td><td>2017-11-11T00:41:38.000+0000</td><td>1777</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2017-11-10
+
+   I just simplified the test-case to only the core-components used to receive the device-token and it returns the device-token properly:
+   <code><pre>
+   var win = Ti.UI.createWindow({
+     backgroundColor: '#fff'
+   });
+   
+   var btn = Ti.UI.createButton({
+     title: 'Get Device Token'
+   });
+   
+   btn.addEventListener('click', getToken);
+   
+   win.add(btn);
+   win.open();
+   
+   var deviceToken = null;
+   	
+   function getToken() {
+     // Wait for user settings to be registered before registering for push notifications
+     Ti.App.iOS.addEventListener('usernotificationsettings', function registerForPush() {
+   
+     	// Remove event listener once registered for push notifications
+     	Ti.App.iOS.removeEventListener('usernotificationsettings', registerForPush);
+   
+     	Ti.Network.registerForPushNotifications({
+     		success : deviceTokenSuccess,
+     		error : deviceTokenError,
+     		callback : receivePush
+     	});
+     });
+   
+     // Register notification types to use
+     Ti.App.iOS.registerUserNotificationSettings({
+     	types : [Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT, Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND, Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE]
+     });
+   
+     // Process incoming push notifications
+     function receivePush(e) {
+     	alert('Received push: ' + JSON.stringify(e));
+     }
+   
+     // Save the device token for subsequent API calls
+     function deviceTokenSuccess(e) {
+     	deviceToken = e.deviceToken;
+       Ti.API.info(deviceToken);
+     }
+   
+     function deviceTokenError(e) {
+     	alert('Failed to register for push notifications! ' + e.error);
+     }
+   }
+   </pre></code>
+   So it looks like a circular loop issue you are having with your code. Please go through the code again and ensure the method to receive the device-token is not called more than once. Thanks!</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25495.json">JSON Source</a></p>

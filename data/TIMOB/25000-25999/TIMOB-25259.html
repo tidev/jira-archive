@@ -1,0 +1,186 @@
+---
+title: "[TIMOB-25259] Android: Runtime error "exposed beyond app through Intent.getData()" on API 24 & higher when using Ti.Media.previewImage()"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>None</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-01-24T21:44:41.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 6.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.0.2</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>qe-6.2.0</td></tr>
+<tr><th>Reporter</th><td>Lokesh Choudhary</td></tr>
+<tr><th>Assignee</th><td>Gary Mathews</td></tr>
+<tr><th>Created</th><td>2017-09-08T22:17:00.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-01-25T00:00:29.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Reason:* <a href="https://inthecheesefactory.com/blog/how-to-share-access-to-file-with-fileprovider-on-android-nougat/en" rel="nofollow" target="_blank">https://inthecheesefactory.com/blog/how-to-share-access-to-file-with-fileprovider-on-android-nougat/en</a>
+
+<h4>Steps to reproduce:</h4>
+1. Use the code below in the app.js:
+<code><pre>
+if (Ti.Media.hasCameraPermissions()) {
+       win.open();  
+   } else { 
+       Ti.Media.requestCameraPermissions(function(e) {
+                if (e.success === true) {
+                	Ti.API.info("Camera Permissions Granted");
+            win.open();
+        } else {
+            alert("Access denied, error: " + e.error);
+                }
+       });
+   }
+
+var win = Ti.UI.createWindow({backgroundColor: 'grey'});
+
+win.add(Ti.UI.createLabel({
+	backgroundColor : "blue",
+	color : "yellow",
+	text : "Hello There",
+	textAlign : "center",
+	left : "10dp",
+	right : "10dp",
+	top : "5dp",
+	height : "40dp"
+}));
+
+win.add(Ti.UI.createImageView({
+	height : "43dp",
+	width : "46dp",
+	image : "KS_nav_ui.png",
+	top : "100dp"
+}));
+
+var btn;
+win.add( btn = Ti.UI.createButton({
+	title : "Take screenshot",
+	bottom : "5dp",
+	height : "40dp",
+	left : "50dp",
+	right : "50dp"
+}));
+
+function previewCallback(args) {
+	Ti.API.info("previewImage success");
+}
+
+function previewError(e) {
+	alert("previewImage failure: " + e.message);
+	Ti.API.error(e.message);
+}
+
+function screenshotCallback(image) {
+	if (!image) {
+		alert("Eeks, takeScreenshot didn't return anything.");
+		return;
+	} else {
+		var blob = image.media;
+		if (!blob) {
+			alert("Eeks, there was no useful 'media' member of the passed result dictionary.");
+			return;
+		}
+		if (Ti.Platform.osname === "android") {
+			Ti.API.info("Got an image blob back from takeScreenshot.  Gonna store it and preview it.");
+			var tempdir = Ti.Filesystem.tempDirectory;
+			var file = Ti.Filesystem.getFile(Ti.Filesystem.externalStorageDirectory, "temp.png");
+			if (file.exists()) {
+				file.deleteFile();
+			}
+			file.write(blob);
+			Ti.Media.previewImage({
+				success : previewCallback,
+				error : previewError,
+				image : file.read()
+			});
+		} else {
+			alert("Call to takeScreenshot successful.  Got a blob back.");
+		}
+	}
+}
+
+btn.addEventListener("click", function() {
+	Ti.Media.takeScreenshot(screenshotCallback);
+});
+
+win.add(btn);
+</pre></code>
+
+2. Make sure you have <code>camera</code> permission in your tiapp.xml:
+<code><pre>
+<android xmlns:android="<a href="http://schemas.android.com/apk/res/android" rel="nofollow" target="_blank">http://schemas.android.com/apk/res/android</a>">
+    	<manifest>
+        	<uses-permission android:name="android.permission.CAMERA"/>
+        </manifest>
+</android>
+</pre></code>
+2. Build the app to android device.
+3. After the app launches, click on <code>TAKE SCREENSHOT</code>.
+
+<h4>Actual result:</h4>
+1. On API 24 & higher clicking the <code>TAKE SCREENSHOT</code> button causes <code>Runtime Error</code>:<code><pre>
+[ERROR] :  [Pixel] TiExceptionHandler: (main) [1069017,2565939] ----- Titanium Javascript Runtime Error -----
+[ERROR] :  [Pixel] TiExceptionHandler: (main) [0,2565939] - In /acceptance.js:4015,14
+[ERROR] :  [Pixel] TiExceptionHandler: (main) [0,2565939] - Message: Uncaught file:///storage/emulated/0/com.appcelerator.MediaModule/temp.png exposed beyond app through Intent.getData()
+[ERROR] :  [Pixel] TiExceptionHandler: (main) [0,2565939] - Source: 				Ti.Media.previewImage({
+[ERROR] :  [Pixel] V8Exception: Exception occurred at /acceptance.js:4015: Uncaught file:///storage/emulated/0/com.appcelerator.MediaModule/temp.png exposed beyond app through Intent.getData()
+[ERROR] :  [Pixel] V8Exception: file:///storage/emulated/0/com.appcelerator.MediaModule/temp.png exposed beyond app through Intent.getData()
+</pre></code>
+
+<h4>Expected results:</h4>
+1. No runtime error should be thrown.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Gary Mathews 2017-09-11
+
+   master: <a href="https://github.com/appcelerator/titanium_mobile/pull/9419" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9419</a></li>
+<li>Lokesh Choudhary 2018-01-08
+
+   [~gmathews], Can you please provide a backport.</li>
+<li>Lokesh Choudhary 2018-01-08
+
+   FR Passed for master.
+   Waiting for backport.</li>
+<li>Gary Mathews 2018-01-08
+
+   7_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/9703" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9703</a></li>
+<li>Lokesh Choudhary 2018-01-10
+
+   FR Passed for backport.
+   Waiting for merge to get enabled for PR's.</li>
+<li>Lokesh Choudhary 2018-01-24
+
+   Master PR merged.</li>
+<li>Lokesh Choudhary 2018-01-24
+
+   Backport PR merged.</li>
+<li>Lokesh Choudhary 2018-01-25
+
+   Verified the fix with SDK 7.1.0.v20180124153334 & 7.0.2.v20180124142857.
+   
+   Closing.
+   
+   Studio Ver:     5.0.0.201712081732
+   OS Ver:         10.13.2
+   Xcode Ver:      Xcode 9.2
+   Appc NPM:       4.2.11
+   Appc CLI:       7.0.1
+   Daemon Ver:     1.0.1
+   Ti CLI Ver:     5.0.14
+   Alloy Ver:      1.10.10
+   Node Ver:       8.9.1
+   NPM Ver:        5.5.1
+   Java Ver:       1.8.0_101
+   Devices:        ⇨ samsung SM-G955U1 --- Android 7.0
+                   ⇨ google Nexus 5 --- Android 6.0.1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25259.json">JSON Source</a></p>

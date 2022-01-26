@@ -1,0 +1,115 @@
+---
+title: "[TIMOB-13067] Android: Global execution context inside WebView disappears after load event"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Invalid</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-19T23:32:37.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.0.2, Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 06 Core, 2013 Sprint 06</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, triage</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Max Stepanov</td></tr>
+<tr><th>Created</th><td>2013-03-14T18:51:36.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-03T22:12:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue</h4>
+After WebView.reload() is called, the document object within get a 'ready' event and the window gets a 'load' event. jQuery is used to detect the 'ready' event. The window 'load' event is detected with a standard addEventListener().
+
+<h4>Expected results</h4>
+Inside the 'ready' event handler, a 'isReady' flag is set true. When the window 'load' event handler executes, it is still true.
+
+<h4>Actual results</h4>
+What's not expected is that sometime afterwards, the 'isReady' flag another other state goes away and new state appears. This can easily be seen by looking at the internal uuid that's globally created (intUuid). You'll notice that after the reload, a new value is generated (45926d11-60ec-2f85-ed95-16f311f1507f) as expected, but then a new value appears (4f0786c4-de9f-f0d7-2b03-46c7752b1431). 
+
+This appears to be a 2nd brand new global execution context inside the webview. This means that state in the 1st brand new global context (the one that has isRead flag set to true) is now gone.
+
+<h4>Reproduction Steps </h4>
+1. start app
+2. notice external and internal uuids
+3. tap [dump] button
+4. notice external and internal uuids. they'll be the same as those in step 2.
+5. tap [reload] button
+6. notice a (na) external uuid, as expected
+7. notice in the document ready log, a brand new internal uuid and a isReady 8. flag set to false, as expected
+8. notice in the window load log, isReady flag is set to true, as expected
+9.now notice isDocReady log, both the internal uuid and the isReady flag are different from that in step 8
+
+<h4>Events stack trace attached on debug mode</h4>
+
+<h4>Load</h4>
+<code><pre>
+[INFO][TiAPI   ( 2428)] test.html: document ready: extUuid: na, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: false
+[INFO][TiAPI   ( 2428)] test.html: window load: extUuid: na, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)]  app.js: webview.beforeload: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)]  app.js: webview.load: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: na, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+[INFO][TiAPI   ( 2428)]  app.js: eval'ing: myFunc('35f3b60f-e4aa-4698-b989-d9d260170d95')
+[INFO][TiAPI   ( 2428)] test.html: myFunc: _extUuid: 35f3b60f-e4aa-4698-b989-d9d260170d95
+[INFO][TiAPI   ( 2428)] test.html: myFunc: extUuid: 35f3b60f-e4aa-4698-b989-d9d260170d95, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: 35f3b60f-e4aa-4698-b989-d9d260170d95, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: 35f3b60f-e4aa-4698-b989-d9d260170d95, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+</pre></code>
+
+<h4>Dump</h4>
+<code><pre>
+[INFO][TiAPI   ( 2428)]  app.js: dumping state for uuid: 35f3b60f-e4aa-4698-b989-d9d260170d95
+[INFO][TiAPI   ( 2428)] test.html: dumpState: extUuid: 35f3b60f-e4aa-4698-b989-d9d260170d95, intUuid: b287c702-fc78-2195-b241-afecaa71c6be, isReady: true
+</pre></code>
+
+<h4>Reload</h4>
+<code><pre>
+[INFO][TiAPI   ( 2428)]  app.js: resetting url
+[INFO][TiAPI   ( 2428)]  reloading...
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)] test.html: document ready: extUuid: na, intUuid: 45926d11-60ec-2f85-ed95-16f311f1507f, isReady: false
+[INFO][TiAPI   ( 2428)] test.html: window load: extUuid: na, intUuid: 45926d11-60ec-2f85-ed95-16f311f1507f, isReady: true
+[INFO][TiWebChromeClient.console( 2428)] (main) [49230,73278] Uncaught ReferenceError: Ti is not defined (20:file:///android_asset/Resources/test.html)
+[INFO][TiWebChromeClient.console( 2428)] (main) [2,73280] Uncaught ReferenceError: Ti is not defined (25:file:///android_asset/Resources/test.html)
+[INFO][TiAPI   ( 2428)]  app.js: webview.beforeload: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: na, intUuid: 4f0786c4-de9f-f0d7-2b03-46c7752b1431, isReady: false
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)]  app.js: webview.load: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)]  app.js: webview.beforeload: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)]  app.js: webview.load: uuid: na, url: file:///android_asset/Resources/test.html
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: na, intUuid: 4f0786c4-de9f-f0d7-2b03-46c7752b1431, isReady: false
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: na, intUuid: 4f0786c4-de9f-f0d7-2b03-46c7752b1431, isReady: false
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+[INFO][TiAPI   ( 2428)] test.html: isDocReady: extUuid: na, intUuid: 4f0786c4-de9f-f0d7-2b03-46c7752b1431, isReady: false
+[INFO][TiAPI   ( 2428)]  will retry evalWhenReady...
+</pre></code>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13067_36310/app.js">app.js</td></td><td>2013-03-14T18:51:36.000+0000</td><td>1667</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13067_36309/jquery-1.9.1.min.jsx">jquery-1.9.1.min.jsx</td></td><td>2013-03-14T18:51:36.000+0000</td><td>92629</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13067_36308/test.html">test.html</td></td><td>2013-03-14T18:51:36.000+0000</td><td>1365</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Max Stepanov 2013-03-19
+
+   See comment to TIMOB-13057</li>
+<li>Lee Morris 2017-03-03
+
+   Closing as invalid.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13067.json">JSON Source</a></p>

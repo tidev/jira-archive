@@ -1,0 +1,146 @@
+---
+title: "[TIMOB-26341] iOS: Remove Ti.UI.ButtonBar "index" property"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-12-10T16:52:01.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>breaking-change, buttonbar, ios</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-08-28T22:08:51.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-12-11T11:21:14.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+The <code>Ti.UI.ButtonBar</code> is a row of buttons on does not display a "selection" state when a button is tapped like <code>Ti.UI.TabbedBar</code>. Because of this, the <code>Ti.UI.ButtonBar</code> "index" property should be removed since it isn't relevant.
+
+*Issue 1:*
+Setting the "index" property should not put a button in the "selected" state.
+<h4>Run the below code on iOS.</h4>
+<h4>Note that the middle button "Two" is selected. (See attached "Screenshot.png".)</h4>
+<h4>Tap on the middle button.</h4>
+<h4>Notice the selection state is removed.</h4>
+<h4>Tap on the left button.</h4>
+<h4>Notice the left button is not selected. (It shouldn't be selected.)</h4>
+
+*Issue 2:*
+Fetching the value of property "index" always returns -1 unless fetched during the "click" event
+<h4>Run the below code on iOS.</h4>
+<h4>Tap on the right-most button.</h4>
+<h4>Notice the 1st logged message "(1) buttonBar.index: 2" has the correct index.</h4>
+<h4>Notice the 2nd message "(2) buttonBar.index: -1" has the incorrect index.</h4>
+In this case, it would be better to use the "click" event's "index" property.
+
+<code><pre>
+var window = Ti.UI.createWindow();
+var buttonBar = Ti.UI.createButtonBar({
+	labels: ["One", "Two", "Three"],
+	index: 1,
+});
+buttonBar.addEventListener("click", function(e) {
+	Ti.API.info("@@@ (1) buttonBar.index: " + buttonBar.index);
+	setTimeout(function() {
+		Ti.API.info("@@@ (2) buttonBar.index: " + buttonBar.index);
+	}, 10);
+});
+window.add(buttonBar);
+window.open();
+</pre></code>
+
+*Recommended Solution:*
+Remove the "index" property. It is not appropriate for this type of UI control. It would be better to use the "click" event's "index" property to identify which button was clicked on.
+
+*Note:*
+I think the "index" property exists for this UI control because it shares the same Objective-C code as <code>Ti.UI.TabbedBar</code>. An "index" property makes sense for <code>TabbedBar</code> since it has a selection state.
+
+This issue is being raised since we want to add <code>ButtonBar</code> to Android and Windows and we don't think the "index" property will make sense on those platforms either.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-26341_65488/Screenshot.png">Screenshot.png</td></td><td>2018-08-28T17:56:32.000+0000</td><td>22120</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2018-08-29
+
+   Oh, the <code>ButtonBar</code> uses a segmented control as well? We do we even have that? It's a duplicate of the <code>Ti.UI.[iOS].TabbedBar</code>. Let's deprecate the whole API.</li>
+<li>Joshua Quick 2018-08-29
+
+   I'm okay with us keeping the <code>ButtonBar</code> feature (why break it if we don't have to), but I do question its value. If we were to implement it on Android and Windows, then it would simply be a horizontal layout of buttons. Not particularly interesting.</li>
+<li>Vijay Singh 2018-11-15
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/10473" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10473</a>
+   
+   Test case 1 -
+   
+   <code><pre>
+   // Should not log deprecation message
+   var window = Ti.UI.createWindow({
+       backgroundColor: 'white'
+   });
+   var tabbedBar = Titanium.UI.iOS.createTabbedBar({
+       labels: ["One", "Two", "Three"],
+       index: 1,
+   });
+   tabbedBar.addEventListener("click", function(e) {
+       Ti.API.info("@@@ (1) tabbedBar.index: " + tabbedBar.index);
+       Ti.API.info("@@@ (2) tabbedBar.index: " + e.index);
+       setTimeout(function() {
+           Ti.API.info("@@@ (3) tabbedBar.index: " + tabbedBar.index);
+       }, 10);
+   });
+   window.add(tabbedBar);
+   window.open();
+   </pre></code>
+   
+   Test Case 2 -
+   
+   <code><pre>
+   // Should log deprecation message
+   var window = Ti.UI.createWindow({
+       backgroundColor: 'white'
+   });
+   var buttonBar = Titanium.UI.createButtonBar({
+       labels: ["One", "Two", "Three"],
+       index: 1,
+   });
+   buttonBar.addEventListener("click", function(e) {
+       Ti.API.info("@@@ (1) Should result (-1): " + buttonBar.index);
+       Ti.API.info("@@@ (2) Should give selected value: " + e.index);
+       setTimeout(function() {
+           Ti.API.info("@@@ (3) Should result (-1): " + buttonBar.index);
+       }, 10);
+   });
+   window.add(buttonBar);
+   window.open();
+   </pre></code>
+   </li>
+<li>Samir Mohammed 2018-11-19
+
+   FR Passed. Waiting on CR and Jenkins build.</li>
+<li>Samir Mohammed 2018-12-11
+
+   Closing ticket, fix verified in SDK version <code>8.0.0.v20181210172243</code>.
+   
+   Test and other information can be found at: 
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/10473" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10473</a></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26341.json">JSON Source</a></p>

@@ -1,0 +1,151 @@
+{
+	"id": "166164",
+	"key": "TIMOB-24424",
+	"fields": {
+		"issuetype": {
+			"id": "2",
+			"description": "A new feature of the product, which has yet to be developed.",
+			"name": "New Feature",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2017-02-21T15:49:45.000+0000",
+		"priority": null,
+		"labels": [],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": null,
+		"updated": "2018-02-28T19:55:15.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [],
+		"description": "Hi,\r\n\r\nTask: module for measurement (getHeight) of TiUILabel without adding to a parent.\r\n\r\nI found `TiUIView createView(Activity activity)` will called after adding to parent view. \r\n\r\nIn a Kroll.method of proxy I call:\r\n{code:java}\r\nprivate float handleCalculateHeight() {\r\n\tTiUILabel textView = new TiUILabel(this);\r\n\tint widthMeasureSpec = View.MeasureSpec.makeMeasureSpec(300,View.MeasureSpec.AT_MOST);\r\n\tint heightMeasureSpec = View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED);\r\n\ttextView.getNativeView().measure(widthMeasureSpec, heightMeasureSpec);\r\n\tfloat h = textView.getNativeView().getMeasuredHeight();\r\n\tLog.d(LCAT, \"HEIGHT=\" + h);\r\n\treturn h;\r\n}\r\n{code}\r\n\r\nThe result is always 81.0. I think the (JS) options will not proceeded. Any ideas?\r\n",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Calculating of height of label without adding to parent view",
+		"creator": {
+			"name": "titanium@webmasterei-hamburg.de",
+			"key": "titanium@webmasterei-hamburg.de",
+			"displayName": "Rainer Schleevoigt",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "titanium@webmasterei-hamburg.de",
+			"key": "titanium@webmasterei-hamburg.de",
+			"displayName": "Rainer Schleevoigt",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": "Android SDK 6.0.01.GA",
+		"comment": {
+			"comments": [
+				{
+					"id": "407567",
+					"author": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "I figured the secret i the first paramter of this line:\r\n{code:java}\r\ntv.measure(View.MeasureSpec.makeMeasureSpec(???,MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));\r\n{code}\r\nAny hints?",
+					"updateAuthor": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-22T09:50:27.000+0000",
+					"updated": "2017-02-22T09:52:38.000+0000"
+				},
+				{
+					"id": "407569",
+					"author": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Solved:\r\n==========\r\n@Kroll.method\r\n\tpublic final float calculateHeight() {\r\n\t\tfloat height = 0f;\r\n\t\tif (TiApplication.isUIThread()) {\r\n\t\t\tLog.d(LCAT, \"calculateHeight in UIthread\");\r\n\t\t\theight = handleCalculateHeight();\r\n\t\t} else {\r\n\t\t\tTiMessenger.sendBlockingMainMessage(new Handler(TiMessenger\r\n\t\t\t\t\t.getMainMessenger().getLooper(), new Handler.Callback() {\r\n\t\t\t\tpublic boolean handleMessage(Message msg) {\r\n\t\t\t\t\tAsyncResult result = (AsyncResult) msg.obj;\r\n\t\t\t\t\tresult.setResult(handleCalculateHeight());\r\n\t\t\t\t\treturn true;\r\n\t\t\t\t}\r\n\t\t\t}).obtainMessage(0), null);\r\n\t\t}\r\n\t\treturn height;\r\n\t}\r\n\r\n\tprivate float handleCalculateHeight() {\r\n\t\tTiUILabel textView = new TiUILabel(this);\r\n\t\ttextView.processProperties(opts); // don't forget ;-)\r\n\t\tTextView tv = (TextView) textView.getNativeView();\r\n\t\tint specWidth = View.MeasureSpec.makeMeasureSpec(0,\r\n\t\t\t\tView.MeasureSpec.UNSPECIFIED);\r\n\t\tint specHeight = View.MeasureSpec.makeMeasureSpec(0,\r\n\t\t\t\tView.MeasureSpec.UNSPECIFIED);\r\n\t\ttv.setVisibility(View.VISIBLE);\r\n\t\ttv.measure(specWidth, specHeight);\r\n\t\treturn tv.getMeasuredHeight();\r\n\t}\r\n====\r\nSimple add this snippet in the end of LabelProxy.java and with the new method the user can get the calculated height of label.",
+					"updateAuthor": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-22T10:36:58.000+0000",
+					"updated": "2017-02-22T10:42:36.000+0000"
+				},
+				{
+					"id": "407601",
+					"author": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"body": "Please create a PR of your request. ",
+					"updateAuthor": {
+						"name": "sdarda",
+						"key": "sdarda",
+						"displayName": "Sharif AbuDarda",
+						"active": false,
+						"timeZone": "Asia/Dhaka"
+					},
+					"created": "2017-02-22T18:33:07.000+0000",
+					"updated": "2017-02-22T18:33:07.000+0000"
+				},
+				{
+					"id": "407602",
+					"author": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Is there a receipt/howto? A clone is on my machine …",
+					"updateAuthor": {
+						"name": "titanium@webmasterei-hamburg.de",
+						"key": "titanium@webmasterei-hamburg.de",
+						"displayName": "Rainer Schleevoigt",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2017-02-22T18:35:33.000+0000",
+					"updated": "2017-02-22T18:35:33.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

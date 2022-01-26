@@ -1,0 +1,158 @@
+{
+	"id": "120329",
+	"key": "ALOY-834",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "11113",
+			"key": "ALOY",
+			"name": "Alloy",
+			"projectCategory": {
+				"id": "10400",
+				"description": "Tools for developing applications",
+				"name": "Tooling"
+			}
+		},
+		"fixVersions": [
+			{
+				"id": "15403",
+				"description": "Alloy 1.3.0",
+				"name": "Alloy 1.3.0",
+				"archived": false,
+				"released": true,
+				"releaseDate": "2013-12-20"
+			},
+			{
+				"id": "15672",
+				"description": "2013 Sprint 20",
+				"name": "2013 Sprint 20",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2013-10-04"
+			}
+		],
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2013-09-24T18:45:59.000+0000",
+		"created": "2013-09-23T02:50:41.000+0000",
+		"priority": {
+			"name": "Critical",
+			"id": "1"
+		},
+		"labels": [
+			"alloy",
+			"android",
+			"crash",
+			"menu",
+			"qe-testadded"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "tlukasavage",
+			"key": "tlukasavage",
+			"displayName": "Tony Lukasavage",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2013-10-14T20:44:26.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "12329",
+				"name": "Runtime",
+				"description": "Generic bucket for uncategorized runtime issues"
+			},
+			{
+				"id": "12326",
+				"name": "XML",
+				"description": "View XML and parsing"
+			}
+		],
+		"description": "The alloy compiler is generating an addEventListener call on a tabGroup before generating a necessary createTabGroup call. The addEventListener is generated to create the Android menus. I'm pretty sure these were calls were generated in the correct order in Alloy 1.2.0 and possibly 1.2.1.\r\n\r\nline 48 of ScheduleGroup.js says\r\n\r\n{code:javascript}\r\n    $.__views.ScheduleGroup.addEventListener(\"open\", __alloyId6);\r\n{code}\r\n\r\nlines 56-61 of SceduleGroup.js says\r\n\r\n{code:javascript}\r\n    $.__views.ScheduleGroup = Ti.UI.createTabGroup({\r\n        tabs: __alloyId7,\r\n        id: \"ScheduleGroup\",\r\n        activeTabIconTint: \"yellow\",\r\n        tabsBackgroundSelectedColor: \"yellow\"\r\n    });\r\n{code}\r\n\r\nObviously this is going to crash since $.__views.ScheduleGroup is referenced in line 48 before it is initialized in line 56-61.\r\n\r\nThis XML\r\n\r\n{code:xml}\r\n<Alloy>\r\n\t<TabGroup id=\"ScheduleGroup\" onOpen=\"doOnOpen\" onFocus=\"doOnFocus\" activeTabIconTint=\"yellow\" tabsBackgroundSelectedColor=\"yellow\">\r\n\t\t<Menu id=\"menu\" platform=\"android\">\r\n\t\t\t<MenuItem id=\"refreshMenuItem\" title=\"Refresh\" onClick=\"doRefresh\" showAsAction=\"Ti.Android.SHOW_AS_ACTION_IF_ROOM\" itemId=\"1\" />\r\n\t\t\t<MenuItem id=\"settingsMenuItem\" title=\"Settings\" onClick=\"doSettingsMenuItem\" showAsAction=\"Ti.Android.SHOW_AS_ACTION_IF_ROOM\" itemId=\"0\" />\r\n\t\t</Menu>\r\n\t\t<Require src=\"scheduleTab\" />\r\n\t</TabGroup>\r\n</Alloy>\r\n{code}\r\n\r\ngenerates\r\n\r\n{code:javascript}\r\nfunction Controller() {\r\n    function __alloyId6() {\r\n        $.__views.ScheduleGroup.removeEventListener(\"open\", __alloyId6);\r\n        if ($.__views.ScheduleGroup.activity) $.__views.ScheduleGroup.activity.onCreateOptionsMenu = function(e) {\r\n            var __alloyId4 = {\r\n                id: \"refreshMenuItem\",\r\n                title: \"Refresh\",\r\n                showAsAction: Ti.Android.SHOW_AS_ACTION_IF_ROOM,\r\n                itemId: \"1\"\r\n            };\r\n            $.__views.refreshMenuItem = e.menu.add(_.pick(__alloyId4, Alloy.Android.menuItemCreateArgs));\r\n            $.__views.refreshMenuItem.applyProperties(_.omit(__alloyId4, Alloy.Android.menuItemCreateArgs));\r\n            doRefresh ? $.__views.refreshMenuItem.addEventListener(\"click\", doRefresh) : __defers[\"$.__views.refreshMenuItem!click!doRefresh\"] = true;\r\n            var __alloyId5 = {\r\n                id: \"settingsMenuItem\",\r\n                title: \"Settings\",\r\n                showAsAction: Ti.Android.SHOW_AS_ACTION_IF_ROOM,\r\n                itemId: \"0\"\r\n            };\r\n            $.__views.settingsMenuItem = e.menu.add(_.pick(__alloyId5, Alloy.Android.menuItemCreateArgs));\r\n            $.__views.settingsMenuItem.applyProperties(_.omit(__alloyId5, Alloy.Android.menuItemCreateArgs));\r\n            doSettingsMenuItem ? $.__views.settingsMenuItem.addEventListener(\"click\", doSettingsMenuItem) : __defers[\"$.__views.settingsMenuItem!click!doSettingsMenuItem\"] = true;\r\n        }; else {\r\n            Ti.API.warn(\"You attempted to attach an Android Menu to a lightweight Window\");\r\n            Ti.API.warn(\"or other UI component which does not have an Android activity.\");\r\n            Ti.API.warn(\"Android Menus can only be opened on TabGroups and heavyweight Windows.\");\r\n        }\r\n    }\r\n    function doSettingsMenuItem() {\r\n        showHideTabGroup(tabGroup, true);\r\n        openSettingsInContainer(tabGroup.activeTab);\r\n    }\r\n    function doOnFocus() {}\r\n    function doOnOpen() {\r\n        setupAndroidMenuIcons(tabGroup);\r\n    }\r\n    function doRefresh(e) {\r\n        globalEvtMgr.fireevent(\"refresh\", \"\", e);\r\n    }\r\n    require(\"alloy/controllers/BaseController\").apply(this, Array.prototype.slice.call(arguments));\r\n    this.__controllerPath = \"ScheduleGroup\";\r\n    arguments[0] ? arguments[0][\"__parentSymbol\"] : null;\r\n    arguments[0] ? arguments[0][\"$model\"] : null;\r\n    arguments[0] ? arguments[0][\"__itemTemplate\"] : null;\r\n    var $ = this;\r\n    var exports = {};\r\n    var __defers = {};\r\n    $.__views.ScheduleGroup.addEventListener(\"open\", __alloyId6);\r\n    var __alloyId7 = [];\r\n    $.__views.__alloyId8 = Alloy.createController(\"scheduleTab\", {\r\n        id: \"__alloyId8\"\r\n    });\r\n    __alloyId7.push($.__views.__alloyId8.getViewEx({\r\n        recurse: true\r\n    }));\r\n    $.__views.ScheduleGroup = Ti.UI.createTabGroup({\r\n        tabs: __alloyId7,\r\n        id: \"ScheduleGroup\",\r\n        activeTabIconTint: \"yellow\",\r\n        tabsBackgroundSelectedColor: \"yellow\"\r\n    });\r\n    $.__views.ScheduleGroup && $.addTopLevelView($.__views.ScheduleGroup);\r\n    doOnOpen ? $.__views.ScheduleGroup.addEventListener(\"open\", doOnOpen) : __defers[\"$.__views.ScheduleGroup!open!doOnOpen\"] = true;\r\n    doOnFocus ? $.__views.ScheduleGroup.addEventListener(\"focus\", doOnFocus) : __defers[\"$.__views.ScheduleGroup!focus!doOnFocus\"] = true;\r\n    exports.destroy = function() {};\r\n    _.extend($, $.__views);\r\n    var tabGroup = $.ScheduleGroup;\r\n    Alloy.Globals.tabGroup = tabGroup;\r\n    Alloy.Globals.tabBarVisible = true;\r\n    __defers[\"$.__views.refreshMenuItem!click!doRefresh\"] && $.__views.refreshMenuItem.addEventListener(\"click\", doRefresh);\r\n    __defers[\"$.__views.settingsMenuItem!click!doSettingsMenuItem\"] && $.__views.settingsMenuItem.addEventListener(\"click\", doSettingsMenuItem);\r\n    __defers[\"$.__views.ScheduleGroup!open!doOnOpen\"] && $.__views.ScheduleGroup.addEventListener(\"open\", doOnOpen);\r\n    __defers[\"$.__views.ScheduleGroup!focus!doOnFocus\"] && $.__views.ScheduleGroup.addEventListener(\"focus\", doOnFocus);\r\n    _.extend($, exports);\r\n}\r\n\r\nvar Alloy = require(\"alloy\"), Backbone = Alloy.Backbone, _ = Alloy._;\r\n\r\nmodule.exports = Controller;\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android only: Alloy generates addeventlistener call before createTabGroup call causing crash on Android when <Menu> is in XML...",
+		"creator": {
+			"name": "dspells",
+			"key": "dspells",
+			"displayName": "Henry David Spells III",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "dspells",
+			"key": "dspells",
+			"displayName": "Henry David Spells III",
+			"active": true,
+			"timeZone": "America/Chicago"
+		},
+		"environment": "Alloy compiler for Alloy 1.2.2\r\nTitanium Command-Line Interface, CLI version 3.1.2, Titanium SDK version 3.1.2.GA\r\n",
+		"comment": {
+			"comments": [
+				{
+					"id": "272704",
+					"author": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "PR: https://github.com/appcelerator/alloy/pull/245\r\ntest apps:\r\n* https://github.com/appcelerator/alloy/tree/master/test/apps/testing/ALOY-834\r\n* https://github.com/appcelerator/alloy/tree/master/test/apps/ui/tabgroup\r\n\r\nFunctional tests should be performed on both apps, with iOS and Android, and should be performed on one TiSDK greater than 3.1.0, and one TiSDK less than 3.1.0. Make sure all tests run without error. Additionally, the android tests should be able to launch the Android Menu with the menu button.",
+					"updateAuthor": {
+						"name": "tlukasavage",
+						"key": "tlukasavage",
+						"displayName": "Tony Lukasavage",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-09-24T18:45:59.000+0000",
+					"updated": "2013-09-24T18:45:59.000+0000"
+				},
+				{
+					"id": "274989",
+					"author": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Verified fixed.\n\nTiSDK 3.2.0.v20131013140318\nAlloy 1.3.0\nXcode 5 and iOS7 (device and emulator)\nAndroid Google Nexus One (4.1.2) and Android Emulator 2.3.3\n\nClosing",
+					"updateAuthor": {
+						"name": "fcasali",
+						"key": "fcasali",
+						"displayName": "Federico Casali",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2013-10-14T18:20:37.000+0000",
+					"updated": "2013-10-14T18:20:37.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

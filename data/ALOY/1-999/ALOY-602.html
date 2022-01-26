@@ -1,0 +1,242 @@
+---
+title: "[ALOY-602] Nested collection bindings don't work as expected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-22T22:47:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2013-03-16T17:01:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-01-29T00:07:25.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+First things first: I'm using the current master of alloy and titanium SDK (as of right now). I don't use Titanium Studio. I only use the CLI. I'm only developing for Android (API level 14) right now.
+
+I have two simple backbone collections defined in alloy.js:
+<code><pre>
+var CharacterCollection = Backbone.Collection.extend({
+	comparator: function(model){
+		return model.get('name');
+	}
+});
+var SystemCollection = Backbone.Collection.extend({
+	comparator: function(model){
+		return model.get('system');
+	}
+});
+
+var characters = new CharacterCollection([
+	{name: 'Name1', system:'System1'},
+	{name: 'Name2', system:'System2'},
+	{name: 'Name3', system:'System3'}
+]);
+
+var systems = new SystemCollection([
+	{system:'System1'},
+	{system:'System2'},
+	{system:'System3'}
+]);
+
+Alloy.Collections.characters = characters;
+Alloy.Collections.systems = systems;
+</pre></code>
+
+I want to display a table with all characters, but grouped in TableViewSections for each system they belong to.
+
+So I created the following views:
+
+_index.xml_
+<code><pre>
+<Alloy>
+    <TableView id="characterTable" dataCollection="systems">
+        <Require src="charactersBySystem" system="{system}" />
+    </TableView>
+</Alloy>
+</pre></code>
+
+_charactersBySystem.xml_
+<code><pre>
+<Alloy>
+    <TableViewSection id="tableSection" dataCollection="characters" dataFilter="filterCharactersBySystem">
+        <Require src="characterTableRow" characterName="{name}"/>
+    </TableViewSection>
+</Alloy>
+</pre></code>
+
+_characterTableRow.xml_
+<code><pre>
+<Alloy>
+    <TableViewRow/>
+</Alloy>
+</pre></code>
+
+For those views I have the following controllers:
+
+_index.js_
+<code><pre>
+var CharacterModel = Backbone.Model.extend(),
+    characterCollection = Alloy.Collections.characters,
+    systemCollection = Alloy.Collections.systems;
+
+$.index.open();
+
+systemCollection.trigger("change");
+</pre></code>
+
+_charactersBySystem.js_
+<code><pre>
+var arguments = arguments || {},
+    args = arguments[0] || {},
+    systemName = args.system || 'None',
+    characterCollection = Alloy.Collections.characters;
+
+function filterCharactersBySystem(collection) {
+    return collection.where({system: systemName});
+}
+
+$.tableSection.headerTitle = systemName;
+
+characterCollection.trigger("change");
+</pre></code>
+
+_characterTableRow.js_
+<code><pre>
+var arguments = arguments || {},
+    args = arguments[0] || {},
+    characterName = args.characterName || 'None';
+
+$.characterTableRow.title = characterName;
+</pre></code>
+
+Now if I run this code I get a table that looks like this:
+||System1||
+|Name1|
+|Name1|
+|Name1|
+||System2||
+|Name2|
+|Name2|
+||System3||
+|Name3|
+
+But I would expect to see:
+||System1||
+|Name1|
+||System2||
+|Name2|
+||System3||
+|Name3|
+
+This seems to be a bug. Or am I missing something?
+
+<h3>Comments</h3>
+
+<ol>
+<li>Davide Cassenti 2013-03-19
+
+   Hello,
+   
+   It looks like the problem is due to the fact that you are firing the change manually inside charactersBySystem.js; the problem here is that this code is executed multiple times, while it should only be called once:
+   
+   <code><pre>
+   characterCollection.trigger("change");
+   </pre></code>
+   
+   By moving the trigger in index.js, the problem looks fixed to me.
+   </li>
+<li>Steven Weingärtner 2013-03-19
+
+   Hi,
+   
+   I tried that right now, but it didn't work.
+   
+   When I move
+   <code><pre>
+   characterCollection.trigger("change");
+   </pre></code>
+   to index.js, it doesn't seem to do anything. I just get the empty sections, without the actual table rows. And this seems kind of counter intuitive, too. I might trigger the change event multiple times, but shouldn't it recognize which elements within the collection have already been processed? What would happen if I add an element to the collection? That would just trigger the change event again, wouldn't it? So would it add ALL elements within the collection again without removing the old ones first?
+   
+   Thanks!</li>
+<li>Tony Lukasavage 2013-03-19
+
+   No, it processes the current state of the collection. It doesn't keep track of what your code does or does not do leading up to the execution of the triggered change event. If you add an element to the collection the binding will be triggered and an "add" event will be triggered as stated in the [Backbone documentation for add()](<a href="http://backbonejs.org/#Collection-add)." rel="nofollow" target="_blank">http://backbonejs.org/#Collection-add).</a> Each time the binding is triggered the target UI element is emptied and then repopulated with the current state of the collection.
+   
+   davide, could you share your modified code to show how the proper state can be achieved?</li>
+<li>Davide Cassenti 2013-03-20
+
+   My code is simple:
+   
+   _index.js_
+   <code><pre>
+   var CharacterModel = Backbone.Model.extend(),
+       characterCollection = Alloy.Collections.characters,
+       systemCollection = Alloy.Collections.systems;
+   
+   $.index.open();
+   
+   systemCollection.trigger("change");
+   characterCollection.trigger("change");
+   </pre></code>
+   
+   _charactersBySystem.js_
+   <code><pre>
+   var arguments = arguments || {},
+       args = arguments[0] || {},
+       systemName = args.system || 'None',
+       characterCollection = Alloy.Collections.characters;
+   
+   function filterCharactersBySystem(collection) {
+       return collection.where({system: systemName});
+   }
+   
+   $.tableSection.headerTitle = systemName;
+   </pre></code>
+   
+   _characterTableRow.js_
+   <code><pre>
+   var arguments = arguments || {},
+       args = arguments[0] || {},
+       characterName = args.characterName || 'None';
+   
+   $.characterTableRow.title = characterName;
+   </pre></code></li>
+<li>Steven Weingärtner 2013-03-21
+
+   Ok, just some more tests:
+   I used the code I posted above (with the addition of a window element, which I forget to add to the index.xml file above).
+   Then I copy/pasted Davids code and replaced mine with it.
+   
+   First I tried it on SDK version 3.1.0.v20130315162454.
+   This only gives me the empty table view sections, sying System1, System2 and System3, but without any characters listed beneath.
+   
+   Then I tried to fall back to SDK version 3.0.2.GA, which gives me a blank page with nothing but the action bar that shows the title and icon of my app.
+   
+   Then I tried to updated to master (SDK version 3.1.0.v20130321102915).
+   This gives me an error when I try to build the app: 
+   <code><pre>
+   [ERROR] :  TypeError: Cannot read property 'length' of undefined
+   </pre></code>
+   
+   Anyway, I'll try to figure that last error out. But what exact SDK version did you use?</li>
+<li>Tony Lukasavage 2013-04-05
+
+   @Davide, can you make sure you and Steven are using the same environment? See if you guys can get synced up on why he can't get your sample working.</li>
+<li>Davide Cassenti 2013-04-10
+
+   I've been using the GA version. Can you post the last version of your files, so I can give it another look at?</li>
+<li>Tony Lukasavage 2013-04-22
+
+   Closing this ticket until more details are provided for Davide to test.</li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-602.json">JSON Source</a></p>

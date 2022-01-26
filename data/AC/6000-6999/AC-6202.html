@@ -1,0 +1,97 @@
+---
+title: "[AC-6202] Android: TiActivitySupport support startResolutionForResult"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Needs more info</td></tr>
+<tr><th>Resolution Date</th><td>2019-06-10T23:45:24.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>n/a</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Ahmed Mohamed</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2019-04-07T16:46:47.000+0000</td></tr>
+<tr><th>Updated</th><td>2021-02-02T14:08:00.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+In my com.locationservices module I can't get onActivityResult by using TiActivitySupport because it doesn't support startResolutionForResult void from ResolvableApiException
+
+<a href="https://github.com/AhmedMSayed/TiLocationServices/blob/master/android/src/com/locationservices/LocationservicesModule.java" rel="nofollow" target="_blank">https://github.com/AhmedMSayed/TiLocationServices/blob/master/android/src/com/locationservices/LocationservicesModule.java</a>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2019-04-09
+
+   Hello [~ahmed.mohamed20320], Can you share some native guide on how this is handled in there? Thanks. </li>
+<li>Ahmed Mohamed 2019-04-10
+
+   ResolvableApiException provides a method to resolves an error by starting any intents requiring user interaction. [See Description here](<a href="https://developers.google.com/android/reference/com/google/android/gms/common/api/ResolvableApiException)" rel="nofollow" target="_blank">https://developers.google.com/android/reference/com/google/android/gms/common/api/ResolvableApiException)</a>
+   
+   startResolutionForResult is a method like startActivityForResult method which used to start an activity and wait for a result that will be catched later in onActivityResult method.
+   
+   At now Titanium support startActivityForResult by using launchActivityForResult method in TiActivitySupport and catched the results by onResult
+   
+   So we need to support startResolutionForResult to get its results too in onResult
+   
+   You can test it on my module [here](<a href="https://github.com/AhmedMSayed/TiLocationServices/blob/5a46495ee567d6ca91a8cc727a21dbd0f5146651/android/src/com/locationservices/LocationservicesModule.java#L137)" rel="nofollow" target="_blank">https://github.com/AhmedMSayed/TiLocationServices/blob/5a46495ee567d6ca91a8cc727a21dbd0f5146651/android/src/com/locationservices/LocationservicesModule.java#L137)</a></li>
+<li>Joshua Quick 2019-04-10
+
+   This is possible to do now. Instead of using the <code>TiActivitySupportHelper.launchActivityForResult()</code> method, you'll want to create your own version of that code. You'll need to create your own <code>TiActivityResultHandler</code> object, pass it into the <code>TiActivitySupportHelper.registerResultHandler()</code> method (which Titanium's activity queries in its <code>onActivityResult()</code> method, and then call the <code>startResolutionForResult()</code> with the request code and activity you are launching it from.
+   
+   I can write up a code example tomorrow.</li>
+<li>Joshua Quick 2019-04-10
+
+   In your code, get rid of this part...
+   <code><pre>
+   resolvable.startResolutionForResult(TiApplication.getAppRootOrCurrentActivity(), REQUEST_CHECK_SETTINGS);
+   </pre></code>
+   
+   And do this instead...
+   <code><pre>
+   // Add these imports to the top...
+   #import org.appcelerator.titanium.TiBaseActivity;
+   #import org.appcelerator.titanium.TiLifecycle;
+   </pre></code>
+   <code><pre>
+   // Replace your startResolutionForResult() line with the below...
+   org.appcelerator.titanium.TiBaseActivity activity = TiApplication.getAppRootOrCurrentActivity();
+   if (activity != null) {
+   	final int MY_REQUEST_CODE = activity.getUniqueResultCode();
+   	final resultListener = new org.appcelerator.titanium.TiLifecycle.OnActivityResultEvent() {
+   		@Override
+   		public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+   			// This listener is invoked for all request codes. So, ignore the ones not directed to us.
+   			if (requestCode != MY_REQUEST_CODE) {
+   				return;
+   			}
+   
+   			// This is our request code.
+   			// Handle the result code returned by startResolutionForResult() here.
+   		}
+   	};
+   	activity.addOnActivityResultListener(resultListener);  // <- Stores listener as weak reference.
+   	resolvable.startResolutionForResult(activity, MY_REQUEST_CODE);
+   }
+   </pre></code>
+   
+   Unfortunately our Titanium activity's <code>addOnActivityResultListener()</code> method stores the listener as a weak reference. So, you need to hold on to the listener as a strong reference temporarily via <code>final</code>. I'm doing it by boxing it above. Alternatively, you can implement the <code>OnActivityResultEvent</code> via your <code>LocationservicesModule</code> class but then you have to change the request code handling.
+   
+   I hope this helps!</li>
+<li>Sharif AbuDarda 2019-05-09
+
+   Hello [~ahmed.mohamed20320], Can you follow up here? what's the status of your issue? did you try Han's guide?</li>
+<li>Ahmed Mohamed 2021-02-02
+
+   Thanks @Joshua Quick it works like a charm.
+   
+   <a href="https://github.com/AhmedMSayed/ti.locationservices/blob/7d65d126e43c1bf600530ee4a0c841c850fe4388/android/src/ti/locationservices/TiLocationservicesModule.java#L120" rel="nofollow" target="_blank">https://github.com/AhmedMSayed/ti.locationservices/blob/7d65d126e43c1bf600530ee4a0c841c850fe4388/android/src/ti/locationservices/TiLocationservicesModule.java#L120</a></li>
+</ol>
+
+
+<p><a href="/AC/AC-6202.json">JSON Source</a></p>

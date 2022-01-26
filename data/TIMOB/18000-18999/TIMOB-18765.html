@@ -1,0 +1,425 @@
+---
+title: "[TIMOB-18765] iOS: WebView do not recognize local HTML File using Ti.sourceDirectory if Project Name has a space"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2015-05-15T18:37:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.5.0</td></tr>
+<tr><th>Fix Version/s</th><td>Release 4.0.0, Release 4.1.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>filesystem, webview</td></tr>
+<tr><th>Reporter</th><td>Shuo Liang</td></tr>
+<tr><th>Assignee</th><td>Chee Kiat Ng</td></tr>
+<tr><th>Created</th><td>2015-03-30T01:32:38.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-05-18T17:02:04.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Description:</h4>
+Since Ti SDK 3.5.0, WebView does no recognise the html file when using Ti.sourceDirectory File system, if there is space in app name. 
+
+<h4>Reproduce:</h4>
+1. Create a classic project named "Simple Test" (with space)
+2. Create a folder named "html" under Resource folder.
+3. Create a simple html file name "comingSoon.html", like following
+<code><pre>
+<html>
+	<head>
+		<title>Hello World!</title>
+	</head>
+	<body>
+		<div>
+		<p>Content to follow soon</p>
+		</div>
+	</body>
+</html>
+</pre></code>  
+4.Add following code into app.js file
+<code><pre>
+ar win = Ti.UI.createWindow({
+	backgroundColor: 'white'
+});
+
+var f = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory,'/html/comingSoon.html');
+if (f.exists()) {
+	var contents = f.read();
+	alert('Output the file:'+contents.text);
+} else {
+	Ti.API.info("No such file!");
+}
+
+var URL = Ti.Filesystem.resourcesDirectory + '/html/comingSoon.html';
+
+var wv = Ti.UI.createWebView({
+	top: 30,
+	url: URL
+});
+
+win.add(wv);
+win.open();
+</pre></code>
+
+<h4>Expect Result:</h4>
+The webview should display normally. 
+
+<h4>Actual Result:</h4>
+The error pop out in console log:
+*"couldn't load URL: app://com.cocoafish.sliangPush/Users/shuoliang/Library/Developer/CoreSimulator/Devices/EA379BD7-8255-4555-9A89-79678C7C68EB/data/Containers/Bundle/Application/BCD65E99-C189-4889-9177-CD870924377D/Simple%20Push.app/html/comingSoon.html"*
+
+<h4>Note:</h4>
+1. No such problem in SDK 3.4.1
+2. Change the app name without space, problem gone.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Chee Kiat Ng 2015-04-22
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6794" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6794</a>
+   4_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6795" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6795</a></li>
+<li>Vishal Duggal 2015-04-24
+
+   master PR merged. Backport PR not merged since ticket has no labels to indicate it needs to be backported</li>
+<li>Chee Kiat Ng 2015-04-24
+
+   [~vduggal], sorry missed that. Ticket updated accordingly, can you please merge? Thanks.</li>
+<li>Chee Kiat Ng 2015-04-25
+
+   [~sliang] 4_0_X once the back port is merged.</li>
+<li>Vishal Duggal 2015-04-27
+
+   Backport merged</li>
+<li>Ewan Harris 2015-04-29
+
+   Verified using:
+   
+   Mac OSX 10.10.3
+   Appc Studio:  4.0.0.201504272049
+   Titanium SDK build:  4.0.0.v20150427093413
+   Appc CLI (NPM): 0.3.51
+   Appc CLI (Registry): 0.2.273
+   iPhone 5s (8.0.2)
+   
+   When the project name has a space the local HTML file loads with no issues
+   
+   Closing ticket</li>
+<li>Lawrence Wilson 2015-05-05
+
+   The change implemented in TiUtils.m has affected the ImageView image property which now will not display an image if there is a space in the image name.
+   
+   <code><ImageView image="/images/thumb P6.jpg"></ImageView></code>
+   
+   This displays the image in 4.0.0.RC but not in 4.0.0.RC2</li>
+<li>Ingo Muschenetz 2015-05-05
+
+   Please see latest comment on possible regression caused by this change.</li>
+<li>Chee Kiat Ng 2015-05-06
+
+   Regression addressed here:
+   Master: <a href="https://github.com/appcelerator/titanium_mobile/pull/6821" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6821</a>
+   4_0_X: <a href="https://github.com/appcelerator/titanium_mobile/pull/6822" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6822</a></li>
+<li>Alex Bernier 2015-05-08
+
+    Remote images are broken on master now. I believe [this is the cause](<a href="https://github.com/cheekiatng/titanium_mobile/commit/484683cb34757b8d697fd56c4cf1691091f3a51d)" rel="nofollow" target="_blank">https://github.com/cheekiatng/titanium_mobile/commit/484683cb34757b8d697fd56c4cf1691091f3a51d)</a> (only taking path of a url):
+    
+    iphone/Classes/TiUIImageView.m
+    <code><pre>
+    -		NSURL *url_ = [TiUtils toURL:[img absoluteString] proxy:self.proxy];
+    +		NSURL *url_ = [TiUtils toURL:[img path] proxy:self.proxy];
+    </pre></code></li>
+<li>Ingo Muschenetz 2015-05-08
+
+    Reopening based on comments.</li>
+<li>Igor Kalashnikov 2015-05-09
+
+    Hi all,
+    
+    does that commit explain this bug:
+    !<a href="https://pp.vk.me/c625823/v625823842/30a41/fqhPXEwWTBg.jpg" rel="nofollow" target="_blank">https://pp.vk.me/c625823/v625823842/30a41/fqhPXEwWTBg.jpg</a>|height=200!
+    
+    paths to images are OK,
+    
+    iOS displays them if I use backgroundImage attribute like this:
+    <code><pre><View backgroundImage="/images/call_btn.png" /></pre></code>
+    , but if I use:
+    <code><pre><ImageView id="makeCallBtn" image="/images/call_btn.png"/></pre></code>
+    I see that stubs.</li>
+<li>Chee Kiat Ng 2015-05-09
+
+    [~zo0m], yes this is most likely the cause. sorry about that we will fix this as soon as we can. And thanks [~athorne] for spotting this.</li>
+<li>Chee Kiat Ng 2015-05-09
+
+    Master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6830" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6830</a>
+    4_0_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6831" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6831</a>
+    
+    <h4>Additional test cases</h4>
+    1. Set image in imageView with a remote url image
+    2. Set image in imageView with a local url image
+    3. Set image in imageView with a local url image that contains whitespace in filename
+    
+    <h4>Expected result</h4>
+    Image will show in all test cases
+    </li>
+<li>Alex Bernier 2015-05-09
+
+    Thank you, [~cng], for the quick fix!</li>
+<li>Lawrence Wilson 2015-05-11
+
+    Are you sure you have tested number 3?
+    
+    The ImageView image property will not display an image if there is a space in the image name.
+    
+    <code><ImageView image="/images/thumb P6.jpg"></ImageView></code>
+    
+    This displays the image in 4.0.0.RC but not in 4.0.0.RC3</li>
+<li>Chee Kiat Ng 2015-05-11
+
+    Yes I have tested it for this pr. It will be verified again when reviewed before merging :)</li>
+<li>Vishal Duggal 2015-05-11
+
+    Above PR's closed
+    New PR's
+    master - <a href="https://github.com/appcelerator/titanium_mobile/pull/6833" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6833</a>
+    4_0_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/6834" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6834</a></li>
+<li>Alex Bernier 2015-05-11
+
+    Thank you, everyone!</li>
+<li>Lawrence Wilson 2015-05-14
+
+    </li>
+<li>Ingo Muschenetz 2015-05-14
+
+    [~skateboss] Those two tickets are duplicate of this. So, to confirm, these two test cases fail:
+    
+    <code><pre>
+    <ImageView image="/images/thumb P6.jpg"></ImageView> 
+    </pre></code>
+    
+    and:
+    
+    file:///Users/abannanmacmini/Library/Developer/CoreSimulator/Devices/192189D6-2D20-4572-B050-08C2DEB45E78/data/Containers/Data/Application/A80D5311-494A-435D-84A6-3D352E77C638/Library/Caches/abreader/cache/7fe480f7-0a05-41d1-a837-5ab900e583fd/5b6ae379-f7f0-4a70-b5ad-cd4a7759a8d6/OverlayResources/InDesign_BNDLR_RSRC21316-1764919231/members_State%201_602_Content_L.png
+    </li>
+<li>Vishal Duggal 2015-05-14
+
+    Spaces in image names or path to image work fine. I've also tested setting the image to a blob or file directly and that also works. The reason nativePath property of the file no longer works with the image property in certain cases is because nativePath returns the path in the encoded form and then ImageView re-encodes it to a location that is invalid (Essentially space->%20->%2520). So the workaround is to use the resolve() method on the File Object instead of the nativePath property. 
+    
+    Test case below.  
+    <code><pre>
+    var win = Titanium.UI.createWindow({backgroundColor:'white',layout:'vertical'});
+    
+    var toolsView = Ti.UI.createView({height:Ti.UI.SIZE,width:Ti.UI.SIZE,layout:'horizontal',top:20})
+    
+    var b1 = Ti.UI.createButton({title:'STRING',left:5,borderColor:'black',borderWidth:1});
+    var b2 = Ti.UI.createButton({title:'FILE',left:5,borderColor:'black',borderWidth:1});
+    var b3 = Ti.UI.createButton({title:'BLOB',left:5,borderColor:'black',borderWidth:1});
+    var b4 = Ti.UI.createButton({title:'PATH',left:5,borderColor:'black',borderWidth:1});
+    
+    toolsView.add(b1);
+    toolsView.add(b2);
+    toolsView.add(b3);
+    toolsView.add(b4);
+    win.add(toolsView);
+    
+    var imgContainer = Ti.UI.createView();
+    win.add(imgContainer);
+    win.open();
+    
+    
+    b1.addEventListener('click',function(){
+    	imgContainer.removeAllChildren();
+    	imgContainer.backgroundColor = 'black';
+    	var imgView = Ti.UI.createImageView({image:'images/cloud copy.png'});
+    	imgContainer.add(imgView);
+    })
+    
+    b2.addEventListener('click',function(){
+    	imgContainer.removeAllChildren();
+    	imgContainer.backgroundColor = 'green';
+    	var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory,'images/cloud copy.png');
+    	var imgView = Ti.UI.createImageView({image:file});
+    	imgContainer.add(imgView);
+    })
+    
+    b3.addEventListener('click',function(){
+    	imgContainer.removeAllChildren();
+    	imgContainer.backgroundColor = 'yellow';
+    	var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory,'images/cloud copy.png').read();
+    	var imgView = Ti.UI.createImageView({image:file});
+    	imgContainer.add(imgView);
+    })
+    
+    b4.addEventListener('click',function(){
+    	imgContainer.removeAllChildren();
+    	imgContainer.backgroundColor = 'red';
+    	var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory,'images/cloud copy.png').resolve();
+    	var imgView = Ti.UI.createImageView({image:file});
+    	imgContainer.add(imgView);
+    })
+    </pre></code></li>
+<li>Eric Wieber 2015-05-14
+
+    Reopening; I still encounter the "image with space in name not displaying" issue with Tab icons in Alloy projects:
+    
+    *Steps to reproduce issue*:
+    1. Create a new Alloy 2 Tab project
+    2. Modify the first tab in the <code>index.xml</code> to use <code>icon="KS_nav ui.png"</code>
+    3. Rename the <code>KS_nav_ui.png</code> file to <code>KS_nav ui.png</code>
+    4. Run the project
+    
+    *Actual Results*:
+    The icon for the first tab does not show up
+    
+    *Expected Results*:
+    The icon is displayed
+    
+    I used:
+    Studio 4.0.0.201505121820
+    Ti SDK 4.0.0.RC4
+    Appc NPM 0.3.55
+    Appc CLI 0.2.285
+    Ti CLI 4.0.0-beta8
+    Alloy 1.6.0-beta4
+    
+    on iPhone 6 Simulator, iOS 8.3</li>
+<li>Ingo Muschenetz 2015-05-14
+
+    [~ewieber] What does the generated code look like?</li>
+<li>Lawrence Wilson 2015-05-15
+
+    @Ingo My generated code from Alloy produces the following:
+    
+    $.__views.__alloyId1 = Ti.UI.createImageView({
+            image: "/images/thumb%20P6.jpg",
+            id: "__alloyId1"
+    });
+    
+    @Vishal - I have noticed that I can use <code>resolve()</code> as a workaround, but is this acceptable without being notified about the change and what about <code>backgroundImage</code> properties - should there be such an inconsistency?</li>
+<li>Eric Wieber 2015-05-15
+
+    [~ingo] Here is my generated code for the entire Tabgroup/Alloy view:
+    The tab that does show the icon seems to match the tab that does not show the icon.
+    <code><pre>
+    function __processArg(obj, key) {
+        var arg = null;
+        if (obj) {
+            arg = obj[key] || null;
+            delete obj[key];
+        }
+        return arg;
+    }
+    
+    function Controller() {
+        require("alloy/controllers/BaseController").apply(this, Array.prototype.slice.call(arguments));
+        this.__controllerPath = "index";
+        this.args = arguments[0] || {};
+        if (arguments[0]) {
+            {
+                __processArg(arguments[0], "__parentSymbol");
+            }
+            {
+                __processArg(arguments[0], "$model");
+            }
+            {
+                __processArg(arguments[0], "__itemTemplate");
+            }
+        }
+        var $ = this;
+        var exports = {};
+        var __alloyId0 = [];
+        $.__views.__alloyId2 = Ti.UI.createWindow({
+            backgroundColor: "#fff",
+            title: "Tab 1",
+            id: "__alloyId2"
+        });
+        $.__views.__alloyId3 = Ti.UI.createLabel({
+            width: Ti.UI.SIZE,
+            height: Ti.UI.SIZE,
+            color: "#000",
+            font: {
+                fontSize: 20,
+                fontFamily: "Helvetica Neue"
+            },
+            textAlign: "center",
+            text: "I am Window 1",
+            id: "__alloyId3"
+        });
+        $.__views.__alloyId2.add($.__views.__alloyId3);
+        $.__views.__alloyId1 = Ti.UI.createTab({
+            window: $.__views.__alloyId2,
+            title: "Tab 1",
+            icon: "KS_nav ui.png",
+            id: "__alloyId1"
+        });
+        __alloyId0.push($.__views.__alloyId1);
+        $.__views.__alloyId5 = Ti.UI.createWindow({
+            backgroundColor: "#fff",
+            title: "Tab 2",
+            id: "__alloyId5"
+        });
+        $.__views.__alloyId6 = Ti.UI.createLabel({
+            width: Ti.UI.SIZE,
+            height: Ti.UI.SIZE,
+            color: "#000",
+            font: {
+                fontSize: 20,
+                fontFamily: "Helvetica Neue"
+            },
+            textAlign: "center",
+            text: "I am Window 2",
+            id: "__alloyId6"
+        });
+        $.__views.__alloyId5.add($.__views.__alloyId6);
+        $.__views.__alloyId4 = Ti.UI.createTab({
+            window: $.__views.__alloyId5,
+            title: "Tab 2",
+            icon: "views.png",
+            id: "__alloyId4"
+        });
+        __alloyId0.push($.__views.__alloyId4);
+        $.__views.index = Ti.UI.createTabGroup({
+            tabs: __alloyId0,
+            id: "index"
+        });
+        $.__views.index && $.addTopLevelView($.__views.index);
+        exports.destroy = function() {};
+        _.extend($, $.__views);
+        $.index.open();
+        _.extend($, exports);
+    }
+    
+    var Alloy = require("alloy"), Backbone = Alloy.Backbone, _ = Alloy._;
+    
+    module.exports = Controller;
+    </pre></code></li>
+<li>Vishal Duggal 2015-05-15
+
+    PR's to address double encoding
+    master - <a href="https://github.com/appcelerator/titanium_mobile/pull/6852" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6852</a>
+    4_0_X - <a href="https://github.com/appcelerator/titanium_mobile/pull/6853" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6853</a></li>
+<li>Eric Wieber 2015-05-18
+
+    I can no longer reproduce the "image with space in name not displaying" issue with Tab icons in Alloy projects
+    
+    MacOS 10.10.3
+    Studio 4.0.0.201505170122
+    Ti SDK 4.0.0.v20150516200211
+    Appc NPM 0.3.55
+    CLI: 0.2.290
+    Ti CLI 4.0.0-beta9
+    Alloy 1.6.0-beta4
+    Node v0.10.37
+    Java 1.7.0_45
+    
+    Icons for tabs correctly display.</li>
+<li>Eric Wieber 2015-05-18
+
+    Closing this ticket as it looks fixed.
+    [~lawrence.wilson@abannan.com] Please comment if your issue is not resolved when using the above environment.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-18765.json">JSON Source</a></p>

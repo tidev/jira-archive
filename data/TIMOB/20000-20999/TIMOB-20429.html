@@ -1,0 +1,100 @@
+---
+title: "[TIMOB-20429] LaunchLogo asset catalog should also be created if custom storyboard is found"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2016-12-05T23:50:29.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>iOS, Tooling</td></tr>
+<tr><th>Labels</th><td>look1</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2016-02-18T14:29:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-08-02T22:20:02.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+With TIMOB-19694 the user can now either use our Storyboard with <code>LaunchLogo.png</code> or provide a custom Storyboard.
+
+Chances are, that when the user wants to use a custom Storyboard he just wants to make some adjustments to ours.
+
+Unfortunately, when we detect a custom storyboard we no longer create an Asset Catalog for <code>LaunchLogo.png</code>. So then the user is required to rename the LaunchLogo, enable app thinning, figure out the hash for that path and use that in the Storyboard.
+
+We can simplify this a lot by always generating the LaunchLogo Asset Catalog if <code>LaunchLogo.png</code> is found. If the user doesn't need it, he simply deletes that file.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Fokke Zandbergen 2016-02-18
+
+   /cc [~cbarber]</li>
+<li>Hans Knöchel 2016-12-05
+
+   [~cbarber] What do you think about [this](<a href="https://github.com/hansemannn/titanium_mobile/commit/d3a9253bb8d3c05494d63a8716c7d0b9c7d42958)?" rel="nofollow" target="_blank">https://github.com/hansemannn/titanium_mobile/commit/d3a9253bb8d3c05494d63a8716c7d0b9c7d42958)?</a> </li>
+<li>Chris Barber 2016-12-05
+
+   If you're using a custom storyboard launch screen, you probably don't want to use the LaunchLogo asset catalog.
+   
+   Think about it. If you create your own launch screen storyboard that doesn't use the LaunchLogo, then I don't want the image set to exist and the LaunchLogo bundled with your app?
+   
+   I also don't love forcing the default background color to white. This is solely done because the launch screen storyboard's background is white, yet the default background color in the iOS code is black and if they're not the same, it leads to a nasty rendering artifact on launch. If you want to change the default, do it in the obj-c code.
+   
+   So, I personally am not sold on why this is a good feature. I vote to not fix it.</li>
+<li>Hans Knöchel 2016-12-05
+
+   {quote}
+   If you're using a custom storyboard launch screen, you probably don't want to use the LaunchLogo asset catalog.
+   {quote}
+   But what if you do? Very common use-case (personally) was to position it different or add a label to it.
+   
+   {quote}
+   Think about it. If you create your own launch screen storyboard that doesn't use the LaunchLogo, then I don't want the image set to exist and the LaunchLogo bundled with your app?
+   {quote}
+   If they don't use it, we can regex it out by checking one line in the storyboard file, don't see a major problem there.
+   
+   {quote}
+   I also don't love forcing the default background color to white. This is solely done because the launch screen storyboard's background is white, yet the default background color in the iOS code is black and if they're not the same, it leads to a nasty rendering artifact on launch. If you want to change the default, do it in the obj-c code.
+   {quote}
+   It was white before, and there won't be rendering artifacts, since the launch screen is shown until the first window is opened (and that's black on iOS as well, they just tint their templates different).
+   {quote}
+   So, I personally am not sold on why this is a good feature. I vote to not fix it.
+   {quote}
+   As said above, I had uses-cases for this in multiple Ti projects the last months, enterprises seem to had the same thoughts and after all, it feels like the change doesn't hurt anyone. But if you don't want it, we don't need to do it - that's why I asked for the opinion. </li>
+<li>Chris Barber 2016-12-06
+
+   If you are going to go through all the work of creating a custom launch screen storyboard, it's not that much more work to just create the logo and place it.
+   
+   I don't love the idea of excluding the launch logo image set if a regex doesn't find it in the storyboard file.
+   
+   The background was only white if using the default launch screen storyboard, otherwise it defaults to the black background defined in the Obj-C code.
+   
+   It's not my call. It's up to [~cng] if he thinks this is a good idea and if we should do it. I'm just voicing my concern. I'd hate for us to add this then realize what I already have realized and we end up removing it someday.
+   
+   Instead of doing this half-baked feature, perhaps we should just make it easier for users to create custom launch screen storyboards and manage asset catalog image sets. A great topic for the next engineering week. :)</li>
+<li>Fokke Zandbergen 2016-12-06
+
+   Think about if from a progressive user journey. First you use the builtin board with a custom background color. Then you want to do a customization beyond the abilities of the custom board. Instead perhaps add a tag line under the logo. You copy the builtin board, make the addition, built the app and boom.. logo is gone while I still have the LaunchLogo file in place. I then have to figure out what's wrong and after 1 hour I finally stumble upon a doc that says for a custom board you need to use an image with a different name and on top of that figure out the hash it gets after build.
+   
+   If it's about not including unused files I think it is easier for the user to figure out he can delete the LaunchLogo file if he no longer uses it then to figure out the above.</li>
+<li>Chris Barber 2016-12-06
+
+   [~fokkezb] You're back!
+   
+   Allow me to continue your story. How do you go about creating a custom launch screen storyboard? You build the app, then go into <code>build/iphone</code> and open the Xcode project. After designing the most amazing launch screen, exit Xcode, and carefully copy the storyboard and any assets you reference from the <code>build/iphone</code> directory to the <code>platform/ios</code> directory. This workflow sucks.
+   
+   I'm more interested in spending the time making this workflow efficient and intuitive with the minimal amount of wheel reinventing. How are we going to do this? Magic. Lots and lots of magic.</li>
+<li>Fokke Zandbergen 2016-12-06
+
+   I agree it can be much better :) Do your magic Chris! Still, baby steps are steps as well.</li>
+<li>Eric Merriman  2018-08-02
+
+   Closing old "Won't fix" tickets. If you disagree, please reopen.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-20429.json">JSON Source</a></p>

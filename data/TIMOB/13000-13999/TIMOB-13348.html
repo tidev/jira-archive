@@ -1,0 +1,156 @@
+---
+title: "[TIMOB-13348] iOS: Build for device: Build fails with CompileC ApplicationRouting"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-11-01T22:26:13.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 22, 2013 Sprint 22 Core, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>n/a</td></tr>
+<tr><th>Reporter</th><td>Sebastian Bejga</td></tr>
+<tr><th>Assignee</th><td>Chris Barber</td></tr>
+<tr><th>Created</th><td>2013-01-22T22:16:42.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-11-12T10:49:05.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Steps to reproduce</h4>
+1. Drop into app.js snippet below
+2. Select Studio option "Install to iOS Device"
+3. Monitor console output e.g. <a href="https://gist.github.com/egomez99/bb0f950cdcbae6653401" rel="nofollow" target="_blank">https://gist.github.com/egomez99/bb0f950cdcbae6653401</a>
+
+
+<h4>Titanium Studio, build: 3.0.2.201302191606</h4>
+(c) Copyright 2012-2013 by Appcelerator, Inc.  All rights reserved.
+
+Build: jenkins-titanium-rcp-master-372 (origin/master)
+Date: 19 February 2013, 16:09:49
+
+<h4>snippet</h4>
+<code><pre>
+(function () {
+    var abc = "abc123";
+
+    var f1 = function () {
+        // _wef4f43ffg6rb344n678678 is a known undefined global.
+        // non-local reference, this always throws
+        try {
+            abc = _wef4f43ffg6rb344n678678;         
+        }
+        catch (err) {
+            Ti.API.info("Threw non-local var: " + err);
+        }
+    };
+
+    var f2 = function () {
+        // this throws everywhere, except DOES NOT throw only on device, 3.1 CI.
+        try {
+            var b = _wef4f43ffg6rb344n678678;
+            Ti.API.info("Hey it worked");
+        }
+        catch (err) {
+            Ti.API.info("Threw local var: " + err);
+        }
+    };
+
+    f1();
+    f2();
+}());
+</pre></code>
+
+Build fails with:
+
+[ERROR] :  ** BUILD FAILED **
+[ERROR] :  The following build commands failed:
+[ERROR] :  	CompileC build/docqr.build/Debug-iphoneos/docqr-universal.build/Objects-normal/armv7/ApplicationRouting.o Classes/ApplicationRouting.m normal armv7 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+[ERROR] :  (1 failure)
+
+seems similiar to TIMOB-11891 but I can reproduce!
+
+I am frustrated building my current project. Because yesterday it has build for device. App run on my iPhone. Today I continued coding, changed some files and created a new one. Then I does not build for device anymore. Simulator works. 
+
+After rolling back in git step by step I found out the problem occured with the new file. But I does not use the file. After 2 hours, deleting the file, clean project and adding again another new file I found out, that Build will fail immediately if I add an additionally file to folders 'common', 'handheld' or 'tablet' in 'Resources/ui'. Really I tested it several times!
+
+Removing new file. Clean. Build and Deploy on iOS Device (iPhone). Succeed!
+Adding a file with arbitary name to Resources/ui/common. Write a dummy function as module.exports (return an empty red view). Clean. Build and Deploy on iOS Device (iPhone). Fails! But still not using the module, no call of it.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-13348_35055/build.log.txt">build.log.txt</td></td><td>2013-01-22T22:16:42.000+0000</td><td>53597</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>mike ory 2013-02-10
+
+   I have the same issue:
+   [ERROR] :  ** BUILD FAILED **
+   [ERROR] :  The following build commands failed:
+   [ERROR] :  	CompileC build/emojibet.build/Debug-iphoneos/emojibet.build/Objects-normal/armv7/ApplicationRouting.o Classes/ApplicationRouting.m normal armv7 objective-c com.apple.compilers.llvm.clang.1_0.compiler
+   [ERROR] :  (1 failure)
+   
+   Confirmed that removing the file from Resources/ui/common lets me build.  But obviously I NEED this file at that path.  Is there a solution / workaround??
+   
+   This is a nightmare!  anyone?
+   Titanium Command-Line Interface, CLI version 3.0.23, Titanium SDK version 3.0.0.GA
+   OSX 10.8.2
+   Xcode 4.5.2(4G20008a)
+   Titanium Studio, build: 3.0.2.201302041757</li>
+<li>mike ory 2013-02-10
+
+   I have another computer which has:
+   Titanium Studio . build  3.0.1.201212181159
+   OSX 10.8.2
+   Xcode 4.5.2 (4G2008a)
+   i am able to import the project on this computer and build for device.</li>
+<li>mike ory 2013-02-10
+
+   reverted the original machine (above) to: Titanium Studio, build: 3.0.1.201212181159   This did NOT solve the problem.
+   </li>
+<li>Eduardo Gomez 2013-04-03
+
+   - Have you tested it vs latest TiSDK yet?
+   - Can you attach your Ti project in order to replicate quicker? </li>
+<li>Matt Mullens 2013-04-14
+
+   </li>
+<li>Matt Mullens 2013-04-14
+
+   Another piece of information: if I run it in debug mode, it works, it'll be staged in iTunes for a sync, post-sync all is good (except that it is in debug mode) on the iPhone.  However, if I just use run, not debug, then the issue with ApplicationRouting comes up.  Also, I think ApplicationRouting is being written out of _build.js it looks like, and I know the file is loaded as top-level console.log's show up in the Titanium console output, but the code specifically that generates the ApplicationRouting.m doesn't seem to ever be reached - but that might be my misunderstanding - I did try using the logger utility as well as straight console.log, can't see that the code is reached though it must be as the file gets generated - perhaps console.log & the logger utility log to some other stream somehow at that point, haven't investigated that yet.</li>
+<li>Eduardo Gomez 2013-04-18
+
+   Additional details and test case were added. Currently reproducible on 3.1.0.GA.</li>
+<li>Lance Spellman 2013-08-07
+
+   </li>
+<li>Chris Barber 2013-11-01
+
+   Pull request: <a href="https://github.com/appcelerator/titanium_mobile/pull/4898" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4898</a></li>
+<li>Pragya Rastogi 2013-11-12
+
+    Tested and Verified fix with:
+    OSX: 10.8.5
+    Xcode:5.0
+    Appcelerator Studio:   3.2.0.201311120707
+    SDK: 3.2.0.v20131111174605
+    acs:1.0.7
+    alloy:1.3.0
+    npm:1.3.2
+    titanium:3.2.0
+    titanium-code-processo:1.0.3
+    Device: iOS7(v7.0.3)-iPodTouch1</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13348.json">JSON Source</a></p>

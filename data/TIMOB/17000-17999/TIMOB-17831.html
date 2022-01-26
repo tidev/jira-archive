@@ -1,0 +1,88 @@
+---
+title: "[TIMOB-17831] iOS - SQLite module throws warnings about deprecated API usage"
+---
+<table>
+<tr><th>Type</th><td>Improvement</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-14T18:06:40.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>module_database, qe-manualtest</td></tr>
+<tr><th>Reporter</th><td>Pedro Enrique</td></tr>
+<tr><th>Assignee</th><td>Muhammad Dadu</td></tr>
+<tr><th>Created</th><td>2014-10-08T18:55:41.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-11-26T07:06:40.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Muhammad Dadu 2014-10-08
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6207" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6207</a>
+   
+   Removed warnings by implementing 'sqlite3_open_v2'. Tested using Kitchen SInk.</li>
+<li>Marek Zwick 2014-10-14
+
+   This change crashes a newly installed app (without existing database) on IOS. Instead of creating a new database, Titanium.Database.open() causes an error. To reproduce, just run a
+   
+   Ti.Database.open('_alloy_');
+   
+   in a newly installed app, you will get
+   
+   [ERROR] :      message = "couldn't open database";
+   [ERROR] :      nativeLocation = "-[TiDatabaseProxy open:] (TiDatabaseProxy.m:112)";
+   
+   If I add the removed line 
+   
+   sqlite3_enable_shared_cache(TRUE);
+   
+   in the iphone/Classes/DatabaseModule.m, everything works as expected.
+   </li>
+<li>Marek Zwick 2014-10-14
+
+   found the problem: in the sqlite3_open_v2 there must be an additional SQLITE_OPEN_CREATE flag, so the database will be created if not existing (which seemed to be a default behaviour of sqlite3_open) 
+   
+   in PLSqliteDatabase.m openAndReturnError:
+   
+   /* Open the database */
+       err = sqlite3_open_v2([_path fileSystemRepresentation], &_sqlite, SQLITE_OPEN_SHAREDCACHE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+   
+   So the removed sqlite3_enable_shared_cache(TRUE); in iphone/Classes/DatabaseModule.m wasn't problematic at all.
+   
+   
+   
+   </li>
+<li>Muhammad Dadu 2014-10-14
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6218" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6218</a>
+   
+   Thank you for the help [~marek].</li>
+<li>Vishal Duggal 2014-10-24
+
+   Backport to 3_4_X done as part of <a href="https://github.com/appcelerator/titanium_mobile/pull/6271" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6271</a></li>
+<li>Khushbu Agrawal 2014-11-26
+
+   The database is created without crash when it doesn't exist. Verified with the Xcode=>Devices=>Installed Apps .
+   Closing the ticket.
+   Tested with the below Environment: 
+   1. Mac OSX Yosemite 10.10
+   2. Appcelerator Studio, build: 3.4.1.201410281743
+   3. Titanium SDK, build:  3.5.0.v20141125154115
+   4. Titanium CLI, build: 3.4.1
+   5. Alloy: 1.5.1
+   6. Xcode 6.1
+   7. iOS SDK 8.1
+   8. iPhone 5s with iOS 8.1
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17831.json">JSON Source</a></p>

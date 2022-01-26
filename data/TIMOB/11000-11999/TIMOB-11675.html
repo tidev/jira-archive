@@ -1,0 +1,128 @@
+---
+title: "[TIMOB-11675] Android V8 XML parsing fails"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Cannot Reproduce</td></tr>
+<tr><th>Resolution Date</th><td>2013-04-25T05:53:30.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 09</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>Community, exalture</td></tr>
+<tr><th>Reporter</th><td>Federico Casali</td></tr>
+<tr><th>Assignee</th><td>jithinpv</td></tr>
+<tr><th>Created</th><td>2012-09-09T14:39:06.000+0000</td></tr>
+<tr><th>Updated</th><td>2017-03-21T22:01:23.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Problem description</h4>
+Parsing a large XML file fails using V8
+
+<h4>Sample code and steps to reproduce</h4>
+
+data.xml file is attached
+
+App.js :
+
+<code><pre>
+
+var file = Ti.Filesystem.getFile('data.xml');
+ 
+var xmlData = file.read().text;
+ 
+var xml = Ti.XML.parseString(xmlData);
+ 
+var nodes = xml.documentElement.childNodes;
+ 
+var i, j, k;
+ 
+for (i = 0; i < nodes.length; i++) {
+        if (nodes.item(i).hasAttributes()) {
+                var attr = nodes.item(i).getAttributes();
+                for (j = 0; j < attr.length; j++) {
+                        var nodeval = attr.item(j).nodeValue;
+                        Ti.API.info(attr.item(j).nodeName + ': ' + nodeval);                   
+                }
+        }
+        // <text>
+        for (j = 0; j < nodes.item(i).childNodes.length; j++) {
+                if (nodes.item(i).childNodes.item(j).nodeName == 'text') {
+                        var textNodes = nodes.item(i).childNodes.item(j);
+                        var text = "";
+                        for (k = 0; k < textNodes.childNodes.length; k++) {
+                                text += textNodes.childNodes.item(k).nodeValue;
+                        }
+                        Ti.API.info(text);
+                }
+        }
+}
+ 
+Ti.API.info("Success!");
+
+win.open();
+</pre></code>
+
+iOS and Rhino run just fine, but V8 fails before finishing with:
+
+<code><pre>
+09-09 17:29:08.808: E/dalvikvm(4734): JNI ERROR (app bug): weak global reference table overflow (max=51200)
+09-09 17:29:08.812: W/dalvikvm(4734): JNI weak global reference table (0x4d433008) dump:
+09-09 17:29:08.816: W/dalvikvm(4734):   Last 10 entries (of 51200):
+09-09 17:29:08.816: W/dalvikvm(4734):     51199: 0x419fa0f0 ti.modules.titanium.xml.ElementProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51198: 0x41a01a78 ti.modules.titanium.xml.NodeListProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51197: 0x41a06ec0 ti.modules.titanium.xml.ElementProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51196: 0x41a10708 ti.modules.titanium.xml.NodeListProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51195: 0x41a17080 ti.modules.titanium.xml.TextProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51194: 0x41a1e348 ti.modules.titanium.xml.NodeListProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51193: 0x41a237c0 ti.modules.titanium.xml.NodeListProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51192: 0x41a2a308 ti.modules.titanium.xml.ElementProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51191: 0x41a2d868 ti.modules.titanium.xml.NodeListProxy
+09-09 17:29:08.816: W/dalvikvm(4734):     51190: 0x41a32178 ti.modules.titanium.xml.ElementProxy
+09-09 17:29:08.901: W/dalvikvm(4734):   Summary:
+09-09 17:29:08.901: W/dalvikvm(4734):      1844 of ti.modules.titanium.xml.TextProxy (1844 unique instances)
+09-09 17:29:08.905: W/dalvikvm(4734):      4423 of ti.modules.titanium.xml.ElementProxy (4423 unique instances)
+09-09 17:29:08.905: W/dalvikvm(4734):      4426 of ti.modules.titanium.xml.NodeListProxy (4426 unique instances)
+09-09 17:29:08.905: W/dalvikvm(4734):       367 of ti.modules.titanium.xml.NamedNodeMapProxy (367 unique instances)
+09-09 17:29:08.909: W/dalvikvm(4734):      2944 of ti.modules.titanium.xml.AttrProxy (2944 unique instances)
+
+</pre></code>
+
+
+Basically it seems like the Java-side proxies are not getting properly deleted when JS-scoping says they should be.
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-11675_33230/data.xml">data.xml</td></td><td>2012-11-06T21:33:37.000+0000</td><td>178814</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Federico Casali 2012-11-06
+
+   Confirmed. 
+   Moving to TiMOB</li>
+<li>jithinpv 2013-04-25
+
+   Cannot reproduce 
+   
+   Tested with
+   Titanium Studio, build: 3.0.1.201212181159
+   Titanium SDK version: 3.1.0 
+   Android Emulator: Android SDK version: 2.2 </li>
+<li>Lee Morris 2017-03-21
+
+   Closing ticket as the issue cannot be reproduced and due to the above comments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-11675.json">JSON Source</a></p>

@@ -1,0 +1,196 @@
+{
+	"id": "99205",
+	"key": "TIMOB-10445",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": {
+			"id": "5",
+			"description": "All attempts at reproducing this issue failed, or not enough information was available to reproduce the issue. Reading the code produces no clues as to why this behavior would occur. If more information appears later, please reopen the issue.",
+			"name": "Cannot Reproduce"
+		},
+		"resolutiondate": "2015-11-05T00:36:11.000+0000",
+		"created": "2012-08-14T14:50:21.000+0000",
+		"priority": {
+			"name": "Medium",
+			"id": "3"
+		},
+		"labels": [
+			"core",
+			"dev-investigate"
+		],
+		"versions": [
+			{
+				"id": "13572",
+				"description": "Release 2.1.1",
+				"name": "Release 2.1.1",
+				"archived": true,
+				"released": true,
+				"releaseDate": "2012-07-31"
+			}
+		],
+		"issuelinks": [],
+		"assignee": {
+			"name": "hpham",
+			"key": "hpham",
+			"displayName": "Hieu Pham",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2015-11-05T00:36:11.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "If you use set a table view's initial set of rows using the {{data}} property of a creation-time argument object (e.g. {{Ti.UI.createTableView({data: rows});}} the rows that you set there never seemed to be released from memory if the tableview is in the current scope.\r\n\r\nh3. Test case\r\n\r\nThis test case requires that you know DDMS and MAT (Memory Analyzer Tool).  No instructions are provided for that.\r\n\r\n1. Use this app.js in a new app:\r\n\r\n{code:title=\"app.js\"}\r\n\r\nsetInterval(function(){},1000);\r\nvar ROWS = 200;\r\nvar DATA_AT_CREATION = true;\r\nTitanium.UI.setBackgroundColor('#333');\r\n\r\nvar win = Ti.UI.createWindow({\r\n\texitOnClose: true,\r\n\ttitle:'Test',\r\n\tbackgroundColor:'#333',\r\n\torientationModes: [Ti.UI.PORTRAIT]\r\n});\r\nwin.add(Ti.UI.createLabel({\r\n\tleft: \"8dp\", right: \"8dp\", top: \"8dp\", height: \"48dp\",\r\n\ttext: DATA_AT_CREATION ? \"Initial data set at creation time\" :\r\n\t\t\"Initial data set via setData after creation\"\r\n}));\r\n\r\nvar tv, btnBuild, btnTeardown;\r\nvar iter = 0;\r\n\r\nvar buildup = function() {\r\n\titer++;\r\n\tvar rows=[], i;\r\n\r\n\tfor (i = 0; i < ROWS; i++) {\r\n\t\trows.push(\r\n\t\t\tTi.UI.createTableViewRow({\r\n\t\t\t\ttitle: \"Iter \" + iter + \"; Row \" + (i + 1),\r\n\t\t\t\theight: \"48dp\"\r\n\t\t}));\r\n\t}\r\n\treturn rows;\r\n};\r\n\r\nif (DATA_AT_CREATION) {\r\n\twin.add(tv = Ti.UI.createTableView({\r\n\t\ttop: \"64dp\", bottom: \"64dp\", data: buildup()\r\n\t}));\r\n} else {\r\n\twin.add(tv = Ti.UI.createTableView({\r\n\t\ttop: \"64dp\", bottom: \"64dp\"\r\n\t}));\r\n\ttv.setData(buildup());\r\n}\r\n\r\nwin.add(btnBuild = Ti.UI.createButton({\r\n\tbottom: \"8dp\", height: \"48dp\", left: \"16dp\", width: \"112dp\",\r\n\ttitle: \"Build up\"\r\n}));\r\n\r\nwin.add(btnTeardown = Ti.UI.createButton({\r\n\tbottom: \"8dp\", height: \"48dp\", left: \"144dp\", width: \"112dp\",\r\n\ttitle: \"Tear down\"\r\n}));\r\n\r\nbtnBuild.addEventListener(\"click\", function() {\r\n\ttv.setData(buildup());\r\n});\r\n\r\nbtnTeardown.addEventListener(\"click\", function() {\r\n\ttv.setData([Ti.UI.createTableViewRow({title: \"empty\"})]);\r\n});\r\n\r\nwin.open();\r\n{code}\r\n\r\n2. Run the app and click \"Build up\" several times (5 times is fine).  Each time you click that you replace the rows in the table view with 200 new rows.\r\n\r\n3. Click \"Tear down\"\r\n\r\n4. Let the device/emulator idle for 40 seconds (this gives extra opportunities for the V8 GC to run.)\r\n\r\n5. In DDMS, find the running app, turn on heap updates for it, and cause GCs until the heap size stabilizes.\r\n\r\n6. Export the HPROF for MAT.\r\n\r\n7. In MAT, get a dominator tree and sort it by package.\r\n\r\n8. Find the ti.* packages, and drilldown to ti.modules.titanium.ui.\r\n\r\n9. Look at the number of TableViewProxy objects: there will probably be about 211, even though there is only 1 row in the table after you click that \"Tear down\" button.  When testing a fix, this number should be down at 11 or so.\r\n\r\nh2. Compare to using setData\r\n\r\n1. Change the constant {{DATA_AT_CREATION}} to {{false}} up near the top of app.js.\r\n\r\n2. Follow steps 2-8 from above.  This time when you check the number of TableViewProxy objects, it should be 11 or so.",
+		"attachment": [
+			{
+				"id": "57267",
+				"filename": "Eclipse_Memory_Analyzer.png",
+				"author": {
+					"name": "wluu",
+					"key": "wluu",
+					"displayName": "Wilson Luu",
+					"active": false,
+					"timeZone": "America/Los_Angeles"
+				},
+				"created": "2015-11-05T00:29:01.000+0000",
+				"size": 187066,
+				"mimeType": "image/png"
+			}
+		],
+		"flagged": false,
+		"summary": "Android: TableView \"data\" creation arg rows never get released even if complete row set is replaced later using setData",
+		"creator": {
+			"name": "billdawson",
+			"key": "billdawson",
+			"displayName": "Bill Dawson",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "billdawson",
+			"key": "billdawson",
+			"displayName": "Bill Dawson",
+			"active": true,
+			"timeZone": "Europe/Berlin"
+		},
+		"environment": "V8 only, Android 4.1 (possibly lower, but i was testing only with this), Titanium 2.1.1, desktop OS is irrelevant",
+		"closedSprints": [
+			{
+				"id": 3,
+				"state": "closed",
+				"name": "Release 3.0.0",
+				"startDate": "2012-09-27T05:26:46.636Z",
+				"endDate": "2012-10-08T20:05:00.000Z",
+				"completeDate": "2012-12-20T17:03:19.403Z"
+			},
+			{
+				"id": 517,
+				"state": "closed",
+				"name": "2015 Sprint 22 SDK",
+				"startDate": "2015-10-24T00:30:42.059Z",
+				"endDate": "2015-11-07T01:30:00.000Z",
+				"completeDate": "2015-11-09T02:37:29.441Z",
+				"originBoardId": 114
+			}
+		],
+		"comment": {
+			"comments": [
+				{
+					"id": "214452",
+					"author": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"body": "Note that this could be a general thing about proxy creation args; I just happened to notice it with TableView.",
+					"updateAuthor": {
+						"name": "billdawson",
+						"key": "billdawson",
+						"displayName": "Bill Dawson",
+						"active": true,
+						"timeZone": "Europe/Berlin"
+					},
+					"created": "2012-08-14T14:58:07.000+0000",
+					"updated": "2012-08-14T14:58:07.000+0000"
+				},
+				{
+					"id": "300896",
+					"author": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Needs investigation to see if it still exists.",
+					"updateAuthor": {
+						"name": "ingo",
+						"key": "ingo",
+						"displayName": "Ingo Muschenetz",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2014-04-14T21:38:04.000+0000",
+					"updated": "2014-04-14T21:38:04.000+0000"
+				},
+				{
+					"id": "369034",
+					"author": {
+						"name": "wluu",
+						"key": "wluu",
+						"displayName": "Wilson Luu",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Closing ticket as cannot reproduce. Verified that the TableViewProxy object count is consistently below 11 in the following scenarios (using the above steps):\r\n* Setting the {{DATA_AT_CREATION}} to true\r\n* Setting the {{DATA_AT_CREATION}} to false\r\n* {{Build up}} five times and more\r\n* Tested against Android device and Genymotion running 4.4.X\r\n* See !Eclipse_Memory_Analyzer.png|thumbnail!\r\n\r\n*Tested on:*\r\n\r\nAppcelerator Studio, build: 4.4.0.201511040454\r\nAppc CLI NPM: 4.2.1\r\nAppc CLI Core: 5.1.0-42\r\nArrow: 1.3.18\r\nSDK: 5.1.0.v20151104110027\r\nNode: v4.2.1\r\nOS: El Capitan (10.11.1)\r\nDevices: Samsung Galaxy S5 (4.4.2), Genymotion Emulator (4.4.4)\r\n\r\n*Notes for getting HPROF from DDMS:*\r\n* You will need to enable your Titanium app for Android debugging; add this in tiapp.xml:\r\n{code}\r\n<android xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n        <manifest>\r\n            <application android:debuggable=\"true\"/>\r\n        </manifest>\r\n    </android>\r\n{code}\r\n* Here is the link to the stand-alone memory analyzer: https://eclipse.org/mat/downloads.php.\r\n* Once you have obtained the .hprof file from DDMS, you will need to convert it with Android tool's {{hprof-conv}} .",
+					"updateAuthor": {
+						"name": "wluu",
+						"key": "wluu",
+						"displayName": "Wilson Luu",
+						"active": false,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2015-11-05T00:34:25.000+0000",
+					"updated": "2015-11-05T00:35:58.000+0000"
+				}
+			],
+			"maxResults": 4,
+			"total": 4,
+			"startAt": 0
+		}
+	}
+}

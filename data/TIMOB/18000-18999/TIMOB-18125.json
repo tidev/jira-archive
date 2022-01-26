@@ -1,0 +1,178 @@
+{
+	"id": "140838",
+	"key": "TIMOB-18125",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "10153",
+			"key": "TIMOB",
+			"name": "Titanium SDK/CLI",
+			"projectCategory": {
+				"id": "10100",
+				"description": "Titanium and related SDKs used in application development",
+				"name": "Client"
+			}
+		},
+		"fixVersions": [],
+		"resolution": null,
+		"resolutiondate": null,
+		"created": "2014-12-02T23:11:50.000+0000",
+		"priority": {
+			"name": "Low",
+			"id": "4"
+		},
+		"labels": [],
+		"versions": [],
+		"issuelinks": [
+			{
+				"id": "43627",
+				"type": {
+					"id": "10003",
+					"name": "Relates",
+					"inward": "relates to",
+					"outward": "relates to"
+				},
+				"inwardIssue": {
+					"id": "135925",
+					"key": "TIMOB-17945",
+					"fields": {
+						"summary": "Android: CloudPush - events not fired correctly",
+						"status": {
+							"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+							"name": "Closed",
+							"id": "6",
+							"statusCategory": {
+								"id": 3,
+								"key": "done",
+								"colorName": "green",
+								"name": "Done"
+							}
+						},
+						"priority": {
+							"name": "High",
+							"id": "2"
+						},
+						"issuetype": {
+							"id": "1",
+							"description": "A problem which impairs or prevents the functions of the product.",
+							"name": "Bug",
+							"subtask": false
+						}
+					}
+				}
+			}
+		],
+		"assignee": null,
+		"updated": "2019-04-09T23:15:35.000+0000",
+		"status": {
+			"description": "The issue is open and ready for the assignee to start work on it.",
+			"name": "Open",
+			"id": "1",
+			"statusCategory": {
+				"id": 2,
+				"key": "new",
+				"colorName": "blue-gray",
+				"name": "To Do"
+			}
+		},
+		"components": [
+			{
+				"id": "10202",
+				"name": "Android",
+				"description": "Android Platform"
+			}
+		],
+		"description": "When an app using cloudpush is killed, a push received, and the tray notification clicked, there are two events that fire.\r\n\r\n# callback\r\n# trackClickLaunchedApp\r\n\r\nBoth event get fired as they should if the event listeners are added before any window is opened. If you wait for the window to open then the `trackClickLaunchedApp` event does not get fired.\r\n\r\nThis happens because PROPERTY_TRAY_LAUNCHED_APP is added to the launch intent. When the event listener is added, the current activity is checked for the PROPERTY_TRAY_LAUNCHED_APP boolean and if it is found then the event is fired. If the event listener is added before a window is opened, it works fine because the current activity is the root activity and the intent has the property. However, once the new window is open, the activity returned by getActivity() is not the root activity, but the current activity that does not have the property set.\r\n\r\nh5. Steps to reproduce:\r\n# Run the example code below\r\n# Ensure that you are able to receive a push\r\n# Hit the back button to kill the app\r\n# Send a push\r\n# Click on the notification to launch the app\r\n# Notice that only one of the alerts (callback) is displayed, trayClickLaunchedApp is never fired\r\n\r\n{code}\r\nvar win = Ti.UI.createWindow({\r\n    backgroundColor : '#ccc',\r\n    title : 'Android Cloud Push Notification'\r\n});\r\n  \r\nvar CloudPush = require('ti.cloudpush');\r\nCloudPush.debug = true;\r\nCloudPush.enabled = true;\r\nCloudPush.singleCallback = true;\r\n  \r\nvar deviceToken=null;\r\nvar Cloud = require('ti.cloud');\r\nCloud.debug = true;\r\n  \r\nvar submit = Ti.UI.createButton({\r\n    title : 'Register For Push Notification',\r\n    color : '#000',\r\n    height : 60,\r\n    width : 200,\r\n    top : 100,\r\n});\r\n  \r\nwin.add(submit);\r\n  \r\nsubmit.addEventListener('click', function(e) {\r\n    loginDefault();\r\n});\r\n  \r\nCloudPush.retrieveDeviceToken({\r\n    success : deviceTokenSuccess,\r\n    error : deviceTokenError\r\n});\r\n  \r\n// Save the device token for subsequent API calls\r\nfunction deviceTokenSuccess(e) {\r\n    deviceToken = e.deviceToken;\r\n}\r\n  \r\nfunction deviceTokenError(e) {\r\n    alert('Failed to register for push notifications! ' + e.error);\r\n}\r\n  \r\n// Process incoming push notifications\r\nvar listenersAdded = false;\r\nwin.addEventListener('open', function() {\r\n    if (listenersAdded) {\r\n        return;\r\n    }\r\n\r\n    // Process incoming push notifications\r\n    CloudPush.addEventListener('callback', function(evt) {\r\n        alert(\"Notification received: \" + evt.payload);\r\n        Ti.API.info(\"-------> Notification received: \" + evt.payload);\r\n    });\r\n     \r\n    CloudPush.addEventListener('trayClickLaunchedApp', function (evt) {\r\n        alert('Tray Click Launched App (app was not running)');\r\n        Ti.API.info('-------> Tray Click Launched App (app was not running)');\r\n    });\r\n     \r\n    CloudPush.addEventListener('trayClickFocusedApp', function (evt) {\r\n        alert('Tray Click Focused App (app was already running)');\r\n        Ti.API.info('-------> Tray Click Focused App (app was already running)');\r\n    });\r\n\r\n    listenersAdded = true;\r\n});\r\n  \r\nfunction loginDefault(e) {\r\n    // At first you need to create an user from the application dashboard\r\n    // Then login that email and password\r\n    Cloud.Users.login({\r\n        login : 'sliang@appcelerator.com',\r\n        password : '1234'\r\n    }, function(e) {\r\n        if (e.success) {\r\n            alert(\"login success\");\r\n            defaultSubscribe();\r\n        } else {\r\n            alert('Error: ' + ((e.error && e.message) || JSON.stringify(e)));\r\n        }\r\n    });\r\n}\r\n  \r\nfunction defaultSubscribe() {\r\n    Cloud.PushNotifications.subscribe({\r\n        channel : 'Android Test',\r\n        device_token : deviceToken,\r\n        type : 'gcm'\r\n    }, function(e) {\r\n        if (e.success) {\r\n            alert('Subscribed for Push Notification!');\r\n        } else {\r\n            alert('Error:' + ((e.error && e.message) || JSON.stringify(e)));\r\n        }\r\n    });\r\n}\r\nwin.open();\r\n{code}",
+		"attachment": [],
+		"flagged": false,
+		"summary": "Android: CloudPush - trayClickLaunchedApp event not fired if listener added after window is open",
+		"creator": {
+			"name": "jalter",
+			"key": "jalter",
+			"displayName": "Jon Alter",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "jalter",
+			"key": "jalter",
+			"displayName": "Jon Alter",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "TiSDK 3.4.1.GA, 3.5.0\r\nti.cloudpush 3.3.5, 3.3.6, 3.3.7",
+		"comment": {
+			"comments": [
+				{
+					"id": "358361",
+					"author": {
+						"name": "bradleycorn",
+						"key": "bradleycorn",
+						"displayName": "Brad Ball",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"body": "Any progress/ETA on this?",
+					"updateAuthor": {
+						"name": "bradleycorn",
+						"key": "bradleycorn",
+						"displayName": "Brad Ball",
+						"active": true,
+						"timeZone": "America/New_York"
+					},
+					"created": "2015-07-27T16:45:43.000+0000",
+					"updated": "2015-07-27T16:45:43.000+0000"
+				},
+				{
+					"id": "411184",
+					"author": {
+						"name": "Yellowcube",
+						"key": "yellowcube",
+						"displayName": "Yellowcube",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "On SDK 6.0.1\r\nti.cloud 3.2.9, 3.2.10, and 3.2.11\r\nti.cloudpush 4.0.3\r\n\r\ntrayClickLaunchedApp and trayClickFocusedApp not fired. \r\n\r\nI have played around with the settings as describe in [here|http://docs.appcelerator.com/platform/latest/#!/api/Modules.CloudPush]\r\nvar CloudPush = require('ti.cloudpush');\r\nCloudPush.debug = true;\r\nCloudPush.enabled = true; //default is true\r\nCloudPush.showTrayNotification = true; //default is true\r\nCloudPush.showTrayNotificationsWhenFocused = true;\r\nCloudPush.focusAppOnPush = true; //default is false\r\nCloudPush.singleCallback = true; //default is false\r\nCloud.debug = true;\r\n\r\nPlease advice\r\n",
+					"updateAuthor": {
+						"name": "Yellowcube",
+						"key": "yellowcube",
+						"displayName": "Yellowcube",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2017-03-10T07:55:09.000+0000",
+					"updated": "2017-03-10T07:55:09.000+0000"
+				},
+				{
+					"id": "447573",
+					"author": {
+						"name": "mr.arbindbhagat",
+						"key": "mr.arbindbhagat",
+						"displayName": "Arbind",
+						"active": true,
+						"timeZone": "Europe/Copenhagen"
+					},
+					"body": "I am also having this same issue. Has there been any update to it?",
+					"updateAuthor": {
+						"name": "mr.arbindbhagat",
+						"key": "mr.arbindbhagat",
+						"displayName": "Arbind",
+						"active": true,
+						"timeZone": "Europe/Copenhagen"
+					},
+					"created": "2019-04-09T23:15:35.000+0000",
+					"updated": "2019-04-09T23:15:35.000+0000"
+				}
+			],
+			"maxResults": 3,
+			"total": 3,
+			"startAt": 0
+		}
+	}
+}

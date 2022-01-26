@@ -1,0 +1,71 @@
+---
+title: "[TIMOB-26099] Android: CLI "appc run" should launch app with intent action MAIN category LAUNCHER"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Resolved</td></tr>
+<tr><th>Resolution</th><td>Duplicate</td></tr>
+<tr><th>Resolution Date</th><td>2018-06-06T22:05:09.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, appc, cli, intent, run</td></tr>
+<tr><th>Reporter</th><td>Joshua Quick</td></tr>
+<tr><th>Assignee</th><td>Joshua Quick</td></tr>
+<tr><th>Created</th><td>2018-06-05T22:28:13.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-06T22:05:09.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+*Summary:*
+<code>appc run</code> launches the app on Android with an intent that is missing action "android.intent.action.MAIN" and category "android.intent.category.LAUNCHER", which is how an app is normally launched on Android via the app list screen.
+
+The consequence of this is that if you press the HOME button to suspend the app and then tap on the app from the home screen, then a new activity instance will be created and Titanium will be stuck on the splash screen since Titanium only supports running 1 JavaScript runtime at a time.
+
+*Steps to reproduce:*
+<h4>Build and run the below code on Android either via Appcelerator Studio or via <code>appc run</code> at the terminal.</h4>
+<h4>Wait for the app to be displayed on the Android device.</h4>
+<h4>Press the "Home" button to suspend the app. (Do *NOT* press the "Back" key.)</h4>
+<h4>From the home screen, go to the app list screen.</h4>
+<h4>Tap on the installed app to attempt to resume it.</h4>
+<h4>After doing this, notice that the app is stuck displaying the splash screen. It does not resume the app. It has created a new activity instance without a JavaScript runtime.</h4>
+
+<code><pre>
+var window = Ti.UI.createWindow();
+window.add(Ti.UI.createLabel({ text: 'Test' }));
+window.open();
+</pre></code>
+
+*Cause:*
+On Android, an existing activity window stack can be resumed when using the same an intent that originally launched it. If given different intent settings for the same activity (such as the case here), then Android will create a new activity instance by default.
+
+*Recommended Solution:*
+We need to modify the CLI on how it starts the app via Android "adb" command line tool here...
+<a href="https://github.com/appcelerator/node-titanium-sdk/blob/master/lib/adb.js#L655" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/blob/master/lib/adb.js#L655</a>
+
+We need to add intent parameters <code>-a</code> to set the action, <code>-c</code> to set the category, and <code>-f</code> to set the flags via adb similar to the following.
+<code><pre>
+./adb shell am start -n <PackageName>/.<ActivityName> -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000
+</pre></code>
+
+The <code>-f 0x10200000</code> part adds intent flags <code>FLAG_ACTIVITY_NEW_TASK</code> and <code>FLAG_ACTIVITY_RESET_TASK_IF_NEEDED</code>. The <code>FLAG_ACTIVITY_NEW_TASK</code> is set by all Android OS versions when launching an app from the home screen. The <code>FLAG_ACTIVITY_RESET_TASK_IF_NEEDED</code> is set by newer Android OS versions (such as Android 8) but works fine on older OS versions such Android 4.1.
+
+*Note:*
+We also need this change to resolve a regression mentioned here: [TIMOB-25867]
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Joshua Quick 2018-06-05
+
+   PR: <a href="https://github.com/appcelerator/node-titanium-sdk/pull/30" rel="nofollow" target="_blank">https://github.com/appcelerator/node-titanium-sdk/pull/30</a></li>
+<li>Hans Knöchel 2018-06-06
+
+   Marking as Duplicate of TIMOB-25867 to handle the regression fix there as well.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26099.json">JSON Source</a></p>

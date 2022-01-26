@@ -1,0 +1,141 @@
+---
+title: "[TIMOB-9132] Android: Maps V2 Module - Feature to allow modifications to the android mapview zoom buttons"
+---
+<table>
+<tr><th>Type</th><td>New Feature</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-03-21T22:28:20.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 2.0.0</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 06 API, 2013 Sprint 06, Co-3.1.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>SupportTeam, api, module_googlemapv2, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Varun Joshi</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2012-05-14T20:09:53.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-03-27T21:01:17.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+It has been requested to add a new feature to Android Mapview that would allow the modification of zoom controls such as changing the position, hide/show the zoom control, set the size of the control.
+
+According to the Android Developer doc: 
+
+<a href="http://developer.android.com/reference/android/widget/ZoomButtonsController.html" rel="nofollow" target="_blank">http://developer.android.com/reference/android/widget/ZoomButtonsController.html</a>
+
+The ZoomButtonController class has this functionality.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Josh Roesslein 2012-06-28
+
+   We cannot modify the built-in zoom controls on the MapView in Android. We could control
+   if the built-in controls are enabled/disabled. This does appear to be exposed as a "zoomEnabled" boolean
+   property on Map.View. This should be documented and implemented on other platforms if possible.</li>
+<li>Josh Roesslein 2012-06-28
+
+   Created TIMOB-9833 to document the "zoomEnabled" property and investigate supporting it on other platforms.</li>
+<li>Josh Roesslein 2012-06-28
+
+   You can hide the built-in controls and add your own to the map view. There is an API for getting the ZoomControls, but
+   it has been deprecated and something we should not depend on existing in the future.</li>
+<li>Josh Roesslein 2012-07-16
+
+   You could just place the zoom controls view absolutely on top of the Map View so that may you don't end up filling up the entire area
+   and blocking touch events.</li>
+<li>Josh Roesslein 2012-07-17
+
+   displayZoomControls() only makes the controls visible (just like touching the map does). It can't hide them from the user.
+   The boolean just controls if they should take focus when they become visible.</li>
+<li>Varun Joshi 2012-07-17
+
+   Ok, just wanted to understand this issue. So can we not use both the zoomEnabled property (to hide the buttons) and the setDisplayZoomControls (to have pinch zoom also available)?
+   
+    </li>
+<li>Neeraj Gupta 2012-07-27
+
+   @Varun - Please do not add "merge" labels to the tickets directly. You need to coordinate with Shak for getting these fixes ported in after they are fixed.</li>
+<li>Josh Roesslein 2012-08-21
+
+   To provide finer control over the zoom controls we will be
+   disabling the "built-in" version and implement our own. We have to do this
+   since accessing or modifying the built-in controls has been deprecated.
+   
+   A proposal for the API changes required will be drafted
+   before implementation work begins. Once that is approved we will move forward.</li>
+<li>Neeraj Gupta 2012-08-21
+
+   We do not have the bandwidth to implement this feature for 2.2.0 release. Most of our developers are happy with the default behavior anyway. We can consider this feature post 2.2.0 release.</li>
+<li>Ping Wang 2013-03-19
+
+    In the [Google Maps Android API v2](<a href="https://developers.google.com/maps/documentation/android/interactivity#zoom_controls)" rel="nofollow" target="_blank">https://developers.google.com/maps/documentation/android/interactivity#zoom_controls)</a>, the only exposed API about built-in zoom controls is to enable/disable the built-in zoom controls. It does not allow any modification to the built-in zoom controls. Therefore, we will expose the "enableZoomControls" property to enable/disable zoom controls.
+    PR: <a href="https://github.com/appcelerator/titanium_modules/pull/92" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_modules/pull/92</a>
+    Test case:
+    <code><pre>
+    var MapModule = require('ti.map');
+    
+    var win = Ti.UI.createWindow({fullscreen: false, layout: "vertical"});
+    var myView1 = Ti.UI.createView({
+        width:Ti.UI.SIZE,
+        height:Ti.UI.SIZE,
+        backgroundColor:'red'
+    });
+     
+    var label = Ti.UI.createLabel({
+        text:" $400K ",
+        font:{fontSize:18, fontWeight:"bold", fontStyle:"italic"}
+    });
+    
+    myView1.add(label);
+    
+    var anno = MapModule.createAnnotation({latitude: -33.87365, customView: myView1, image: "images/applogo.png", longitude: 151.20689, title: "Drag Me", subtitle: "Sydney is quite chill", draggable: true});
+    var anno2 = MapModule.createAnnotation({latitude: -33.86365, image: "images/applogo.png", longitude: 151.21689, title: "Drag Me 2", subtitle: "This is anno2", draggable: true});
+    var anno3 = MapModule.createAnnotation({latitude: -33.85365, pincolor: MapModule.ANNOTATION_BLUE, longitude: 151.20689, title: "anno3", subtitle: "This is anno3", draggable: false});
+    
+    var map = MapModule.createView({
+    	enableZoomControls: false,
+    	//userLocation: false,
+    	mapType: MapModule.NORMAL_TYPE,
+    	animate: true,
+    	annotations: [anno, anno2, anno3],
+    	region: {latitude: -33.87365, longitude: 151.20689, latitudeDelta: 0.1, longitudeDelta: 0.1 }, //Sydney
+    	top: '30%'
+    });
+    
+    map.addEventListener('pinchangedragstate', function(e) {
+    	Ti.API.info(e.title + ": newState=" + e.newState + ", lat=" + e.annotation.latitude + ", lon=" + e.annotation.longitude);
+    });
+    
+    map.addEventListener('click', function(e) {
+    	Ti.API.info(e.title + ": lat=" + e.annotation.latitude + ", lon=" + e.annotation.longitude);
+    });
+    
+    var b1 = Ti.UI.createButton({
+    	title: "Toggle draggable for anno3"
+    });
+    b1.addEventListener('click', function(){
+    	anno3.draggable = !anno3.draggable;
+    	Ti.API.info("anno3.draggable = " + anno3.draggable);
+    });
+    
+    var b2 = Ti.UI.createButton({
+    	title: "Toggle enableZoomControls for map"
+    });
+    b2.addEventListener('click', function(){
+    	map.enableZoomControls = !map.enableZoomControls;
+    	Ti.API.info("map.enableZoomControls = " + map.enableZoomControls);
+    });
+    
+    win.add(b1);
+    win.add(b2);
+    win.add(map);
+    win.open();
+    </pre></code></li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-9132.json">JSON Source</a></p>

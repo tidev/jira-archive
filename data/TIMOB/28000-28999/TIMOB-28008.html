@@ -1,0 +1,220 @@
+---
+title: "[TIMOB-28008] Push Notifications: Subscribed Device not showing in Dashboard"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Done</td></tr>
+<tr><th>Resolution Date</th><td>2020-10-02T15:17:34.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>arrow, dashboard, push, pushnotification, sdk9.0.3.ga</td></tr>
+<tr><th>Reporter</th><td>Antje Schattat</td></tr>
+<tr><th>Assignee</th><td>Abir Mukherjee</td></tr>
+<tr><th>Created</th><td>2020-07-07T06:56:43.000+0000</td></tr>
+<tr><th>Updated</th><td>2020-10-02T15:17:34.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+Recently I have observed that a device is registered by the app but does not appear in the dashboard.
+
+I get a DeviceToken (_retrieveDeviceToken_), the registration of the push channel (_PushNotifications.subscribeToken_) is also returned as success.
+
+The app now thinks that signing up for the push messages was successful. However, since the device does not appear in the dashboard, the device does not receive any push messages.
+
+Is this a bug? Or is this behavior more common in test versions (Android Distribute Build installed manually)? 
+
+Unfortunately, I haven't had the frequency of it yet.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Antje Schattat 2020-07-07
+
+   Unfortunately, I cannot name a relationship between successful and unsuccessful registrations. But in my current tests, it happened 3-4 times.
+   
+   I delete the app and reinstall it. Then the device is theoretically created anew and the push channel is set. The app gets the success back, the device does not appear in the dashboard.</li>
+<li>Antje Schattat 2020-07-09
+
+   *Important update:*
+   
+   We did some tests today and found an unsightly bug.
+   
+   An existing app on Android10 (API 30) devices was deleted and reinstalled. After the new installation, the device is created again in the Axway dashboard and the push channel is registered. If a push message is sent to the device, it does not arrive. The following error appears in Push Notification Logs:
+   
+   <code><pre>
+   Exception Type: GCM; Error Code: 3009; Error Message: The user has uninstalled the application or turned off notifications. Sender should stop sending messages to this device and delete the registration_id. The client needs to re-register with the GCM servers to receive notifications again
+   </pre></code>
+   
+   It is not possible to register the device for push notifications without deleting it immediately after sending the first Push notification.
+   
+   We urgently need a solution to this problem!
+   
+   thank you</li>
+<li>Srinivasan Pulipakkam 2020-07-09
+
+   [~aschattat] we are investigating this issue now, we will get this resolved at the earliest</li>
+<li>Joshua Quick 2020-07-09
+
+   We can't reproduce your issue.
+   
+   In fact, we're seeing the "opposite" problem. Every time you uninstall/re-install the app, a duplicate notification token is generated and added to the dashboard. Google has made a recent change where the previous token for the same token is no longer being unregistered. This causes duplicate notifications to be sent to the dashboard for the same device. You'll see a duplicate notification everytime your re-install the app (each re-install gets a new token). We have multiple customers experiencing this issue.
+   
+   Are you sure you don't have notifications disabled under system settings?
+   That's what your error message suggests.</li>
+<li>Antje Schattat 2020-07-10
+
+   We have already successfully tested on some Android 10 Desvices. But unfortunately not on all of our test devices. Therefore, it is difficult for us to understand what the problem is.
+   
+   Here is the process again:
+   
+   Push notifications are activated and Android version 10 is used.
+   
+   1. App is installed.
+   2. A push is sent via the API - status success. The error message appears in the push notification logs.
+   3. The device token is automatically deleted from the dashboard. Not from us.
+   4. A push is sent via the API, the error occurs (subscription not found).
+   5. User deletes the app and reinstalled it.
+   6. Registration of the device (device token) and push channel. Attention: Although the app has been deleted, the same device token appears to be used!
+   7. The device token is visible in the dashboard.
+   8. A push is sent via the API - status success. The error message appears in the push notification logs.
+   9. The device token is automatically deleted from the dashboard. Not from us. And so on ... vicious cycle ;-)
+   
+   In this case we have no chance to register the device again and send push notifications.</li>
+<li>Joshua Quick 2020-07-10
+
+   Our "Dashboard" will automatically delete the device token when you do a push and Google's server returns an HTTP error response. An error response will happen if the token has been unregistered, expired, or is invalid. So, our "Dashboard" will delete the token in this case since we know the token will never work.
+   
+   So, I'm thinking your app is unregistering the token somehow.
+   
+   Are you using any 3rd party modules that use Firebase? Anything that might be deleting the Firebase app instance? Because that would invalidate the token.</li>
+<li>Antje Schattat 2020-07-10
+
+   I created a firebase project for the app and transferred the server key and the sender ID to the dashboard. I copied the file google-services.json into the project.
+   
+   In the app I use the modules ti.cloud and ti.cloudpush to read the device token (retrieveDeviceToken) and to register the app (subscribeToken). That also works, I see the device in the dashboard.
+   
+   The push notification is sent via the API. First there is a login (<a href="https://api.cloud.appcelerator.com/v1/users/login.json)" rel="nofollow" target="_blank">https://api.cloud.appcelerator.com/v1/users/login.json)</a> and then the push is sent (<a href="https://api.cloud.appcelerator.com/v1/push_notification/notify." rel="nofollow" target="_blank">https://api.cloud.appcelerator.com/v1/push_notification/notify.</a> json). The app key is included. The API returns a success. An error is displayed in the dashboard and in the push logs:
+   
+   <code><pre>
+   {
+     "meta": {
+       "code": 200,
+       "status": "ok",
+       "more": false,
+       "method_name": "queryPushLogDetails"
+     },
+     "response": {
+       "push_log_details": [
+         {
+           "_id": "5f0846cb0cf2827b758ae768",
+           "msg_id": "b3d9f25e-a7f6-44c3-aa9f-8fbf218c098e",
+           "push_id": "5f0846c334c53f01884e281e",
+           "type": "android",
+           "token": "APA91bFDXO0c6qs01TCp83ijReS_RUMtVBLJrzOD5AHXMOAEDxgp9uhEDKN4qxJmIXC2qjc8quMmU1IT3RMlh6snyn55ALr89id1YaWD-CX-olgvXIR5crb-bZcnhxQm_bktwFhTRgWO",
+           "channel": "5efd0d271cef14b99bd41c6335748b1b",
+           "app_id": "5ee35a318ad1f00184c2c5bb",
+           "send_status": 2,
+           "sent_at": "2020-07-10T10:45:27+0000",
+           "updated_at": "2020-07-10T10:45:30+0000",
+           "error_message": "Exception Type: GCM; Error Code: 3009; Error Message: The user has uninstalled the application or turned off notifications. Sender should stop sending messages to this device and delete the registration_id. The client needs to re-register with the GCM servers to receive notifications again",
+           "created_at": "2020-07-10T10:45:31+0000"
+         }
+       ]
+     }
+   </pre></code>
+   
+   The device is not unregistered  in the app or in the backend (with the API). We do not use any 3rd party modules.
+   
+   It works in the emulator (Android 10 API 30). However, a new device token is created each time the app is deleted. Some of our test devices (Android 10), despite deleting the app, do not create a new device token. That is the only difference I can see. Possibly. is that also the problem?
+   
+   Thank you for the amazing support.
+   
+   
+   </li>
+<li>Antje Schattat 2020-07-14
+
+   </li>
+<li>Joshua Quick 2020-07-14
+
+   [~aschattat], try downloading our pre-release "ti.cloudpush" module to see if it works for you. The below is being tested/reviewed now and works fine so far. Once it passes we'll make the below link public on our Dashboard.
+   <a href="https://appcelerator-modules.s3.amazonaws.com/ti.cloudpush-android-7.1.0.zip" rel="nofollow" target="_blank">https://appcelerator-modules.s3.amazonaws.com/ti.cloudpush-android-7.1.0.zip</a>
+   
+   Note that the above module only works with Titanium 9.0.1 and higher. You also have to add a "google-services.json" file to your Titanium project's "./platform/android" directory.
+   
+   Also note that it's normal for a new token to be generated after uninstalling/reinstalling the app. You'll end up with a duplicate token on the device. When you do a "push" from our Dashboard, the duplicate token will be automatically removed because it's been expired/unregistered and only the newest token for that device will be kept. (We still can't reproduce the issue where you say all tokens for that device have been removed though.)</li>
+<li>Antje Schattat 2020-07-15
+
+    I loaded the ti.cloudpush 7.1.0 and integrated it into the app. The device is added to the dashboard and there is a success in the push notification log. The error comes in the app as soon as the push is received.
+    
+    I now always get the following error:
+    
+    <code><pre>
+    {color:red}[ERROR] :  TiExceptionHandler: (main) [3,31523] Unable to instantiate receiver com.appcelerator.aps.GCMReceiver: java.lang.ClassNotFoundException: Didn't find class "com.appcelerator.aps.GCMReceiver" on path: DexPathList[[zip file "/data/app/~~Wavolez8eyPufYlFb1L1gA==/com.sihf.webapp-pvm9UbvdXQaMkRcrqIv4TA==/base.apk"],nativeLibraryDirectories=[/data/app/~~Wavolez8eyPufYlFb1L1gA==/com.sihf.webapp-pvm9UbvdXQaMkRcrqIv4TA==/lib/x86, /data/app/~~Wavolez8eyPufYlFb1L1gA==/com.sihf.webapp-pvm9UbvdXQaMkRcrqIv4TA==/base.apk!/lib/x86, /system/lib, /system_ext/lib, /product/lib]]
+    [ERROR] :  TiExceptionHandler:
+    [ERROR] :  TiExceptionHandler:     dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:207)
+    [ERROR] :  TiExceptionHandler:     java.lang.ClassLoader.loadClass(ClassLoader.java:379)
+    [ERROR] :  TiExceptionHandler:     java.lang.ClassLoader.loadClass(ClassLoader.java:312)
+    [ERROR] :  TiExceptionHandler:     android.app.AppComponentFactory.instantiateReceiver(AppComponentFactory.java:110)
+    [ERROR] :  TiExceptionHandler:     androidx.core.app.CoreComponentFactory.instantiateReceiver(CoreComponentFactory.java:60)
+    [ERROR] :  TiExceptionHandler:     android.app.ActivityThread.handleReceiver(ActivityThread.java:4011)
+    [ERROR] :  TiExceptionHandler:     android.app.ActivityThread.access$1400(ActivityThread.java:237)
+    [ERROR] :  TiExceptionHandler:     android.app.ActivityThread$H.handleMessage(ActivityThread.java:1924)
+    [ERROR] :  TiExceptionHandler:     android.os.Handler.dispatchMessage(Handler.java:106)
+    [ERROR] :  TiExceptionHandler:     android.os.Looper.loop(Looper.java:223)
+    [ERROR] :  TiExceptionHandler:     android.app.ActivityThread.main(ActivityThread.java:7656)
+    [ERROR] :  TiExceptionHandler:     java.lang.reflect.Method.invoke(Native Method)
+    [ERROR] :  TiExceptionHandler:     com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)
+    [ERROR] :  TiExceptionHandler:     com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947){color}
+    </pre></code>
+    
+    But in the AndroidManifest.xml it is:
+    <code><pre>
+    <receiver android:name="com.appcelerator.aps.IntentReceiver"/>
+    		<receiver android:name="com.appcelerator.aps.GCMReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+    			<intent-filter>
+    				<action android:name="com.google.android.c2dm.intent.RECEIVE"/>
+    				<category android:name="com.sihf.webapp"/>
+    			</intent-filter>
+    		</receiver>
+    		<receiver android:name="com.appcelerator.aps.PushBroadcastReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+    			<intent-filter>
+    				<action android:name="android.intent.action.BOOT_COMPLETED"/>
+    				<action android:name="com.google.android.c2dm.intent.REGISTRATION"/>
+    				<action android:name="com.appcelerator.aps.intent.DEL_GROUPED_MSG"/>
+    				<category android:name="com.sihf.webapp"/>
+    			</intent-filter>
+    			<intent-filter>
+    				<action android:name="android.intent.action.PACKAGE_REPLACED"/>
+    				<data android:scheme="package" android:path="com.sihf.webapp"/>
+    			</intent-filter>
+    		</receiver>
+    		<meta-data android:name="com.google.android.gms.version" android:value="@integer/google_play_services_version"/>
+    </pre></code>
+    
+    The error does not come with ti.cloudpush 7.0.0.
+    
+    Note: I send the push notification via Firebase. 
+    
+    </li>
+<li>Antje Schattat 2020-07-15
+
+    According to ([<a href="https://developers.google.com/cloud-messaging/android/android-migrate-fcm" rel="nofollow" target="_blank">https://developers.google.com/cloud-messaging/android/android-migrate-fcm</a>](<a href="https://developers.google.com/cloud-messaging/android/android-migrate-fcm))" rel="nofollow" target="_blank">https://developers.google.com/cloud-messaging/android/android-migrate-fcm))</a>, I deleted the described entries in the AndroidManifest.xml. Now the error doesn't come anymore.
+    
+    Now I will test the new ti.cloudpush 7.1.0 extensively. :-)</li>
+<li>Joshua Quick 2020-07-15
+
+    Glad you got it building. :)
+    You actually don't need any of the GCM and APS related entries in the "tiapp.xml" file's AndroidManifest.xml section. The "ti.cloudpush" module will automatically inject the XML entries for you during the build (the old module version did the same). We also completely removed our GCM usage from "ti.cloudpush" 7.1.0.</li>
+<li>Antje Schattat 2020-07-16
+
+    Our first tests all worked. The customer will run additional tests today. But I am hopeful that everything will work out.
+    
+    Thank you for the good support and quick implementation.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-28008.json">JSON Source</a></p>

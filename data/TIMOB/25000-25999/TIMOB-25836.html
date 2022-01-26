@@ -1,0 +1,113 @@
+---
+title: "[TIMOB-25836] iOS: Using "run-on-main-thread", multiple global event listeners do not work"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2018-05-21T11:58:48.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 7.1.0, Release 7.0.2</td></tr>
+<tr><th>Fix Version/s</th><td>Release 7.3.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios</td></tr>
+<tr><th>Reporter</th><td>Andreas Pingas</td></tr>
+<tr><th>Assignee</th><td>Vijay Singh</td></tr>
+<tr><th>Created</th><td>2018-03-02T15:29:49.000+0000</td></tr>
+<tr><th>Updated</th><td>2018-06-26T20:55:30.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+The following:
+<code><pre>
+var functionA = function(arg) {
+	Ti.App.removeEventListener('TestCheckNetwork', functionA);
+};
+
+var functionB = function(arg) {
+	Ti.App.removeEventListener('TestCheckNetwork', functionB);
+};
+
+Ti.App.addEventListener('TestCheckNetwork', functionA);
+Ti.App.addEventListener('TestCheckNetwork', functionB);
+
+Ti.App.fireEvent('TestCheckNetwork');
+</pre></code>
+
+If main-thread is enabled:
+<code><pre>
+  <property name="run-on-main-thread" type="bool">true</property>
+</pre></code>
+There is the following issue:
+<code><pre>
+[ERROR] :  Script Error {
+[ERROR] :      column = 17;
+[ERROR] :      line = 511;
+[ERROR] :      message = "*** Collection <__NSArrayM: 0x608000049ea0> was mutated while being enumerated.";
+[ERROR] :      sourceURL = "";
+[ERROR] :  }
+[ERROR] :  ErrorController is up. ABORTING open
+</pre></code>
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-25836_64920/app.js">app.js</td></td><td>2018-03-03T22:37:23.000+0000</td><td>394</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Sharif AbuDarda 2018-03-03
+
+   Hello, Please provide a sample reproducible test project for us to test. Thanks.</li>
+<li>Andreas Pingas 2018-03-03
+
+    [^app.js] </li>
+<li>Hans Knöchel 2018-03-04
+
+   Please do not use caps in the ticket title and description. It does not help and rather produces the opposite. We will consider looking into it, although it looks like an app issue with duplicate event listeners</li>
+<li>Andreas Pingas 2018-03-04
+
+   Sorry about the caps, thank you for your reply!</li>
+<li>Hans Knöchel 2018-03-05
+
+   After taking a peak on this, I am not feeling confident that this should be fixed, although it might be a breaking change coming from the kroll thread. The reason for the error is that your are removing event listeners concurrently, resulting in a race condition. Using the kroll thread, this was a non-issue, because the kroll-thread would just block the whole app, but using the (more performant) main thread, it does not anymore, resulting in this behavior. We will leave the ticket open for now for further investigations.</li>
+<li>Vijay Singh 2018-03-06
+
+   In my view, we should fix this. We have to just hold the array from where we are fetching the listener until we do not process all event firing.</li>
+<li>Vijay Singh 2018-03-06
+
+   PR - <a href="https://github.com/appcelerator/titanium_mobile/pull/9908" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/9908</a></li>
+<li>Samir Mohammed 2018-06-26
+
+   *Closing ticket.* Verified fix can be seen in SDK Version: <code>7.3.0.v20180625114905</code>
+   
+   *FR (Passed) Test Steps:*
+   
+   <h4>Created an application with the code mentioned in the description </h4>
+   <h4>Ran the program</h4>
+   <h4>Application no longer crashed </h4>
+   <h4><code>TestCheckNetwork</code> Was fired and could be seen in the console </h4>
+   
+   *Test Environment*
+   <code><pre>
+   APPC Studio: 5.0.0.201712081732
+   APPC CLI: 7.0.4
+   iphone 6 (11.2) Emulator
+   Operating System Name: Mac OS High Sierra
+   Operating System Version: 10.13
+   Node.js Version: 8.9.1
+   Xcode 9.2
+   </pre></code>
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-25836.json">JSON Source</a></p>

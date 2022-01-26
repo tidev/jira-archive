@@ -1,0 +1,148 @@
+---
+title: "[TIMOB-13162] iOS: Functions assigned to proxy property may be garbage collected"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>n/a</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-07-20T23:02:45.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 15 API, 2013 Sprint 15, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>exalture, qe-closed-3.2.0</td></tr>
+<tr><th>Reporter</th><td>Andrey Verbin</td></tr>
+<tr><th>Assignee</th><td>Ingo Muschenetz</td></tr>
+<tr><th>Created</th><td>2013-03-20T12:07:07.000+0000</td></tr>
+<tr><th>Updated</th><td>2013-12-17T01:29:28.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When I assign a function to titanium proxy object property it usually works ok. But in some cases accessing this property later on returns different object.
+{noformat}
+var view = Ti.UI.createView();
+var properties = {}
+view.prop = function (attr, value) {
+    if (arguments.length == 1) {
+        return properties[arguments[0]]
+    } else {
+        properties[arguments[0]] = arguments[1]
+    }
+}
+
+//later on
+
+view.prop('someVal') //fails with error because view.prop return some non callable object or another, totally unrelated, JS function.
+{noformat}
+
+After some research I've found that view.prop is represented as a KrollWrapper instance with jsobject instance variable referencing my JS function. And there is nothing stopping JS runtime from garbadge collecting this jsobject which  happens in some cases.
+
+BTW above code helps to attach complex objects to proxies without performance penalty for copying values from JS to iOS and vice versa. A proxy store reference to a JS function (which is cheap) and JS function deals with state  inside JS runtime without any copying.
+
+<h3>Comments</h3>
+
+<ol>
+<li>Davide Cassenti 2013-03-20
+
+   Assigning properties to Proxies is always not recommended; do you have any particular reason you want to do that? The approach should be having a wrapping object:
+   
+   <code><pre>
+   var MyView = {
+       view: Ti.UI.createView(),
+       properties: []
+   }
+   </pre></code></li>
+<li>Andrey Verbin 2013-03-21
+
+   I'm creating a databinding framework for Titanium. Binding procedure traverse view hierachy and set view properties based on binding information attached to every view. Super simplified version of my code looks like this:
+   {noformat}
+   function applyBindngs(root) {
+      for (var i = 0; i < root.children.length; ++i) {
+          var view = root.children[i];
+          var bindingInfo = view.prop("bindings");
+          //complicated data binding logic here
+          appyBinding(view);
+      }
+   }
+   {noformat}
+   It is very convenient to have proxy object as input since it already have links to all subviews.
+   If I would do it with wrappers I would need to create parallel hierarchy of wrapper objects and traverse it. Something like this:
+   {noformat}
+   var Wrapper = {
+       view : Ti.UI.createView(),
+       children : [],
+       add : function (child) {
+         children.push(child);
+         view.add(chid.view);
+       },
+       bindingInfo : {},
+   }
+   function applyBindngs(rootWrapper) {
+      for (var i = 0; i < rootWrapper.children.length; ++i) {
+          var wrapper = rootWrapper.children[i];
+          var bindingInfo = wrapper.bindings;
+          var view = wrapper.view;
+          //complicated data binding logic here
+          appyBinding(wrapper);
+      }
+   }
+   {noformat}
+   While above approach valid and follows Appcelerator recommendations it also requires parallel hierarchy of wrapper objects and force all view related code access views through wrappers. This is very fragile since a line like this would break everything:
+   {noformat}
+   wrapper.view.add(Ti.UI.createView())
+   {noformat}
+   
+   While this is my particular situation, same problems are true for any code that process view hierarchy in a generic fashion and requires some additional information associated with views to work.
+   
+   I ended up with "prop" function because with it I can avoid marshaling JS objects to their native representations (NSString, NSDictionary, etc). Ideally marshaling should only happen when JS objects passed as arguments to TiUIView methods. When JS objects attached to a proxy they should be saved as reference to native JS object inside a proxy without any marshaling. </li>
+<li>Sabil Rahim 2013-07-20
+
+   Fixed by <a href="https://github.com/appcelerator/titanium_mobile/pull/3994" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/3994</a></li>
+<li>Wilson Luu 2013-12-17
+
+   Closing ticket as fixed. Verified functions assigned to the proxy property will not be garbage collected. 
+   
+   Below is the reproducible steps:
+   
+   1. Create a Titanium app with the following code:
+   <code><pre>
+   var view = Ti.UI.createView();
+   view.prop = function (value) {
+    	Ti.API.info("I got called");
+   };
+    
+   var button = Ti.UI.createButton({
+   	title:'button'
+   });
+   
+   button.addEventListener('click', function(){
+   	view.prop('someVal');	
+   });
+    
+   
+   var window = Ti.UI.createWindow({backgroundColor:"green"});
+   
+   window.add(button);
+   window.open();
+   </pre></code>
+   
+   2. Install app to an iOS simulator with trace on; was able to reproduce the fail case in 3.1.3 GA stack with Xcode 5.0.2 *only with* iOS simulator 7.0.3 and 6.1
+   3. Once simulator is launched and app is launched, go to Hardware > Simulate Memory Warning
+   4. You should see this message in the Studio console: [DEBUG] :  2013-12-16 17:25:42.359 monkey13162[34784:a07] Received memory warning.
+   5. Next, press the button on the app
+   6. You should see this message in the Studio console: [INFO] :   I got called
+   
+   Tested on:
+   
+   Appcelerator Studio, build: 3.2.0.201312151544
+   SDK build: 3.2.0.v20131216064236
+   CLI: 3.2.0-cr3
+   Alloy: 1.3.0-cr
+   Xcode: 5.0.2
+   Device: iphone simulator with retina (7.0.3), iphone simulator with retina (6.1)
+   </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-13162.json">JSON Source</a></p>

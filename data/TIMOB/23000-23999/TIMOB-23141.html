@@ -1,0 +1,259 @@
+---
+title: "[TIMOB-23141] iOS: Ti.Filesystem.File.remoteBackup = true doesn't (re)include file to be backed up"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2016-06-28T05:37:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 5.2.1</td></tr>
+<tr><th>Fix Version/s</th><td>Release 5.4.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>backup, icloud, ios, itunes</td></tr>
+<tr><th>Reporter</th><td>Gary Crook</td></tr>
+<tr><th>Assignee</th><td>Hans Knöchel</td></tr>
+<tr><th>Created</th><td>2016-04-02T18:53:56.000+0000</td></tr>
+<tr><th>Updated</th><td>2016-07-28T20:05:43.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+If you never use the Ti.Filesystem.File.remoteBackup property or Ti.Filesystem.File.setRemoteBackup method, then files are properly included in iTunes/iCloud backups as default. So far, so good.
+
+If however, like I did in my project, you manually set remoteBackup = true or call setRemoteBackup(true) on a file to doubly make sure it gets backed up, it actually becomes excluded.
+
+I've had reports from users that their copy of my app (live on the App Store) was not fully restoring their data from a backup. The files I'd set the flag = true on were some .png's in /Documents and a SQLite database in /Library/Private Documents, but I think the problem is evident for any files.
+
+I delved into the SDK code for 5.2.1 and located remoteBackup in TiFilesystemFileProxy.m - after a bit of Googling I noticed that how the method works by calling 
+<code><pre>
+setxattr()
+</pre></code>
+ is now obsolete. Apple states that from iOS 5.1 you should be doing it this way: [<a href="https://developer.apple.com/library/ios/qa/qa1719/_index.html" rel="nofollow" target="_blank">https://developer.apple.com/library/ios/qa/qa1719/_index.html</a>]
+
+I modified my copy of TiFilesystemFileProxy.m to work this way and next time I called setRemoteBackup(true) the file was properly marked for backup, i.e. <code>NSURLIsExcludedFromBackupKey</code> is set to <code>NO</code>.
+
+I tested this against a local iTunes backup. You can check the contents of an iTunes backup using the Terminal command: 
+{noformat}
+/System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/AppleMobileDeviceHelper.app/Contents/Resources/AppleMobileBackup --list
+{noformat}
+
+Prior to my temporary Obj-C code fix my files were not listed in the backup. After adding my fix the files were listed in the backup correctly.
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Hans Knöchel 2016-04-03
+
+   Hey there! Did I quick follow-up and you are correct! Can you copy-and-paste the following snippet and test it? <a href="https://gist.github.com/hansemannn/676a9c7ca35c2f29212d19bddd4a135a" rel="nofollow" target="_blank">https://gist.github.com/hansemannn/676a9c7ca35c2f29212d19bddd4a135a</a>
+   
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/7910" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/7910</a>
+   
+   EDIT: Demo code here:
+   <code><pre>
+   var BUTTON_TEXT_DISABLE_BACKUP = "Disable backup";
+   var BUTTON_TEXT_ENABLE_BACKUP = "Enable backup";
+   var ENABLE_BACKUP = true;
+   
+   var win = Titanium.UI.createWindow({
+   	backgroundColor: "#fff"
+   });
+   
+   var file = Ti.Filesystem.getFile(Ti.Filesystem.getResourcesDirectory(), "text.txt");
+   
+   var btn = Ti.UI.createButton({
+   	title: BUTTON_TEXT_DISABLE_BACKUP
+   });
+   
+   btn.addEventListener("click", function() {
+   	ENABLE_BACKUP = !ENABLE_BACKUP;
+   	
+   	file.remoteBackup = ENABLE_BACKUP;
+   	btn.setTitle(ENABLE_BACKUP === false ? BUTTON_TEXT_ENABLE_BACKUP : BUTTON_TEXT_DISABLE_BACKUP);
+   
+   	Ti.API.warn("Backup file? - " + file.remoteBackup);
+   });
+   
+   win.add(btn);
+   win.open();
+   </pre></code></li>
+<li>Chee Kiat Ng 2016-04-04
+
+   [~pragmateq] Thanks for the report and the suggested solution! We have implemented the solution but would appreciate very much if you can validate it as well, as requested in the above comment.
+   
+   Thanks again!</li>
+<li>Gary Crook 2016-04-05
+
+   Hi, I've just tested in my app and the files appear in iTunes backup log when <code>file.setRemoteBackup(true)</code> and disappear from iTunes backup log when <code>file.setRemoteBackup(false)</code>.
+   
+   So looks fixed to me - good work!
+   
+   Gary.</li>
+<li>Chee Kiat Ng 2016-04-05
+
+   Thanks! PR Merged.</li>
+<li>Mark Henderson 2016-06-10
+
+   I think I've just had my app rejected from the App Store because of this 'fix'.
+   
+   For the longest time (since Ti SDK3) I've used the recursive directory version of this to set all files in a folder to being remoteBackup = false. My app has just been rejected using the latest SDK saying that 38mb download was not flagged as being excluded. I've triple checked and this is being set at the directory level.
+   
+   I think this needs to be re-opened and checked for the recursive version still working.</li>
+<li>Hans Knöchel 2016-06-15
+
+   Hey there!
+   
+   It most possibly is the same as mentioned here: <a href="http://www.scriptscoop2.com/t/bafdaa0216be/iphone-is-nsurlisexcludedfrombackupkey-recursive.html" rel="nofollow" target="_blank">http://www.scriptscoop2.com/t/bafdaa0216be/iphone-is-nsurlisexcludedfrombackupkey-recursive.html</a>, so it doesn't apply the flag recursively. I could make the change by looping through the directory and setting the flag there, could you be my tester for that? Thanks!</li>
+<li>Hans Knöchel 2016-06-15
+
+   Update: Here is my example code to create a directory with 20 sub-directories, as well as one file in it (to cover all possible scenarios - skipping if empty).
+   
+   *Demo*: <a href="https://gist.github.com/hansemannn/496308a44dcbeffb8ecf1973a69246bf" rel="nofollow" target="_blank">https://gist.github.com/hansemannn/496308a44dcbeffb8ecf1973a69246bf</a>
+   *Output*: <a href="https://gist.github.com/hansemannn/0e5c0b704eb3056c7f16a33007096adb" rel="nofollow" target="_blank">https://gist.github.com/hansemannn/0e5c0b704eb3056c7f16a33007096adb</a>
+   *Updated PR*: <a href="https://github.com/appcelerator/titanium_mobile/pull/8069" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8069</a>
+   
+   [~mark.henderson@snagr.co.uk] Please give it a try!
+   [~cng] Backport for 5.4.0 as soon as the fix is approved, thanks!</li>
+<li>Chee Kiat Ng 2016-06-28
+
+   CR and FT passed.
+   backport please.</li>
+<li>Hans Knöchel 2016-06-28
+
+   PR (5_4_X): <a href="https://github.com/appcelerator/titanium_mobile/pull/8093" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8093</a></li>
+<li>Chee Kiat Ng 2016-06-28
+
+    PRs merged!</li>
+<li>Wilson Luu 2016-07-28
+
+    [~hansknoechel]
+    
+    Using SDK 5.4.0, I was able to verify this fix while checking the contents of the iTunes backup:
+    
+    *SDK 5.3.1.GA*
+    <code><pre>
+    ~$ /System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/AppleMobileDeviceHelper.app/Contents/Resources/AppleMobileBackup --list | grep monkey
+    22870661f618793e090af88c0e9b9023798a1558,                                         , 040755,  280315, 501, 501, 2016-07-27 16:27:49, 2016-07-27 16:27:49, 2016-07-27 16:27:48,          0,     0, AppDomain-com.appc.monkey23141, , , {}
+    6ed03f8f331c382978462ac803f8a52b32155aae,                                         , 040755,  280317, 501, 501, 2016-07-27 16:27:53, 2016-07-27 16:27:53, 2016-07-27 16:27:48,          0,     0, AppDomain-com.appc.monkey23141, Library, , {}
+    0f4f06ba97e3bfbde29378ac8bc8d11129b37c39,                                         , 040755,  280319, 501, 501, 2016-07-27 16:27:53, 2016-07-27 16:27:53, 2016-07-27 16:27:48,          0,     0, AppDomain-com.appc.monkey23141, Library/Preferences, , {}
+    d7bee81b20af6ad37109193d28725a9b9348239a,                                         , 040700,  280350, 501, 501, 2016-07-27 16:27:53, 2016-07-27 16:27:53, 2016-07-27 16:27:53,          0,     0, AppDomain-com.appc.monkey23141, Library/Application Support, , {}
+    d23e95268734bb5aa09c48e52df9c113b5063e0b,                                         , 040755,  280351, 501, 501, 2016-07-27 16:27:59, 2016-07-27 16:27:59, 2016-07-27 16:27:53,          0,     0, AppDomain-com.appc.monkey23141, Library/Application Support/analytics, , {}
+    151cc899fdb8620d3c556ad2d3b1ba29acb04e1e,                                         , 040755,  280316, 501, 501, 2016-07-27 16:27:53, 2016-07-27 16:27:53, 2016-07-27 16:27:48,          0,     0, AppDomain-com.appc.monkey23141, Documents, , {}
+    895b94c59cd082f83bf46c4b7e339f79a35733a9,                                         , 100644,  280352, 501, 501, 2016-07-27 16:27:59, 2016-07-27 16:27:59, 2016-07-27 16:27:53,      24576,     3, AppDomain-com.appc.monkey23141, Library/Application Support/analytics/analytics.db, , {}
+    9a6ca76b6d99e0aad09e6a9e57dd21f65a07830c,                                         , 100600,  280357, 501, 501, 2016-07-27 16:27:53, 2016-07-27 16:27:53, 2016-07-27 16:27:53,        109,     3, AppDomain-com.appc.monkey23141, Library/Preferences/com.appc.monkey23141.plist, , {}
+    </pre></code>
+    
+    *SDK 5.4.0.v20160727143921*
+    <code><pre>
+    ~$ /System/Library/PrivateFrameworks/MobileDevice.framework/Versions/A/AppleMobileDeviceHelper.app/Contents/Resources/AppleMobileBackup --list | grep monkey
+    22870661f618793e090af88c0e9b9023798a1558,                                         , 040755,  280601, 501, 501, 2016-07-27 16:34:40, 2016-07-27 16:34:40, 2016-07-27 16:34:40,          0,     0, AppDomain-com.appc.monkey23141, , , {}
+    6ed03f8f331c382978462ac803f8a52b32155aae,                                         , 040755,  280603, 501, 501, 2016-07-27 16:34:45, 2016-07-27 16:34:45, 2016-07-27 16:34:40,          0,     0, AppDomain-com.appc.monkey23141, Library, , {}
+    0f4f06ba97e3bfbde29378ac8bc8d11129b37c39,                                         , 040755,  280605, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:40,          0,     0, AppDomain-com.appc.monkey23141, Library/Preferences, , {}
+    d7bee81b20af6ad37109193d28725a9b9348239a,                                         , 040700,  280636, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:45,          0,     0, AppDomain-com.appc.monkey23141, Library/Application Support, , {}
+    d23e95268734bb5aa09c48e52df9c113b5063e0b,                                         , 040755,  280637, 501, 501, 2016-07-27 16:34:51, 2016-07-27 16:34:51, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Library/Application Support/analytics, , {}
+    151cc899fdb8620d3c556ad2d3b1ba29acb04e1e,                                         , 040755,  280602, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:40,          0,     0, AppDomain-com.appc.monkey23141, Documents, , {}
+    02cfa62a76162a3a125f9c66715169be2d9ad500,                                         , 040755,  280640, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test, , {}
+    fb3e8b20e445371ac012d9d23e8d54eff27abbaf,                                         , 040755,  280654, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-9, , {}
+    5129205339ca5f801bf5d979844993a50dda9ad5,                                         , 040755,  280652, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-8, , {}
+    e5b071399cab517d9764a96509eb544cef73a964,                                         , 040755,  280651, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-7, , {}
+    855f84841d7b064ae1a21a20c487a2d1b3a603f3,                                         , 040755,  280650, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-6, , {}
+    a444ebbe50bb09db218c8f63c5503ef36c9809d0,                                         , 040755,  280647, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-5, , {}
+    18781ad541d8bd8ed57bd40d9447a48eff6d9de9,                                         , 040755,  280646, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-4, , {}
+    c55dddf94a8c134f003260228647c665953a8fbc,                                         , 040755,  280645, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-3, , {}
+    fd992165964ffa2c5e702863e07059544bf7792e,                                         , 040755,  280644, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-2, , {}
+    b96c2f528e5350a7aa5f23fa7ff548128d57d5f5,                                         , 040755,  280666, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-19, , {}
+    b2963b87ed7e2024b5e5484fd353c4e5ec339add,                                         , 040755,  280665, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-18, , {}
+    cc015046ebcc230b3d2304895e9b5d33a9b511df,                                         , 040755,  280664, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-17, , {}
+    bf2512085088ff00074d2452e51e25f64ad3313f,                                         , 040755,  280663, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-16, , {}
+    4c23766f6005324fc1bf9e2ba487d7ec61bd2977,                                         , 040755,  280662, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-15, , {}
+    c40a112b39d36ea69ec339df5cb88b3b6ca938be,                                         , 040755,  280660, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-14, , {}
+    5e9097f2624463a824f5bb5f0d5d5cb2bed79d8e,                                         , 040755,  280659, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-13, , {}
+    69dc820940bc06f34b18efa1dcb3b72da175543b,                                         , 040755,  280658, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-12, , {}
+    8aa48200adcd61f250c78f96f9f107499fd6ff92,                                         , 040755,  280657, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-11, , {}
+    d75c9d0ca7774a573086b1c0bfb7125fbbb587e4,                                         , 040755,  280655, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-10, , {}
+    5cc5e65dc08c83c94f3c482ee48d4fe18cf10b23,                                         , 040755,  280643, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-1, , {}
+    3b4752145b2ebdc03d23885f706b1fff6cfe4ef9,                                         , 040755,  280642, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,          0,     0, AppDomain-com.appc.monkey23141, Documents/test/subDirectory-0, , {}
+    9a6ca76b6d99e0aad09e6a9e57dd21f65a07830c,                                         , 100600,  280649, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,        109,     3, AppDomain-com.appc.monkey23141, Library/Preferences/com.appc.monkey23141.plist, , {}
+    895b94c59cd082f83bf46c4b7e339f79a35733a9,                                         , 100644,  280638, 501, 501, 2016-07-27 16:34:51, 2016-07-27 16:34:51, 2016-07-27 16:34:46,      24576,     3, AppDomain-com.appc.monkey23141, Library/Application Support/analytics/analytics.db, , {}
+    3c5c77fbc858a4bffdaf6162602647fe04e1c0c8,                                         , 100644,  280669, 501, 501, 2016-07-27 16:34:46, 2016-07-27 16:34:46, 2016-07-27 16:34:46,         17,     1, AppDomain-com.appc.monkey23141, Documents/test/file.txt, , {}
+    ~$ 
+    </pre></code>
+    
+    *However,* this log message keeps appearing every time I use <code>setRemoteBackup</code>: <code>\[INFO\]  CFURLSetResourcePropertyForKey failed because it was passed an URL which has no scheme</code>. Did a Google search and found this stackoverflow link: <a href="http://stackoverflow.com/questions/12928509/cfurlsetresourcepropertyforkey-failed-when-disable-data-backup-on-nsdocumentdire" rel="nofollow" target="_blank">http://stackoverflow.com/questions/12928509/cfurlsetresourcepropertyforkey-failed-when-disable-data-backup-on-nsdocumentdire</a>, which seems to be done here: <a href="https://github.com/appcelerator/titanium_mobile/pull/8093/files#diff-7c1c034158d43375ccc8ec33c21f4257R513." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/8093/files#diff-7c1c034158d43375ccc8ec33c21f4257R513.</a> Should we be concerned about that log message?
+    
+    *Tested on:*
+    
+    Appc CLI NPM: 4.2.7
+    Appc CLI Core: 5.4.0-35
+    Arrow: 1.8.2
+    SDK: 5.4.0.v20160727143921
+    Node: v4.4.7
+    OS: Mac OS X (10.11.6)
+    Xcode: 7.3.1
+    Device: iphone 5 (9.1)
+    
+    Also, had to modify your demo code a bit:
+    <code><pre>
+    var useBackup = false;
+    
+    var win = Ti.UI.createWindow({
+        backgroundColor: "#fff"
+    });
+    
+    var btn = Ti.UI.createButton({
+        title: "Toggle remote backhup"
+    });
+    
+    var dir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, "test");
+    
+    if (!dir.exists()) {
+        Ti.API.info("### Recursive directory does not exist, yet");
+    
+        var newDir = dir.createDirectory();
+        if (!newDir) {
+            Ti.API.error("### Root directory could not be created");
+        }
+        else {
+            for (var i = 0; i < 20; i++) {
+                var tmp = Ti.Filesystem.getFile(dir.nativePath, "subDirectory-" + i);
+                if (!tmp.createDirectory()) {
+                    Ti.API.error("### Subdirectory " + i + " could not be created!");
+                }
+                else {
+                    Ti.API.warn("### Subdirectory " + i + " is created!");
+                }
+            }
+    
+            var newFile = Ti.Filesystem.getFile(dir.nativePath, "file.txt");
+            if (!newFile.write('i am a monkeylord')) {
+                Ti.API.error("### File could not be created!");
+            }
+            else {
+                Ti.API.warn("### File is created!");
+            }
+        }
+    }
+    else {
+        Ti.API.info("### Recursive directory already exists");
+    }
+    
+    // Ti.API.warn('### setting remoteBackup property to true');
+    // dir.remoteBackup = true;
+    
+    btn.addEventListener("click", function() {
+        useBackup = !useBackup;
+        Ti.API.info('### useBackup ' + useBackup);
+        dir.setRemoteBackup(useBackup);
+    });
+    
+    win.add(btn);
+    win.open();
+    </pre></code></li>
+<li>Wilson Luu 2016-07-28
+
+    Will close ticket as fixed as per my above comment. Will file another ticket for the <code>[INFO] CFURLSetResourcePropertyForKey failed because it was passed an URL which has no scheme</code> message.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-23141.json">JSON Source</a></p>

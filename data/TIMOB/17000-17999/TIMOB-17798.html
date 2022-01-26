@@ -1,0 +1,447 @@
+---
+title: "[TIMOB-17798] Android: App crashes in TiResponseCache.peek()"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Critical</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2014-10-03T23:47:49.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 3.4.1, Release 3.4.2, Release 3.5.0, Release 4.0.0</td></tr>
+<tr><th>Components</th><td>Android</td></tr>
+<tr><th>Labels</th><td>android, cache, crash, download, googleplay, imageView, module_imageview, qe-manualtest, qe-testadded</td></tr>
+<tr><th>Reporter</th><td>Jason Priebe</td></tr>
+<tr><th>Assignee</th><td>Ping Wang</td></tr>
+<tr><th>Created</th><td>2014-09-26T21:10:26.000+0000</td></tr>
+<tr><th>Updated</th><td>2015-07-17T13:02:21.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+My app is crashing when I use Google Play Services to deliver doubleclick ads.
+
+<code><pre>
+[ERROR] :  TiDownloadManager: (pool-4-thread-1) [18,3778] Exception downloading <a href="http://wwwcache.wral.com/asset/news/local/2014/09/26/14018104/14018104-1411727089-320x180.jpg" rel="nofollow" target="_blank">http://wwwcache.wral.com/asset/news/local/2014/09/26/14018104/14018104-1411727089-320x180.jpg</a>
+[ERROR] :  TiDownloadManager: java.lang.ClassCastException: com.android.okhttp.HttpResponseCache cannot be cast to org.appcelerator.titanium.util.TiResponseCache
+[ERROR] :  TiDownloadManager: 	at org.appcelerator.titanium.util.TiResponseCache.peek(TiResponseCache.java:187)
+[ERROR] :  TiDownloadManager: 	at ti.modules.titanium.ui.widget.TiUIImageView$1.postDownload(TiUIImageView.java:119)
+[ERROR] :  TiDownloadManager: 	at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:151)
+[ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1112)
+[ERROR] :  TiDownloadManager: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:587)
+[ERROR] :  TiDownloadManager: 	at java.lang.Thread.run(Thread.java:841)
+[DEBUG] :  dalvikvm: DexOpt: --- END 'ads646200884.jar' (success) ---
+</pre></code>
+
+(the URL listed in the output is an image that I am loading into an ImageView, so I inferred that the TiDownloadManager is handling the loading of ImageView images)
+
+The problem only goes away if I disable DFP ads (I'm using my own ti.dfp module - <a href="https://github.com/jpriebe/ti.dfp)." rel="nofollow" target="_blank">https://github.com/jpriebe/ti.dfp).</a>
+
+I found it strange that it was crashing, because this code was working just a few days ago, and the module had not been changed, nor had I really done anything to the app and the way it handles ImageViews.
+
+I scoured android source code, tweets, and forum posts, and I've learned that in android 4.4, Square's okhttp code is supposedly incorporated into HttpUrlConnection.  However, I've never found any code for com.android.okhttp.HttpResponseCache.  The only code I can find is for com.squareup.okhttp.HttpResponseCache, not "com.android".  
+
+com.squareup.okhttp.HttpResponseCache extends java.net.ResponseCache, just like TiResponseCache does.  But the code in TiResponseCache.peek() is only expecting to get back a TiResponseCache object when it calls getDefault().  Changing that might not be trivial, since it depends on the cacheDir member variable of the returned object, and that's not part of the java.net.ResponseCache class.
+
+Here's what I think has happened -- google released Google Play Services 6.1.09 on September 23, 2014.  It automatically updated on my device.  Inside the new Google Play Services is a call to ResponseCache.setDefault(), and they're setting that default to a com.android.okhttp.HttpResponseCache object.
+
+Titanium assumes that the default system ResponseCache is the one that it set in TiApplication.java, and it doesn't handle things well when somebody else messes with the default.  
+
+I don't know what the fix is for this -- I'll leave that to the android platform experts in your employ.  But I think it is a critical issue, and will become more obvious in the coming days as this Play Services update propagates.  Any app that is using Google Play Services (or at least the DFP portion of it) and the TiDownloadManager will crash.
+
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-17798_51666/adMob-Crash.zip">adMob-Crash.zip</td></td><td>2014-09-29T14:13:47.000+0000</td><td>3211197</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Stephen Feather 2014-09-26
+
+   Jason,
+   
+   I'm chasing a similar dog. Ti.Admob and Ti.Cloudpush, both with updated play library.
+   
+   As soon as I eat, I'll be running tests against the modules, swapping out play libraries to be sure.
+   
+   Crazyness.  Just letting you know, you aren't alone.  Until you posted, thought it was just me. :)
+   
+   Android S4 (2 of them) running 4.4.2.
+   Google Play Services version 6.1.09 (1459805-038)
+   
+   <code><pre>
+   0		java.lang.ClassCastException: com.android.okhttp.HttpResponseCache cannot be cast to org.appcelerator.titanium.util.TiResponseCache
+   1	at	org.appcelerator.titanium.util.TiResponseCache.peek(TiResponseCache.java:187)
+   2	at	ti.modules.titanium.ui.widget.TiUIImageView.setImageInternal(TiUIImageView.java:715)
+   3	at	ti.modules.titanium.ui.widget.TiUIImageView.processProperties(TiUIImageView.java:802)
+   4	at	org.appcelerator.kroll.KrollProxy.setModelListener(KrollProxy.java:1185)
+   5	at	org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:500)
+   6	at	org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:491)
+   7	at	org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:469)
+   8	at	org.appcelerator.titanium.proxy.TiViewProxy.realizeViews(TiViewProxy.java:507)
+   9	at	org.appcelerator.titanium.proxy.TiViewProxy.handleGetView(TiViewProxy.java:491)
+   10	at	org.appcelerator.titanium.proxy.TiViewProxy.getOrCreateView(TiViewProxy.java:469)
+   11	at	org.appcelerator.titanium.proxy.TiViewProxy.handleAdd(TiViewProxy.java:670)
+   12	at	org.appcelerator.titanium.proxy.TiViewProxy.handleMessage(TiViewProxy.java:230)
+   13	at	ti.modules.titanium.ui.ScrollViewProxy.handleMessage(ScrollViewProxy.java:112)
+   14	at	android.os.Handler.dispatchMessage(Handler.java:98)
+   15	at	android.os.Looper.loop(Looper.java:157)
+   16	at	android.app.ActivityThread.main(ActivityThread.java:5356)
+   17	at	java.lang.reflect.Method.invokeNative(Native Method)
+   18	at	java.lang.reflect.Method.invoke(Method.java:515)
+   19	at	com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1265)
+   20	at	com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1081)
+   21	at	dalvik.system.NativeStart.main(Native Method)
+   </pre></code>
+   
+   <h4>The imageView problem ended up being a red herring.  </h4>
+   In my case it is Ti.Admob that is causing the error.  Tested the android 2.1.1 version using the google play jar packaged with it, and also with the google play jar packaged with Ti.cloudpush.  Both cause the error shown above.  If it managed to NOT show the error above, it then will throw the error the Jason has documented.
+   
+   @ingo has a test project that fails for me</li>
+<li>Jason Priebe 2014-09-28
+
+   Glad I'm not out in the wilderness on this one.  I'm sorry to hear it's impacting you, too, Stephen, but misery does love company.  :-)
+   
+   This is scary -- our app is still in development, but if it had been in the wild, all of our users would have started to experience crashes as soon as their phones updated Google Play Services to 6.1.09.  And there would have been little we could do to fix it.
+   
+   I would suspect that any app that uses Play Services could be susceptible.  I'm using it for DFP, Stephen's using it for Admob and Cloudpush, what about Maps?  Any code in the Play Services subsystem that changes out the default responsecache to an okhttp.HttpResponseCache will cause this problem.
+   
+   TiResponseCache is going to have to be modified so that it either maintains its own default cache, separate from the system default cache, or it can otherwise be resilient against changes in the system default cache.  Developers with live apps using Google Play Services will need this fix ASAP.
+   
+   I urge Appcelerator to treat this issue with the highest priority.</li>
+<li>Banzai Mobile 2014-09-29
+
+   Hi Jason, Stephen,
+   
+   this drove me crazy over the last few days. 
+   Our GialloZafferano Italian Recipes app has MILLIONS of active users here in Italy and abruptly started crashing since September 17th.
+   
+   We use our custom module for DFP using GoogleAds SDK (latest version with Play Services) and immediately discovered that turning off advertising stops the crashes.
+   
+   As Jason wrote, this is a really breaking issue and I hope Appcelerator will come out with a fix in a matter of days.
+   
+   @ingo, if you read this, I think it might be so widespread that it might be worth publishing a note on the blog to alert developers, so that they at least save headaches when they start getting crash reports and user complaints.
+   
+   </li>
+<li>Ingo Muschenetz 2014-09-29
+
+   Attached admob-Crash.zip as example project.</li>
+<li>Federico schroder 2014-09-29
+
+   +1 for the bug report and the critical status.
+   We have a production app that was having some issues which we couldn't reproduce and crash reports like this have soared over the weekend. 
+   </li>
+<li>Fokke Zandbergen 2014-09-29
+
+   I might have a similar case, where it cannot find network related ti.* classes. I'm currently testing if taking out the <code>nl.rebellic.hockeyapp</code> module makes a difference. The only other 2 modules in use are <code>yy.logcatcher</code> and <code>dk.napp.drawer</code> which both are not network-related.
+   
+   <code><pre>
+   D/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)
+   D/dalvikvm(  852): GC_CONCURRENT freed 407K, 6% free 9649K/10164K, paused 6ms+2ms, total 72ms
+   I/BatteryReceiverInfo(12156): level: 84 scale: 100 batteryLifePercent: 84
+   I/SkypeAdConfigManager(12156): Setting Battery Life Threshold to '0'
+   D/MobileDataStateTracker(  597): default: Broadcast received: android.intent.action.ANY_DATA_STATE apnType=default
+   D/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)
+   D/MobileDataStateTracker(  597): default: Broadcast received: android.intent.action.ANY_DATA_STATE apnType=default
+   D/MobileDataStateTracker(  597): default: Received state=CONNECTED, old=CONNECTED, reason=(unspecified)
+   E/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.BufferProxy
+   E/ProxyFactory(12511): No proxy info found for class.
+   E/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.BufferProxy
+   E/ProxyFactory(12511): No proxy info found for class.
+   E/JNIUtil (12511): ProxyFactory: failed to find class for ti.modules.titanium.network.socket.TCPProxy
+   E/ProxyFactory(12511): No proxy info found for class.
+   F/libc    (12511): Fatal signal 11 (SIGSEGV) at 0x00000000 (code=1), thread 12530 (KrollRuntimeThr)
+   I/DEBUG   (  172): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+   I/DEBUG   (  172): Build fingerprint: 'google/occam/mako:4.4.4/KTU84P/1227136:user/release-keys'
+   I/DEBUG   (  172): Revision: '11'
+   I/DEBUG   (  172): pid: 12511, tid: 12530, name: KrollRuntimeThr  >>> com.zipwire.app <<<
+   I/DEBUG   (  172): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 00000000
+   I/DEBUG   (  172):     r0 00000000  r1 6db597e8  r2 00000000  r3 74e417a0
+   I/DEBUG   (  172):     r4 00000000  r5 00000000  r6 6db597e8  r7 74e417a0
+   I/DEBUG   (  172):     r8 00002aa4  r9 753c2001  sl 75833f14  fp 7718b139
+   I/DEBUG   (  172):     ip 41560ed8  sp 75265808  lr 415026a3  pc 415026a6  cpsr 60010030
+   I/DEBUG   (  172):     d0  73616c6320726f66  d1  20646e756f66206f
+   I/DEBUG   (  172):     d2  646e6966206f7420  d3  66207373616c6370
+   I/DEBUG   (  172):     d4  e52de0040a000003  d5  e12fff3ce59fc018
+   I/DEBUG   (  172):     d6  00000601e49de004  d7  0000060100000000
+   I/DEBUG   (  172):     d8  0000000000000000  d9  0000000000000000
+   I/DEBUG   (  172):     d10 0000000000000000  d11 0000000000000000
+   I/DEBUG   (  172):     d12 0000000000000000  d13 0000000000000000
+   I/DEBUG   (  172):     d14 0000000000000000  d15 0000000000000000
+   I/DEBUG   (  172):     d16 7e37e43c8800759c  d17 7e37e43c8800759c
+   I/DEBUG   (  172):     d18 4024000000000000  d19 3ff0000000000000
+   I/DEBUG   (  172):     d20 412e848200000000  d21 40e86a0000000000
+   I/DEBUG   (  172):     d22 3ff0000000000000  d23 40e86a0000000000
+   I/DEBUG   (  172):     d24 4024000000000000  d25 4000000000000000
+   I/DEBUG   (  172):     d26 4000000000000000  d27 547d42aea2879f2e
+   I/DEBUG   (  172):     d28 0001000000010000  d29 4028000000000000
+   I/DEBUG   (  172):     d30 3ff0000000000000  d31 4000000000000000
+   I/DEBUG   (  172):     scr 20000013
+   I/DEBUG   (  172): 
+   I/DEBUG   (  172): backtrace:
+   I/DEBUG   (  172):     #00  pc 0004c6a6  /system/lib/libdvm.so
+   I/DEBUG   (  172):     #01  pc 000f8067  /data/app-lib/com.zipwire.app-1/libkroll-v8.so (titanium::network::socket::TCPProxy::connect(v8::Arguments const&)+102)
+   I/DEBUG   (  172):     #02  pc 00171034  /data/app-lib/com.zipwire.app-1/libkroll-v8.so
+   I/DEBUG   (  172):     #03  pc 0008b137  <unknown>
+   </pre></code></li>
+<li>Ping Wang 2014-09-29
+
+   More crashes related to the recent update of the google play services:
+   <a href="https://groups.google.com/forum/#" rel="nofollow" target="_blank">https://groups.google.com/forum/#</a>!searchin/google-admob-ads-sdk/ava.lang.NoClassDefFoundError$3A$20android.net.http.HttpResponseCache/google-admob-ads-sdk/-3X2MkTD_iA/i_B5FM1P0GsJ (This one is also about HttpResponseCache)
+   <a href="https://groups.google.com/forum/#" rel="nofollow" target="_blank">https://groups.google.com/forum/#</a>!topic/google-admob-ads-sdk/SX9yb3F_PNk</li>
+<li>Mark Mokryn 2014-09-30
+
+   Perhaps this will help:
+   <a href="https://groups.google.com/d/msg/google-admob-ads-sdk/SX9yb3F_PNk/yu89-rSPLp4J" rel="nofollow" target="_blank">https://groups.google.com/d/msg/google-admob-ads-sdk/SX9yb3F_PNk/yu89-rSPLp4J</a>
+   Google will release fixes later this week.</li>
+<li>Shannon Hicks 2014-09-30
+
+   Another scenario to add... No crash, but map graphics end up missing in my app. Errors from the console:
+   
+   <code><pre>
+   D/REQUEST ( 9777): DRD(0): 62|75|75|147, <1s, 1kb
+   D/REQUEST ( 9777): Close
+   D/REQUEST ( 9777): Add Data Request: 7
+   D/REQUEST ( 9777): Add Data Request: 108
+   D/REQUEST ( 9777): Connection opened to:<a href="https://clients4.google.com/glm/mmap/api" rel="nofollow" target="_blank">https://clients4.google.com/glm/mmap/api</a>
+   D/REQUEST ( 9777): Open Connection
+   D/REQUEST ( 9777): DRD(1): 62|15|7|108
+   D/REQUEST ( 9777): Close
+   D/REQUEST ( 9777): Error processing: com.google.maps.api.android.lib6.b.d@1a73ffd7 not retrying
+   D/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.b.j@12a1a0c4
+   D/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.b.v@9655bad
+   D/REQUEST ( 9777): Retrying: com.google.maps.api.android.lib6.gmm6.m.af@2c74f356
+   E/REQUEST ( 9777): ERROR
+   E/REQUEST ( 9777): java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.String.startsWith(java.lang.String)' on a null object reference
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.StatusLine.<init>(StatusLine.java:24)
+   E/REQUEST ( 9777): 	at com.android.okhttp.Response$Builder.statusLine(Response.java:392)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.JavaApiConverter.createOkResponse(JavaApiConverter.java:116)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.ResponseCacheAdapter.get(ResponseCacheAdapter.java:53)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:166)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:369)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.connect(HttpURLConnectionImpl.java:106)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.HttpURLConnectionImpl.getOutputStream(HttpURLConnectionImpl.java:208)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.DelegatingHttpsURLConnection.getOutputStream(DelegatingHttpsURLConnection.java:218)
+   E/REQUEST ( 9777): 	at com.android.okhttp.internal.http.HttpsURLConnectionImpl.getOutputStream(HttpsURLConnectionImpl.java:25)
+   E/REQUEST ( 9777): 	at com.google.maps.api.android.lib6.b.l.run(Unknown Source)
+   E/REQUEST ( 9777): 	at java.lang.Thread.run(Thread.java:818)
+   D/REQUEST ( 9777): Connection opened to:<a href="https://clients4.google.com/glm/mmap/api" rel="nofollow" target="_blank">https://clients4.google.com/glm/mmap/api</a>
+   D/REQUEST ( 9777): Open Connection
+   D/REQUEST ( 9777): DRD(2): 62|15|7|108
+   D/REQUEST ( 9777): Close
+   D/REQUEST ( 9777): Error processing: com.google.maps.api.android.lib6.b.d@36e4eee2 not retrying
+   </pre></code></li>
+<li>Eric Leichtenschlag 2014-09-30
+
+    The Google Mobile Ads (a.k.a. AdMob) SDK recently enabled http caching, which must have exposed this crash in Titanium. The Mobile Ads SDK has disabled caching for now, but plans to re-enable it in the next version.
+    
+    It looks like Titanium is assuming that any cache object must be a Titanium one when its downcasted (see <a href="https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiResponseCache.java#L187" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/blob/master/android/titanium/src/java/org/appcelerator/titanium/util/TiResponseCache.java#L187</a> for one example). This code should probably check instanceof before casting, and assume that the cache is null otherwise.</li>
+<li>Jason Priebe 2014-09-30
+
+    Eric -- interesting information about the SDK disabling caching and re-enabling it in the next version.  
+    
+    When you say that the SDK has disabled caching, has it been disabled in response to the problems caused by the caching code?  Can they disable it without pushing a new version of Google Play Services?
+    
+    What is your source for that information?  </li>
+<li>Eric Leichtenschlag 2014-09-30
+
+    It is being disabled for now as a result of the Titanium issue. It does require a new play services push (currently no server-side switch), but a new version is being rolled out this week for this as well as some other crashes that were recently introduced.
+    
+    I work at Google and am on the Developer Relations team for the Google Mobile Ads SDK.</li>
+<li>Jason Priebe 2014-09-30
+
+    Thanks, Eric.  I guess you know what you're talking about!  :-)
+    
+    I'm glad to hear that Google is interested in the success of Titanium-based apps.  I do agree that a fix needs to be made in the Titanium core so that it doesn't make assumptions about what kind of cache is available.
+    
+    Can you shed any light on why I couldn't find source code for com.android.okhttp.HttpResponseCache ?  I understand that is code that is being merged in from Square, but the only source I could find was not under the com.android.okhttp namespace.</li>
+<li>Shannon Hicks 2014-09-30
+
+    Besides breaking AdMob, some Ti apps and Google Maps SDK, it also broke the RedLaser SDK. The rollback can't come fast enough!</li>
+<li>Eric Leichtenschlag 2014-09-30
+
+    I'm not sure where the source itself comes from, but android.net.http.HttpResponseCache seems to use it internally: <a href="https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L156" rel="nofollow" target="_blank">https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L156</a></li>
+<li>Hieu Pham 2014-09-30
+
+    master PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6185" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6185</a>
+    3.4.X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6186" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6186</a></li>
+<li>Jason Priebe 2014-09-30
+
+    Please see my comments on the commit -- I think that there might be some serious consequences of this code change.</li>
+<li>Ingo Muschenetz 2014-09-30
+
+    [~jpriebe] to transmit your concern over to the discussion here, yes, the side effect is that this removes the capacity for caching to occur. However, I don't know if we have an alternative. Is there some alternative interface we can code to and respond correctly depending on the type of cache being used?</li>
+<li>Hieu Pham 2014-09-30
+
+    Eric - If the Mobile Ads SDK enable http caching next release, are you guys planning to expose it somehow? We won't be able to cache on our side if the returned cache is not exposed.</li>
+<li>Jason Priebe 2014-09-30
+
+    Ingo: is it possible for TiResponseCache to manage its *own* default cache?  In other words, can it override setDefault() and instantiate a single object to serve as the cache for the Titanium app?  Then whenever it calls getDefault(), it gets a reference to the cache that it created.  IIRC, TiResponseCache has all the logic to manage the cached content on the filesystem, so it can function in parallel to any other caches used by other apps/libraries on the system.
+    
+    The downside is that it would not benefit from files cached by other apps on the device.  But I would argue that most of the content that a Titanium app is caching is unique to that app, so cross-app caching is of little benefit.</li>
+<li>Jason Priebe 2014-09-30
+
+    I'm concerned about this because for the class of apps that we build, caching is HUGELY beneficial.  We build news apps.  If a user opens the app at 13:00 and sees 20 stories, each with an image, and then opens it again at 14:00, it's possible that 15 of the 20 stories and images are the same.  Caching saves a lot of data transfer in such a situation, which is very common in our apps.</li>
+<li>Mark Mokryn 2014-09-30
+
+    No caching for remote ImageViews is absolutely a no-go in my opinion. If that's the implication of the fix then a workaround is a must.</li>
+<li>Hieu Pham 2014-09-30
+
+    Mark - The PRs submitted isn't fixing the problem at hand, but rather applying best coding practices. I believe Google is fixing it internally and will be releasing an update sometime this week. That is my understanding from Eric's comments.</li>
+<li>Ingo Muschenetz 2014-09-30
+
+    To clarify:
+    
+    * The current PR just addresses the crash. It is a workaround for that. As a side effect, it disables caching, but no caching is better than crashing.
+    * We do have a larger issue for how to handle caching where we are getting a different object than before. In this case, we need some guidance from Google on what is the best path forward here.</li>
+<li>Eric Leichtenschlag 2014-10-01
+
+    For Google Mobile Ads, the SDK calls [HttpResponseCache.getInstalled()](<a href="http://developer.android.com/reference/android/net/http/HttpResponseCache.html#getInstalled())" rel="nofollow" target="_blank">http://developer.android.com/reference/android/net/http/HttpResponseCache.html#getInstalled())</a> to get the cache. If it doesn't exist, the SDK uses [HttpResponseCache.install](<a href="http://developer.android.com/reference/android/net/http/HttpResponseCache.html#install(java.io.File" rel="nofollow" target="_blank">http://developer.android.com/reference/android/net/http/HttpResponseCache.html#install(java.io.File</a>, long)) to create a new one. And according to the documentation, HttpResponseCache.install sets the created cache as the default cache.
+    
+    The [HttpResponseCache implementation](<a href="https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L167-L171)" rel="nofollow" target="_blank">https://github.com/android/platform_frameworks_base/blob/master/core/java/android/net/http/HttpResponseCache.java#L167-L171)</a> is doing the same as the proposed change, which is to check the instance of the default and see if it's an instance of com.android.okhttp.HttpResponseCache, and otherwise returning null. The way this is implemented doesn't play well with other ResponseCache implementations though, since it seems only one type can be the default and the previous type is simply overwritten.
+    
+    Just a thought - Could the TiResponseCache just keep a static TiResponseCache variable that it refers to instead of getDefault()? The class seems to be implementing the whole caching mechanism itself. Why rely on the ResponseCache's default which can get overridden by other implementations?</li>
+<li>Jason Priebe 2014-10-01
+
+    You mean like I suggested yesterday afternoon?  :-)</li>
+<li>Eric Leichtenschlag 2014-10-01
+
+    Ah yes, you did beat me to the suggestion :)</li>
+<li>Ping Wang 2014-10-01
+
+    [~jpriebe], [~ericleich], thanks for your suggestion. But Titanium current downloading/caching mechnism for remote images is using URLConnection which is dependent on the system's default cache. If TiResponseCache is not set to the default, images won't be saved to the directory we set.</li>
+<li>Mark Mokryn 2014-10-01
+
+    [~pwang] so is there an alternative solution? No image caching is better than crashes but will still make a poor user experience for many apps.</li>
+<li>Jason Priebe 2014-10-01
+
+    I hope you can work something out with Google that will allow you to continue caching in one form or another.  I can see that you have some additional functions in TiResponseCache (like peek(), for instance) that would make it difficult to rely on just the methods provided by the generic java.net.ResponseCache.
+    
+    There's nothing in the java.net.ResponseCache documentation that says you can't derive your own class from it and use your class instead.  But there are obvious problems if you do that and then a library that you use (e.g., Google Play Services) also does it.    Some Google guidance would be extremely helpful here.
+    
+    I can work with the disabling of caching for a point release or two (especially since our biggest app yet is still in development), but caching is a critical part of app performance for us.  We've *got* to have caching back soon!</li>
+<li>Eric Leichtenschlag 2014-10-01
+
+    To be clear, Google Play services just uses Android's [HttpResponseCache](<a href="http://developer.android.com/reference/android/net/http/HttpResponseCache.html)" rel="nofollow" target="_blank">http://developer.android.com/reference/android/net/http/HttpResponseCache.html)</a> straight up, not a different subclass of java.net.ResponseCache.
+    
+    Is it feasible for TiResponseCache to have a "has a" relationship with HttpResponseCache instead of an "is a" relationship with ResponseCache?</li>
+<li>Jason Priebe 2014-10-02
+
+    Eric -- you probably know a ton more about this than I do.  But from an outsider's perspective, GPS seems to be setting the default cache to an instance of com.android.okhttp.HttpResponseCache.  Maybe that's now the "standard" android HttpResponseCache; I don't know.  It's really hard to tell from the documentation.
+    
+    TiResponseCache and com.android.okhttp.HttpResponseCache are both derived from java.net.ResponseCache.  As long as TiResponseCache has its own methods like peek(), there's not going to be a good way to have it gracefully handle some other module changing the default cache out from under it.
+    
+    I like your idea of the "has a" relationship, but how can it implement things like peek(), if it just "has a" black-box HttpResponseCache?  I don't think there's a way to crack it open to see if something exists in cache, for example, to implement something like peek().  And if you look at the implementation of TiResponseCache, I think my peek() example is just the tip of the iceberg.</li>
+<li>Ping Wang 2014-10-02
+
+    PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6192" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6192</a>
+    This PR takes care of all kinds of ResponseCache. As long as the system's default response cache is set, we can retrieve the cached content from it. 
+    
+    *Caveat:* 
+    1. The cache directory for TiResponseCache is in SDcard. It won't be removed/cleaned until the app is uninstalled. 
+    2. The cache directory for HttpResponseCache depends. It will be removed/cleaned when the app is forced to stop and launched again.
+    
+    For FR:
+    1. Run the attached app when the network is on. It should not crash and show two images.
+    2. Back out of the app using BACK button. Turn off the network. Run it again. It should still show two images. This means HttpResponseCache works.
+    3. Run the code attached below when the network is on. It should show one image.
+    4. Back out of the app using BACK button. Turn off the network. Run it again. It should still show one image. This means TiResponseCache works.
+    <code><pre>
+    var win = Titanium.UI.createWindow();
+    	
+    var imageView = Titanium.UI.createImageView({
+    		image:'<a href="http://static.appcelerator.com/images/header/appc_logo.png" rel="nofollow" target="_blank">http://static.appcelerator.com/images/header/appc_logo.png</a>',
+    		top:20,
+    		width:100,
+    		height:100
+    });
+    
+    win.add(imageView);
+    win.open();
+    </pre></code></li>
+<li>Jason Priebe 2014-10-02
+
+    Ping -- this is great news!  Thanks for all your work on this.
+    
+    Question: are there ramifications of peek() returning true when the default cache is not an instance of TiResponseCache?  Will that cause the ImageView to think that the image is already on local storage?
+    
+    I notice that ImageView has a nice behavior of deferring image loading until it is scrolled into view (like if it's at the bottom of a TableView, for instance, it doesn't seem to load until the user scrolls down to the bottom of the TableView and brings the ImageView on screen).  
+    
+    This change won't affect that, will it?</li>
+<li>Ingo Muschenetz 2014-10-02
+
+    [~ericleich] Thank you for your guidance so far. We now have a proposed proper fix, but with the update this morning of Google Play Services, I'm not sure how to test it any more. Is there a previous version of Google Play Services we can install?</li>
+<li>Eric Leichtenschlag 2014-10-02
+
+    The Google Play services library 6.1 (rev 20) should be available from Android's SDK manager any day now. If you compile an app against that version of the library and run it on a device that doesn't have Google Play services installed (e.g. an emulator or a Kindle Fire), it'll expose the bug.</li>
+<li>Ping Wang 2014-10-03
+
+    [~jpriebe], if the default cache is not an instance of TiResponseCache but it is not null, the peek() function will return true. If peek() returns true but the cached content cannot be fetched successfully, it will get the image through network.
+    This PR won't affect any ImageView/TableView behavior.</li>
+<li>Ingo Muschenetz 2014-10-06
+
+    [~pwang] would you please set up a backport?</li>
+<li>Ping Wang 2014-10-06
+
+    3_4_X PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6200" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6200</a></li>
+<li>Hieu Pham 2014-10-27
+
+    3.4.1 PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/6277" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/6277</a></li>
+<li>Ingo Muschenetz 2014-10-27
+
+    Approved and merged.</li>
+<li>Lokesh Choudhary 2014-10-29
+
+    </li>
+<li>Praveen Kodakkad 2015-05-08
+
+    When this issue fix will be available? I am still getting this issue when loading image to an imageview from Facebook Album. This is happening in Android Lollipop devices.</li>
+<li>Praveen Kodakkad 2015-05-08
+
+    
+    <code><pre>
+    05-08 17:07:58.049: E/TiDownloadManager(7758): java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.String.startsWith(java.lang.String)' on a null object reference
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.StatusLine.<init>(StatusLine.java:24)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.Response$Builder.statusLine(Response.java:419)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.JavaApiConverter.createOkResponse(JavaApiConverter.java:116)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.ResponseCacheAdapter.get(ResponseCacheAdapter.java:53)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpEngine.sendRequest(HttpEngine.java:190)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:373)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:323)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpURLConnectionImpl.getInputStream(HttpURLConnectionImpl.java:190)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.DelegatingHttpsURLConnection.getInputStream(DelegatingHttpsURLConnection.java:210)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at com.android.okhttp.internal.http.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java:25)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at java.net.URL.openStream(URL.java:470)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at org.appcelerator.titanium.util.TiDownloadManager$DownloadJob.run(TiDownloadManager.java:135)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1112)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:587)
+    05-08 17:07:58.049: E/TiDownloadManager(7758): at java.lang.Thread.run(Thread.java:818)
+    </pre></code>
+    
+    This is the error I am getting now.</li>
+<li>Hieu Pham 2015-05-08
+
+    This issue was fixed last year. The error you're seeing looks like a different problem. Can you post a test case (perhaps create a different ticket altogether)? Thanks,</li>
+<li>Jason Priebe 2015-05-14
+
+    </li>
+<li>Matthias Benkort 2015-07-17
+
+    Hey, I've noticed a similar issue since Lolipop. Previous version of Android are fine so it's likely to be a change in the Android SDK that Titanium hasn't caught yet.</li>
+<li>Jason Priebe 2015-07-17
+
+    </li>
+<li>Matthias Benkort 2015-07-17
+
+    @Jason - Hi, I'm currently with the 4.0.0.GA, I'll update and let you know how it goes.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-17798.json">JSON Source</a></p>

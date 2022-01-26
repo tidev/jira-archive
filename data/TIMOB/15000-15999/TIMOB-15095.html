@@ -1,0 +1,303 @@
+---
+title: "[TIMOB-15095] iOS: ScrollableView's manageCache causing lag halfway through page"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>High</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2013-10-24T19:05:00.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Release 3.1.2, Release 3.1.3</td></tr>
+<tr><th>Fix Version/s</th><td>2013 Sprint 22, 2013 Sprint 22 API, Release 3.2.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>qe-closed-3.2.0, supportTeam, triage</td></tr>
+<tr><th>Reporter</th><td>Fokke Zandbergen</td></tr>
+<tr><th>Assignee</th><td>Vishal Duggal</td></tr>
+<tr><th>Created</th><td>2013-09-04T15:12:56.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-02T16:49:07.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+When scrolling through the pages of a ScrollableView composed out of several 'heavy' views, a noticeable lag occurs halfway scrolling to the next page.
+
+<h4>Code to reproduce</h4>
+
+<code><pre>
+var color = 'red';
+
+function createView() {
+    color = (color === 'red') ? 'green' : 'red';
+    
+    var v = Ti.UI.createView({backgroundColor:color,layout:'vertical'});
+    
+    var colorAlt = 'blue';
+    
+    for (var i = 0; i < 250; i++) {
+        colorAlt = (colorAlt === 'blue') ? color : 'blue';
+        v.add(Ti.UI.createView({backgroundColor: colorAlt, height: 5}));
+    }
+    
+    return v;
+}
+
+var v = [];
+
+for (var i = 0; i < 10; i++) {
+    v.push(createView());
+}
+
+var w = Ti.UI.createWindow({backgroundColor:'white', views: v});
+var s = Ti.UI.createScrollableView({views:v});
+
+w.add(s);
+w.open();
+</pre></code>
+
+<h4>Problem</h4>
+
+Me and [~timanrebel] tracked down the problem and <code>manageCache</code> seems to be the problem. When the nextPage changes half-way, manageCache renders *all* views within range, instead of just the new view getting into the range. It must be possible to make this more efficient. But even if it's just 1 or 2 views that need to be rendered, if they are heavy, the lag still occurs.
+
+<h4>Solution</h4>
+We investigated if the rendering could possibly be delayed until after fully having slide to the next page, but then the lag occurs 1 or 2 pixels before reaching the next page *and* if you scroll through the pages fast, the rendering won't be triggerd at all. We didn't manage to find a satisfying solution, but I'm sure the Appcelerator iOS experts can ;)
+
+<h3>Comments</h3>
+
+<ol>
+<li>Mauro Parra-Miranda 2013-09-09
+
+   Hello,
+   
+   what do you mean with "heavy views"? Can you provide a screnshot? Does this happen on the phone? How many items you have in your scrollview?
+   
+   Best,
+   
+   Mauro </li>
+<li>Lars Andersson 2013-09-09
+
+   Hi,
+   
+   I have also noticed this and asked about it on StackOverflow: <a href="http://stackoverflow.com/questions/18627450/titanium-scrollable-view-is-jerky-momentarily-stops-half-way" rel="nofollow" target="_blank">http://stackoverflow.com/questions/18627450/titanium-scrollable-view-is-jerky-momentarily-stops-half-way</a> (an example there). No answer yet but this seems to be the same issue.
+   
+   Cheers,
+   Lars
+   </li>
+<li>Fokke Zandbergen 2013-09-10
+
+   [~mpmiranda], I mean views that are complex, contain multiple children and positioning stuff. The example is really heavy, including 250 child views, just to make the lag really evident. But we experience the lag clearly with just about 10 child views, 2 images and 2 horizontal layouts.</li>
+<li>Wienke 2013-09-26
+
+   I would really love to see this fixed. My whole scrollable view gets a HTML5 kind of feel.</li>
+<li>Sameeh Harfoush  2013-10-01
+
+   </li>
+<li>Ezoom Agency 2013-10-04
+
+   I'm experiencing a very slow scroll with complex(multiple views/images inside) *ScrollViews* also, should I open another ticket for it?</li>
+<li>Mauro Parra-Miranda 2013-10-04
+
+   Hello Ezoom,
+   
+   yes, open another ticket. Please include a testcase and talk about how many views you have in your scrollview.
+   
+   Best,
+   
+   Mauro 
+     </li>
+<li>Ezoom Agency 2013-10-08
+
+   </li>
+<li>Vishal Duggal 2013-10-16
+
+   Pull pending against master
+   <a href="https://github.com/appcelerator/titanium_mobile/pull/4796" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4796</a></li>
+<li>Wienke 2013-10-17
+
+    Hi Vishai, 
+    
+    If you need any help with testing. Let me know. 
+    
+    Cheers,
+    Wienke</li>
+<li>Lars Andersson 2013-10-17
+
+    Hi Vishai,
+    
+    I have done an initial test and it looks very good in one app and mostly good in the other (not sure why it is a little bit jerky on the iPhone4). I just have to test a bit more and I'll let you know if I have any issues.
+    
+    Cheers,
+    lars
+    </li>
+<li>Wienke 2013-10-17
+
+    The first swipe goes really smooth now. The is second swipe laggy again. When I look at the code than I see that half way swiping all the views are re-rendered. Not re-rendering all views might solve the problem.</li>
+<li>Wienke 2013-10-17
+
+    Hi Pedro,
+    
+    I would not say this issue is resolved. When using heavy views on for instance the iPad it is still very lagging. The views are still completely re-rendered half way the swipe.
+    
+    Could you have a further examination of this issues please?
+    
+    With kind regards,
+    Wienke</li>
+<li>Jonas Thoor 2013-10-18
+
+    I can also confirm that scrolling on iPad is still very much lagging.
+    
+    Best regards,
+    Jonas Thoor</li>
+<li>Lars Andersson 2013-10-18
+
+    With this implementation I see a weird side effect in my iOS7 iPhone5 and simulator, but not on my iOS6 iPhone4.
+    
+    The page-view inside the scrollable view seems to be positioned about 10 pixels too low. If I have the paging control on top then there is a gap between my page and the control while if I have the paging control below then the bottom of the page goes under the paging control.
+    
+    Am I the only one with this side effect?
+    
+    Cheers,
+    Lars
+    </li>
+<li>Lars Andersson 2013-10-18
+
+    Can someone please confirm that I am doing the right thing to test this.
+    
+    These are the steps I am doing:
+    - Navigate to /Users/lars/Library/Application Support/Titanium/mobilesdk/osx/3.1.3.GA/iphone/Classes
+    - Edit TiUIScrollableView.m and apply the changes
+    - Edit TiUIScrollableViewProxy.h and apply the changes
+    - In the projects folder trash the build and Resources folders
+    - Rebuild the project and deploy to the simulator/iPhone
+    
+    </li>
+<li>Sameeh Harfoush  2013-10-18
+
+    Lars Andersson,
+    you are not the first, i am facing the same issues as well. but is looks like appcelerator team got this resolved. we will have to wait for the release to get the fix..</li>
+<li>Ingo Muschenetz 2013-10-18
+
+    Hi All...please try downloading the latest build from <a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html#master." rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html#master.</a> If you _still_ have an issue with that build, let us know and we will reopen the ticket.</li>
+<li>SHOCKOE TEAM 2013-10-18
+
+    Downloaded, but it can't build. It complains about CLI not being 3.2</li>
+<li>Ingo Muschenetz 2013-10-18
+
+    You can update to the 3.2.0 CLI by running 'sudo npm install -g git://github.com/appcelerator/titanium.git'</li>
+<li>Lars Andersson 2013-10-20
+
+    I downloaded the 3.2 master made on Friday afternoon and I can confirm that my scrollable views now work smoothly.
+    
+    I still have the page-view lower than it should be. Is there another defect raised for that?
+    
+    Cheers,
+    Lars
+    </li>
+<li>Jonas Thoor 2013-10-21
+
+    I tried my app with 3.2.0.v20131018154951 and the lagging in scrollable views still appears when the view has scrolled halfway through the page.
+    
+    Best regards,
+    Jonas Thoor </li>
+<li>Ingo Muschenetz 2013-10-21
+
+    [~jonasthoor] Since [~lpjandersson] reports it now works for him, can you please file a test case that replicates how it does not work for you?
+    
+    [~lpjandersson] I don't believe there is a bug raised for that. Can you please do so?</li>
+<li>Wienke 2013-10-21
+
+    Also doesn't work for me yet. My views got a lot of imageViews and labels. I added some labels and imageviews to the test case, see below. I also had a look at the code and as stated before I think there is way too much rendering done than necessary.
+    
+    Hope this helps. Let me know were I can help. 
+    
+    <code><pre>
+    var color = 'red';
+    
+    function createView() {
+    	color = (color === 'red') ? 'green' : 'red';
+    
+    	var v = Ti.UI.createView({
+    		backgroundColor : color,
+    		layout : 'vertical'
+    	});
+    
+    	var colorAlt = 'blue';
+    
+    	for (var i = 0; i < 30; i++) {
+    		colorAlt = (colorAlt === 'blue') ? color : 'blue';
+    		v.add(Ti.UI.createImageView({
+    			//backgroundColor : colorAlt,
+    			height : 10,
+    			image : '<a href="https://www.google.nl/images/srpr/logo11w.png" rel="nofollow" target="_blank">https://www.google.nl/images/srpr/logo11w.png</a>',
+    			top:0
+    		}));
+    		
+    		v.add(Ti.UI.createLabel({
+    			height : 10,
+    			text: 'Me and Timan Rebel tracked down the problem and manageCache seems to be the problem. When the nextPage changes half-way, manageCache renders all views within range, instead of just the new view getting into the range. It must be possible to make this more efficient. But even if its just 1 or 2 views that need to be rendered, if they are heavy, the lag still occurs.',
+    			top:0,
+    			font: {
+    				fontSize: 7
+    			}
+    		}));
+    	}
+    
+    	return v;
+    }
+    
+    var v = [];
+    
+    for (var i = 0; i < 10; i++) {
+    	v.push(createView());
+    }
+    
+    var w = Ti.UI.createWindow({
+    	backgroundColor : 'white',
+    	views : v
+    });
+    var s = Ti.UI.createScrollableView({
+    	views : v
+    });
+    
+    w.add(s);
+    w.open(); 
+    </pre></code></li>
+<li>Ingo Muschenetz 2013-10-21
+
+    Reopening based on comments.</li>
+<li>Jonas Thoor 2013-10-22
+
+    The scenario is the same for me, got 30 Views with 2-4 ImageViews inside that View, can post the code but it only creates a new instance of 30 different Alloy Controllers so the code is quite extensive.
+    
+    Best regards,
+    Jonas Thoor</li>
+<li>Vishal Duggal 2013-10-23
+
+    Pull pending against master
+    <a href="https://github.com/appcelerator/titanium_mobile/pull/4840" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/4840</a></li>
+<li>nicolomonili 2013-10-24
+
+    </li>
+<li>Wienke 2013-10-24
+
+    Solution looks good. Can I already test it?</li>
+<li>Samuel Dowse 2013-12-04
+
+    Tested on:
+    Mac OSX 10.9 Mavericks
+    Titanium Studio, build:
+    Titanium SDK, build: 
+    CLI: 3.2.0-beta
+    Alloy: 1.3.0-beta
+    Xcode: 5.0.2
+    iOS Devices: iPhone 3GS (6.1.3), iPhone 4S (7.0.4), iPhone 5 (6.0)
+    
+    Significant speed up on iPhone 4S and 5, app runs smooth using code from comments.
+    iPhone 3GS still runs quite slow, however there is a significant speed increase from 3.1.3.GA.
+    Closing.</li>
+<li>Jonas Thoor 2013-12-30
+
+    </li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-15095.json">JSON Source</a></p>

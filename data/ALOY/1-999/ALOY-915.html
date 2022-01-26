@@ -1,0 +1,139 @@
+---
+title: "[ALOY-915] Alloy Collection (RESTful) is not releasing memory properly"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Won't Fix</td></tr>
+<tr><th>Resolution Date</th><td>2014-01-03T17:17:55.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>Alloy 1.3.0</td></tr>
+<tr><th>Fix Version/s</th><td>n/a</td></tr>
+<tr><th>Components</th><td>Runtime</td></tr>
+<tr><th>Labels</th><td>supportTeam</td></tr>
+<tr><th>Reporter</th><td>Eduardo Gomez</td></tr>
+<tr><th>Assignee</th><td>Tony Lukasavage</td></tr>
+<tr><th>Created</th><td>2014-01-03T16:45:59.000+0000</td></tr>
+<tr><th>Updated</th><td>2014-06-22T13:23:20.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<h4>Issue description</h4>
+Alloy Collection is not releasing memory properly if fetch is run WITH a callback.
+
+<h4>Steps to reproduce</h4>
+Ti project files here: <a href="https://www.dropbox.com/sh/f4h0fkyp08numrm/W9rvtLZ1Rr" rel="nofollow" target="_blank">https://www.dropbox.com/sh/f4h0fkyp08numrm/W9rvtLZ1Rr</a>
+
+- To run the app WITH a memory leak:
+
+1) In the ledgerlists.fetch({....  ; lines 15-18 of test1.js ; UNCOMMENT these lines and build the app. To be clear, the lines to un-comment are:
+
+{quote}
+success: function(collection, response){
+    console.log("fetch finished");
+    console.log(response);        
+}    
+{quote}
+
+2) Run Instruments
+
+{quote}
+select "Allocations" icon, click "Choose"
+pick the drop down box "Choose Target"
+select "Attach to Process" ->
+scroll down to the "System" heading area, then underneath that, find the app (leakTest1)
+click on Record (top left); enter uid/pwd if needed on mac osx
+in the top right corner of Instruments window, put "TiUI" to the filter box <enter>
+now go back to the Ti app that is open/running
+open up the modal window by clicking on the "TEST1" button
+close the modal window (then take a look at Instruments)
+open up the modal window again, then look at Instruments
+repeat 11 & 12 a number of times (5 or 6)
+you should see the number of retained objects for the listview increasing. they never get released.
+{quote}
+
+- To run the app WITHOUT a memory leak:
+
+1) In the ledgerlists.fetch({.... ; lines 15-18 of test1.js ; COMMENT OUT these lines and build the app. To be clear, the lines to COMMENT OUT are:
+
+{quote}
+success: function(collection, response){
+    console.log("fetch finished");
+    console.log(response);        
+}    
+{quote}
+
+**RE-SAVE & CLEAN BUILD OF Ti PROJECT
+
+Repeat the above steps 2.->13. to watch Instruments
+
+You should not see any memory leak. All the objects are eventually released.
+
+<h4>Thoughts</h4>
+We tried out to unbind the Collection using reset method after the Controller Window closed:
+
+E.I. <a href="http://stackoverflow.com/questions/9202599/how-do-i-unbind-a-backbone-collection-fetch-callback" rel="nofollow" target="_blank">http://stackoverflow.com/questions/9202599/how-do-i-unbind-a-backbone-collection-fetch-callback</a>
+
+Since "Using reset with no arguments is useful as a way to empty the collection." <a href="http://docs.appcelerator.com/backbone/0.9.2/#Collection-reset" rel="nofollow" target="_blank">http://docs.appcelerator.com/backbone/0.9.2/#Collection-reset</a>
+
+We are seeing the Ti objects getting released after the 3rd or 4th time (Under #transient column) Screen shoot: AlloyMemoryLeak_Instruments.jpg
+
+Quoted the code lines that were added on our side for testing purposes (controllers/test1.js):
+{quote}
+$.closeButton.addEventListener('click', function(e) {
+    $.win1.close();
+    $.win1.removeAllChildren();
+    $.destroy();
+    ledgerlists.reset();
+}); 
+{quote}
+
+We also attempted to use the Alloy.Collections.instance method with the name of the model file minus the extension as the only parameter to create or access the singleton. However this ended up just getting released the TiWindow 
+
+Screen shoot: AlloyCollection_SingletonInstance.jpg
+
+For example (controllers/test1.js):
+{quote}
+// some restful endpoint - testing purposes only
+//var ledgerlists = Alloy.createCollection('ledgerlist');
+var ledgerlists = Alloy.Collections.instance('ledgerlist');
+{quote}
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-915_44915/AlloyCollection_FetchMethod.jpg">AlloyCollection_FetchMethod.jpg</td></td><td>2014-01-03T16:58:55.000+0000</td><td>321048</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-915_44914/AlloyCollection_SingletonInstance.jpg">AlloyCollection_SingletonInstance.jpg</td></td><td>2014-01-03T16:45:59.000+0000</td><td>332387</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-915_44913/AlloyMemoryLeak_Instruments.jpg">AlloyMemoryLeak_Instruments.jpg</td></td><td>2014-01-03T16:45:59.000+0000</td><td>312267</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/ALOY/ALOY-915_44916/leakTest1.zip">leakTest1.zip</td></td><td>2014-01-03T17:00:53.000+0000</td><td>9461788</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>Tony Lukasavage 2014-01-03
+
+   Project link is a 404. Also, you mention REST, is this using a 3rd party REST adapter? If so, you'll likely get more help reporting the issue to the author of the adapter since we don't support those as part of the Alloy project.</li>
+<li>Eduardo Gomez 2014-01-03
+
+   Forgot to attach a screen shoot (AlloyCollection_FetchMethod.jpg) where there is no memory leak (no callback defined)</li>
+<li>Tony Lukasavage 2014-01-03
+
+   This issue, based on what I've been given here, appears specific to the restapi.js adapter, which is a 3rd party sync adapter created by Mads Moller here: <a href="https://github.com/viezel/napp.alloy.adapter.restapi" rel="nofollow" target="_blank">https://github.com/viezel/napp.alloy.adapter.restapi</a> . It is outside the scope of the ALOY project.
+   
+   You should contact Mads by either logging an issue on the project or messaging him directly to test this and get it resolved. He is generally pretty responsive, but you can contact me if you have a hard time getting help. </li>
+<li>Angus Johnston 2014-01-09
+
+   thanks Tony / Eduardo, ive left a message just now on the github repo for Mads. </li>
+<li>Javen Wang 2014-03-30
+
+   Hi guys, I've created a PR for this issue: <a href="https://github.com/viezel/napp.alloy.adapter.restapi/pull/33" rel="nofollow" target="_blank">https://github.com/viezel/napp.alloy.adapter.restapi/pull/33</a></li>
+</ol>
+
+
+<p><a href="/ALOY/ALOY-915.json">JSON Source</a></p>

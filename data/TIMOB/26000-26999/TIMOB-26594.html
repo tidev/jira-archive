@@ -1,0 +1,188 @@
+---
+title: "[TIMOB-26594] iOS: Exception when canceling local notifications with removePendingNotifications"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Low</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2019-02-22T23:06:58.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 8.0.0, Release 7.5.1</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, notifications</td></tr>
+<tr><th>Reporter</th><td>Teun Klijn</td></tr>
+<tr><th>Assignee</th><td>Jan Vennemann</td></tr>
+<tr><th>Created</th><td>2018-11-21T14:27:45.000+0000</td></tr>
+<tr><th>Updated</th><td>2019-04-04T16:23:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+I'm trying to cancel local iOS notifications with Ti.App.iOS.UserNotificationCenter.removePendingNotifications(notificationsToCancel), but whenever I try to call this with an array of notifications the app crashes.
+
+I did a little bit of research and it seems the ENSURE_TYPE on line 109 in TiAppiOSUserNotificationCenterProxy.m throws an exception. But I'm getting the notifications from getPendingNotifications so they should be ok right?
+
+Example (press schedule and then cancel right afterwards to get the exception):
+
+<code><pre>
+var window = Ti.UI.createWindow({
+  backgroundColor: 'white'
+});
+
+var button = Ti.UI.createButton({
+  title: 'Schedule'
+});
+
+var isScheduling = true;
+button.addEventListener('click', function() {
+  if (isScheduling) {    
+    var alarmObject = {
+      date: new Date(new Date().getTime() + 20000),
+      alertBody: "Hello world",
+      badge: 1,
+      identifier: "test_id",
+      sound: 'default'
+    };
+
+    console.log('schedule: ' + JSON.stringify(alarmObject));
+    
+    Ti.App.iOS.scheduleLocalNotification(alarmObject);
+
+    button.title = "Cancel";
+  } else {
+    Ti.App.iOS.UserNotificationCenter.getPendingNotifications(function(result) {
+      if (result && result.notifications && result.notifications.length) {
+        var notificationsToCancel = _.filter(result.notifications, function(n) {
+          return n.identifier == "test_id";
+        });
+
+        console.log('cancel these: ' + JSON.stringify(notificationsToCancel));
+
+        if (notificationsToCancel) {
+          Ti.App.iOS.UserNotificationCenter.removePendingNotifications(notificationsToCancel);
+        }
+      }
+    });
+
+    button.title = "Schedule";
+  }
+
+  isScheduling = !isScheduling;
+});
+
+window.add(button);
+
+window.addEventListener('open', function() {
+  Ti.App.iOS.registerUserNotificationSettings({
+    types: [
+      Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT,
+      Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND,
+      Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE
+    ]
+  });
+});
+
+window.open();
+</pre></code>
+
+Exception:
+
+
+<code><pre>
+[ERROR] The application has crashed with an uncaught exception 'org.testproject.TiAppiOSUserNotificationCenterProxy'.
+[ERROR] Reason:
+[ERROR] Invalid type passed to function
+[ERROR] Stack trace:
+[ERROR] 0   CoreFoundation                      0x000000010f8881bb __exceptionPreprocess + 331
+[ERROR] 1   libobjc.A.dylib                     0x000000010e683735 objc_exception_throw + 48
+[ERROR] 2   TestProject                         0x0000000108c65b1d TiExceptionThrowWithNameAndReason + 141
+[ERROR] 3   TestProject                         0x0000000108c21e7b -[TiProxy throwException:subreason:location:] + 107
+[ERROR] 4   TestProject                         0x0000000108bb1f4f __66-[TiAppiOSUserNotificationCenterProxy removePendingNotifications:]_block_invoke_2 + 1055
+[ERROR] 5   UserNotifications                   0x0000000110bc6161 __111-[UNUserNotificationServiceConnection getPendingNotificationRequestsForBundleIdentifier:withCompletionHandler:]_block_invoke_2.217 + 240
+[ERROR] 6   libdispatch.dylib                   0x0000000110d9c4e1 _dispatch_call_block_and_release + 12
+[ERROR] 7   libdispatch.dylib                   0x0000000110d9d54b _dispatch_client_callout + 8
+[ERROR] 8   libdispatch.dylib                   0x0000000110da401c _dispatch_lane_serial_drain + 720
+[ERROR] 9   libdispatch.dylib                   0x0000000110da4b95 _dispatch_lane_invoke + 455
+[ERROR] 10  libdispatch.dylib                   0x0000000110dad9a8 _dispatch_workloop_worker_thread + 645
+[ERROR] 11  libsystem_pthread.dylib             0x0000000111182fd2 _pthread_wqthread + 980
+[ERROR] 12  libsystem_pthread.dylib             0x0000000111182be9 start_wqthread + 13
+</pre></code>
+
+
+
+<h3>Comments</h3>
+
+<ol>
+<li>Vittorio Sorbera 2018-11-26
+
+   I also had this problem. I can delete all notifications using
+    <code><pre>
+   Ti.App.iOS.UserNotificationCenter.removePendingNotifications()
+   </pre></code>
+   but if I want to delete a specific notification, the app crash.</li>
+<li>Jan Vennemann 2018-11-30
+
+   PR: <a href="https://github.com/appcelerator/titanium_mobile/pull/10501" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10501</a></li>
+<li>Samir Mohammed 2019-01-04
+
+   FR Passed. Waiting for Jenkins build to become ready. </li>
+<li>Jan Vennemann 2019-01-08
+
+   Backport done in <a href="https://github.com/appcelerator/titanium_mobile/pull/10583" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10583</a></li>
+<li>Samir Mohammed 2019-01-09
+
+   FR Passed for 8_0_X .Waiting on Jenkins build. </li>
+<li>Samir Mohammed 2019-01-15
+
+   Closing ticket as issue is resolved using SDK version <code> 8.0.0.v20190114160512 </code></li>
+<li>Nirmal 2019-01-31
+
+   Our team is currently working on a feature involving local notifications for a production app and facing this issue.
+   v8.0.0 is beyond our planned feature release.
+   
+   Can this be back-ported into the 7.5.x stream please?</li>
+<li>jon kravetz 2019-02-12
+
+   I agree with Nirmal, this isn't a new feature, this is a bug. Please implement changes for 7.5.x as we try not to use non-stable builds in production. This type of issue with resolutions not being back ported causes problems for our dev team.</li>
+<li>Jan Vennemann 2019-02-12
+
+   Hey guys, doing a backport to the 7.5.X branch should be no problem. However, i can not say for sure that there will be an official release with the fix. 7.5.1.GA is already locked and about to be released soon. I'll check with our release planning and let you know.</li>
+<li>Nirmal 2019-02-15
+
+    hi Jan, any updates on likelihood of a back port?</li>
+<li>Jan Vennemann 2019-02-18
+
+    The backport is currently waiting to be merged in <a href="https://github.com/appcelerator/titanium_mobile/pull/10707." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/pull/10707.</a> You can build your own 7.5.X version directly from that PR if you need it asap.
+    
+    I'll let you know once it was merged and when i have news if and when it will make into an official release.</li>
+<li>Jan Vennemann 2019-03-04
+
+    [~Nirmalkumar_Patel], as you may have already noticed, this will be included in 7.5.1! Just to let you know.</li>
+<li>Nirmal 2019-03-04
+
+    Awesome!!! Thanks.</li>
+<li>Carlos Henrique Zinato 2019-04-04
+
+    Hey @Jan Vennemann, are you sure this is working fine on 7.5.X?
+    I've been trying to cancel my local notifications that were implemented with the deprecated Ti.App.iOS.cancelLocalNotification and tried to update it with the "Ti.App.iOS.UserNotificationCenter.removePendingNotifications(id)" but got an error saying that <code>Ti.App.iOS.UserNotificationCenter</code> is <code>undefined</code> and has no methods such <code>getPendingNotifications</code> or <code>removePendingNotifications</code>.
+    Tested with 7.5.1 and 7.5.2 from builds.appcelerator.com.
+    On Ti SDK 8.0 it seems to work just fine.
+    I'm kind of concerned because now I cannot use the new <code>getPendingNotifications</code> or <code>removePendingNotifications</code> nor the deprecated <code>cancelLocalNotification</code> without updating to 8.0 =/
+    
+    Thanks!</li>
+<li>Jan Vennemann 2019-04-04
+
+    [~chmiiller], i just tried the following snippet with 7.5.1.GA and 7.5.2.v20190402102757 installed via CLI with <code>ti sdk install -b 7_5_X</code> and couldn't see any issues:
+    
+    <code><pre>
+    Ti.App.iOS.UserNotificationCenter.getPendingNotifications((response) => {
+      console.log(response);
+    });
+    </pre></code>
+    
+    What exact builds did you try?</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-26594.json">JSON Source</a></p>

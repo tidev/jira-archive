@@ -1,0 +1,131 @@
+{
+	"id": "98823",
+	"key": "AC-2920",
+	"fields": {
+		"issuetype": {
+			"id": "1",
+			"description": "A problem which impairs or prevents the functions of the product.",
+			"name": "Bug",
+			"subtask": false
+		},
+		"project": {
+			"id": "12217",
+			"key": "AC",
+			"name": "Appcelerator - INBOX",
+			"projectCategory": {
+				"id": "10000",
+				"description": "",
+				"name": "Customer Service"
+			}
+		},
+		"resolution": {
+			"id": "1",
+			"description": "A fix for this issue is checked into the tree and tested.",
+			"name": "Fixed"
+		},
+		"resolutiondate": "2012-09-05T11:36:45.000+0000",
+		"created": "2012-08-07T17:19:07.000+0000",
+		"labels": [
+			"android",
+			"crash",
+			"defect",
+			"release-2.1.0",
+			"release-2.2.0"
+		],
+		"versions": [],
+		"issuelinks": [],
+		"assignee": {
+			"name": "anagesh",
+			"key": "anagesh",
+			"displayName": "Anirudh Nagesh",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"updated": "2016-03-08T07:47:54.000+0000",
+		"status": {
+			"description": "The issue is considered finished, the resolution is correct. Issues which are closed can be reopened.",
+			"name": "Closed",
+			"id": "6",
+			"statusCategory": {
+				"id": 3,
+				"key": "done",
+				"colorName": "green",
+				"name": "Done"
+			}
+		},
+		"components": [
+			{
+				"id": "14548",
+				"name": "Titanium SDK & CLI",
+				"description": "Please enter tickets related to the MobileSDK here."
+			}
+		],
+		"description": "Testing the BrazilJS conference App on Android, I caught a strange bug that only happens with a very specific configuration. We could only trigger the bug on a Galaxy Nexus running 4.1.1, but I don't really know which other devices/versions could be affected.\r\n\r\nThe code which triggered the bug is available at https://github.com/Nyvra/App-BrazilJS/blob/70a4e0c78ef9cc4e126043ef266b00e3138b92b4/Resources/android/ui/WinTalk.coffee\r\n\r\n{code:title=WinTalk.coffee|borderStyle=solid}\r\nrowSpeaker.add(Ti.UI.createImageView({\r\n      left: \"13dp\",\r\n      width: \"30dp\",\r\n      height: \"30dp\",\r\n      image: \"/images/speakers/detail/\" + speaker_obj.picture\r\n    }));\r\n{code}\r\n\r\nThis triggered a Force Close with the following backtrace:\r\nE/TiApplication( 6391): (main) [61,13021] Sending event: exception on\r\nthread: main msg:java.lang.IllegalArgumentException: Cannot draw\r\nrecycled bitmaps; Titanium 2.1.0,2012/06/28 12:16,6e3cab6\r\nE/TiApplication( 6391): java.lang.IllegalArgumentException: Cannot draw recycled bitmaps\r\nE/TiApplication( 6391):         at android.view.GLES20Canvas.drawBitmap(GLES20Canvas.java:778)\r\nE/TiApplication( 6391):         at android.view.GLES20RecordingCanvas.drawBitmap(GLES20RecordingCanvas.java:117)\r\nE/TiApplication( 6391):         at android.graphics.drawable.BitmapDrawable.draw(BitmapDrawable.java:393)\r\nE/TiApplication( 6391):         at android.widget.ImageView.onDraw(ImageView.java:961)\r\nE/TiApplication( 6391):         at android.view.View.draw(View.java:13458)\r\nE/TiApplication( 6391):         at android.view.View.getDisplayList(View.java:12409)\r\nE/TiApplication( 6391):         at android.view.View.getDisplayList(View.java:12453)\r\nE/TiApplication( 6391):         at android.view.View.draw(View.java:13182)\r\nE/TiApplication( 6391):         at android.view.ViewGroup.drawChild(ViewGroup.java:2929)\r\nE/TiApplication( 6391):         at android.view.ViewGroup.dispatchDraw(ViewGroup.java:2799)\r\nE/TiApplication( 6391):         at android.view.View.getDisplayList(View.java:12407)\r\nE/TiApplication( 6391):         at android.view.View.getDisplayList(View.java:12453)\r\nE/TiApplication( 6391):         at android.view.View.draw(View.java:13182)\r\nE/TiApplication( 6391):         at android.view.ViewGroup.drawChild(ViewGroup.java:2929)\r\nE/TiApplication( 6391):         at android.view.ViewGroup.dispatchDraw(ViewGroup.java:2799)\r\nE/TiApplication( 6391):         at org.appcelerator.titanium.view.TiCompositeLayout.dispatchDraw(TiCompositeLayout.java:655)\r\n\r\nThe problem is that a recycled Bitmap is being used.\r\n\r\nStudying the Titanium source code I've found a situation where TiDrawableReference.java getBitmap() function is recycling the returned Bitmap.\r\n\r\nFrom the Android SDK documentation:\r\npublic static Bitmap createScaledBitmap (Bitmap src, int dstWidth, int dstHeight, boolean filter)\r\n   Creates a new bitmap, scaled from an existing bitmap, when possible. If the specified width and height are the same as the current width and height of the source btimap, the source bitmap is returned and no new bitmap is created.\r\nReturns\r\n   The new scaled bitmap or the source bitmap if no scaling is required.\r\n\r\ngetBitmap() calls\r\n{code:title=TiDrawableReference.java|borderStyle=solid}\r\nb = Bitmap.createScaledBitmap(bTemp, destWidth, destHeight, true);\r\n{code}\r\n\r\nSo whenever the bTemp Bitmap has the same size as the scaled Bitmap, the Android framework will return the original Bitmap (bTemp in this case), and we will have both bTemp and b pointing to the same Bitmap.\r\nLater in this function is called\r\n{code:title=TiDrawableReference.java|borderStyle=solid}\r\n    if (bTemp != null) {\r\n        bTemp.recycle();\r\n        bTemp = null;\r\n    }\r\n    ...\r\n    return b;\r\n{code}\r\n\r\nWhich will recycle the bTemp bitmap, which is the same as b Bitmap which is returned in the function, causing the \"Cannot draw recycled bitmaps\"\r\n\r\nI've created a fix for this, and will send a pull request.",
+		"attachment": [],
+		"flagged": false,
+		"summary": "FC when recycling a \"Bitmap.createScaledBitmap\" with the same size os the original Bitmap",
+		"creator": {
+			"name": "luciofm",
+			"key": "luciofm",
+			"displayName": "Lúcio Fernando Maciel",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"subtasks": [],
+		"reporter": {
+			"name": "luciofm",
+			"key": "luciofm",
+			"displayName": "Lúcio Fernando Maciel",
+			"active": true,
+			"timeZone": "America/Los_Angeles"
+		},
+		"environment": "Android 4.1.1, Galaxy Nexus",
+		"comment": {
+			"comments": [
+				{
+					"id": "217641",
+					"author": {
+						"name": "anagesh",
+						"key": "anagesh",
+						"displayName": "Anirudh Nagesh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Hi Lucio,\r\n\r\nThanks for the pull request. But this issue has been fixed in the latest 2.1.2GA and 2.2.0 CI build. It was an issue specific to Android JellyBean.\r\n\r\nRegards,\r\nAnirudh",
+					"updateAuthor": {
+						"name": "anagesh",
+						"key": "anagesh",
+						"displayName": "Anirudh Nagesh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-09-05T11:36:28.000+0000",
+					"updated": "2012-09-05T11:36:28.000+0000"
+				},
+				{
+					"id": "217642",
+					"author": {
+						"name": "anagesh",
+						"key": "anagesh",
+						"displayName": "Anirudh Nagesh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"body": "Resolved in 2.1.2GA and 2.2.0 CI",
+					"updateAuthor": {
+						"name": "anagesh",
+						"key": "anagesh",
+						"displayName": "Anirudh Nagesh",
+						"active": true,
+						"timeZone": "America/Los_Angeles"
+					},
+					"created": "2012-09-05T11:36:45.000+0000",
+					"updated": "2012-09-05T11:36:45.000+0000"
+				}
+			],
+			"maxResults": 2,
+			"total": 2,
+			"startAt": 0
+		}
+	}
+}

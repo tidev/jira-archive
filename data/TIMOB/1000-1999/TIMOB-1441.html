@@ -1,0 +1,285 @@
+---
+title: "[TIMOB-1441] scrollview memory leak"
+---
+<table>
+<tr><th>Type</th><td>Bug</td></tr>
+<tr><th>Priority</th><td>Medium</td></tr>
+<tr><th>Status</th><td>Closed</td></tr>
+<tr><th>Resolution</th><td>Fixed</td></tr>
+<tr><th>Resolution Date</th><td>2011-05-16T11:06:47.000+0000</td></tr>
+<tr><th>Affected Version/s</th><td>n/a</td></tr>
+<tr><th>Fix Version/s</th><td>Release 1.7.0</td></tr>
+<tr><th>Components</th><td>iOS</td></tr>
+<tr><th>Labels</th><td>ios, klist, memory, rplist, scrollableview</td></tr>
+<tr><th>Reporter</th><td>Vitaly Virulaine</td></tr>
+<tr><th>Assignee</th><td>Pedro Enrique</td></tr>
+<tr><th>Created</th><td>2011-04-15T02:52:32.000+0000</td></tr>
+<tr><th>Updated</th><td>2011-05-16T11:06:47.000+0000</td></tr>
+</table>
+
+<h3>Description</h3>
+
+<div><p>Hello. I investigated the memory leak issue. I have such code
+(modified KitchenSink):<br>
+var scrollView = Titanium.UI.createScrollableView({<br></p>
+<pre>
+<code>views:[],
+showPagingControl:true,
+pagingControlHeight:30,
+maxZoomScale:2.0,
+currentPage:1,</code>
+</pre>
+<p>});</p>
+<p>var dir =
+Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory+'/hires');<br></p>
+<p>var files = dir.getDirectoryListing();<br></p>
+<p>for(i=0;i&lt;files.length;i++)<br>
+{<br></p>
+<pre>
+<code>var img = Titanium.UI.createImageView({
+    backgroundImage:'../hires/'+files[i],
+    width:640,
+    height:880,
+    left:0,
+    top:0,
+});
+
+var scroll = Titanium.UI.createScrollView({
+    contentWidth:320,
+    contentHeight:440,
+    minZoomScale:0.5,
+});
+
+scroll.add(img);
+
+scrollView.addView(scroll);</code>
+</pre>
+<p>}</p>
+<p>win.add(scrollView);<br>
+So I noticed that every Scroll event free memory decreased by
+2-3MB, looks like Titanium creates new view for current focused
+view and there is NO way to release the memory. I don't understand
+why memory consumes when I scroll to new view. All views already
+loaded in that For cycle. I have app crash after 7-8 scrolls on my
+iPhone 3G. 1.3.0 SDK</p></div>
+
+<h3>Attachments</h3>
+
+<table>
+<thead>
+<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>
+<tbody>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-1441_17992/archive.zip">archive.zip</td></td><td>2011-04-15T02:52:45.000+0000</td><td>15002790</td></tr>
+<tr><td><a href="https://jira-attachments.tisdk.com/TIMOB/TIMOB-1441_17991/resources-2.zip">resources-2.zip</td></td><td>2011-04-15T02:52:34.000+0000</td><td>7931609</td></tr>
+</tbody>
+<table>
+
+<h3>Comments</h3>
+
+<ol>
+<li>gero 2011-04-15
+
+   <div><p>I can confirm this behaviour. Further information:</p>
+   <ul>
+   <li>Creating a new context (window.url) does not help to release
+   memory on close</li>
+   <li>Removing the window, the scrollable view or even every single
+   view/image (removeView) on close does not help to release
+   memory.</li>
+   <li>Setting every view to null or images to a smaller local image
+   does not help to release memory on close.</li>
+   <li>If you call the scrollable view a second time with the same
+   images (even in a new context), (almost) no further memory is
+   consumed, which is a hint that the views persist in memory.</li>
+   </ul>
+   <p>This is a show stopper for every App with a "gallery". Release:
+   1.4.0 on iPhone 4.0.1.</p></div></li>
+<li>David R. 2011-04-15
+
+   <div><p>Same problem here.</p></div></li>
+<li>David R. 2011-04-15
+
+   <div><p>The TiUIImageView.m is missing a [imageView release] at line
+   308, I believe:</p>
+   <p><a href=
+   "<a href="http://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIImageView.m" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/blob/master/iphone/Classes/TiUIImageView.m</a>">
+   <a href="http://github.com/appcelerator/titanium_mobile/blob/master/iphone/C..." rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile/blob/master/iphone/C...</a></a></p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+   <div><p>Possibly already resolved by scrollview fixes to load/unload
+   memory. Requires R&amp;D.</p></div></li>
+<li>Alan Leard 2011-04-15
+
+   <div><p>This issue may be causing the application to crash. See ticket
+   reference: <a href=
+   "<a href="http://developer.appcelerator.com/helpdesk/view/73421" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/73421</a>"><a href="http://developer.appcelerator.com/helpdesk/view/73421" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/73421</a></a></p>
+   <p>Does not crash on iPhone 4. Does Crash on iPad and previous
+   versions of iPhone. Does not crash on android.</p>
+   <p>Use attached app to test.</p></div></li>
+<li>bowman9991 2011-04-15
+
+   <div><p>Same here. 20 images on the iPad in a scrollView crashes every
+   time, but iPhone works perfectly. Is a fix likely to make it into
+   1.6?</p></div></li>
+<li>Marko Perutovic 2011-04-15
+
+   <div><p>Any news? This is critical to me!</p></div></li>
+<li>DanielAndre 2011-04-15
+
+   <div><p>Same issue here. I am tired to run around this problem. The
+   scrollableview is such a basic structure on an IPad. Please, i beg
+   you, change this priority to high.</p></div></li>
+<li>DanielAndre 2011-04-15
+
+   <div><p>Just to add some perspective. This bug is at least 8 months
+   old.</p>
+   <p><a href=
+   "<a href="http://developer.appcelerator.com/question/46061/serious-memory-leak" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/46061/serious-memory-leak</a>">
+   <a href="http://developer.appcelerator.com/question/46061/serious-memory-leak" rel="nofollow" target="_blank">http://developer.appcelerator.com/question/46061/serious-memory-leak</a></a></p></div></li>
+<li>Rick Blalock 2011-04-15
+
+    <div><p>Traces / Instrument files here.</p>
+    <p>Crash Log and Console Log:<br>
+    <a href=
+    "<a href="http://pastie.org/1618663" rel="nofollow" target="_blank">http://pastie.org/1618663</a>"><a href="http://pastie.org/1618663" rel="nofollow" target="_blank">http://pastie.org/1618663</a></a><br>
+    <a href=
+    "<a href="http://pastie.org/1618660" rel="nofollow" target="_blank">http://pastie.org/1618660</a>"><a href="http://pastie.org/1618660" rel="nofollow" target="_blank">http://pastie.org/1618660</a></a></p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+    <div><p>There's another HD ticket for this: <a href=
+    "<a href="http://developer.appcelerator.com/helpdesk/view/64751" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/64751</a>"><a href="http://developer.appcelerator.com/helpdesk/view/64751" rel="nofollow" target="_blank">http://developer.appcelerator.com/helpdesk/view/64751</a></a></p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+    <div><p>(from <a href=
+    "/projects/32238/changesets/01937daa0e8379bb256b7b5d1e5a9ce675df397d"
+    title=
+    "Changeset [01937daa0e8379bb256b7b5d1e5a9ce675df397d]">[01937daa0e8379bb256b7b5d1e5a9ce675df397d]</a>)
+    [<a href="/projects/32238/tickets/1441" title=
+    "Ticket #1441">#1441</a> state:fixed-in-qa] Scollable view now
+    unloads offscreen views. <a href=
+    "<a href="https://github.com/appcelerator/titanium_mobile/commit/01937daa0e8379bb256b7b5d1e5a9ce675df397d" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/01937daa0e8379bb256b7b5d1e5a9ce675df397d</a>">
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/01937daa0e83..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/01937daa0e83...</a></a></p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+    <div><p>(from <a href=
+    "/projects/32238/changesets/d000310a5b15c8cc03033617398835732178879d"
+    title=
+    "Changeset [d000310a5b15c8cc03033617398835732178879d]">[d000310a5b15c8cc03033617398835732178879d]</a>)
+    [<a href="/projects/32238/tickets/1441" title=
+    "Ticket #1441">#1441</a>] Add adjustable caching to allow rendering
+    performance/memory tradeoff. Sometimes the end dev knows best!
+    <a href=
+    "<a href="https://github.com/appcelerator/titanium_mobile/commit/d000310a5b15c8cc03033617398835732178879d" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/d000310a5b15c8cc03033617398835732178879d</a>">
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/d000310a5b15..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/d000310a5b15...</a></a></p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+    <div><p>(from <a href=
+    "/projects/32238/changesets/beb41c2c62bf67aac4d990b1d6e61dc31679724f"
+    title=
+    "Changeset [beb41c2c62bf67aac4d990b1d6e61dc31679724f]">[beb41c2c62bf67aac4d990b1d6e61dc31679724f]</a>)
+    [<a href="/projects/32238/tickets/1441" title=
+    "Ticket #1441">#1441</a>] Fix for senseless caching values. Hat tip
+    to Blain. <a href=
+    "<a href="https://github.com/appcelerator/titanium_mobile/commit/beb41c2c62bf67aac4d990b1d6e61dc31679724f" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/beb41c2c62bf67aac4d990b1d6e61dc31679724f</a>">
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/beb41c2c62bf..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/beb41c2c62bf...</a></a></p></div></li>
+<li>Jeff Haynie 2011-04-15
+
+    <div><p>(from <a href=
+    "/projects/32238/changesets/757143515c9fef46bda05f0a703b179dd360ff66"
+    title=
+    "Changeset [757143515c9fef46bda05f0a703b179dd360ff66]">[757143515c9fef46bda05f0a703b179dd360ff66]</a>)
+    [<a href="/projects/32238/tickets/1441" title=
+    "Ticket #1441">#1441</a>] When clearing the views array, actually
+    deallocate the views <a href=
+    "<a href="https://github.com/appcelerator/titanium_mobile/commit/757143515c9fef46bda05f0a703b179dd360ff66" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/757143515c9fef46bda05f0a703b179dd360ff66</a>">
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/757143515c9f..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/757143515c9f...</a></a></p></div></li>
+<li>Rene Aavik 2011-04-15
+
+    <div><p>Hi,</p>
+    <p>I don't think the issue is completely fixed. I am still
+    experiencing app crashing when scrolling through a decent number
+    number of hi-res images (necessary for my magazine app). Possibly a
+    more fundamental issue with Titanium's garbage collecting
+    routines?</p></div></li>
+<li>Rene Aavik 2011-04-15
+
+    <div><p>I did some additional testing and here's what I discovered:</p>
+    <ul>
+    <li>When scrolling through a set of images, new images are loaded
+    to the cache, but the memory for previous (out of cache range)
+    images is not freed, at least until:</li>
+    <li>when the available memory is very low (less than 10M on a mac
+    running the iOS simulator), which is when GC seems to finally kick
+    in and free some of the resources.</li>
+    <li>When running on device, GC seems to kick in too late, by that
+    time it looks like iOS manages to force-quit the app that is
+    gobbling up memory.</li>
+    </ul>
+    <p>I think the GC system Titanium uses for iOS apps needs some
+    major improvements, and this is critical, as these issues make
+    Titanium largely unusable for many times of projects.
+    Unfortunately, I discovered this way too late (after investing more
+    than a month of my time into a project that is almost complete, but
+    still completely useless due to these memory issues).</p>
+    <p>Developers working on this - please advise when you expect those
+    major issues to be fixed? I realize the memory issues are scheduled
+    for the 1.7.0 release, but I for one cannot afford to wait a couple
+    of months on this, as I'm sure holds true to many others. I would
+    even be willing to chip in on the development process to accelerate
+    this, even though I am pretty new to Obj-C myself.</p></div></li>
+<li>Brian 2011-04-15
+
+    <div><p>renx - I agree this is not fixed...we are experiencing the same
+    issues with the latest build for 1.7. Also this is even worse with
+    table views that have a lot of images...big showstoppers.</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+    <div><p>We will be unable to address these specific issues without
+    sample code.</p></div></li>
+<li>Rene Aavik 2011-04-15
+
+    <div><p>I'm sorry, I should have posted the sample code. I also forgot
+    to specify, that my ScrollableView does not consist of pure
+    ImageViews, but instead of Views <strong>containing</strong>
+    ImageViews (this is because my design requires there to be two
+    images side-by-side in landscape view).</p>
+    <p>However, it looks like memory is now being correctly released in
+    the latest build of 1.7.0. I suspect the following commit did the
+    trick:</p>
+    <p><a href=
+    "<a href="https://github.com/appcelerator/titanium_mobile/commit/b2209783baaee620d7600b7f8ef0117b87321d47" rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/b2209783baaee620d7600b7f8ef0117b87321d47</a>">
+    <a href="https://github.com/appcelerator/titanium_mobile/commit/b2209783baae..." rel="nofollow" target="_blank">https://github.com/appcelerator/titanium_mobile/commit/b2209783baae...</a></a></p>
+    <p>as it seems to correct to properly detach all child views of a
+    view being detached. This probably fixes this for situations where
+    ImageViews are used as children in the ScrollableView.views
+    array.</p>
+    <p>I will do some additional testing on device and report back with
+    sample code if I discover additional problems in this regard,
+    however, for now it seems the memory leak issue has been fixed.</p></div></li>
+<li>Kevin (WA) 2011-04-15
+
+    <div><p>Forgive me, but how are you downloading "the latest build of
+    1.7.0" ? I only see the latest nightly/continuous build here:
+    <a href=
+    "<a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html</a>"><a href="http://builds.appcelerator.com.s3.amazonaws.com/index.html" rel="nofollow" target="_blank">http://builds.appcelerator.com.s3.amazonaws.com/index.html</a></a></p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+    <div><p>You are able to download and build from our github repository:
+    <a href=
+    "<a href="http://github.com/appcelerator/titanium_mobile" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile</a>"><a href="http://github.com/appcelerator/titanium_mobile" rel="nofollow" target="_blank">http://github.com/appcelerator/titanium_mobile</a></a>.</p></div></li>
+<li>Kevin (WA) 2011-04-15
+
+    <div><p>ok, is the github "master" branch considered 1.7.0-continuous at
+    the moment?</p></div></li>
+<li>Stephen Tramer 2011-04-15
+
+    <div><p>Yes. Master is the latest and should be considered unstable and
+    not generally suitable for release software, unless you absolutely
+    require fixes from it.</p></div></li>
+<li>Thomas Huelbert 2011-05-11
+
+    [INFO] Titanium SDK version: 1.7.0 (05/10/11 19:34 879871b...), ipad1 4.2. 3 minutes an a ton of scrolls, not a leak seen using instruments.</li>
+</ol>
+
+
+<p><a href="/TIMOB/TIMOB-1441.json">JSON Source</a></p>

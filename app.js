@@ -29,10 +29,13 @@ app.use(async (ctx, next) => {
 		}
 	} catch (err) {
 		ctx.status = err.status || 500
-		ctx.body = errorTemplate({
+		ctx.body = pageTemplate({
 			description: null,
 			title: `${ctx.response.message} - ${siteTitle}`,
-			body: errorTemplate(ctx.response)
+			contentTitle: null,
+			body: errorTemplate({
+				message: ctx.response.message || 'Error'
+			})
 		});
 	}
 });
@@ -50,7 +53,7 @@ app.use(async (ctx, next) => {
 		const key = pathname.match(/\/(\w+)-(\d+)(\.json)?\/?$/);
 		const n = key && parseInt(key[2]);
 		if (n) {
-			const start = ~~(n / 1000);
+			const start = ~~(n / 1000) * (n < 1000 ? 1 : 1000);
 			const end = ~~(n / 1000) * 1000 + 999;
 			file = path.join(dataDir, key[1], `${start === 0 ? 1 : start}-${end}`, `${key[1]}-${key[2]}${key[3] || '.html'}`);
 		} else {
@@ -59,14 +62,19 @@ app.use(async (ctx, next) => {
 	}
 
 	try {
-		const { attributes, body } = fm(await fs.promises.readFile(file, 'utf-8'));
-		ctx.body = pageTemplate({
-			description: null,
-			...attributes,
-			title: `${attributes.title ? `${attributes.title} - ` : ''}${siteTitle}`,
-			contentTitle: attributes.title,
-			body
-		});
+		const content = await fs.promises.readFile(file, 'utf-8');
+		if (/\.json$/.test(file)) {
+			ctx.body = content;
+		} else {
+			const { attributes, body } = fm(content);
+			ctx.body = pageTemplate({
+				description: null,
+				...attributes,
+				title: `${attributes.title ? `${attributes.title} - ` : ''}${siteTitle}`,
+				contentTitle: attributes.title,
+				body
+			});
+		}
 		return;
 	} catch (err) {}
 

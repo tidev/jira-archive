@@ -5,12 +5,16 @@ const attachmentsUrl = 'https://jira-attachments.tisdk.com';
 const dataDir = path.resolve(__dirname, '..', 'data');
 const projects = fs.readdirSync(dataDir).filter(d => d !== '.git');
 
+function escapeEntities(code) {
+	return code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function formatText(str) {
 	return (str || '')
 		.replace(/\{\{(.*?}*)(?=\}\})\}\}/g, (s, m) => `\`${m.replace(/\\\{/g, '{').replace(/\\\}/g, '}')}\``)
 		.replace(/\{code(?:\:.+?)?\}/g, '```')
-		.replace(/```(.*?)```/gs, '<code><pre>$1</pre></code>')
-		.replace(/`([^`]+)`/g, '<code>$1</code>')
+		.replace(/```(.*?)```/gs, (s, code) => `<code><pre>${escapeEntities(code)}</pre></code>`)
+		.replace(/`([^`]+)`/g, (s, code) => `<code>${escapeEntities(code)}</code>`)
 		.replace(/^#+ (.+)$/gm, '<h4>$1</h4>')
 		.replace(/^h\d+\.\s*(.*)$/gm, '<h4>$1</h4>')
 		.replace(/(\[(.+?)\|(http.+?)\])/g, (s, link, label, href) => `[${label}](${href})`)

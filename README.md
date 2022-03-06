@@ -32,3 +32,11 @@ Then to release:
 ```bash
 git push dokku main
 ```
+
+## Note
+
+On the server, you need to run this one-time so npm doesn't prune dev dependencies and break the deployment:
+
+```bash
+dokku config:set jira-archive NPM_CONFIG_PRODUCTION=false
+```

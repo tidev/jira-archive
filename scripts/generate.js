@@ -1,7 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const attachmentsUrl = 'https://jira-attachments.tisdk.com';
+const attachmentsUrl = 'https://jira-attachments.titaniumsdk.com';
 const dataDir = path.resolve(__dirname, '..', 'data');
 const projects = fs.readdirSync(dataDir).filter(d => d !== '.git');
 

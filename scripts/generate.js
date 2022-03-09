@@ -28,9 +28,10 @@ function processIssue(file) {
 		process.stdout.write('.');
 
 		let html = `---
-title: "[${json.key}] ${json.fields.summary || 'No title!?'}"
+title: "[${json.key}] ${json.fields.summary.replace(/"/g, '\\"') || 'No title!?'}"
 ---
 <table>
+<tr><th>GitHub Issue</th><td>${json.ghissue ? `<a href="${json.ghissue}">${json.ghissue}</a>` : 'n/a'}</td></tr>
 <tr><th>Type</th><td>${json.fields.issuetype.name}</td></tr>
 <tr><th>Priority</th><td>${json.fields.priority?.name || 'n/a'}</td></tr>
 <tr><th>Status</th><td>${json.fields.status.name}</td></tr>

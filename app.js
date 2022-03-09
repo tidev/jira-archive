@@ -76,7 +76,9 @@ app.use(async (ctx, next) => {
 			});
 		}
 		return;
-	} catch (err) {}
+	} catch (err) {
+		console.log(err);
+	}
 
 	await next()
 });

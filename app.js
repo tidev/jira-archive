@@ -31,6 +31,8 @@ app.use(async (ctx, next) => {
 		ctx.status = err.status || 500
 		ctx.body = pageTemplate({
 			description: null,
+			project: null,
+			projectUrl: null,
 			title: `${ctx.response.message} - ${siteTitle}`,
 			contentTitle: null,
 			body: errorTemplate({
@@ -69,6 +71,8 @@ app.use(async (ctx, next) => {
 			const { attributes, body } = fm(content);
 			ctx.body = pageTemplate({
 				description: null,
+				project: null,
+				projectUrl: null,
 				...attributes,
 				title: `${attributes.title ? `${attributes.title} - ` : ''}${siteTitle}`,
 				contentTitle: attributes.title,
@@ -77,7 +81,7 @@ app.use(async (ctx, next) => {
 		}
 		return;
 	} catch (err) {
-		console.log(err);
+		// console.log(err);
 	}
 
 	await next()

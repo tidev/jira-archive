@@ -22,13 +22,15 @@ function formatText(str) {
 		.replace(/(https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*))/g, '<a href="$1" rel="nofollow" target="_blank">$1</a>');
 }
 
-function processIssue(file) {
+function processIssue(file, project) {
 	try {
 		const json = JSON.parse(fs.readFileSync(file, 'utf-8'));
 		process.stdout.write('.');
 
 		let html = `---
 title: "[${json.key}] ${json.fields.summary?.replace(/"/g, '\\"') || 'No title!?'}"
+project: "${project.name} (${project.key})"
+projectUrl: "/${project.key}"
 ---
 <table>
 <tr><th>GitHub Issue</th><td>${json.ghissue ? `<a href="${json.ghissue}">${json.ghissue}</a>` : 'n/a'}</td></tr>
@@ -118,7 +120,7 @@ ${project.description}
 		for (const filename of fs.readdirSync(subdir)) {
 			const file = path.join(subdir, filename);
 			if (fs.existsSync(file) && /\.json$/.test(filename) && fs.statSync(file).isFile()) {
-				const issue = processIssue(file);
+				const issue = processIssue(file, project);
 				if (issue) {
 					const id = parseInt(issue.key.split('-')[1]);
 					issues[id] = issue;
@@ -131,7 +133,7 @@ ${project.description}
 	for (const id of ids) {
 		const issue = issues[id];
 		index += '<tr>'
-			+ `<td nowrap><a href="/${project.key}/${issue.key}">${issue.key}</a></td>`
+			+ `<td nowrap><a href="/${issue.key}">${issue.key}</a></td>`
 			+ `<td>${issue.summary.replace(/\|/g, '\\|')}</td>`
 			+ `<td nowrap>${issue.status}</td>`
 			+ `<td nowrap>${issue.created}</td>`

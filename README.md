@@ -1,6 +1,6 @@
 # Appcelerator JIRA Archive
 
-This repo contains the jira-archive.tisdk.com website and the corresponding JIRA data dump from November 2021.
+This repo contains the jira-archive.titaniumsdk.com website and the corresponding JIRA data dump from November 2021.
 
 ## Install
 
@@ -20,6 +20,12 @@ pnpm run dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Deploy
+
+### Automatic (preferred)
+
+This website is automatically deployed via a GitHub action whenever code is pushed to the main branch.
+
+### Manual
 
 One time:
 

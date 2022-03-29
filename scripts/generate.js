@@ -32,7 +32,7 @@ title: "[${json.key}] ${json.fields.summary?.replace(/"/g, '\\"') || 'No title!?
 project: "${project.name} (${project.key})"
 projectUrl: "/${project.key}"
 ---
-<table>
+<table class="issue-details">
 <tr><th>GitHub Issue</th><td>${json.ghissue ? `<a href="${json.ghissue}">${json.ghissue}</a>` : 'n/a'}</td></tr>
 <tr><th>Type</th><td>${json.fields.issuetype.name}</td></tr>
 <tr><th>Priority</th><td>${json.fields.priority?.name || 'n/a'}</td></tr>
@@ -51,17 +51,19 @@ ${json.fields.resolutiondate ? `<tr><th>Resolution Date</th><td>${json.fields.re
 
 <h3>Description</h3>
 
-${formatText(json.fields.description)}`;
+<div class="issue-description">
+	${formatText(json.fields.description)}
+</div>`;
 
 		if (json.fields.attachment?.length) {
-			html += '\n\n<h3>Attachments</h3>\n\n<table>\n<thead>\n<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>\n<tbody>\n';
+			html += '\n\n<h3>Attachments</h3>\n\n<table class="issue-attachments">\n<thead>\n<tr><th>File</th><th>Date</th><th>Size</th></tr><thead>\n<tbody>\n';
 			for (const a of json.fields.attachment) {
 				html += `<tr><td><a href="${attachmentsUrl}/${json.fields.project.key}/${json.key}_${a.id}/${a.filename}">${a.filename}</td></td><td>${a.created}</td><td>${a.size}</td></tr>\n`;
 			}
 			html += '</tbody>\n<table>';
 		}
 
-		html += '\n\n<h3>Comments</h3>\n\n';
+		html += '\n\n<h3>Comments</h3>\n\n<div class="issue-comments">';
 
 		if (json.fields.comment.comments.length) {
 			let i = 1;
@@ -69,8 +71,7 @@ ${formatText(json.fields.description)}`;
 			for (const c of json.fields.comment.comments) {
 				const idx = String(i++);
 
-				html += `<li>${c.author?.displayName || 'Unknown'} ${c.created.split('T')[0]}
-
+				html += `<li>${c.author?.displayName || 'Unknown'} ${c.created.split('T')[0]}<br><br>
 ${' '.repeat(idx.length + 2)}${formatText(c.body).split(/\r\n|\n/).join(`\n${' '.repeat(idx.length + 2)}`)}</li>\n`;
 			}
 			html += '</ol>\n';
@@ -78,7 +79,7 @@ ${' '.repeat(idx.length + 2)}${formatText(c.body).split(/\r\n|\n/).join(`\n${' '
 			html += '<p>No comments</p>';
 		}
 
-		html += `\n\n<p><a href="/${json.fields.project.key}/${path.basename(file)}">JSON Source</a></p>`;
+		html += `</div>\n\n<p class="issue-json-source"><a href="/${json.fields.project.key}/${path.basename(file)}">JSON Source</a></p>`;
 
 		fs.writeFileSync(file.replace(/\.json$/, '.html'), html);
 
@@ -105,7 +106,7 @@ title: "${project.name} (${project.key})"
 ---
 ${project.description}
 
-<table>
+<table class="issue-list">
 <thead><tr><th>Issue</th><th>Description</th><th>Status</th><th>Created</th><th>Updated</th></tr></thead>
 <tbody>
 `;

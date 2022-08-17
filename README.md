@@ -1,6 +1,6 @@
 # Appcelerator JIRA Archive
 
-This repo contains the jira-archive.titaniumsdk.com website and the corresponding JIRA data dump from November 2021.
+This repo contains the [jira-archive.titaniumsdk.com](https://jira-archive.titaniumsdk.com/) website and the corresponding JIRA data dump from November 2021.
 
 ## Install
 

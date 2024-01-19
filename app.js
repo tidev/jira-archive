@@ -89,13 +89,7 @@ app.use(async (ctx, next) => {
 
 app.use(serve('./public'));
 
-const port = (() => {
-	let i = process.argv.indexOf('--port');
-	if (i !== -1) {
-		i = parseInt(process.argv[i + 1], 10);
-		return isNaN(i) ? null : i;
-	}
-})() || 3000;
+const port = 80;
 
 app.listen(port, () => {
 	console.log(`Server running at http://localhost:${port}`);
